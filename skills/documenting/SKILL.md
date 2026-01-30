@@ -12,7 +12,7 @@ Manages living documentation systems for code repositories. Ensures documents ar
 ### Common Tasks
 
 **Setting Up Documentation for a New Project**
-1. Create base directory structure → [structure.md](reference/structure.md)
+1. Design directory structure based on project needs → [organization-strategies.md](reference/organization-strategies.md)
 2. Set up classification system for document types
 3. Create index files (AGENTS.md, CLAUDE.md)
 4. Establish RFC process if needed → [rfc-process.md](reference/rfc-process.md)
@@ -265,7 +265,7 @@ See [agent-docs.md](reference/agent-docs.md) for detailed guidelines.
 ## Navigation
 
 ### Quick Reference
-- [Directory Structure & Classification](reference/structure.md)
+- [Documentation Organization Strategies](reference/organization-strategies.md)
 - [Document Lifecycle Management](reference/lifecycle.md)
 - [Agent Documentation Guidelines](reference/agent-docs.md)
 - [RFC Process](reference/rfc-process.md)
