@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Comprehensive code review for local branches or remote PR/MR changes. Assesses reviewability, analyzes risks, reviews changes with project context, and provides actionable feedback. Use when reviewing code changes, pull requests, merge requests, or when mentions "review", "PR", "MR", "code quality".
+description: Comprehensive code review for local branches or remote PR/MR changes. Assesses reviewability, analyzes risks, reviews changes with project context, and provides actionable feedback. Use when reviewing code changes, pull requests, merge requests, or when user mentions "review", "PR", "MR", "code quality".
 ---
 
 # Code Review
@@ -450,14 +450,13 @@ Severity levels: CRITICAL, HIGH, MEDIUM, LOW, NITPICK
 
 See [examples/](examples/) for complete walkthroughs:
 - [pr-review.md](examples/pr-review.md) - Reviewing a GitHub PR
-- [branch-review.md](examples/branch-review.md) - Local branch comparison
-- [large-review.md](examples/large-review.md) - Handling X-Large changes with progress tracking
+- [branch-review.md](examples/branch-review.md) - Local branch comparison with impact analysis
 
 ## Reference Documentation
 
-- [review-checklist.md](reference/review-checklist.md) - Comprehensive review checklist by language/framework
+- [impact-analysis.md](reference/impact-analysis.md) - Techniques for understanding change blast radius
 - [progress-tracking.md](reference/progress-tracking.md) - Progress document format for large reviews
-- [risk-categories.md](reference/risk-categories.md) - Detailed risk categorization guide
+- [review-checklist.md](reference/review-checklist.md) - Comprehensive review checklist by language/framework
 - [review-strategies.md](reference/review-strategies.md) - Conservative vs Balanced vs Best-practice approaches
 
 ## Notes
