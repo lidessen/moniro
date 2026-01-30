@@ -18,6 +18,21 @@ This will install all available skills and make them available to your AI agent.
 
 ## Available Skills
 
+### 🔍 code-review
+
+Comprehensive code review for local branches or remote PR/MR changes with risk analysis and actionable feedback.
+
+**Features:**
+- Multi-stage review process with reviewability assessment
+- Automatic depth adjustment based on change size
+- Risk-based prioritization (security, data integrity, breaking changes)
+- Impact analysis for signature changes and shared utilities
+- Project-aware review strategy (conservative/balanced/best-practice)
+- Progress tracking for large reviews (>2000 lines)
+- Focuses on high-value issues that tools can't catch
+
+**Use when:** Reviewing code changes, pull requests, merge requests, or mention "review", "PR", "MR", "code quality".
+
 ### 🔍 commit-staged
 
 Reviews staged changes for common issues before generating commit message and committing.
