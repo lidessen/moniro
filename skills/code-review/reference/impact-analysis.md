@@ -4,6 +4,22 @@
 
 Critical for: signature changes, shared utilities, data model changes, breaking changes.
 
+## Table of Contents
+
+- [When to Perform](#when-to-perform)
+- [Analysis Techniques](#analysis-techniques)
+  - [Function/Method Changes](#1-functionmethod-changes)
+  - [Interface/Type Changes](#2-interfacetype-changes)
+  - [Data Model/Schema Changes](#3-data-modelschema-changes)
+  - [Shared Utility Changes](#4-shared-utility-changes)
+- [Impact Analysis Workflow](#impact-analysis-workflow)
+- [Common Impact Patterns](#common-impact-patterns)
+- [Tools by Language](#tools-by-language)
+- [Red Flags](#red-flags)
+- [Efficiency Tips](#efficiency-tips)
+
+---
+
 ## When to Perform
 
 **Always analyze impact for**:

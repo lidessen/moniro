@@ -2,6 +2,19 @@
 
 Focused checklists that adjust to change size. **Skip checks below your depth level.**
 
+## Table of Contents
+
+- [Priority Legend](#priority-legend)
+- [Universal Checks (All Sizes)](#universal-checks-all-sizes)
+- [Small Changes (<200 lines)](#small-changes-200-lines)
+- [Medium Changes (200-800 lines)](#medium-changes-200-800-lines)
+- [Large Changes (800-2000 lines)](#large-changes-800-2000-lines)
+- [X-Large Changes (>2000 lines)](#x-large-changes-2000-lines)
+- [Tool Delegation](#tool-delegation)
+- [Language-Specific Quick Checks](#language-specific-quick-checks)
+
+---
+
 ## Priority Legend
 
 - 🔴 **Always check** (all sizes)

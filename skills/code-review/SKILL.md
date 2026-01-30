@@ -24,341 +24,135 @@ Performs systematic code review with project context awareness, risk analysis, a
 
 ## Workflow
 
-Use TodoWrite tool for ALL stages to track progress and ensure completion.
+Track progress with TodoWrite for each stage, especially for large reviews.
 
 ### Stage 1: Initialize Review
 
-**Goal**: Identify what to review and ensure code is up-to-date.
+Identify review target and gather metrics.
 
-1. **Identify review type** from user input:
-   - **PR/MR URL**: Extract platform (GitHub/GitLab), repo, and PR/MR number
-   - **Branch comparison**: Parse "from..to" or "from...to" syntax
-   - **Current branch**: Default to comparing current branch against main/master
-   - **Saved progress**: Look for `.code-review-progress.md` file
+1. **Determine source**:
+   - PR/MR URL → extract platform, repo, number
+   - Branch comparison → parse "from..to" or "from...to"
+   - Current branch → compare vs main/master
+   - Progress file → resume from `.code-review-progress.md`
 
-2. **Fetch latest code**:
+2. **Fetch and analyze**:
    ```bash
-   # For PR/MR - prefer local review for better tool access
-   git fetch origin pull/123/head:pr-123  # GitHub
-   git fetch origin merge-requests/123/head:mr-123  # GitLab
-
-   # For branches
-   git fetch origin <branch-name>
-   ```
-
-3. **Collect basic metrics**:
-   ```bash
+   git fetch origin <source>
    git diff --stat <from>..<to>
    git log --oneline <from>..<to>
-   git diff --numstat <from>..<to> | awk '{files++; added+=$1; deleted+=$2} END {print files, added, deleted}'
    ```
 
-4. **Capture metadata**:
-   - Total files changed
-   - Lines added/deleted
-   - Number of commits
-   - File types distribution
-   - Commit messages
+3. **Capture**: Files changed, lines added/deleted, commits, file types
 
-**Exit criteria**: Have confirmed branches, latest code, and basic metrics.
+**Exit**: Branches confirmed, code fetched, metrics collected.
 
 ### Stage 2: Reviewability Assessment
 
-**Goal**: Determine if changes are in reviewable state or need restructuring.
+Evaluate if changes need restructuring before review.
 
-Act as a **regular developer** (not expert) evaluating review mental burden.
-
-**Check for mixed concerns** (priority order):
-
-1. **Format-only changes** mixed with logic:
-   - Identify files with >80% formatting (whitespace, import sorting, style)
-   - Suggest: "Move formatting to separate commit/PR"
-
-2. **Refactoring** mixed with new features:
-   - Detect: Renamed functions/classes + new functionality
-   - Suggest: "Split refactoring and feature into separate PRs"
-
-3. **Multiple unrelated features**:
-   - Identify distinct feature areas (different modules/domains)
-   - Suggest: "Split into focused PRs by feature area"
-
-4. **Infrastructure** mixed with business logic:
-   - Detect: CI config, build scripts, deployment + feature code
-   - Suggest: "Separate infrastructure changes"
+**Check for mixed concerns**:
+1. **Format + logic**: >80% formatting → suggest separate commit
+2. **Refactoring + features**: Renames + new code → suggest split
+3. **Multiple features**: Distinct modules → suggest split by domain
+4. **Infrastructure + logic**: CI/build + code → suggest separation
 
 **Size assessment**:
-- **Small** (<200 lines, <5 files): "Good size for thorough review"
-- **Medium** (200-800 lines, 5-20 files): "Manageable with focused attention"
-- **Large** (800-2000 lines, 20-50 files): "Consider breaking down or use progress tracking"
-- **X-Large** (>2000 lines, >50 files): "Requires split review sessions - will create progress document"
+- **Small** (<200 lines, <5 files): Thorough review appropriate
+- **Medium** (200-800, 5-20 files): Focused attention needed
+- **Large** (800-2000, 20-50 files): Progress tracking recommended
+- **X-Large** (>2000 lines, >50 files): Progress document required
 
-**If issues found**:
-- List specific concerns with file examples
-- Provide restructuring suggestions
-- Ask user: "Proceed with review or restructure first?"
-- If user chooses restructure, stop here
+**If issues found**: List concerns, suggest restructuring, ask to proceed or restructure.
 
-**Exit criteria**: Changes are reviewable OR user confirmed to proceed anyway.
+**Exit**: Reviewable OR user confirms proceeding anyway.
 
-### Stage 3: Project Context Understanding
+### Stage 3: Review Strategy
 
-**Goal**: Understand project style and determine review strategy.
+Determine project context and appropriate review depth.
 
-1. **Identify project type** (check in order):
-   ```bash
-   # Check key files
-   ls package.json pyproject.toml Cargo.toml go.mod pom.xml *.csproj
+**1. Identify project type**: Check package.json, pyproject.toml, etc. for tech stack and frameworks.
 
-   # Identify framework
-   grep -l "react\|vue\|angular\|svelte" package.json
-   grep -l "django\|flask\|fastapi" requirements.txt pyproject.toml
-   ```
+**2. Select review approach** (auto-detect or ask user):
+- **Conservative**: Financial, healthcare, infrastructure → deep risk analysis
+- **Balanced**: Standard projects → pragmatic best practices (DEFAULT)
+- **Best Practice**: Greenfield, modern → architecture excellence
 
-2. **Detect review strategy** (auto-detect or ask user):
+See [review-strategies.md](reference/review-strategies.md) for detection criteria and approach details.
 
-   **Conservative** (financial, healthcare, infrastructure):
-   - Indicators: Security scanning configs, extensive tests, regulatory comments
-   - Focus: Risk analysis, backwards compatibility, security, data integrity
+**3. Determine review depth** based on change size:
+- **Small** (<200 lines): Full review with quality feedback
+- **Medium** (200-800): Architecture + high-impact, skip style
+- **Large** (800-2000): High-risk areas only
+- **X-Large** (>2000): Critical paths only, require CI green
 
-   **Balanced** (most projects):
-   - Indicators: Standard project structure, moderate test coverage
-   - Focus: Best practices, maintainability, common pitfalls
+**Core principle**: Focus on what tools cannot catch. Trust CI for linting, types, tests.
 
-   **Best Practice** (greenfield, modern stack):
-   - Indicators: Latest frameworks, comprehensive tooling, high test coverage
-   - Focus: Architecture patterns, performance, modern idioms
+**4. Universal high-value checks** (all sizes):
+- **Signature changes**: Find callers, verify compatibility (see [impact-analysis.md](reference/impact-analysis.md))
+- **Data flow**: New/changed fields → verify end-to-end (validation, storage, display)
+- **Security**: Auth/input/queries on critical paths
+- **Error handling**: New operations have error coverage
 
-   **If uncertain**, ask user: "What review approach: conservative / balanced / best-practice?"
+**Skip when time-limited**: Naming, formatting, imports, style (if linter exists).
 
-3. **Load project conventions** (scan quickly):
-   - CONTRIBUTING.md, DEVELOPMENT.md, CODING_STYLE.md
-   - README.md sections on development
-   - Existing code patterns (2-3 similar files)
+**5. Scan conventions**: CONTRIBUTING.md, README patterns, sample files for project standards.
 
-4. **Identify tech stack and common patterns**:
-   - Language/framework versions
-   - Testing approach
-   - Error handling patterns
-   - State management (for frontends)
-
-**Exit criteria**: Know review strategy and project conventions.
-
-### Stage 3.5: Review Depth Strategy
-
-**Goal**: Determine what to focus on based on change size - maximize signal, minimize noise.
-
-**Core principle**: Focus on problems that **tools cannot catch**. Don't waste time on what lint/typecheck/tests already verify.
-
-**Size-based depth adjustment**:
-
-**Small changes (<200 lines, <5 files)**:
-- **Can afford detail**: Review code quality, naming, minor issues
-- **But prioritize**: Logic correctness, edge cases, security
-- **Skip**: Formatting (if project has linter), obvious style issues
-
-**Medium changes (200-800 lines, 5-20 files)**:
-- **Focus on**: Architecture, API contracts, data flow, security, performance
-- **Ignore**: Style/formatting issues, naming nitpicks
-- **Verify**: Changed function signatures → check all call sites
-- **Tool-delegated**: Let lint/typecheck catch syntax, types, imports
-
-**Large changes (800-2000 lines, 20-50 files)**:
-- **Focus only on**: High-risk areas, architectural decisions, breaking changes
-- **Ignore**: All style/quality issues unless security-critical
-- **Impact analysis**: Modified shared functions → validate call chain safety
-- **Tool-delegated**: All formatting, imports, basic type errors
-
-**X-Large changes (>2000 lines, >50 files)**:
-- **Focus exclusively on**: Critical paths, security, data integrity, breaking changes
-- **Ignore**: Everything else
-- **Impact analysis**: Deep dive on signature changes, state modifications
-- **Require**: CI passing (lint, tests, typecheck) before review
-
-**High-value details to ALWAYS check** (regardless of size):
-
-1. **Impact analysis for signature changes**:
-   ```bash
-   # If function signature changed, find all callers
-   git diff <from>..<to> -- path/to/file.ts | grep "^-.*function.*\|^+.*function"
-   # Then search codebase for usage
-   grep -r "functionName" --include="*.ts"
-   ```
-   - Verify all call sites still compatible
-   - Check if change is backward compatible
-   - Identify potential runtime errors
-
-2. **Data flow completeness**:
-   - New data field → verify: validation, storage, retrieval, display all updated
-   - Deleted field → verify: migrations, backward compatibility
-   - Changed type → verify: serialization, database schema, API contracts
-
-3. **State management safety**:
-   - Concurrent modification → check locking/atomicity
-   - State transitions → verify all paths maintain invariants
-   - Shared state → check thread safety, immutability
-
-4. **Critical path correctness**:
-   - Authentication/authorization changes → trace full flow
-   - Payment/transaction logic → verify atomicity, rollback
-   - Data deletion → confirm safeguards, audit trail
-
-**Low-value details to SKIP** (when time is limited):
-
-- Variable naming (unless truly confusing)
-- Code formatting (if linter exists)
-- Import organization
-- Comment style
-- Minor refactoring preferences
-- Subjective "cleaner" alternatives
-
-**Tool responsibility assumption**:
-```bash
-# Before reviewing, check if CI/tools are running:
-# - Linter (eslint, pylint, clippy)
-# - Type checker (tsc, mypy, flow)
-# - Tests (unit, integration)
-# - Security scanners (if present)
-
-# If CI is green, trust it for:
-# - Syntax errors
-# - Type errors
-# - Import errors
-# - Formatting violations
-# - Test coverage
-```
-
-**Exception**: If no CI or tools, adjust depth up one level (Medium → Small depth).
-
-**Exit criteria**: Know what depth to review at for this change size.
+**Exit**: Know strategy (Conservative/Balanced/Best-practice), depth, and conventions.
 
 ### Stage 4: Risk Analysis
 
-**Goal**: Identify high-risk changes requiring extra scrutiny.
+Identify high-risk changes requiring extra scrutiny.
 
-**For Conservative projects OR Large changes, perform full risk analysis**:
+**For Conservative projects OR Large/X-Large changes, categorize by risk**:
 
-**High-risk categories** (prioritize review attention):
+**High-risk categories**:
+1. **Security**: Auth, input validation, SQL, secrets, file operations
+2. **Data integrity**: Schema changes, migrations, transformations
+3. **Public APIs**: Endpoints, exports, contracts, breaking changes
+4. **Critical paths**: Payments, registration, delete operations
+5. **Performance**: Queries in loops, missing indexes, large data processing
+6. **Infrastructure**: Deployments, CI/CD, major version bumps
 
-1. **Security-sensitive**:
-   - Authentication, authorization, session management
-   - Input validation, SQL queries, command execution
-   - Cryptography, secrets handling
-   - File system operations, path traversal
+See [review-strategies.md](reference/review-strategies.md) for detailed risk patterns.
 
-2. **Data integrity**:
-   - Database schema changes, migrations
-   - Data transformation, imports/exports
-   - Cache invalidation logic
+**Output**: Risk matrix with files categorized by level.
 
-3. **Public API changes**:
-   - HTTP endpoint modifications (breaking changes)
-   - Function signature changes in exported modules
-   - GraphQL schema changes
-   - Event/message contract changes
-
-4. **Critical path**:
-   - Payment processing, order handling
-   - User registration, password reset
-   - Data loss scenarios (delete operations)
-
-5. **Performance-critical**:
-   - Database queries in loops
-   - Large data processing
-   - API calls without pagination
-   - Missing indexes
-
-6. **Infrastructure**:
-   - Deployment configs, environment variables
-   - CI/CD pipeline changes
-   - Dependency version bumps (major versions)
-
-**Output**: Risk matrix with files/changes categorized by risk level.
-
-**Exit criteria**: High-risk areas identified and prioritized.
+**Exit**: High-risk areas prioritized for review.
 
 ### Stage 5: Detailed Review
 
-**Goal**: Provide actionable feedback focused on high-value issues.
+Execute review at appropriate depth from Stage 3.
 
-**Apply depth strategy from Stage 3.5** - focus on what matters for this change size.
+**By size**:
+- **Small** (<200): Full review, apply [checklist](reference/review-checklist.md), quality feedback OK
+- **Medium** (200-800): Signature changes first → impact analysis → high-risk areas (skip style)
+- **Large** (800-2000): Critical files only → architecture + data flow (skip all style)
+- **X-Large** (>2000): Create [progress doc](reference/progress-tracking.md) → require CI green → review critical paths only
 
-**Review execution by size**:
-
-**Small changes (<200 lines)**:
-1. Review all changes thoroughly
-2. Apply full checklist (see [reference/review-checklist.md](reference/review-checklist.md))
-3. Can include quality feedback (naming, structure)
-4. Use TodoWrite for findings
-
-**Medium changes (200-800 lines)**:
-1. **First pass**: Identify signature changes (functions, APIs, data structures)
-   ```bash
-   git diff <from>..<to> | grep -E "^[-+].*\b(function|def|class|interface|type|struct)\b"
-   ```
-2. **Impact analysis**: For each signature change, verify call sites:
-   ```bash
-   grep -r "changedFunctionName" --include="*.ts" .
-   ```
-3. **Focused review**: High-risk areas, data flow, error paths
-4. **Skip**: Style, formatting, minor naming (unless confusing)
-5. Use TodoWrite for high/medium findings only
-
-**Large changes (800-2000 lines)**:
-1. **Cherry-pick critical files**: Security, auth, data handling, migrations
-2. **Impact analysis**: All modified public APIs → trace call chains
-3. **Architecture review**: Does design make sense? Any anti-patterns?
-4. **Data flow**: New fields/types → verify end-to-end consistency
-5. **Skip**: All style/quality unless blocking issue
-6. Use TodoWrite for critical/high findings only
-
-**X-Large changes (>2000 lines)**:
-1. **Create progress doc**: See [reference/progress-tracking.md](reference/progress-tracking.md)
-2. **Verify CI passed**: Require green build (tests, lint, types)
-3. **Review only**: Breaking changes, security, critical paths, migrations
-4. **Impact analysis**: Any shared utilities or core changes → deep trace
-5. **Skip**: Everything else - trust tests and CI
-6. Ask user for focus areas if uncertain
-
-**Universal high-value checks** (all sizes):
-
-**1. Signature change impact**:
-- Modified function → grep all callers, verify compatibility
-- Changed interface/type → check implementing code
-- Renamed exports → verify import sites updated
-
-**2. Data completeness**:
-- New field → verify: validation, storage, retrieval, display
-- Type change → verify: serialization, DB schema, API contract aligned
-- Deleted field → verify: migration path, backward compatibility
-
-**3. Security on modified critical paths**:
-- Auth changes → trace full flow (login → session → access check)
-- Input handling → verify sanitization, validation
-- SQL/queries → check parameterization, injection safety
-
-**4. Error path coverage**:
-- New operations → confirm error handling exists
-- Changed exceptions → verify callers handle correctly
-- Async operations → check promise rejection handling
+**Universal high-value checks** (see [impact-analysis.md](reference/impact-analysis.md) for techniques):
+1. **Signature changes**: Find callers, verify compatibility
+2. **Data flow**: New/changed fields → verify end-to-end (validation, storage, display)
+3. **Security**: Auth/input/queries on critical paths
+4. **Error handling**: New operations have coverage
 
 **Context-aware reading**:
-- **When signature changes**: Read callers and understand usage patterns
-- **When core util changes**: Check dependents to assess blast radius
-- **When data model changes**: Verify migrations and backward compatibility
-- **Don't read unchanged code** unless needed for context
+- Signature changes → read callers
+- Core util changes → assess blast radius
+- Data model changes → verify migrations
+- Don't read unchanged code unless needed
 
 **Finding format**:
 ```
 [SEVERITY] Category: Issue description
 File: path/to/file.ts:123
-Context: Relevant code snippet
 Impact: What could go wrong
 Suggestion: How to fix
 ```
 
-Severity levels: CRITICAL, HIGH, MEDIUM, LOW, NITPICK
+Severities: CRITICAL, HIGH, MEDIUM, LOW, NITPICK
 
-**Exit criteria**: All changes reviewed OR progress saved for large reviews.
+**Exit**: Review complete OR progress saved.
 
 ### Stage 6: Summary and Report
 
@@ -400,51 +194,13 @@ Severity levels: CRITICAL, HIGH, MEDIUM, LOW, NITPICK
 
 **Exit criteria**: Report delivered, user has actionable feedback.
 
-## Tool Usage Strategy
+## Tool Usage
 
-**Prefer in this order**:
+Prefer: MCP tools (GitHub/GitLab) → CLI (gh/glab) → git commands. For local review, prefer git for better tool access.
 
-1. **MCP tools** (if available):
-   - GitHub MCP: For PR metadata, comments, file contents
-   - GitLab MCP: For MR metadata, discussions
+**Resume capability**: Parse `.code-review-progress.md` if exists to continue from checkpoint.
 
-2. **CLI tools** (fallback):
-   ```bash
-   # GitHub
-   gh pr view 123 --json title,body,files
-   gh pr diff 123
-
-   # GitLab
-   glab mr view 123
-   glab mr diff 123
-   ```
-
-3. **Git commands** (always available):
-   ```bash
-   git diff <from>..<to>
-   git log <from>..<to>
-   git show <commit>
-   ```
-
-**For local review**, always prefer local git commands for better tool access.
-
-## Advanced Features
-
-**Resume from progress**: If `.code-review-progress.md` exists, parse it to understand:
-- What's been reviewed
-- Current position
-- Outstanding issues
-- Continue from last checkpoint
-
-**Interactive focus**: For large reviews, ask user:
-- "Which component should I focus on first?"
-- "Are there specific concerns to prioritize?"
-- "Should I skip any auto-generated files?"
-
-**Diff strategies**: Automatically ignore:
-- Lock files (package-lock.json, poetry.lock, Cargo.lock)
-- Generated code (check for generation markers)
-- Minified files
+**Auto-ignore**: Lock files, generated code, minified files.
 
 ## Examples
 

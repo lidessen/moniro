@@ -287,3 +287,229 @@ Examples:
 - ✅ Proper async/await throughout
 - 🟡 Consider adding distributed tracing spans
 ```
+
+---
+
+## Review Depth by Change Size
+
+Adapt review focus based on change size to maximize signal-to-noise ratio.
+
+**Core principle**: Focus on problems that **tools cannot catch**. Don't waste time on what lint/typecheck/tests already verify.
+
+### Small Changes (<200 lines, <5 files)
+
+**Can afford detail**:
+- Review code quality, naming, structure
+- Check edge cases and error handling
+- Verify test coverage
+- Provide constructive quality feedback
+
+**But still prioritize**:
+- Logic correctness
+- Security issues
+- Edge cases
+
+**Skip**: Formatting (if project has linter), obvious style issues
+
+**Time allocation**: ~10-20 minutes for thorough review
+
+---
+
+### Medium Changes (200-800 lines, 5-20 files)
+
+**Focus on**:
+- Architecture and design decisions
+- API contracts and signatures
+- Data flow and transformations
+- Security on critical paths
+- Performance considerations
+
+**Ignore**: Style/formatting issues, naming nitpicks
+
+**Key technique**: Signature change analysis
+```bash
+# Find signature changes
+git diff <from>..<to> | grep -E "^[-+].*\b(function|def|class|interface|type|struct)\b"
+
+# For each change, find callers
+grep -r "functionName" --include="*.ts" .
+```
+
+**Tool-delegated**: Let lint/typecheck catch syntax, types, imports
+
+**Time allocation**: ~30-60 minutes
+
+---
+
+### Large Changes (800-2000 lines, 20-50 files)
+
+**Focus only on**:
+- High-risk areas (security, data, breaking changes)
+- Architectural decisions and patterns
+- Impact of signature changes on call chains
+- Breaking changes
+
+**Ignore**: All style/quality issues unless security-critical
+
+**Key technique**: Cherry-pick critical files
+- Security: auth, input validation, crypto
+- Data: migrations, schema changes
+- APIs: public endpoints, contracts
+
+**Impact analysis**: Modified shared functions → validate call chain safety
+
+**Tool-delegated**: All formatting, imports, basic type errors
+
+**Time allocation**: ~1-2 hours (requires progress tracking)
+
+---
+
+### X-Large Changes (>2000 lines, >50 files)
+
+**Focus exclusively on**:
+- Critical paths (payments, auth, data integrity)
+- Security vulnerabilities
+- Breaking changes
+- Database migrations
+
+**Ignore**: Everything else
+
+**Requirements**:
+- CI must be green (trust tests, lint, types)
+- Create progress document (see [progress-tracking.md](progress-tracking.md))
+- Multiple review sessions expected
+
+**Impact analysis**: Deep dive on:
+- Signature changes in shared utilities
+- State modifications in core systems
+- Data model evolution
+
+**Skip**: All code quality, style, minor issues
+
+**Time allocation**: 2+ hours, multiple sessions
+
+---
+
+## Depth Strategy Decision Matrix
+
+| Strategy | Size | Focus | Skip | Time |
+|----------|------|-------|------|------|
+| Conservative | Small | Risk + Quality | Minor style | 20-30 min |
+| Conservative | Medium | Risk + Architecture | Style | 45-90 min |
+| Conservative | Large | Critical risks only | All quality | 2+ hours |
+| Conservative | X-Large | Critical + breaking | Everything else | Multiple sessions |
+| Balanced | Small | Quality + logic | Format | 10-20 min |
+| Balanced | Medium | Architecture + security | Style | 30-60 min |
+| Balanced | Large | High-risk only | Quality | 1-2 hours |
+| Balanced | X-Large | Critical only | Everything else | Multiple sessions |
+| Best Practice | Small | Excellence + patterns | Format | 15-30 min |
+| Best Practice | Medium | Architecture deep | Style | 45-90 min |
+| Best Practice | Large | Design + critical | Quality | 2+ hours |
+| Best Practice | X-Large | Architecture + critical | Everything else | Multiple sessions |
+
+---
+
+## Tool Responsibility Assumption
+
+Before reviewing, verify what tools are running:
+
+```bash
+# Check CI status
+gh pr checks  # GitHub
+glab mr ci-status  # GitLab
+
+# Common tools
+- Linter: eslint, pylint, clippy, rubocop
+- Type checker: tsc, mypy, flow
+- Tests: jest, pytest, go test
+- Security: SAST, Snyk, CodeQL
+```
+
+**If CI is green, trust it for**:
+- Syntax errors
+- Type errors  
+- Import errors
+- Formatting violations
+- Test failures
+- Known security patterns
+
+**Exception**: If no CI or tools, adjust depth up one level (Medium → Small depth).
+
+---
+
+## High-Value Details (Always Check)
+
+Regardless of size or strategy, always check these:
+
+### 1. Impact Analysis for Signature Changes
+
+When function/interface signatures change, find all callers:
+
+```bash
+# Detect changes
+git diff <from>..<to> -- file.ts | grep "^-.*function\|^+.*function"
+
+# Find usage
+grep -r "functionName" --include="*.ts" .
+```
+
+Verify:
+- All call sites compatible with new signature
+- Backward compatibility if needed
+- No runtime errors from type mismatches
+
+### 2. Data Flow Completeness
+
+When data structures change:
+
+- **New field** → verify: validation, storage, retrieval, display all updated
+- **Deleted field** → verify: migration path, backward compatibility
+- **Type change** → verify: serialization, DB schema, API contracts aligned
+
+### 3. Security on Critical Paths
+
+When modifying authentication, authorization, or input handling:
+
+- Auth changes → trace full flow (login → session → access check)
+- Input handling → verify sanitization and validation
+- SQL/queries → check parameterization, injection safety
+
+### 4. Error Path Coverage
+
+When adding new operations:
+
+- New operations have error handling
+- Changed exceptions handled by callers
+- Async operations have rejection handling
+
+---
+
+## What to Skip (Time-Limited)
+
+**Low-value details**:
+- Variable naming (unless truly confusing)
+- Code formatting (if linter exists)
+- Import organization
+- Comment style
+- Minor refactoring preferences
+- Subjective "cleaner" alternatives
+
+**Let tools handle**:
+- Syntax errors
+- Type errors
+- Unused variables
+- Dead code
+- Import sorting
+- Line length
+
+---
+
+## Quick Reference
+
+**Small**: Full review OK, include quality  
+**Medium**: Architecture + impact, skip style  
+**Large**: High-risk only, skip quality  
+**X-Large**: Critical paths, trust CI, use progress doc
+
+**Always check**: Security, signatures, data flow, breaking changes  
+**Always skip**: Format, style, naming (if tools exist)
