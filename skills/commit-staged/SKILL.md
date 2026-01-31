@@ -9,7 +9,7 @@ Reviews staged changes for quality issues before committing.
 
 ## Workflow
 
-Use TaskCreate/TaskUpdate if available. Apply short-circuit evaluation: if split is required, stop without proceeding to later checks.
+Use TodoWrite if available. Apply short-circuit evaluation: if split is required, stop without proceeding to later checks.
 
 ### 1. Check Staged Changes
 
@@ -35,12 +35,7 @@ Analyze if changes mix unrelated concerns:
 
 ### 3. Debug Code Check
 
-Search staged changes for:
-- `console.log`, `console.debug`, `console.trace`
-- `print()`, `printf()`, `var_dump()`
-- `debugger` statements
-- `TODO`, `FIXME`, `XXX`, `HACK` comments
-- Commented-out code blocks
+Search staged changes for debug statements (console.log, print, debugger, etc.), TODO/FIXME comments, and commented-out code.
 
 If found:
 - List locations with file:line
@@ -49,11 +44,7 @@ If found:
 
 ### 4. Breaking Change Check
 
-Identify potential breaking changes:
-- Removed/renamed public APIs, functions, classes
-- Changed function signatures (parameters, return types)
-- Modified data structures, configs, database schemas
-- Changed CLI arguments or environment variables
+Identify potential breaking changes (removed/renamed APIs, signature changes, schema modifications, CLI/env changes).
 
 If found:
 - List each breaking change with impact assessment
@@ -62,11 +53,7 @@ If found:
 
 ### 5. Generate Commit Message & Commit
 
-Generate message using Conventional Commits format: `<type>(<scope>): <subject>`
-
-Types: `feat`, `fix`, `refactor`, `docs`, `style`, `test`, `chore`, `perf`, `ci`
-
-Add `BREAKING CHANGE:` footer if applicable.
+Generate commit message using Conventional Commits format. Add `BREAKING CHANGE:` footer if applicable.
 
 Commit immediately with the generated message:
 
