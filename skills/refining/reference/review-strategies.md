@@ -2,6 +2,23 @@
 
 Different projects need different review approaches. Select based on project context.
 
+## Table of Contents
+
+- [Strategy Types](#strategy-types)
+  - [Conservative](#conservative)
+  - [Balanced](#balanced)
+  - [Best Practice](#best-practice)
+- [Auto-Detection Strategy](#auto-detection-strategy)
+- [Strategy-Specific Review Adjustments](#strategy-specific-review-adjustments)
+- [When to Ask User](#when-to-ask-user)
+- [Combining Strategy with Size](#combining-strategy-with-size)
+- [Examples](#examples)
+- [Review Depth by Change Size](#review-depth-by-change-size)
+- [Tool Responsibility Assumption](#tool-responsibility-assumption)
+- [High-Value Details (Always Check)](#high-value-details-always-check)
+- [What to Skip (Time-Limited)](#what-to-skip-time-limited)
+- [Quick Reference](#quick-reference)
+
 ## Strategy Types
 
 ### Conservative

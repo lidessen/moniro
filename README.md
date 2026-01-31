@@ -18,31 +18,24 @@ This will install all available skills and make them available to your AI agent.
 
 ## Available Skills
 
-### 🔍 code-review
+### ✨ refining
 
-Comprehensive code review for local branches or remote PR/MR changes with risk analysis and actionable feedback.
+Refines code changes for better reviewability. Unified workflow for committing, reviewing, and creating PRs/MRs.
+
+**Three Modes:**
+- **Commit** - Validate staged changes, generate commit message
+- **Review** - Systematic code review with risk analysis
+- **Create PR/MR** - Generate reviewer-focused descriptions with ASCII diagrams
 
 **Features:**
-- Multi-stage review process with reviewability assessment
-- Automatic depth adjustment based on change size
-- Risk-based prioritization (security, data integrity, breaking changes)
-- Impact analysis for signature changes and shared utilities
+- Reviewability gate: cohesion check (no mixed concerns), size assessment
+- Pre-commit validation for debug code and breaking changes
+- Risk-based review prioritization (security, data integrity, APIs)
+- PR/MR descriptions with ASCII diagrams for complex changes
 - Project-aware review strategy (conservative/balanced/best-practice)
-- Progress tracking for large reviews (>2000 lines)
-- Focuses on high-value issues that tools can't catch
+- Progress tracking for large reviews
 
-**Use when:** Reviewing code changes, pull requests, merge requests, or mention "review", "PR", "MR", "code quality".
-
-### 🔍 commit-staged
-
-Reviews staged changes for common issues before generating commit message and committing.
-
-**Features:**
-- Pre-commit validation for debug code, mixed concerns, and breaking changes
-- Automatic commit message generation following repository style
-- Quality checks before committing
-
-**Use when:** You want to commit staged changes with pre-commit validation, or mention "commit", "staged", "review before commit".
+**Use when:** Committing, reviewing code, creating PR/MR, or mention "commit", "review", "PR", "MR", "refine".
 
 ### 📝 authoring-skills
 
