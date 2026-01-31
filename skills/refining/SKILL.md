@@ -120,6 +120,14 @@ Systematic code review with risk-based prioritization.
    ## Positive Observations
    ```
 
+7. **Publish comments** (for PR/MR reviews)
+
+   Ask user before publishing. If approved, use available tools (MCP or CLI):
+
+   - **Inline comments**: Post on specific file:line for each issue
+   - **Summary comment**: Post overall assessment as PR/MR comment
+   - **Review decision**: Approve or request changes (GitHub: `gh pr review`)
+
 For large reviews, use [progress-tracking.md](reference/progress-tracking.md).
 
 ---
