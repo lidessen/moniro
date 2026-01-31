@@ -21,8 +21,11 @@ The classic approach: separate concerns into horizontal layers.
 │        Business Layer           │  ← Domain logic, rules
 ├─────────────────────────────────┤
 │       Persistence Layer         │  ← Data access
-├─────────────────────────────────┤
-│        Database Layer           │  ← Storage
+└─────────────────────────────────┘
+                 │
+                 ↓
+┌─────────────────────────────────┐
+│            Database             │  ← Storage (external)
 └─────────────────────────────────┘
 ```
 

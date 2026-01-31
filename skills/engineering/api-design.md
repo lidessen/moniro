@@ -153,6 +153,8 @@ GET /users?search=john@example.com
 ```
 
 **Simpler alternative** (if JSON:API is overkill):
+
+Single resource:
 ```json
 {
   "user": {
@@ -160,9 +162,15 @@ GET /users?search=john@example.com
     "name": "John"
   }
 }
+```
 
+Collection:
+```json
 {
-  "users": [...],
+  "users": [
+    { "id": "123", "name": "John" },
+    { "id": "124", "name": "Jane" }
+  ],
   "total": 150,
   "page": 1
 }
@@ -339,11 +347,11 @@ Authorization: Bearer <token>
 Document API changes:
 
 ```markdown
-## v2.1.0 (2024-02-01)
+## v2.1.0 (YYYY-MM-DD)
 - Added `include` parameter to GET /users
 - Added `profile` field to user response
 
-## v2.0.0 (2024-01-01) - BREAKING
+## v2.0.0 (YYYY-MM-DD) - BREAKING
 - Changed pagination from offset to cursor-based
 - Renamed `user_name` to `username`
 ```
