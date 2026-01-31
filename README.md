@@ -61,6 +61,19 @@ Guide for authoring effective Agent Skills using a principle-based approach insp
 
 **Use when:** Creating new skills, improving existing ones, refactoring skill structure, reviewing skill quality, or asking about skill design, best practices, anti-patterns, or organization.
 
+### 🔍 dive
+
+Dives deep into your project to investigate any question using layered search strategies for evidence-based answers.
+
+**Features:**
+- Layered investigation (documentation → code → deep analysis)
+- Evidence-based answers with file:line citations
+- Never guesses - all answers backed by documentation or code
+- Multi-source verification for accuracy
+- Handles uncertainty transparently
+
+**Use when:** You want to investigate "how does X work", "what is Y", "where is Z", or dive into features, APIs, configuration, architecture, or any technical implementation details.
+
 ## Skill Structure
 
 Each skill follows a consistent structure:
