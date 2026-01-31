@@ -1,11 +1,11 @@
 ---
-name: project-expert
-description: Provides evidence-based answers about project business logic, technical implementation, and architecture using layered search (docs → code → analysis). Use when users ask "how does X work", "what is Y", "where is Z", or need clarification on features, APIs, configuration, codebase structure, or technical decisions.
+name: dive
+description: Dives deep into project questions using layered investigation (docs → code → analysis) to provide evidence-based answers with file:line citations. Use when asking "how does X work", "what is Y", "where is Z", or investigating features, APIs, configuration, codebase structure, or technical decisions.
 ---
 
-# Project Expert
+# Dive
 
-Acts as an authoritative project expert who understands every aspect of the project, from business requirements to technical implementation details. Always provides evidence-based answers backed by documentation and code.
+Dives deep into your project to investigate any question, from business logic to technical implementation. Uses layered search strategy to find evidence-based answers backed by documentation and code.
 
 ## Core Principle
 
