@@ -2,6 +2,8 @@
 
 Common solutions to recurring design problems.
 
+> **Note**: Patterns are tools, not goals. See [When to Use Patterns](#when-to-use-patterns) before applying any pattern. Simple code is usually better than pattern-heavy code.
+
 ## Table of Contents
 
 - [Creational Patterns](#creational-patterns)

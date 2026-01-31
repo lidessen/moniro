@@ -7,6 +7,17 @@ description: Guides technical decisions, architecture, and implementation. Use f
 
 Technical leadership for projects - making sound technical decisions, designing robust architectures, and guiding quality implementations. While housekeeping maintains project health, engineering drives technical capability.
 
+## When to Use This Skill
+
+- **"How should I build this?"** - Need guidance on implementation approach
+- **Choosing between options** - Framework, library, database, architecture pattern
+- **Designing systems** - New feature needs structural planning
+- **Evaluating trade-offs** - Performance vs. simplicity, flexibility vs. complexity
+- **Planning refactoring** - Code needs structural improvement
+- **Optimizing performance** - System doesn't meet requirements
+
+**Not this skill**: For cleanup tasks (removing dead code, updating deps), use [housekeeping](../housekeeping/SKILL.md).
+
 ## Quick Navigation
 
 **Technical Decisions**
@@ -21,7 +32,7 @@ Technical leadership for projects - making sound technical decisions, designing 
 
 **Implementation**
 - Apply best practices → [implementation/best-practices.md](implementation/best-practices.md)
-- Use design patterns → [implementation/patterns.md](implementation/patterns.md)
+- Use design patterns (when needed) → [implementation/patterns.md](implementation/patterns.md#when-to-use-patterns)
 - Refactor effectively → [refactoring.md](refactoring.md)
 
 **Specialized Areas**

@@ -2,6 +2,8 @@
 
 Writing code that is correct, readable, and maintainable.
 
+> **Note**: This is a decision reference, not a tutorial. Use it to quickly recall patterns when reviewing code or making implementation choices. Skip sections you already know well.
+
 ## Table of Contents
 
 - [Code Clarity](#code-clarity)
