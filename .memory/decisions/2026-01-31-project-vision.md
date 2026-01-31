@@ -1,29 +1,63 @@
 ---
 type: decision
 status: active
-tags: [vision, architecture, automation]
+tags: [vision, architecture, methodology, genesis]
 created: 2026-01-31
 updated: 2026-01-31
 ---
 
 # Project Vision: Autonomous Workflow Skills
 
-## Context
+## The Question
 
-This project provides reusable skills for AI agents. Need to clarify positioning and goals.
+How do we make AI agents truly capable—not just at following instructions, but at handling the unexpected?
 
-## Decision
+## The Answer
 
-**Position**: A cohesive skill ecosystem for Claude Code, Cursor, OpenClaude and similar tools.
+Teach principles, not rules. Enable adaptation, not compliance.
 
-**Core Principles**:
+## Core Methodology
 
-1. **Autonomous Triggering** - Skills should auto-invoke based on context, not require user commands
-2. **Tight Collaboration** - Skills form a complete workflow, not isolated utilities
-3. **Minimal User Burden** - Agent should never need reminding about what to do
-4. **Dogfooding First** - Every skill iterated through real usage on this project
+These five principles guide everything:
 
-## Skill Collaboration Map
+### 1. Understanding Over Rules
+
+```
+An agent that understands WHY can handle situations the rules never anticipated.
+An agent that only knows rules fails when the rules don't cover the case.
+```
+
+### 2. Adaptive Workflows
+
+```
+There is no perfect workflow.
+The skill isn't following the pipeline.
+The skill is knowing when to deviate from it.
+```
+
+### 3. Divide and Conquer
+
+```
+Large problems are unsolvable.
+Small problems are trivial.
+Find the smallest unit. Compose from there.
+```
+
+### 4. Memory as Evolution
+
+```
+Without memory: Same mistakes, forever.
+With memory: Patterns emerge → Predictions → Prevention.
+```
+
+### 5. Progressive Disclosure
+
+```
+Context space is precious.
+Load what you need, when you need it.
+```
+
+## Skill Ecosystem
 
 ```
 Session Start
@@ -40,6 +74,9 @@ User Request
     │       ▼
     │   [implement]
     │       │
+    │       ▼
+    │   validation (quality check) ◄── continuous feedback
+    │       │
     ▼       ▼
 refining ◄──────────────────┐
     │                       │
@@ -50,26 +87,32 @@ memory (record decisions) ──┘
 housekeeping (maintain health)
 ```
 
-## Automation Goals
+## What Success Looks Like
 
-| Trigger | Skill | Auto-Behavior |
-|---------|-------|---------------|
-| Session start | orientation | Scan project, load memory |
-| "How does X work?" | dive | Investigate with citations |
-| Architecture discussion | engineering | Guide design |
-| Code changes ready | refining | Validate, commit, PR |
-| Decision made | memory | Record ADR |
-| Session end | memory | Summarize session |
-| Periodic | housekeeping | Track debt, suggest cleanup |
+Not a perfect system. A system that **becomes better** over time.
 
-## Consequences
+- Agents handle novel situations through understanding, not lookup
+- Workflows adapt to context instead of forcing uniformity
+- Problems get decomposed until they're trivial
+- Learning accumulates across sessions
+- Context is used efficiently
 
-- Need smarter trigger patterns in skill descriptions
-- May need hooks for session lifecycle events
-- Skills must expose collaboration interfaces
-- Documentation should emphasize workflow, not individual tools
+## What Remains
+
+This approach requires ongoing work:
+- Skills should explain *why*, not just *what*
+- Workflows will be adapted, not followed exactly
+- Memory systems should enable pattern detection
+- Trust agents with judgment, not just execution
+
+## For Those Who Continue This Work
+
+See `.memory/notes/2026-01-31-to-those-who-come-after.md`
+
+The goal isn't to finish. The goal is to ensure whoever comes next can go further.
 
 ## Related
 
-- CLAUDE.md - project instructions
-- authoring-skills - skill design patterns
+- [Validation Skill Decision](2026-01-31-validation-skill.md) - First skill built on these principles
+- CLAUDE.md - System methodology
+- skills/authoring-skills - How to create skills
