@@ -46,12 +46,14 @@ Maintains project infrastructure, organization, and cleanliness - the "home mana
 - Create navigation files (AGENTS.md) for AI agents
 - Implement lifecycle management (cleanup temporary docs)
 - Use RFC process for significant decisions
+- **Verify index consistency** (README lists vs actual directories)
 
 **Common problems addressed**:
 - Can't find documentation
 - Docs outdated or conflicting
 - No clear place for new docs
 - Documentation not used by team or agents
+- Index documents (README, CLAUDE.md) don't reflect actual content
 
 **Links**:
 - [Organization Strategies](documentation/organization-strategies.md) - How to structure documentation
@@ -228,6 +230,9 @@ Maintains project infrastructure, organization, and cleanliness - the "home mana
    - Check for outdated content (last modified >6 months)
    - Verify AGENTS.md is current
    - Clean up temporary docs
+   - **Index consistency**: Compare index docs (README, CLAUDE.md) against actual directories
+     - Do listed items match existing directories/files?
+     - Are new directories missing from indexes?
 
 2. **Dependency check**
    - List outdated: `npm outdated` or `pip list --outdated`
@@ -289,10 +294,14 @@ Maintains project infrastructure, organization, and cleanliness - the "home mana
 3. Check for outdated: `find . -name "*.md" -mtime +180` (>6 months old)
 4. Clean up temporary docs (docs/notes/ or similar)
 5. Verify AGENTS.md reflects current structure
-6. Fix broken links: check manually or with tool
-7. Update navigation in README
-8. Archive or delete obsolete content
-9. Commit changes
+6. **Index consistency check**:
+   - Identify index documents (README, CLAUDE.md, docs/index.md)
+   - Compare listed items against actual directories/files
+   - Add missing items, remove stale references
+7. Fix broken links: check manually or with tool
+8. Update navigation in README
+9. Archive or delete obsolete content
+10. Commit changes
 
 **Time**: 2-4 hours quarterly
 
