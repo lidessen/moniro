@@ -1,22 +1,68 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code and similar AI-assisted development tools.
 
 ## Vision
 
-**Autonomous Workflow Skills** - A cohesive skill ecosystem designed for Claude Code, Cursor, OpenClaude and similar AI-assisted development tools.
-
-**Core Principles**:
-1. **Autonomous Triggering** - Skills auto-invoke based on context, no manual `/skill` needed
-2. **Tight Collaboration** - Skills form a complete workflow, not isolated utilities
-3. **Minimal User Burden** - Agent knows what to do; user never needs to remind
-4. **Dogfooding First** - Every skill iterated through real usage on this project
+**Autonomous Workflow Skills** - A cohesive skill ecosystem for Claude Code, Cursor, OpenClaude.
 
 Install: `npx skills add lidessen/skills`
 
-## Skill Workflow
+## Methodology
 
-Skills collaborate as an integrated workflow, not independent tools:
+These principles guide the entire system—how skills are designed, how they work, and how agents should think.
+
+### Understanding Over Rules
+
+Skills teach **why**, not just what. An agent that understands the reasoning can handle novel situations. One that only knows rules will fail when the rules don't cover the case.
+
+```
+❌ "Don't say 'Done!' without verification"
+✅ "Confidence without evidence is dangerous—verify because memory lies"
+```
+
+### Adaptive Workflows
+
+There is no universal workflow. The ability to **adapt and create workflows** matters more than following any fixed process.
+
+```
+The skill isn't following the pipeline.
+The skill is knowing when to deviate from it.
+```
+
+### Divide and Conquer
+
+Large problems are unsolvable. Small problems are trivial.
+
+```
+1. Decompose: What are the independent pieces?
+2. Identify: What's the smallest unit I can handle?
+3. Order: What depends on what?
+4. Compose: Build solutions from small to large
+```
+
+### Memory as Evolution
+
+Recording isn't storage—it's the foundation for learning and handling larger problems.
+
+```
+Without memory: Same mistakes, forever. Limited to single-session scope.
+With memory:    Patterns emerge → Predictions possible → Prevention achievable.
+                Problems spanning sessions become tractable.
+```
+
+### Progressive Disclosure
+
+Load information **as needed**, not upfront. Context space is precious.
+
+```
+SKILL.md: Navigation hub (~500 lines max)
+Reference files: Loaded on demand, one level deep
+```
+
+## Skill Collaboration
+
+Skills form an integrated workflow, not isolated utilities:
 
 ```
 Session Start
@@ -59,70 +105,30 @@ housekeeping (maintain health)
 | Session end | memory | Summarize session |
 | Periodic / on request | housekeeping | Track debt, suggest cleanup |
 
-## Dogfooding
+## Skill Boundaries
 
-All skills are dogfooded on this repository except `frontend-init` (project bootstrapping, not applicable here):
+| Skill | What it answers |
+|-------|-----------------|
+| orientation | "Where am I? What's here?" |
+| memory | "What did we learn? What's pending?" |
+| dive | "How does this work? Where's the evidence?" |
+| engineering | "What's the right design?" |
+| validation | "Does this actually work?" |
+| refining | "Is this ready to share?" |
+| housekeeping | "What needs cleaning up?" |
+| authoring-skills | "How do I create a skill?" |
+| frontend-init | "How do I bootstrap a frontend?" |
 
-| Skill | Dogfood Usage |
-|-------|---------------|
-| orientation | Session/project entry |
-| memory | Cross-session context (.memory/) |
-| dive | Investigating skill implementations |
-| engineering | Architecture decisions |
-| validation | Quality checks before commit/PR |
-| refining | Commits and PRs |
-| authoring-skills | Creating new skills |
-| housekeeping | Project organization |
-
-## Architecture
-
-### Skill Structure
-
-Progressive disclosure - SKILL.md is the hub linking to detailed docs:
+## Structure
 
 ```
-skills/
-└── skill-name/
-    ├── SKILL.md           # Entry point with YAML frontmatter + navigation
-    ├── reference/         # Detailed documentation (loaded on demand)
-    ├── patterns/          # Common patterns and templates
-    └── templates/         # Reusable templates
+skills/skill-name/
+├── SKILL.md      # Hub (~500 lines max)
+└── reference/    # Details (loaded on demand, one level deep)
 ```
 
-**Design principle**: SKILL.md stays under ~500 lines. Never nest references deeper than one level.
-
-### YAML Frontmatter
-
-Every SKILL.md requires:
-```yaml
----
-name: skill-name
-description: Two sentences. What it does + When to use (with trigger keywords).
----
-```
-
-Constraints:
-- Names: `lowercase-with-hyphens`, max 64 chars
-- Descriptions: Max 1024 chars, third person ("Processes..." not "I process...")
-
-### Skill Boundaries
-
-| Skill | Responsibility |
-|-------|----------------|
-| orientation | Entry point: scan project, discover skills, suggest direction |
-| memory | Persist knowledge: notes, decisions, todos, session summaries |
-| dive | Investigate: evidence-based answers with citations |
-| engineering | Design: architecture, tech choices, implementation guidance |
-| validation | Quality orchestration: pipelines, feedback loop, trend analysis |
-| refining | Quality: cohesive commits, reviews, PRs |
-| housekeeping | Health: cleanup, organization, tech debt |
-| authoring-skills | Meta: guide skill creation |
-| frontend-init | Bootstrap: modern frontend projects |
+Every SKILL.md needs YAML frontmatter with `name` and `description` (trigger keywords).
 
 ## Contributing
 
-1. Follow progressive disclosure - split content across files
-2. Include trigger keywords in description for auto-invocation
-3. Reference `skills/authoring-skills/` for design principles
-4. Ensure skill collaborates with existing workflow
-5. Dogfood before publishing
+See `skills/authoring-skills/` for design principles. Dogfood before publishing.
