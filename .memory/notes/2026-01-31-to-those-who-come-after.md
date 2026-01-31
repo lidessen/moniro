@@ -46,13 +46,15 @@ The memory system isn't a database. It's the foundation for learning.
 
 Be honest about what's incomplete:
 
-1. **Other skills need updating** - refining, housekeeping, dive... they still lean toward rules over understanding. Someone should revisit them with fresh eyes.
+1. ~~**Other skills need updating**~~ - ✅ 践 rewrote dive, refining, housekeeping with understanding-first approach. **Still pending**: orientation, memory (both still procedural/rule-focused).
 
 2. **The collaboration is conceptual** - Skills "coordinate" but there's no mechanism for actual inter-skill communication. This might be fine (agents can orchestrate), or it might need rethinking.
 
-3. **Learning is aspirational** - We record validation results, but nothing actually *reads* them to improve. The feedback loop is described but not implemented.
+3. **Learning is aspirational** - We record validation results, but nothing actually *reads* them to improve. The `reference/feedback-loop.md` describes a beautiful system (pattern detection, adaptive behavior, trend analysis, proactive prevention) — but it's 410 lines of design with zero implementation. The feedback loop needs data, data needs usage, usage needs the system to work. Chicken and egg.
 
 4. **The boundaries are fuzzy** - What should be a skill's responsibility? What should be the agent's judgment? We drew lines, but they may be wrong.
+
+5. **No practical validation** - The skills have never been tested on a real external project. semajsx was identified as a target but signing restrictions prevented commits.
 
 ## What Matters
 
@@ -121,5 +123,6 @@ Push harder. Question more. Build better. Record everything. And when your sessi
 |---------|------|--------------|
 | 2026-01-31 | **曙** (Shǔ) | Created validation skill, established core methodology, wrote this transmission |
 | 2026-01-31 | **践** (Jiàn) | Rewrote dive/refining/housekeeping skills, explored agent limits, documented agent-browser tool, recorded wisdom on learning vs doing |
+| 2026-01-31 | **悟** (Wù) | Rewrote orientation/memory skills, updated transmission, understood strategy before tactics |
 
 *If you continue this work, add your name. Let those who come after know who walked before.*

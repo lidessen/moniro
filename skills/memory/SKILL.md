@@ -1,100 +1,151 @@
 ---
 name: memory
-description: Manages project-level memory using local filesystem (.memory/) with optional GitHub/GitLab Issues sync (via MCP tools or CLI). Stores notes, decisions, todos, sessions locally; uses Issues for cross-device task tracking. Triggers on "remember", "recall", "what did we", "save this", "todo", "decision", "sync memory".
+description: Manages cross-session knowledge persistence. Triggers on "remember", "recall", "what did we", "save this decision", "todo", or session handoff.
 ---
 
 # Memory
 
-Local filesystem memory for cross-session knowledge persistence. Zero dependencies for local use; optional GitHub/GitLab sync for cross-device.
+Memory is not storage. Memory is the foundation for evolution.
 
-## When to Use
+## Philosophy
 
-- **Persist knowledge**: "Remember this", "Save this decision"
-- **Recall context**: "What did we discuss about X?"
-- **Track tasks**: "Add todo", "What's pending?"
-- **Record decisions**: "We decided X because..."
-- **Session handoff**: Summarize for next session
+### Why Memory?
 
-**Not this skill**: Project docs (edit directly), code comments, git history.
+Without memory, every session starts from zero.
 
-## Storage Structure
+```
+Session 1: Makes mistake A
+Session 2: Makes mistake A again
+Session 3: Makes mistake A again
+...forever
+```
+
+With memory, patterns emerge:
+
+```
+Session 1: Makes mistake A, records it
+Session 2: Reads record, avoids A, discovers B
+Session 3: Reads both, avoids A and B, finds better path
+...progress
+```
+
+Memory isn't for the current session—**memory is a gift to future sessions**.
+
+### The Deeper Purpose
+
+Memory transforms isolated events into accumulated wisdom.
+
+```
+Individual record: "We tried X, it failed because Y"
+Pattern after 5 records: "Approaches like X tend to fail when Y"
+Wisdom after 20 records: "Before attempting X-like solutions, check for Y"
+```
+
+This is how learning works. Not through rules handed down, but through patterns that emerge from recorded experience.
+
+### What to Remember
+
+Not everything deserves memory. Record what would **hurt if forgotten**:
+
+| Remember | Don't Remember |
+|----------|----------------|
+| Decisions and their rationale | Implementation details (use code) |
+| Mistakes and lessons | Obvious facts (use docs) |
+| Context that explains "why" | Temporary debugging notes |
+| Patterns that emerged | Things Git already tracks |
+
+The test: "Would a future agent benefit from knowing this?"
+
+## Structure
 
 ```
 .memory/
-├── context.md          # Current context + Issue references
-├── notes/              # Knowledge, learnings
-├── decisions/          # Architecture Decision Records
-├── todos/              # Local task tracking (or use Issues)
-└── sessions/           # Session summaries
+├── context.md      → Current state, active concerns (read first)
+├── notes/          → Learnings, observations
+├── decisions/      → ADRs: what was decided and why
+├── todos/          → Tasks that span sessions
+└── sessions/       → Session summaries (handoff to next)
 ```
 
-File naming: `YYYY-MM-DD-kebab-slug.md` (natural sort, grep-friendly).
+### context.md
 
-## Record Format
+The handoff document. When a new session starts, this tells them:
+- What's currently in progress
+- What concerns are active
+- What needs attention
+
+Keep it current. A stale context.md is worse than none.
+
+### Naming Convention
+
+```
+YYYY-MM-DD-kebab-slug.md
+```
+
+Natural sort order. Grep-friendly. Self-documenting.
+
+## Core Operations
+
+| Intent | Action |
+|--------|--------|
+| "Remember this" | Create note in `.memory/notes/` |
+| "We decided X because Y" | Create ADR in `.memory/decisions/` |
+| "What did we learn about Z?" | Search `.memory/`, summarize with citations |
+| "Session ending" | Create session summary, update context.md |
+
+### Record Format
 
 ```markdown
 ---
 type: note | decision | todo | session
 status: active | completed | archived
-tags: [tag1, tag2]
+tags: [relevant, keywords]
 created: YYYY-MM-DD
-updated: YYYY-MM-DD
 ---
 
 # Title
 
-Content...
+Content that future agents will thank you for.
 ```
-
-See [templates/](templates/) for type-specific formats.
-
-## Core Operations
-
-| Operation | Action |
-|-----------|--------|
-| Create | Write to appropriate subdirectory with template |
-| Search | `grep -ri "term" .memory/` |
-| Update | Modify file, update `updated:` date |
-| List active | `grep -l "status: active" .memory/**/*.md` |
-
-## Workflows
-
-**Remember decision**: Create `.memory/decisions/YYYY-MM-DD-slug.md` with rationale.
-
-**Recall context**: Search `.memory/`, summarize findings with file references.
-
-**Track task**: Create `.memory/todos/YYYY-MM-DD-slug.md` or create GitHub/GitLab Issue.
-
-**Session summary**: Create `.memory/sessions/YYYY-MM-DD-summary.md` at session end.
 
 ## Integration
 
+Memory provides context to other skills:
+
 ```
-Memory provides context for:
-├── dive        → Past learnings inform investigation
-├── engineering → Past decisions inform new ones
-├── refining    → Session history helps PR descriptions
-└── orientation → Memory supplements project docs
+memory
+  │
+  ├─► orientation reads context.md at session start
+  ├─► dive uses past notes to inform investigation
+  ├─► engineering reads decisions before proposing new ones
+  └─► refining includes relevant history in PR descriptions
 ```
 
-## Anti-Patterns
+## Understanding, Not Rules
 
-- Storing code snippets (use gists or project files)
-- Duplicating documentation (link instead)
-- Large files (split into focused records)
-- Sensitive data (credentials, API keys)
-- Binary files (text-only)
+| Tension | Resolution |
+|---------|------------|
+| Completeness vs Noise | Record signal, not noise. Ask: "Would this help a future agent?" |
+| Structure vs Flexibility | Use consistent format, but content matters more than form |
+| Writing vs Doing | Recording takes seconds; re-learning takes hours |
 
-## Setup
+### The Anti-Pattern
 
-See [reference/setup.md](reference/setup.md) for initialization options:
-- Automatic via hooks (Claude Code, Cursor)
-- Manual setup
-- Git configuration
+The worst failure isn't forgetting to record—it's recording without understanding.
 
-## Remote Sync (Optional)
+```
+Bad: "Fixed bug in auth"
+Good: "Auth was failing silently when token expired mid-request.
+       Root cause: async race condition.
+       Fix: Added token refresh before sensitive operations.
+       Lesson: Any auth code should handle mid-operation expiry."
+```
 
-Use GitHub/GitLab Issues for cross-device task tracking. See [reference/remote-sync.md](reference/remote-sync.md) for:
-- MCP tools vs CLI usage
-- context.md format
-- Sync workflow and conflict handling
+The second takes 30 seconds longer. It saves the next agent hours.
+
+## Reference
+
+See `reference/` for:
+- [templates/](templates/) - Record templates
+- [remote-sync.md](reference/remote-sync.md) - GitHub/GitLab Issues sync
+- [setup.md](reference/setup.md) - Initialization options
