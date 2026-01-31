@@ -110,22 +110,19 @@ Orients agents in new projects by scanning entry documents and discovering avail
 
 ### ✅ validation
 
-Unified validation orchestration that coordinates all quality checks into cohesive pipelines.
+Coordinates quality checks into cohesive pipelines. Answers: "Does this actually work?"
 
 **Philosophy:**
-- Validation is not a gate—it's a continuous feedback loop
-- Learn from validation results to prevent future issues
-- Coordinate rather than replace existing validators
+- Confidence without evidence is dangerous
+- Validation is a learning loop, not a gate
+- No universal workflow—adapt pipelines to context
 
-**Features:**
-- Three pipeline levels: quick (instant), standard (pre-commit), comprehensive (pre-PR)
-- Built-in validators: reviewability, impact, security, consistency, architecture
-- Custom validator support via `.validation.yml`
-- Validation result persistence in `.memory/validations/`
-- Pattern detection and trend analysis
-- Proactive prevention recommendations
+**Core Questions:**
+- What's the smallest unit I can verify?
+- What evidence would convince me this works?
+- What patterns keep emerging?
 
-**Use when:** Validating code changes, checking quality, verifying before commit/PR, or mention "validate", "check", "verify", "验证", "检查".
+**Use when:** Validating code changes, checking quality, verifying before commit/PR, or mention "validate", "check", "verify".
 
 ### 🧠 memory
 
