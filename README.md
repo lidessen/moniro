@@ -95,6 +95,44 @@ Manages project housekeeping including documentation organization, dependency ma
 
 **Use when:** Organizing documentation, cleaning up dependencies (package.json, requirements.txt), reorganizing folders, removing dead code, addressing tech debt, or maintaining project structure and configuration.
 
+### 🧭 orientation
+
+Orients agents in new projects by scanning entry documents and discovering available skills.
+
+**Features:**
+- Scans CLAUDE.md, AGENTS.md, README for project context
+- Discovers skills at project and user level
+- Assesses project type and tech stack
+- Diagnoses documentation health
+- Generates orientation report with suggested starting points
+
+**Use when:** Starting a new session, entering unfamiliar projects, asking "what can you do", "where do I start", or needing a project overview.
+
+### 🧠 memory
+
+Manages project-level memory using local filesystem with optional GitHub/GitLab Issues sync.
+
+**Features:**
+- Store notes, decisions, todos, session summaries in `.memory/`
+- Cross-device sync via GitHub/GitLab Issues (MCP or CLI)
+- Hook integration for auto-init on session start
+- context.md as sync anchor with Issue references
+
+**Use when:** Need to remember context across sessions, track decisions, manage todos, build project knowledge base, or mention "remember", "recall", "save this".
+
+### 🚀 frontend-init
+
+Initialize frontend projects with opinionated modern toolchain.
+
+**Features:**
+- Bun as package manager
+- Oxlint for linting, Oxfmt for formatting
+- tsdown for npm bundler
+- tsgo for type checking
+- Minimal, fast, modern defaults
+
+**Use when:** Creating new frontend/TypeScript projects, setting up project tooling, or mentions "init project", "new frontend", "setup tooling".
+
 ## Skill Structure
 
 Each skill follows a consistent structure:
