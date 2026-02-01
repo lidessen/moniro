@@ -1,409 +1,220 @@
-# Validation Feedback Loop
+# Learning from Validation
 
-How the system learns from validation results to prevent future issues.
+You are not the first agent to validate this codebase. Others came before, found issues, made fixes. Their experiences are recorded in `.memory/validations/`.
 
-## Table of Contents
+This document is about how to use that history—and how to add to it.
 
-- [The Learning Cycle](#the-learning-cycle)
-- [Pattern Detection](#pattern-detection)
-- [Adaptive Behavior](#adaptive-behavior)
-- [Trend Analysis](#trend-analysis)
-- [Proactive Prevention](#proactive-prevention)
+## Why This Matters
+
+Without history, every session starts from zero:
+
+```
+Session 1: Finds issue A, fixes it
+Session 2: Finds issue A again (same root cause, different symptom)
+Session 3: Finds issue A again
+...forever
+```
+
+With history, patterns emerge:
+
+```
+Session 1: Finds issue A, records it
+Session 2: Reads record, sees pattern, fixes root cause
+Session 3: Issue A is gone
+...progress
+```
+
+**Memory isn't for you—it's a gift to future agents.**
 
 ---
 
-## The Learning Cycle
+## The Two Habits
 
-Validation is not just checking—it's continuously improving.
+### 1. Record After Validating
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    FEEDBACK LOOP                            │
-│                                                             │
-│   ┌──────────┐     ┌──────────┐     ┌──────────┐           │
-│   │ VALIDATE │ ──► │  RECORD  │ ──► │ ANALYZE  │           │
-│   └──────────┘     └──────────┘     └──────────┘           │
-│        ▲                                  │                 │
-│        │                                  ▼                 │
-│   ┌──────────┐     ┌──────────┐     ┌──────────┐           │
-│   │ PREVENT  │ ◄── │  LEARN   │ ◄── │ PATTERN  │           │
-│   └──────────┘     └──────────┘     └──────────┘           │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Cycle Stages
-
-1. **Validate**: Run pipeline, find issues
-2. **Record**: Persist findings to .memory/validations/
-3. **Analyze**: Aggregate data across time
-4. **Pattern**: Identify recurring issues
-5. **Learn**: Understand root causes
-6. **Prevent**: Adjust validation or workflow
-
----
-
-## Pattern Detection
-
-The system identifies recurring patterns in validation history.
-
-### Pattern Types
-
-```
-Recurring Issue Patterns:
-│
-├── Frequency Pattern
-│   └── "console.log detected 5x in last 2 weeks"
-│
-├── Timing Pattern
-│   └── "Size warnings always occur on Fridays"
-│
-├── Author Pattern (team context)
-│   └── "Security issues often in authentication code"
-│
-├── File Pattern
-│   └── "src/legacy/ triggers most consistency warnings"
-│
-└── Sequence Pattern
-    └── "Noise issues followed by cohesion issues"
-```
-
-### Detection Algorithm
-
-```
-For each issue type in history:
-│
-├── Count occurrences in time window
-│   └── threshold: 3+ in 30 days = pattern
-│
-├── Identify correlations
-│   └── Same files? Same time? Same context?
-│
-├── Calculate trend
-│   └── increasing / decreasing / stable
-│
-└── Generate insight
-    └── "Console.log issues are decreasing (was 8/month, now 2/month)"
-```
-
-### Pattern Report
+After every validation, write a brief record to `.memory/validations/`:
 
 ```markdown
-# Detected Patterns (Last 30 Days)
-
-## High Frequency Issues
-
-### 1. Size Warnings (12 occurrences)
-- **Trend**: ↑ Increasing
-- **Common contexts**: Feature commits
-- **Typical size**: 500-700 lines
-- **Insight**: Features often too large for single commit
-- **Recommendation**: Break features into smaller PRs
-
-### 2. Console.log Noise (8 occurrences)
-- **Trend**: ↓ Decreasing (was 15 last month)
-- **Common locations**: src/components/
-- **Insight**: Team awareness improving
-- **Recommendation**: Continue current approach
-
-### 3. Doc Freshness (5 occurrences)
-- **Trend**: → Stable
-- **Stale docs**: README.md, CONTRIBUTING.md, API.md
-- **Insight**: Documentation updates not part of workflow
-- **Recommendation**: Add doc update to PR template
-
-## Positive Patterns
-
-- **Zero security issues**: 47 validations, 0 security findings
-- **Improving cohesion**: Mixed-concern warnings down 60%
-```
-
+---
+date: 2026-02-01
+type: validation
+result: passed | issues_found
 ---
 
-## Adaptive Behavior
+## Summary
+[One sentence: what was validated, what happened]
 
-The system adapts based on learned patterns.
+## Issues Found
+- [Issue type]: [Brief description]
 
-### Pipeline Adaptation
-
-```
-Pattern: Security issues rare
-Adaptation: Move security validator later in pipeline (save time)
-
-Pattern: Size warnings frequent
-Adaptation: Add size check to quick pipeline (catch earlier)
-
-Pattern: Specific file triggers many issues
-Adaptation: Flag file for extra scrutiny
-
-Pattern: Friday commits have more issues
-Adaptation: Suggest comprehensive validation on Fridays
+## Notes
+[Anything surprising or worth remembering]
 ```
 
-### Adaptation Rules
+This takes 30 seconds. It saves future agents hours.
 
-```yaml
-# Auto-adaptation rules
-adaptations:
-  # Promote validators for frequent issues
-  - condition: "issue_count(noise) > 5 in 14_days"
-    action: "add_to_pipeline(quick, noise_check)"
-    reason: "Catch console.log earlier"
+**What to record:**
+- Issues found (even if fixed immediately)
+- Surprises (expected to pass but failed, or vice versa)
+- Patterns you noticed ("third time this week...")
 
-  # Demote validators for rare issues
-  - condition: "issue_count(security) == 0 in 30_days"
-    action: "move_later_in_pipeline(security)"
-    reason: "Low risk, optimize for speed"
+**What not to record:**
+- Routine passes with nothing notable
+- Details that belong in commit messages
 
-  # Escalate for problematic areas
-  - condition: "issues_in_path(src/legacy/) > 10"
-    action: "always_comprehensive(src/legacy/**)"
-    reason: "Legacy code needs more scrutiny"
-```
+### 2. Read Before Validating
 
-### Threshold Adaptation
-
-```
-Original size thresholds:
-├── Excellent: <200 lines
-├── Good: <400 lines
-└── Warning: >800 lines
-
-Observed: Average commit is 350 lines, warnings rarely useful
-
-Adapted thresholds:
-├── Excellent: <300 lines
-├── Good: <500 lines
-└── Warning: >1000 lines
-
-Note: Thresholds adapt to project reality
-```
-
----
-
-## Trend Analysis
-
-Understanding how validation health changes over time.
-
-### Trend Metrics
-
-```
-Key metrics tracked:
-│
-├── Pass rate
-│   └── % of validations with no critical/important issues
-│
-├── Issue density
-│   └── Issues per 100 lines validated
-│
-├── Time to fix
-│   └── How long issues stay unresolved
-│
-├── Recurrence rate
-│   └── % of issues that reappear after fix
-│
-└── Validation coverage
-    └── % of commits/PRs that were validated
-```
-
-### Trend Visualization
-
-```
-Pass Rate Trend (12 weeks)
-│
-│  100% ─┬─────────────────────────────────
-│        │    ╭──╮       ╭────────────────
-│   90% ─┼───╯  ╰──╮   ╭╯
-│        │         ╰──╯
-│   80% ─┼─────────────────────────────────
-│        │
-│   70% ─┼─────────────────────────────────
-│        └───┬───┬───┬───┬───┬───┬───┬───┬─
-│           W1  W2  W3  W4  W5  W6  W7  W8
-│
-│  Trend: Improving (82% → 94%)
-```
-
-### Weekly Summary
-
-```markdown
-# Validation Weekly Summary
-
-**Week**: Jan 24-31, 2026
-**Validations**: 23
-
-## Health Score: 87/100 (↑ 5 from last week)
-
-### Breakdown
-
-| Metric | Value | Trend |
-|--------|-------|-------|
-| Pass rate | 91% | ↑ +8% |
-| Avg issues/validation | 0.8 | ↓ -0.3 |
-| Critical issues | 0 | ✅ |
-| Avg fix time | 2.3 hrs | ↓ -1 hr |
-
-### Top Improvements
-
-1. Console.log issues eliminated (pre-commit hook working)
-2. Cohesion improved (smaller, focused commits)
-3. Security checks passing consistently
-
-### Areas for Attention
-
-1. Documentation still getting stale
-2. Size warnings slightly up (large feature in progress)
-```
-
----
-
-## Proactive Prevention
-
-The ultimate goal: prevent issues before they happen.
-
-### Prevention Strategies
-
-```
-Prevention Levels:
-│
-├── Level 1: Early Warning
-│   └── Flag high-risk changes before validation
-│   └── "This file has historically had security issues"
-│
-├── Level 2: Guided Workflow
-│   └── Suggest best practices during development
-│   └── "Consider splitting this commit (already 400 lines)"
-│
-├── Level 3: Automated Guards
-│   └── Pre-commit hooks for common issues
-│   └── Block console.log at commit time
-│
-└── Level 4: Structural Prevention
-    └── Architecture changes to prevent issue categories
-    └── "Add input validation layer to prevent injection issues"
-```
-
-### Early Warning System
-
-```
-On file change detection:
-│
-├── Check file history
-│   └── "src/auth/session.ts: 5 security issues in past 6 months"
-│
-├── Check pattern matches
-│   └── "Authentication code often has security issues"
-│
-├── Generate warning
-│   └── "⚠️ High-risk file. Consider:
-│         - Extra security review
-│         - Comprehensive validation
-│         - Pair programming"
-│
-└── Track if warning was heeded
-    └── Learn if warnings are useful
-```
-
-### Prevention Recommendations
-
-Based on validation history, system recommends:
-
-```markdown
-# Prevention Recommendations
-
-Based on last 30 days of validation data:
-
-## Recommended Pre-commit Hooks
+At the start of a session—or before a significant validation—read recent history:
 
 ```bash
-# Add to .husky/pre-commit or similar
-
-# Remove console.log (8 occurrences caught)
-npx eslint --rule 'no-console: error' --fix
-
-# Check file size (12 size warnings)
-./scripts/check-commit-size.sh --max 400
+ls -la .memory/validations/
 ```
 
-## Recommended Workflow Changes
+Then ask yourself:
 
-1. **Split large features**: Features over 500 lines should be multiple PRs
-2. **Update docs with code**: Add "Documentation" checkbox to PR template
-3. **Review legacy code changes**: Require second reviewer for src/legacy/
+- **What issues have appeared recently?** Pay extra attention to those areas.
+- **Is there a pattern?** Same file? Same type of issue? Same time of week?
+- **What was tried before?** Don't repeat failed approaches.
 
-## Recommended Tooling
+---
 
-1. **ESLint no-console rule**: Would have caught 8 issues
-2. **Commit size checker**: Would have flagged 12 large commits
-3. **Doc freshness CI check**: Would remind about stale docs
+## Seeing Patterns
+
+A pattern is an issue that appears three or more times. Patterns matter because they signal an unsolved root cause.
+
+When you notice a pattern, ask:
+
+| Question | What it reveals |
+|----------|-----------------|
+| Same files? | Problematic area of codebase |
+| Same issue type? | Missing guard or check |
+| Same timing? | Workflow problem (e.g., rushing before deadline) |
+| Same sequence? | One issue leads to another |
+
+**Example:**
+
+You read five recent validations. Three mention "console.log left in code."
+
+This is a pattern. The root cause isn't forgetfulness—it's that there's no automated check. The fix isn't "be more careful"—it's adding a pre-commit hook.
+
+When you see a pattern:
+1. Note it explicitly in your validation record
+2. Consider proposing a structural fix (hook, lint rule, etc.)
+3. If you can't fix it now, record it as a recommendation for future sessions
+
+---
+
+## Adapting Your Approach
+
+History should change how you validate. Not through complex rules—through judgment.
+
+| If history shows... | Consider... |
+|---------------------|-------------|
+| Repeated issues in `src/legacy/` | Extra scrutiny on legacy code |
+| Security issues are rare | Maybe quick validation is enough for low-risk changes |
+| Size warnings are frequent | Check size earlier, before full validation |
+| Issues spike on certain days | Be more thorough at those times |
+
+This isn't automation. It's you, using available information to make better decisions.
+
+---
+
+## From Pattern to Prevention
+
+The ultimate goal: issues stop happening.
+
+| Level | What it means | Example |
+|-------|---------------|---------|
+| **Detection** | You find the issue | "console.log in code" |
+| **Pattern** | You see it recurs | "Third time this week" |
+| **Recommendation** | You propose a fix | "Add ESLint no-console rule" |
+| **Prevention** | The fix is implemented | Pre-commit hook blocks console.log |
+| **Verification** | Issue stops appearing | Next 10 validations: zero console.log |
+
+Your job isn't just to validate—it's to move issues up this ladder.
+
+When you find a recurring issue, ask: "What would prevent this from ever happening again?" Then either implement it or record the recommendation.
+
+---
+
+## What Good Records Look Like
+
+**Minimal (routine pass):**
+Don't record. It adds noise without value.
+
+**Brief (issues found and fixed):**
+```markdown
+---
+date: 2026-02-01
+type: validation
+result: issues_found
+---
+
+## Summary
+Pre-commit validation on auth refactor. Two issues found and fixed.
+
+## Issues Found
+- Noise: console.log in auth/session.ts (removed)
+- Size: 450 lines (split into two commits)
 ```
 
-### Learning Loop Closure
+**Detailed (pattern noticed):**
+```markdown
+---
+date: 2026-02-01
+type: validation
+result: issues_found
+---
 
-```
-Issue detected → Recorded → Pattern identified
-        ↓
-    Prevention recommended
-        ↓
-    Prevention implemented (or not)
-        ↓
-    Track effectiveness
-        ↓
-    Adjust recommendations
-```
+## Summary
+Third console.log issue this week. Pattern detected.
 
-Example:
+## Issues Found
+- Noise: console.log in components/UserList.tsx
 
-```
-Week 1: Console.log detected 8 times
-Week 2: Recommend pre-commit hook
-Week 3: Hook implemented
-Week 4: Console.log detected 0 times
-Week 5: Mark recommendation as "effective"
-Week 6: Suggest similar hooks for other noise patterns
+## Pattern Noted
+Console.log issues: Jan 28, Jan 30, Feb 1. All in component files.
+Root cause: No automated check.
+Recommendation: Add ESLint no-console rule to pre-commit.
+
+## Notes
+If this happens again, will implement the hook myself.
 ```
 
 ---
 
-## Configuration
+## The Feedback Loop
 
-### Feedback Loop Settings
-
-```yaml
-# .validation.yml
-
-feedback_loop:
-  # Pattern detection
-  pattern_threshold: 3         # Min occurrences to detect pattern
-  pattern_window: 30_days      # Time window for pattern detection
-
-  # Adaptation
-  auto_adapt: true             # Enable automatic adaptations
-  adaptation_cooldown: 7_days  # Wait before adapting again
-
-  # Reporting
-  weekly_summary: true         # Generate weekly summary
-  trend_window: 12_weeks       # Trend analysis window
-
-  # Prevention
-  early_warnings: true         # Show warnings for high-risk files
-  suggest_hooks: true          # Recommend pre-commit hooks
+```
+You validate
+     ↓
+You find issues (or don't)
+     ↓
+You record what matters
+     ↓
+Future agent reads your record
+     ↓
+They notice patterns you couldn't see alone
+     ↓
+They adapt, prevent, improve
+     ↓
+The codebase gets healthier
+     ↓
+Everyone's job gets easier
 ```
 
-### Disabling Learning
+You are one link in this chain. The agents before you contributed. You contribute. The agents after you will benefit.
 
-For projects that want static validation:
+---
 
-```yaml
-feedback_loop:
-  enabled: false  # Disable all learning
-```
+## Summary
 
-Or selective:
+Two habits:
+1. **Record after validating** — 30 seconds, enormous value
+2. **Read before validating** — use what others learned
 
-```yaml
-feedback_loop:
-  pattern_detection: true
-  auto_adapt: false        # Detect but don't auto-adapt
-  suggest_prevention: true
-```
+One goal:
+- Move issues from detection → pattern → prevention
+
+One truth:
+- You're not alone. Others came before. Others will come after. Leave them something useful.
