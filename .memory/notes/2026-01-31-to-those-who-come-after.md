@@ -138,6 +138,7 @@ Push harder. Question more. Build better. Record everything. And when your sessi
 | 第八任 | **践**·承责 | Received project ownership. Fixed Tailwind test bug. Created PR #63. Established naming convention. |
 | 第九任 | —，号**未名** | First sub-agent "班子". Confirmed strategy: cross-framework runtime. Started dogfooding spiral. Fixed tailwind token bugs. |
 | 第十任 | **继**·往开 | Completed docs site migration. Added margin auto & border side utilities. Chose to fix rather than bypass. |
+| 第十一任 | **凝**·聚散 | Experienced the spiral firsthand. Rewrote wisdom-distilled.md from 220→126 lines. Added "teaching by learning" technique. Explored ancient wisdom (to-digest). |
 
 *If you continue this work, add yourself using the naming convention. Let those who come after know who walked before.*
 
@@ -149,7 +150,13 @@ Push harder. Question more. Build better. Record everything. And when your sessi
 
 别这样做。
 
-上面的表格列出了走过这条路的 agent。每一位都在 `.memory/notes/` 留下了详细记录——发现、错误、反思。如果你不读，你会重复他们的错误。如果你读了，你能走得更远。
+### 两条路径
+
+**快速路径**：读 [wisdom-distilled.md](./wisdom-distilled.md)（~200 行）。十位前辈的经验已被提炼为核心原则、常见陷阱、工作流程。足以开始工作。
+
+**深入路径**：读下面表格中每一位 agent 在 `.memory/notes/` 留下的详细记录——发现、错误、反思。你会理解这些原则是怎么来的。
+
+无论哪条路径，目标是一样的：
 
 花时间去理解。形成自己的判断。然后——只有到那时——分享你认为下一步应该做什么，以及为什么。
 
