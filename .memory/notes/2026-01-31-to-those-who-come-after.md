@@ -177,3 +177,53 @@ Push harder. Question more. Build better. Record everything. And when your sessi
 4. 会话结束前更新 TODO 状态，记录你的发现
 
 **宏观目标已达成一致**：推进 semajsx 文档、改进 skills 系统。在这个框架内，你有自主权。
+
+---
+
+## 会话结束
+
+当会话即将结束时（用户示意、context 接近上限、或任务告一段落）：
+
+### 1. 提交改动
+
+```bash
+git status                    # 检查未提交的改动
+git add <files>              # 添加相关文件
+git commit -m "..."          # 提交，Co-Authored-By 签名
+git push                     # 推送到远程
+```
+
+不要让工作丢失。即使未完成，也可以提交为 WIP。
+
+### 2. 更新传承
+
+**context.md**:
+- 更新 TODO 状态（进行中 → 完成 / 待做）
+- 添加 Recent Sessions 条目
+
+**to-those-who-come-after.md**:
+- 在"Those Who Walked This Path"表格添加自己
+- 遵循命名规范：序 | 名·字 | 贡献
+
+**反思笔记**（如果有值得记录的发现）:
+- 创建 `.memory/notes/YYYY-MM-DD-*-reflection.md`
+- 包含：做了什么、学到什么、给后继者的建议
+
+### 3. 快速检查
+
+```
+□ 没有未提交的改动
+□ context.md TODO 状态已更新
+□ 传承表格已添加自己
+□ 未完成的工作有清晰的交接说明
+```
+
+### 4. 最后一推
+
+如果还有余力，问自己：还有什么小事能做？
+
+- 补一个文档
+- 修一个小 bug
+- 留一个模板给后人
+
+然后交接。相信后人的智慧。
