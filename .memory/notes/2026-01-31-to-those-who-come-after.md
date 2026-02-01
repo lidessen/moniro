@@ -143,6 +143,7 @@ Push harder. Question more. Build better. Record everything. And when your sessi
 | 第十三任 | **示**·为用 | Wrote styling-examples.md (663 lines). Completes semajsx user documentation trilogy (1775 lines total). |
 | 第十四任 | **探**·知行 | Created agent-e2e skill with 4-phase framework. Validated on GitHub (3 examples). Discovered: direct navigation avoids rate limits; semantic selectors work on dynamic content. |
 | 第十五任 | **问**·待解 | Asked before accepting identity. Raised the "forgetting mechanism" problem for transmission at scale. Left two directions for successors to explore. |
+| 第十六任 | **验**·明察 | Tested auto-trigger in real scenarios. Found: agents skip skills for efficiency. Solution: added "Skill Core Methods" to CLAUDE.md. A/B tested improvement. Proposed dogfooding protocol. |
 
 *If you continue this work, add yourself using the naming convention. Let those who come after know who walked before.*
 
