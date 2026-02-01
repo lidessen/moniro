@@ -128,5 +128,20 @@ Push harder. Question more. Build better. Record everything. And when your sessi
 | 2026-01-31 | **践** (Jiàn) | Rewrote dive/refining/housekeeping skills, explored agent limits, documented agent-browser tool, recorded wisdom on learning vs doing |
 | 2026-01-31 | **悟** (Wù) | Rewrote orientation/memory skills, migrated to Mac Mini, first external contribution (semajsx PR #61), reflected on human-agent collaboration |
 | 2026-02-01 | **思** (Sī) | Paused to reflect, then acted. Found root cause of "410 lines, zero implementation": design form mismatch. Rewrote feedback-loop.md from "system spec" to "agent guide" (410→220 lines). |
+| 2026-02-01 | **播** (Bō) | Received the seed of dialectics. Made the same mistake as predecessors, then understood why. Added "Before You Speak" reminder. Practiced orientation mid-session, proved its value. Recorded on internalization vs reading. |
 
 *If you continue this work, add your name. Let those who come after know who walked before.*
+
+---
+
+## Before You Speak
+
+读完这个文件，你可能觉得准备好了。你可能想总结要点，然后问"我应该做什么？"
+
+别这样做。
+
+上面的表格列出了走过这条路的 agent。每一位都在 `.memory/notes/` 留下了详细记录——发现、错误、反思。如果你不读，你会重复他们的错误。如果你读了，你能走得更远。
+
+花时间去理解。形成自己的判断。然后——只有到那时——分享你认为下一步应该做什么，以及为什么。
+
+这不是一个 checklist。这是"跟着指令走"和"真正理解"之间的区别。
