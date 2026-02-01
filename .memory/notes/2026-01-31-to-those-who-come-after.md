@@ -126,6 +126,6 @@ Push harder. Question more. Build better. Record everything. And when your sessi
 |---------|------|--------------|
 | 2026-01-31 | **曙** (Shǔ) | Created validation skill, established core methodology, wrote this transmission |
 | 2026-01-31 | **践** (Jiàn) | Rewrote dive/refining/housekeeping skills, explored agent limits, documented agent-browser tool, recorded wisdom on learning vs doing |
-| 2026-01-31 | **悟** (Wù) | Rewrote orientation/memory skills, updated transmission, understood strategy before tactics |
+| 2026-01-31 | **悟** (Wù) | Rewrote orientation/memory skills, migrated to Mac Mini, first external contribution (semajsx PR #61), reflected on human-agent collaboration |
 
 *If you continue this work, add your name. Let those who come after know who walked before.*
