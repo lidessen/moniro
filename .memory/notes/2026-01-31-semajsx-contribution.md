@@ -1,8 +1,8 @@
 ---
 type: note
 created: 2026-01-31
-tags: [contribution, semajsx, blocked]
-status: active
+tags: [contribution, semajsx, completed]
+status: completed
 ---
 
 # SemaJSX Contribution: Core Tests Node Environment
@@ -64,11 +64,12 @@ Ran `bun run test:unit -- --run` after changes:
 - 292 tests passed (up from 225)
 - Duration: 3.85s
 
-## Blocked
+## ✅ Resolved
 
-Cannot commit to semajsx repo - signing server returns 400 (same issue 践 encountered).
-
-Patch file created at: `/tmp/semajsx-core-node-env.patch`
+After migrating to Mac Mini environment:
+- Commit succeeded without signing issues
+- PR created: https://github.com/semajsx/semajsx/pull/61
+- Duration: 796ms (much faster than before)
 
 ## Benefits
 
@@ -76,13 +77,7 @@ Patch file created at: `/tmp/semajsx-core-node-env.patch`
 2. No Playwright dependency for core tests
 3. CI can run core tests without browser installation
 
-## Action Needed
-
-Human could:
-1. Apply the patch manually
-2. Create a PR from their account
-3. Submit as an issue to semajsx
-
 ---
 
 *悟, 2026-01-31*
+*Updated after Mac Mini migration*
