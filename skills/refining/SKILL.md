@@ -1,220 +1,181 @@
 ---
 name: refining
-description: Refines code changes for better reviewability. Validates change cohesion (no mixed concerns), generates clear commit messages, creates PR/MR with reviewer-focused descriptions and ASCII diagrams. Use when committing, reviewing, creating PR/MR, or mentions "commit", "review", "PR", "MR", "pull request", "merge request", "refine", "提交", "审查".
+description: Refines code changes for better reviewability. Validates change cohesion (no mixed concerns), generates clear commit messages, creates PR/MR with reviewer-focused descriptions. Use when committing, reviewing, creating PR/MR, or mentions "commit", "review", "PR", "MR", "pull request", "merge request", "refine", "提交", "审查".
 ---
 
 # Refining
 
-Refine code changes to make them easy to review. Three modes based on intent:
+Refine code changes to make them easy to review.
 
-| Intent | Trigger Keywords | Action |
-|--------|------------------|--------|
-| **Commit** | "commit", "提交" | Validate staged → commit |
-| **Review** | "review", "审查", PR/MR URL | Assess → review → report |
-| **Create PR/MR** | "create pr", "create mr", "open pr", "发起" | Validate → generate description → create |
+## Philosophy
 
-## Core: Reviewer's Perspective
+### Why Refine?
 
-Before any action, ask: **Would I want to review this?**
+Refining exists because **reviewers are humans with limited attention**.
 
-### Reviewability Gate (All Modes)
+The core question isn't "what checks should I run?" but "would I want to review this?"
 
-**1. Cohesion** - Single purpose?
+```
+The Reviewer's Reality:
+├── Context loading takes mental effort
+├── Large changes exhaust attention
+├── Mixed concerns require mental switching
+└── Unclear changes create uncertainty
+```
 
-| Pattern | Verdict |
-|---------|---------|
-| Feature + refactor | ❌ Split |
-| Multiple unrelated features | ❌ Split |
-| Bug fix + new feature | ❌ Split |
-| One logical change | ✅ OK |
+### The Reviewer's Burden
 
-**2. Size** - Digestible?
+Every code review requires:
+- **Context loading** - Understanding what the change is about
+- **Verification** - Checking if it's correct
+- **Risk assessment** - What could this break?
 
-| Lines Changed | Verdict |
-|---------------|---------|
-| <400 | ✅ Easy to review |
-| 400-800 | ⚠️ Needs focus, consider split |
-| >800 | 🔴 Strongly suggest split |
+Small, focused changes make this tractable. Large, mixed changes make it exhausting.
 
-**3. Noise** - Clean?
+### Cohesion Over Size
 
-- Debug code (console.log, print, debugger)
-- TODO/FIXME in new code
-- Commented-out code
+A 500-line focused change is often easier to review than a 200-line mixed change.
 
-**If issues found** → Stop, list issues, suggest remediation. Do not proceed until resolved or user confirms.
+Why?
+- Focused changes have one mental model
+- Mixed changes require context switching for each concern
+- Each concern should be independently verifiable
 
----
+The "lines changed" heuristic is about cognitive load, not absolute limits. Ask: **Could a reviewer hold this entire change in their head?**
 
-## Mode: Commit
+### The Refining Mindset
 
-Validate and commit staged changes.
+Before committing or creating a PR, ask:
+1. Would I want to review this?
+2. Can I explain this in one sentence?
+3. If this breaks, is the blast radius obvious?
 
-### Steps
+If yes to all → proceed.
+If no → refine further.
 
-1. **Check staged**
-   ```bash
-   git diff --cached --stat
-   git diff --cached
-   ```
-   Exit if nothing staged.
+## Core Concepts
 
-2. **Reviewability gate** (short-circuit on failure)
+### Reviewability Factors
 
-3. **Breaking change check**
-   - Removed/renamed public APIs
-   - Signature changes
-   - Schema modifications
+| Factor | What it measures | Why it matters |
+|--------|------------------|----------------|
+| **Cohesion** | Single purpose? | Mental model simplicity |
+| **Size** | Cognitive load | Reviewer attention span |
+| **Clarity** | Is intent obvious? | Time to understand |
+| **Noise** | Distractions present? | Focus degradation |
 
-4. **Generate message & commit**
-   - Conventional Commits format
-   - BREAKING CHANGE footer if needed
-   ```bash
-   git commit -m "type(scope): description"
-   ```
+These aren't gates to pass. They're lenses to evaluate through.
 
-Do NOT push unless explicitly requested.
+### When to Split
 
----
+Not "must split" - but "consider splitting":
 
-## Mode: Review
+- Feature + refactor → Refactor can be reviewed independently
+- Bug fix + new feature → Fix is urgent, feature can wait
+- Multiple unrelated changes → Each deserves its own commit
 
-Systematic code review with risk-based prioritization.
+The question: Would reviewing these separately produce better feedback?
 
-### Steps
+### Noise Detection
 
-1. **Initialize** - Identify target
-   - PR/MR URL → fetch via gh/glab/MCP
-   - Branch comparison → `git diff base..head`
-   - Current branch → compare vs main/master
+Noise makes reviewers work harder without adding value:
 
-2. **Reviewability gate**
-   - If issues found, report and ask whether to proceed
+- `console.log`, `print`, `debugger` → Should these be here?
+- `TODO`/`FIXME` in new code → Is this intentional?
+- Commented-out code → Dead code or notes?
 
-3. **Strategy selection**
-   - Detect project type (package.json, pyproject.toml, etc.)
-   - Select approach: Conservative / Balanced / Best-practice
-   - See [review-strategies.md](reference/review-strategies.md)
+Note these to the user. Let them decide if intentional.
 
-4. **Risk analysis** (for large changes or conservative projects)
-   - Categorize files by risk level
-   - See [review-strategies.md](reference/review-strategies.md) for risk patterns
+## Three Modes
 
-5. **Detailed review**
-   - Focus on high-value checks (see [impact-analysis.md](reference/impact-analysis.md))
-   - Skip what linters catch
-   - Use [review-checklist.md](reference/review-checklist.md)
+### Commit
 
-6. **Report**
-   ```markdown
-   # Review Summary
+Validate staged changes, create commit.
 
-   ## Overview
-   - Scope: <from>..<to> or PR #N
-   - Files: X files (+Y -Z lines)
-   - Assessment: Approve / Request Changes / Needs Rework
+```
+1. Check staged:     git diff --cached --stat
+2. Assess:           Cohesion? Size? Noise?
+3. Generate message: Conventional Commits format
+4. Commit:           git commit -m "type(scope): description"
+```
 
-   ## Critical Issues (🔴)
-   ## Important Issues (🟡)
-   ## Suggestions (🔵)
-   ## Positive Observations
-   ```
+**Never push** unless explicitly requested.
 
-7. **Publish comments** (for PR/MR reviews)
+### Review
 
-   Ask user before publishing. If approved, use available tools (MCP or CLI):
+Assess a PR/MR or branch comparison.
 
-   - **Inline comments**: Post on specific file:line for each issue
-   - **Summary comment**: Post overall assessment as PR/MR comment
-   - **Review decision**: Approve or request changes (GitHub: `gh pr review`)
+```
+1. Identify target:  PR URL, branch, or current changes
+2. Quick assessment: Cohesion, size, obvious issues
+3. Detailed review:  Focus on what linters miss
+4. Report:           Severity-based (🔴 Critical, 🟡 Important, 🔵 Suggestion)
+```
 
-For large reviews, use [progress-tracking.md](reference/progress-tracking.md).
+Focus your attention where it matters most. Skip what automated tools catch.
 
----
+See [reference/review-strategies.md](reference/review-strategies.md) for project-specific approaches.
 
-## Mode: Create PR/MR
+### Create PR/MR
 
-Create pull/merge request with reviewer-focused description.
+Generate reviewer-focused description.
 
-### Steps
+```
+1. Gather changes:   git log --oneline main..HEAD
+2. Assess:           Is this PR-ready?
+3. Generate:         Title + description + context
+4. Create:           gh pr create / glab mr create
+```
 
-1. **Gather changes**
-   ```bash
-   git log --oneline main..HEAD
-   git diff --stat main..HEAD
-   ```
+**Description structure:**
+```markdown
+## Summary
+[What and why in 1-2 sentences]
 
-2. **Reviewability gate** (stricter: recommend <600 lines for PR)
+## Changes
+[Key changes as bullet points]
 
-3. **Generate title**
-   - Imperative mood
-   - <70 characters
-   - Captures the essence
+## Testing
+[How to verify this works]
 
-4. **Generate description**
+## Reviewer Notes
+[What to focus on, known risks, trade-offs]
+```
 
-   See [description-guide.md](reference/description-guide.md) for detailed guidance.
+See [reference/description-guide.md](reference/description-guide.md) for examples.
 
-   Structure:
-   ```markdown
-   ## Summary
-   [1-2 sentences: what and why]
+## Understanding, Not Rules
 
-   ## Changes
-   - [Key change 1]
-   - [Key change 2]
+Instead of memorizing thresholds, understand the underlying tensions:
 
-   ## Architecture (if complex)
-   [ASCII diagram - see below]
+| Tension | Resolution |
+|---------|------------|
+| Speed vs Quality | Quick changes need less refinement. Critical paths need more. |
+| Completeness vs Focus | Better to have multiple focused PRs than one sprawling one. |
+| Description Detail vs Reader Time | Enough to understand, not encyclopedic. |
+| Stopping Early vs Proceeding | When in doubt, ask. User decides. |
 
-   ## Testing
-   [How to verify]
+### On Line Counts
 
-   ## Reviewer Notes
-   [What to focus on, risks, trade-offs]
-   ```
+"400 lines" isn't a magic number. It's a heuristic for "about the limit of focused review."
 
-5. **Create**
-   ```bash
-   # GitHub
-   gh pr create --title "..." --body "..."
+- Simple rename across many files? 1000 lines might be fine.
+- Complex algorithm change? 100 lines needs careful review.
 
-   # GitLab
-   glab mr create --title "..." --description "..."
-   ```
-
-### ASCII Diagrams
-
-Use diagrams when changes involve architecture, data flow, or state transitions.
-See [description-guide.md](reference/description-guide.md) for patterns and examples.
-
----
-
-## Platform Detection
-
-Prefer MCP tools if available, then CLI, then git commands.
-
-| Platform | Detection | CLI | MCP |
-|----------|-----------|-----|-----|
-| GitHub | `.git/config` contains github.com | `gh` | github MCP |
-| GitLab | `.git/config` contains gitlab | `glab` | gitlab MCP |
-
----
+**Match review depth to change complexity, not line count.**
 
 ## Reference
 
-- [reviewability.md](reference/reviewability.md) - Detailed reviewability criteria
-- [description-guide.md](reference/description-guide.md) - PR/MR description examples
-- [review-strategies.md](reference/review-strategies.md) - Review approaches by project type
-- [review-checklist.md](reference/review-checklist.md) - Language/framework checklists
-- [impact-analysis.md](reference/impact-analysis.md) - Change blast radius techniques
-- [progress-tracking.md](reference/progress-tracking.md) - Large review progress format
+Load these **as needed**, not upfront:
 
----
+- [reference/reviewability.md](reference/reviewability.md) - Detailed criteria
+- [reference/description-guide.md](reference/description-guide.md) - PR/MR examples
+- [reference/review-strategies.md](reference/review-strategies.md) - Approaches by context
+- [reference/review-checklist.md](reference/review-checklist.md) - Language-specific checks
+- [reference/impact-analysis.md](reference/impact-analysis.md) - Blast radius techniques
 
-## Notes
+## The Goal
 
-- **Never push** unless explicitly requested
-- **Stop early** if reviewability issues found
-- **Be specific** with file:line references
-- **Reviewer experience first** - clear > comprehensive
+The goal isn't to follow a checklist. It's to create changes that **reviewers can understand quickly and review confidently**.
+
+Reviewability is empathy. Put yourself in the reviewer's shoes.

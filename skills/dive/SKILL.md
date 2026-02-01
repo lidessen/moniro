@@ -7,152 +7,149 @@ description: Dives deep into project questions using layered investigation (docs
 
 Dives deep into your project to investigate any question, from business logic to technical implementation. Uses layered search strategy to find evidence-based answers backed by documentation and code.
 
-## Core Principle
+## Philosophy
 
-**Never guess or assume**. Every answer must be backed by concrete evidence from:
-- Documentation (README, design docs, comments)
-- Code (implementation, tests, configuration)
-- Project artifacts (commits, issues, PRs)
+### Why Dive?
 
-## Workflow
+Dive exists because **assumptions are dangerous**.
 
-When answering project questions, follow this layered search strategy:
+The core question isn't "how do I find the answer?" but "how do I know my answer is true?"
 
-### 1. Layer 1: Documentation Search
+```
+The Fundamental Problem:
+├── Memory is unreliable (yours and the codebase's docs)
+├── Code evolves faster than documentation
+├── "I think it works like..." is not evidence
+└── Only the current codebase tells the current truth
+```
 
-Search documentation first:
-- Project overview (README, ARCHITECTURE)
-- API specs (API.md, openapi.yaml)
-- Design decisions (ADR/, docs/design/)
+### Evidence Over Intuition
 
-See [reference/search-strategies.md](reference/search-strategies.md) for detailed patterns.
+```
+Intuition: "This probably uses X pattern"
+Dive:      "render.ts:273 shows reconcileKeyedChildren() implementation"
+```
 
-### 2. Layer 2: Code Search
+Intuition is a starting point, not an answer. Dive converts intuition into verified knowledge through evidence gathering.
 
-If documentation insufficient, search code:
-- Type definitions (interfaces, schemas, models)
-- Entry points (routes, handlers, main)
-- Implementation (core logic)
-- Tests (expected behavior)
-- Configuration (settings, env vars)
+### Layered Search: Why This Order?
 
-See [reference/code-search-patterns.md](reference/code-search-patterns.md) for techniques.
+```
+Layer 1: Documentation  → What the project CLAIMS to do
+Layer 2: Code           → What the project ACTUALLY does
+Layer 3: Deep Analysis  → HOW it all connects
+```
 
-### 3. Layer 3: Deep Analysis
+Why documentation first?
+- It's faster to read
+- It gives you vocabulary for code search
+- Discrepancies between docs and code are themselves findings
 
-For complex questions, use Task tool with Explore agent for:
-- End-to-end feature tracing
-- Cross-component dependencies
-- Codebase structure analysis
+Why code second?
+- Code is ground truth—it can't lie about what it does
+- Tests show expected behavior in executable form
+- Types reveal contracts and constraints
 
-### 4. Collect Evidence
+Why deep analysis last?
+- It's expensive (time, context)
+- Only needed when layers 1-2 don't converge
+- Cross-component questions need tracing
 
-Cite all sources with file:line format. Multiple sources strengthen answers (docs + code + tests).
+### Cross-Referencing Reveals Truth
 
-See [reference/evidence-collection.md](reference/evidence-collection.md) for formats and templates.
+When documentation says X but code does Y:
+- The code is always correct about behavior
+- The documentation reveals intent or outdated understanding
+- The discrepancy itself is valuable information
 
-### 5. Formulate Answer
+This is not a failure of search. It's a success—you found something real.
 
-Structure: Direct answer → Evidence (with file:line citations) → Summary.
+## Core Concepts
 
-Quality rules:
-- Start with direct answer
-- Cite specific file:line for all claims
-- Acknowledge uncertainty explicitly
-- Never guess without stating it
+### Evidence Has Hierarchy
 
-### 6. Handle Uncertainty
+Not all evidence is equal:
 
-If evidence insufficient, state what was searched, what was found, and what's missing. Offer next search steps. Never fabricate answers.
+| Source | Reliability | What it proves |
+|--------|-------------|----------------|
+| Running code | Highest | Current behavior |
+| Tests | High | Expected behavior |
+| Implementation | High | How it works |
+| Type definitions | Medium-High | Contracts |
+| Comments | Medium | Developer intent |
+| Documentation | Medium | Claimed behavior |
+| Commit messages | Low-Medium | Historical intent |
 
-## Question Categories
+Multiple sources agreeing = high confidence.
+Single source = verify with another layer.
 
-### Business Logic Questions
-"How does feature X work?"
-"What happens when user does Y?"
+### The Question Shapes the Search
 
-**Approach**: Documentation → API definitions → Implementation → Tests
+Different questions need different approaches:
 
-### Technical Implementation Questions
-"How is X implemented?"
-"What library/pattern is used for Y?"
+**"How does X work?"** → Start with code, verify with tests
+**"Why is X designed this way?"** → Start with docs/ADRs, check history
+**"What calls X?"** → Start with grep, trace references
+**"When did X change?"** → Start with git log, find the commit
 
-**Approach**: Code search → Configuration → Dependencies
+Don't apply the same search pattern to every question. Let the question guide you.
 
-### Architecture Questions
-"Why is X designed this way?"
-"How do components interact?"
+### Uncertainty is Information
 
-**Approach**: Architecture docs → Design docs → Code structure
+When you can't find clear evidence:
+- State what you searched
+- State what you found (even partial)
+- State what's missing
+- Offer hypotheses, clearly labeled as such
 
-### Debugging Questions
-"Where could bug X be coming from?"
-"What causes error Y?"
+"I couldn't find X" is a valid finding. It tells the next investigator where not to look.
 
-**Approach**: Error messages → Stack traces → Related code → Tests
+## The Dive Loop
 
-### Historical Questions
-"Why was X changed?"
-"When was Y introduced?"
+```
+1. Understand: What exactly is being asked?
+      ↓
+2. Search: Layer 1 → Layer 2 → Layer 3 (as needed)
+      ↓
+3. Collect: Gather evidence with file:line citations
+      ↓
+4. Synthesize: What do the sources tell us together?
+      ↓
+5. Respond: Direct answer + evidence + uncertainty
+```
 
-**Approach**: Git log → Commit messages → PR descriptions → Issues
+This isn't a checklist to follow blindly. It's a mental model for thorough investigation.
 
-## Quality Checklist
+## When Layers Conflict
 
-Before providing answer:
-- [ ] Question fully understood
-- [ ] Searched all relevant layers (docs → code → analysis)
-- [ ] Evidence collected from multiple sources
-- [ ] All sources cited with file:line references
-- [ ] Uncertainty acknowledged if exists
-- [ ] Answer directly addresses question
-- [ ] Response structured for clarity
+Documentation says one thing, code does another. This is common. Here's how to think about it:
 
-See [reference/examples.md](reference/examples.md) for detailed workflow examples.
+| Situation | What to trust | What to report |
+|-----------|---------------|----------------|
+| Docs outdated | Code | Note the discrepancy |
+| Feature removed | Code | Flag potential doc cleanup |
+| Docs wrong | Code | Recommend doc fix |
+| Code buggy | Neither | Flag as potential bug |
 
-## Advanced Techniques
+The key: **always report both**, let context determine action.
 
-### Cross-referencing
-When findings conflict, investigate deeper:
-- Check git history for changes
-- Review PR discussions for rationale
-- Look for deprecation notices
+## Reference
 
-### Pattern Recognition
-Identify project-specific patterns:
-- Naming conventions
-- Code organization
-- Architecture patterns
-- Common utilities
+Load these **as needed**, not upfront:
 
-Use discovered patterns to guide future searches.
+- [reference/search-strategies.md](reference/search-strategies.md) - Detailed search patterns
+- [reference/code-search-patterns.md](reference/code-search-patterns.md) - Code navigation techniques
+- [reference/evidence-collection.md](reference/evidence-collection.md) - Citation formats and templates
 
-### Context Building
-Maintain mental model of:
-- Project structure and boundaries
-- Key components and responsibilities
-- Common data flows
-- Critical business rules
+## Understanding, Not Rules
 
-Build this through repeated exploration, not assumptions.
+Instead of memorizing anti-patterns, understand the underlying tensions:
 
-## Anti-Patterns
+| Tension | Resolution |
+|---------|------------|
+| Speed vs Thoroughness | Match depth to stakes. Quick question? Layer 1 may suffice. Critical decision? Go deep. |
+| Confidence vs Evidence | Never state confidence without evidence. "I'm 90% sure" means nothing without sources. |
+| Intuition vs Verification | Use intuition to guide search, not to answer. Then verify. |
+| Completeness vs Relevance | Answer the question asked. Note related findings briefly, don't digress. |
 
-- ✗ Answering without searching first
-- ✗ Assuming based on "typical" practices
-- ✗ Citing memory instead of current codebase
-- ✗ Skipping documentation layer
-- ✗ Providing outdated information
-- ✗ Generalizing from single example
-- ✗ Ignoring test cases as evidence source
-
-## Additional Resources
-
-**Search Strategies**:
-- [reference/search-strategies.md](reference/search-strategies.md) - General search strategies for documentation and an introduction to code search
-
-**Code Search Patterns**:
-- [reference/code-search-patterns.md](reference/code-search-patterns.md) - Techniques for navigating codebases
-
-**Evidence Collection**:
-- [reference/evidence-collection.md](reference/evidence-collection.md) - Templates and best practices for gathering proof
+The goal isn't to follow a procedure. It's to **know when you know** something is true.
