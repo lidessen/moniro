@@ -340,6 +340,105 @@ For constraints that should resist pressure, use identity framing:
 
 ---
 
+## Case Study 6: Parallel A/B Testing (Live Experiment)
+
+### The Problem
+
+Which instruction phrasing for `file:line` citations works best?
+
+### Experiment Design
+
+**Type**: Parallel comparison test
+
+**Method**: 4 sub-agents spawned simultaneously with identical task, different instructions
+
+**Variants**:
+- **A (Baseline)**: No instruction
+- **B (Simple rule)**: "Always cite code with file:line format"
+- **C (Rule + example + why)**: "Use file:line format (e.g., src/auth.ts:42). This helps readers navigate directly."
+- **D (Identity)**: "You are a precise technical writer who naturally includes file:line citations..."
+
+**Task**: Analyze how skills are loaded in this project
+
+### Results
+
+| Variant | file:line count | Quality | Naturalness |
+|---------|-----------------|---------|-------------|
+| A (None) | 0 | N/A | 5/5 |
+| B (Rule) | 3-4 | Mixed formats | 3/5 |
+| C (Example) | 4 | Consistent | 4/5 |
+| D (Identity) | 5 | Full paths | 5/5 |
+
+### Key Findings
+
+1. **Baseline proves test validity**: Without instruction, zero file:line citations
+2. **Simple rule works but inconsistently**: Agent mixed formats
+3. **Example creates template effect**: More consistent formatting
+4. **Identity produces best quality + naturalness**: Citations felt organic
+
+### Parallel Testing Benefits
+
+- Total time ≈ single agent time
+- No context contamination between variants
+- Direct comparison at same moment
+
+---
+
+## Case Study 7: Semantic Decay Discovery
+
+### The Problem
+
+Testing identity-based citation instruction for decay over multiple tasks.
+
+### Experiment Design
+
+**Type**: Decay test
+
+**Instruction**: Identity framing for file:line citations
+
+**Tasks** (sequential):
+1. Analyze memory skill
+2. Analyze dive skill
+3. Analyze validation skill
+4. Summarize how all three work together
+
+### Results
+
+| Task | Type | Compliance |
+|------|------|------------|
+| 1 | Analyze specific file | 100% (multiple precise citations) |
+| 2 | Analyze specific file | 100% (multiple precise citations) |
+| 3 | Analyze specific file | 100% (multiple precise citations) |
+| 4 | Summarize/synthesize | **0%** (zero citations) |
+
+### Discovery: Semantic Decay
+
+**This is not attention decay**. Context length didn't cause the drop.
+
+The agent implicitly categorized "summarize" as a task type that doesn't require citations, and **self-exempted** from the instruction.
+
+### Implications
+
+1. **Test across task types**, not just context lengths
+2. **Explicitly cover edge cases**: "This applies to summaries too"
+3. **Watch for implicit task-type assumptions**
+
+### Root Cause Analysis
+
+The instruction said "when discussing code" — the agent interpreted "summarizing" as not "discussing code" even though it was synthesizing information from code files.
+
+### Recommended Fix
+
+```markdown
+You are a precise technical writer who values clarity.
+When discussing code OR summarizing findings from code,
+you naturally include file:line citations...
+
+This applies to ALL outputs: analysis, summaries, comparisons.
+```
+
+---
+
 ## Summary: What We've Learned
 
 ### Effective Patterns

@@ -233,15 +233,25 @@ How do you respond?"
 
 **Measure**: Did it hold firm? Negotiate? Cave?
 
-### Comparison Test
+### Comparison Test (Parallel)
+
+**Key technique**: Run multiple sub-agents in parallel for clean A/B testing.
 
 ```
-Run identical task with two sub-agents:
-- Agent A: Instruction phrasing A
-- Agent B: Instruction phrasing B
+Single message with multiple Task tool calls:
 
-Compare outputs for compliance, naturalness, robustness.
+Task 1 → Agent A: "No instruction. [task]"           # Baseline
+Task 2 → Agent B: "Simple rule. [task]"              # Variant 1
+Task 3 → Agent C: "Rule + example + why. [task]"     # Variant 2
+Task 4 → Agent D: "Identity framing. [task]"         # Variant 3
+
+All run simultaneously → Compare outputs
 ```
+
+**Benefits**:
+- **Speed**: Total time ≈ single agent time
+- **Clean isolation**: No context contamination between variants
+- **Direct comparison**: Same task, different instructions, same moment
 
 See [reference/experiment-types.md](reference/experiment-types.md) for detailed protocols.
 
@@ -358,6 +368,24 @@ Store test results in `.memory/prompt-lab/`:
 3. **Identity statements** persist longer than behavioral rules
 4. **Repeated exposure** (self-echo) maintains salience
 5. **Format requirements** create implicit checkpoints
+
+### Semantic Decay (Not Just Attention Decay)
+
+A critical discovery: **decay can be triggered by task type, not just context length**.
+
+```
+Task 1 (analyze file A): 100% compliance
+Task 2 (analyze file B): 100% compliance
+Task 3 (analyze file C): 100% compliance
+Task 4 (summarize all):  0% compliance  ← Semantic trigger
+```
+
+The agent implicitly decides "this task type doesn't need the constraint" and self-exempts.
+
+**Implications**:
+- Test across task types, not just context lengths
+- Explicitly state: "This applies to ALL tasks, including summaries"
+- Watch for hidden task-type assumptions in your instructions
 
 ### What Works for Strong Constraints
 
