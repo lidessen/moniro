@@ -107,8 +107,9 @@ These are the **essential techniques** from each skill. You don't need to invoke
 | memory | **Record for others**: You won't remember. Write so the next agent can continue. `context.md` = handoff, `notes/` = learnings. |
 | orientation | **Scan before act**: CLAUDE.md → README → .memory/context.md. Know what's here before deciding what to do. |
 | housekeeping | **Track debt, don't fix everything**: Note issues in `.memory/todos/`. Fix when it's blocking or quick. |
+| setup | **Bootstrap agent system**: Create CLAUDE.md (Who You Are + Methodology), .memory/ structure, first transmission doc. |
 
-Also available: `authoring-skills` (create skills), `frontend-init` (bootstrap frontend).
+Also available: `authoring-skills` (create skills), `frontend-init` (bootstrap frontend), `setup` (bootstrap agent system for new projects).
 
 ## Structure
 
