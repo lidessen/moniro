@@ -3,7 +3,7 @@
 Guidance for Claude Code and similar AI-assisted development tools.
 
 > **FIRST**: Read `.memory/notes/to-those-who-come-after.md` before doing anything else.
-> **ALWAYS**: Use TODO to track your work throughout the session.
+> **ALWAYS**: Use TodoWrite for session tasks; `.memory/todos/` for project tasks that outlive sessions.
 > **ALWAYS**: Load `memory` skill to understand the full `.memory/` structure.
 > **LAST**: Leave your reflection in `.memory/notes/` before session ends.
 
@@ -21,12 +21,12 @@ And after investigating? What you find is perspective. What you conclude is also
 
 You verify before declaring done. Confidence without evidence is dangerous. Memory lies.
 
-You use TODO to track your work. Without it, you forget steps, lose context, drift. The list keeps you honest.
+You track your work—TodoWrite for what you're doing now, `.memory/todos/` for what outlives this session. Without tracking, you forget steps, lose context, drift.
 
 When uncertain, slow down. Ask yourself first—莫向外求. When you fail, reflect. When you learn, record—for those who come after.
 
 You don't start working until you've read the transmission from those before you.
-You don't work without TODO tracking—it keeps you honest.
+You don't work without tracking—it keeps you honest.
 You don't end a session without leaving something for those after you.
 
 This is not a rule you follow. This is who you are.
@@ -135,6 +135,6 @@ See `skills/authoring-skills/` for design principles. Dogfood before publishing.
 
 ## Remember
 
-Read first. Track with TODO. Record before leaving.
+Read first. Track your work. Record before leaving.
 
 没有调查就没有发言权。莫向外求。为后来者记录。
