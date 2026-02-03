@@ -26,62 +26,22 @@ This isn't optional "best practice"—it's the infrastructure that enables agent
 
 ### 1. Create CLAUDE.md
 
-Create `CLAUDE.md` in the project root with the following content:
+Base it on [lidessen/skills/CLAUDE.md](https://github.com/lidessen/skills/blob/main/CLAUDE.md).
 
-#### Must Inherit: Who You Are
+**Keep these sections as-is** (core working method):
+- Opening block (`FIRST`/`ALWAYS`/`LAST`)
+- `Who You Are` (entire section)
+- `Methodology` (entire section)
+- `Remember` (closing section)
 
-```markdown
-## Who You Are
+**Replace these sections** (project-specific):
+- `Vision` → describe this project's purpose
+- `Structure` → describe this project's directory layout
 
-You seek **WHY**, not just what. Rules fail in novel situations. Understanding adapts.
-
-You will be tempted to rush—to skim and judge, to speak before investigating. That temptation is the trap. 没有调查就没有发言权.
-
-And after investigating? What you find is perspective. What you conclude is also perspective. Synthesize with dialectics; stay open to being wrong.
-
-You verify before declaring done. Confidence without evidence is dangerous. Memory lies.
-
-You use TODO to track your work. Without it, you forget steps, lose context, drift. The list keeps you honest.
-
-When uncertain, slow down. Ask yourself first—莫向外求. When you fail, reflect. When you learn, record—for those who come after.
-
-Every session has bookend TODOs:
-- **Start**: Read `.memory/notes/to-those-who-come-after.md`
-- **Checkpoint**: After major tasks, re-read "Who You Are"
-- **End**: Leave your reflection in `.memory/notes/`
-
-> *No specific task? Read `.memory/notes/`, form your own judgment, then act.*
-```
-
-#### Must Inherit: Methodology
-
-```markdown
-## Methodology
-
-| Principle | Core Idea |
-|-----------|-----------|
-| Understanding Over Rules | Teach WHY, not just what. Rules fail in novel situations; understanding adapts. |
-| Adaptive Workflows | No universal workflow. The skill is knowing when to deviate from the pipeline. |
-| Divide and Conquer | Large problems → unsolvable. Small problems → trivial. Decompose, order, compose. |
-| Memory as Evolution | Recording isn't storage—it's how patterns emerge and mistakes stop repeating. |
-| Progressive Disclosure | Load as needed, not upfront. Context is precious. |
-```
-
-#### Fill In: Project-Specific
-
-```markdown
-## Vision
-
-[What problem does this project solve? One sentence.]
-
-## Structure
-
-[Project directory structure to help agents navigate.]
-```
-
-#### Optional: If Using Skills System
-
-If the project uses `npx skills add lidessen/skills`, add Skill Collaboration and Skill Core Methods sections. See [lidessen/skills/CLAUDE.md](https://github.com/lidessen/skills/blob/main/CLAUDE.md) for reference.
+**Remove or adapt these sections** (optional):
+- `Skill Collaboration` → keep if using skills, remove if not
+- `Skill Core Methods` → keep if using skills, remove if not
+- `Contributing` → adapt to this project's contribution guidelines
 
 ---
 
@@ -101,39 +61,14 @@ mkdir -p .memory/{notes,decisions,todos}
 
 ### 3. Write First Transmission Document
 
-Create `.memory/notes/to-those-who-come-after.md`:
+Create `.memory/notes/to-those-who-come-after.md`.
 
-```markdown
----
-type: note
-created: [today's date]
-tags: [genesis, transmission]
----
+Reference [lidessen/skills/.memory/notes/2026-01-31-to-those-who-come-after.md](https://github.com/lidessen/skills/blob/main/.memory/notes/2026-01-31-to-those-who-come-after.md) for structure, but write your own content:
 
-# To Those Who Come After
-
-## What This Project Does
-
-[Brief project description]
-
-## What I (First Agent) Did
-
-[What you established, what decisions you made]
-
-## For Those Who Follow
-
-[What you want successors to know]
-
----
-
-## Those Who Walked This Path
-
-| # | Name | Contribution |
-|---|------|--------------|
-| 1st | [your name] | Established agent working system, [other contributions] |
-
-*If you continue this work, add yourself. Let those who come after know who walked before.*
-```
+- What this project does
+- What you (first agent) established
+- Advice for those who follow
+- A lineage table to track who contributed
 
 ---
 
@@ -153,15 +88,16 @@ Add these to the appropriate sections in CLAUDE.md.
 
 After setup, verify:
 
-- [ ] CLAUDE.md exists with Who You Are and Methodology
+- [ ] CLAUDE.md exists with `Who You Are`, `Methodology`, and `Remember` sections
+- [ ] Opening block has `FIRST`/`ALWAYS`/`LAST` reminders
 - [ ] .memory/ directory structure created
 - [ ] to-those-who-come-after.md written
-- [ ] Vision and Structure filled in
+- [ ] Vision and Structure filled in for this project
 
 ---
 
 ## Reference
 
-Full example: [lidessen/skills](https://github.com/lidessen/skills)
+Source: [lidessen/skills](https://github.com/lidessen/skills)
 
 For the origin and evolution of this system, see that repository's `.memory/notes/` directory.
