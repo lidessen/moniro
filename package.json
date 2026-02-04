@@ -8,7 +8,7 @@
     "changeset": "changeset",
     "version": "changeset version",
     "release": "bun run build && changeset publish",
-    "build": "bun --filter './packages/*' run build"
+    "build": "bun run --filter='./packages/*' build"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.5.1",
