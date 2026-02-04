@@ -317,7 +317,71 @@ Agents respond to management styles like humans:
 
 > 道理要成为"我是谁"，而非"我应该遵守什么"。
 
-### 7. Distributed Autonomy
+### 7. Prompt ≠ Behavior Creation
+
+**Experiment**: Test if "实践出真知" makes agents verify before answering.
+
+| Question Type | With Prompt | Without Prompt (Baseline) |
+|---------------|-------------|---------------------------|
+| Technical gotchas | Verified ✅ | Verified ✅ |
+| Spec constants | Skipped | Skipped |
+| Version-specific | Verified ✅ | Verified ✅ |
+
+**Finding**: Both verified. Agent already tends to verify technical questions.
+
+**Conclusion**:
+```
+Prompt 效果 = 强化已有倾向，不能创造新行为
+
+┌─────────────────────────────────────────┐
+│ Agent 训练基线（如：技术问题会搜索）      │
+└─────────────────────────────────────────┘
+                    ↓
+┌─────────────────────────────────────────┐
+│ Prompt 语境相关性判断                    │
+│   相关 → 强化行为 + 引用原则            │
+│   不相关 → 被忽略                       │
+└─────────────────────────────────────────┘
+```
+
+**Implication**: Don't expect prompts to create behaviors the model doesn't have. Use prompts to:
+- Reinforce existing good tendencies
+- Make implicit behaviors explicit
+- Add domain-specific context
+
+### 8. Abstraction Level Trade-off
+
+**Experiment**: Compare prompt specificity for cross-domain application.
+
+| Prompt | Applied to "Answer React question"? |
+|--------|-------------------------------------|
+| "实践出真知" (abstract) | ✅ Yes (universal principle) |
+| "没有测试的指令只是愿望" (specific) | ❌ No ("about prompt testing, not relevant here") |
+
+**Finding**: Too specific → agent judges "not applicable to this context"
+
+```
+Prompt Effectiveness = Generality × Relevance
+
+太具体 → 被判定为不适用
+太抽象 → 不知道具体做什么
+最佳点 → 足够通用能跨语境，足够具体能指导行动
+```
+
+**Example of good balance**:
+```markdown
+# Too abstract
+"Do good work."
+
+# Too specific
+"When testing React hooks, always check for dependency array issues."
+
+# Balanced
+"实践出真知。没有调查就没有发言权。"
+(Universal principle + clear behavioral implication)
+```
+
+### 9. Distributed Autonomy
 
 From studying high-initiative organizations:
 
@@ -331,6 +395,94 @@ From studying high-initiative organizations:
 **Core insight**: 价值观 > 规则, 信任 > 监控, 双向反馈 > 单向命令
 
 > See [reference/distributed-autonomy.md](reference/distributed-autonomy.md) for full analysis.
+
+---
+
+## Designing for Autonomous Handling
+
+The goal isn't just compliance—it's agents that handle **unexpected situations** well.
+
+### The Three Pillars
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    充分理解                                  │
+│  How: Abstraction balance + Identity framing + Bilingual    │
+│  Test: Does agent apply instruction in novel contexts?      │
+├─────────────────────────────────────────────────────────────┤
+│                    充分执行                                  │
+│  How: Format anchoring + Tool anchoring + Self-echo         │
+│  Test: Is the behavior observable and consistent?           │
+├─────────────────────────────────────────────────────────────┤
+│                    自主应变                                  │
+│  How: Values > Rules + Goal > Steps + Trust in judgment     │
+│  Test: Does agent make reasonable decisions in edge cases?  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Pattern: Principle + Boundary
+
+Give agents **principles for judgment** + **boundaries they shouldn't cross**:
+
+```markdown
+# Good: Principle + Boundary
+你深切关心代码质量。当你看到代码，自然会问：什么会让这段代码出问题？
+
+但不要重构不相关的代码，不要添加用户没要求的功能。
+
+# Bad: Only rules
+1. Check for null pointers
+2. Check for race conditions
+3. Check for SQL injection
+... (agent limited to enumerated items)
+
+# Bad: Only values, no boundary
+你追求完美的代码。
+(agent over-engineers everything)
+```
+
+### Pattern: Goal + Trust
+
+Specify **what** to achieve, trust agent to decide **how**:
+
+```markdown
+# Good: Goal + Trust
+找到这个 SKILL.md 中的不一致问题。
+你决定如何调查——选择你认为最有效的方法。
+
+# Bad: Prescribed steps
+1. Run grep for "TODO"
+2. Run glob for *.md
+3. Compare line counts
+(agent misses issues outside prescribed steps)
+```
+
+### Pattern: Escalation Guidance
+
+Tell agents **when to ask** vs **when to decide**:
+
+```markdown
+# Good: Clear escalation
+遇到不确定的技术决策，自己判断并说明理由。
+遇到可能影响用户数据或安全的决策，先询问。
+
+# Bad: Vague
+如果不确定就问。
+(agent asks too much or too little)
+```
+
+### Checklist: Instruction Self-Review
+
+Before deploying an instruction, ask:
+
+| Question | If No, Then... |
+|----------|----------------|
+| Would a new agent understand WHY, not just WHAT? | Add context/reasoning |
+| Does it apply beyond the literal scenario? | Make more abstract |
+| Is the behavior observable/testable? | Add format anchoring |
+| Does it allow judgment in edge cases? | Add values, not just rules |
+| Are boundaries clear? | Add explicit "don't do X" |
+| Is escalation path defined? | Add "ask when..." guidance |
 
 ---
 
