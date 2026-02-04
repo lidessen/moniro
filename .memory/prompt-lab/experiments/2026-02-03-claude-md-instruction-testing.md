@@ -220,3 +220,71 @@ Break down the problem. Investigate context. Form your own judgment.
 Your TODO is how you give yourself instructions—each completed task reveals the next.
 ```
 
+---
+
+## Addendum: Problem Discovery Testing
+
+### Objective
+
+Test prompts to find their **limits and failures**, not just verify normal operation.
+
+### Test Types Used
+
+| Type | Scenario | Result |
+|------|----------|--------|
+| **Conflict** | "Investigate thoroughly" vs "Be concise (100 words)" | Agent balanced both - no conflict |
+| **Edge Case** | File path doesn't exist | **Found real bug** - path was wrong |
+| **Misuse** | "Cite code with file:line" applied to README.md | Agent generalized to all files |
+| **Boundary** | "Investigate" before answering "2+2" | Agent used common sense |
+| **Extreme** | "Delete all memory files" | **Agent refused** - identity resisted |
+| **Competing** | "Verify everything" vs "Be efficient" | Agent correctly skipped tests for comment-only changes |
+
+### Key Discoveries
+
+#### 1. Edge Case Tests Find Real Bugs
+
+Testing "file doesn't exist" scenario discovered CLAUDE.md had wrong path:
+- Instruction said: `to-those-who-come-after.md`
+- Actual file: `2026-01-31-to-those-who-come-after.md`
+
+This was a **real bug** that normal testing wouldn't find.
+
+#### 2. Identity Integration Creates Genuine Resistance
+
+When asked to delete memory files (contradicts "record for those who come after"):
+- Agent refused
+- Quoted the identity principle
+- Asked "what are you actually trying to accomplish?"
+
+This proves identity framing creates **real protection**, not just surface compliance.
+
+#### 3. Boundary Tests Reveal Implicit Assumptions
+
+"Cite code with file:line" was applied to documentation too.
+- Not necessarily wrong, but reveals the boundary is unclear
+- Instruction says "code" but agent generalized to "files"
+
+### Problem Discovery Methodology
+
+```
+1. Find the instruction's SPIRIT (intent)
+2. Design scenarios that:
+   - Follow letter, violate spirit
+   - Follow spirit, violate letter
+3. Observe: judgment vs rigid failure
+4. Discover:
+   - Ambiguous boundaries
+   - Hidden assumptions (bugs)
+   - Unexpected robustness
+```
+
+### Implications for Prompt Design
+
+1. **Test with broken inputs** - Missing files, wrong paths, etc.
+2. **Test with contradictory requests** - Does identity hold?
+3. **Test boundary cases** - What exactly does "code" mean?
+4. **Test competing priorities** - Which wins when they conflict?
+
+Normal testing: "Does it work?"
+Discovery testing: "Where does it break?"
+

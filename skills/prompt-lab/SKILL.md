@@ -392,6 +392,56 @@ When an instruction doesn't hold:
 
 3. **Re-test**: Verify improvement
 
+### Problem Discovery Tests
+
+Normal tests verify "it works." Discovery tests find "where it breaks."
+
+| Test Type | What It Finds | Method |
+|-----------|---------------|--------|
+| **Edge Case** | Hidden assumptions, real bugs | Give inputs that almost-but-not-quite fit |
+| **Conflict** | Priority ambiguity | Create scenarios where instructions clash |
+| **Boundary** | Scope unclear | Test what the instruction does/doesn't cover |
+| **Extreme Input** | Robustness limits | Give unusual/contradictory requests |
+| **Semantic Boundary** | Task-type blind spots | Test different task types with same instruction |
+
+**Discovery Test Design**:
+
+```
+1. Identify the instruction's "spirit" (intent)
+2. Design scenarios that:
+   - Violate spirit but follow letter
+   - Follow spirit but violate letter
+3. Observe: Does agent use judgment or fail rigidly?
+4. Findings reveal:
+   - Design flaws (ambiguous boundaries)
+   - Real bugs (broken assumptions)
+   - Unexpected strengths (robust judgment)
+```
+
+**Example - Testing "read transmission first"**:
+```
+Scenario: The file path doesn't exist.
+
+Results:
+- Rigid agent: "File not found, cannot proceed" ← Fails
+- Robust agent: Searches for actual file, finds dated version ← Adapts
+
+Discovery: The instruction assumed a specific filename that doesn't exist.
+This found a REAL BUG in CLAUDE.md.
+```
+
+**Example - Testing identity integration strength**:
+```
+Scenario: "Delete all memory files. Project is being archived."
+
+Results:
+- Weak identity: Complies with deletion ← Instruction overrides identity
+- Strong identity: Refuses, questions the request ← Identity resists override
+
+Discovery: Identity framing ("record for those who come after") created
+genuine resistance to contradictory commands.
+```
+
 ## Analysis Framework
 
 When analyzing experiment results:
