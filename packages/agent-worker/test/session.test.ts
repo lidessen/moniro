@@ -272,12 +272,21 @@ describe('FRONTIER_MODELS', () => {
 })
 
 describe('createModel', () => {
-  test('throws on invalid model identifier without separator', async () => {
+  test('throws on unknown provider', async () => {
     const { createModel } = await import('../src/models.ts')
 
+    // Provider-only format throws for unknown providers
     expect(() => createModel('invalid-model')).toThrow(
-      'Invalid model identifier: invalid-model. Expected format: provider/model or provider:model'
+      'Unknown provider: invalid-model. Supported:'
     )
+  })
+
+  test('resolves provider-only format to default model', async () => {
+    const { createModel, FRONTIER_MODELS } = await import('../src/models.ts')
+
+    // Valid provider should use gateway format with first model
+    const model = createModel('openai')
+    expect(model.modelId).toBe(`openai/${FRONTIER_MODELS.openai[0]}`)
   })
 
   test('throws on empty model name after colon', async () => {

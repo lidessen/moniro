@@ -28,34 +28,32 @@ async function loadProvider(
 /**
  * Parse model identifier and return the appropriate provider model
  *
- * Supports two formats:
+ * Supports three formats:
  *
- * 1. Gateway format (recommended): creator/model-name
+ * 1. Provider-only format: provider
+ *    Uses first (most commonly used) model from FRONTIER_MODELS via gateway
+ *
+ *    Examples:
+ *    - anthropic  → anthropic/claude-sonnet-4-5
+ *    - openai     → openai/gpt-4o
+ *    - deepseek   → deepseek/deepseek-chat
+ *
+ * 2. Gateway format: provider/model-name
  *    Uses Vercel AI Gateway, works out of the box with AI_GATEWAY_API_KEY
  *
  *    Examples:
  *    - anthropic/claude-sonnet-4-5
- *    - anthropic/claude-opus-4-5
- *    - openai/gpt-5.2
+ *    - openai/gpt-4o
  *    - google/gemini-2.5-flash
  *    - deepseek/deepseek-chat
- *    - xai/grok-4
- *    - mistral/mistral-large-latest
- *    - groq/llama-3.3-70b-versatile
- *    - minimax/MiniMax-M2
  *
- * 2. Direct provider format: provider:model-name
+ * 3. Direct provider format: provider:model-name
  *    Requires installing the specific @ai-sdk/provider package
  *
  *    Examples:
  *    - anthropic:claude-sonnet-4-5      (requires @ai-sdk/anthropic)
- *    - openai:gpt-5.2                   (requires @ai-sdk/openai)
+ *    - openai:gpt-4o                    (requires @ai-sdk/openai)
  *    - deepseek:deepseek-chat           (requires @ai-sdk/deepseek)
- *    - google:gemini-2.5-flash          (requires @ai-sdk/google)
- *    - groq:llama-3.3-70b-versatile     (requires @ai-sdk/groq)
- *    - mistral:mistral-large-latest     (requires @ai-sdk/mistral)
- *    - xai:grok-4                       (requires @ai-sdk/xai)
- *    - minimax:MiniMax-M2               (requires vercel-minimax-ai-provider)
  */
 export function createModel(modelId: string): LanguageModel {
   // Check if it's gateway format (contains /)
@@ -63,13 +61,20 @@ export function createModel(modelId: string): LanguageModel {
     return gateway(modelId)
   }
 
-  // Direct provider format (contains :)
-  const colonIndex = modelId.indexOf(':')
-  if (colonIndex === -1) {
+  // Check if it's provider-only format (no / or :)
+  if (!modelId.includes(':')) {
+    const provider = modelId as keyof typeof FRONTIER_MODELS
+    if (provider in FRONTIER_MODELS) {
+      const defaultModel = FRONTIER_MODELS[provider][0]
+      return gateway(`${provider}/${defaultModel}`)
+    }
     throw new Error(
-      `Invalid model identifier: ${modelId}. Expected format: provider/model or provider:model`
+      `Unknown provider: ${modelId}. Supported: ${Object.keys(FRONTIER_MODELS).join(', ')}`
     )
   }
+
+  // Direct provider format (contains :)
+  const colonIndex = modelId.indexOf(':')
 
   const provider = modelId.slice(0, colonIndex)
   const modelName = modelId.slice(colonIndex + 1)
@@ -102,13 +107,20 @@ export async function createModelAsync(modelId: string): Promise<LanguageModel> 
     return gateway(modelId)
   }
 
-  // Direct provider format (contains :)
-  const colonIndex = modelId.indexOf(':')
-  if (colonIndex === -1) {
+  // Check if it's provider-only format (no / or :)
+  if (!modelId.includes(':')) {
+    const provider = modelId as keyof typeof FRONTIER_MODELS
+    if (provider in FRONTIER_MODELS) {
+      const defaultModel = FRONTIER_MODELS[provider][0]
+      return gateway(`${provider}/${defaultModel}`)
+    }
     throw new Error(
-      `Invalid model identifier: ${modelId}. Expected format: provider/model or provider:model`
+      `Unknown provider: ${modelId}. Supported: ${Object.keys(FRONTIER_MODELS).join(', ')}`
     )
   }
+
+  // Direct provider format (contains :)
+  const colonIndex = modelId.indexOf(':')
 
   const provider = modelId.slice(0, colonIndex)
   const modelName = modelId.slice(colonIndex + 1)
@@ -162,39 +174,53 @@ export const SUPPORTED_PROVIDERS = [
 export type SupportedProvider = (typeof SUPPORTED_PROVIDERS)[number]
 
 /**
+ * Default provider when none specified
+ */
+export const DEFAULT_PROVIDER = 'anthropic' as const
+
+/**
+ * Get the default model identifier (provider/model format)
+ * Uses the first model from the default provider
+ */
+export function getDefaultModel(): string {
+  return `${DEFAULT_PROVIDER}/${FRONTIER_MODELS[DEFAULT_PROVIDER][0]}`
+}
+
+/**
  * Frontier models for each provider (as of 2026-02)
+ * NOTE: First model in each array is the most commonly used (not necessarily the best)
  */
 export const FRONTIER_MODELS = {
-  // Anthropic Claude models
+  // Anthropic Claude models - sonnet is most commonly used (good balance of cost/performance)
   anthropic: [
-    'claude-opus-4-5',
     'claude-sonnet-4-5',
     'claude-haiku-4-5',
+    'claude-opus-4-5',
     'claude-sonnet-4-0',
     'claude-3-7-sonnet-latest',
   ],
-  // OpenAI GPT models
-  openai: ['gpt-5.2-pro', 'gpt-5.2', 'gpt-5.1', 'gpt-5', 'gpt-4o', 'gpt-4o-mini'],
-  // Google Gemini models
-  google: ['gemini-3-pro-preview', 'gemini-2.5-pro', 'gemini-2.5-flash'],
-  // DeepSeek models
+  // OpenAI GPT models - gpt-5.2 is the new standard
+  openai: ['gpt-5.2', 'gpt-5.2-pro', 'gpt-5.1', 'gpt-5', 'gpt-4o', 'gpt-4o-mini', 'codex-2'],
+  // Google Gemini models - flash is most commonly used (fast, cost-effective)
+  google: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-pro-preview'],
+  // DeepSeek models - chat is the standard choice
   deepseek: ['deepseek-chat', 'deepseek-reasoner'],
-  // Groq-hosted models
+  // Groq-hosted models - llama-3.3-70b is the go-to
   groq: [
-    'meta-llama/llama-4-scout-17b-16e-instruct',
     'llama-3.3-70b-versatile',
+    'meta-llama/llama-4-scout-17b-16e-instruct',
     'deepseek-r1-distill-llama-70b',
     'qwen-qwq-32b',
   ],
-  // Mistral models
+  // Mistral models - small is most commonly used (cost-effective)
   mistral: [
-    'pixtral-large-latest',
-    'mistral-large-latest',
-    'magistral-medium-2506',
     'mistral-small-latest',
+    'mistral-large-latest',
+    'pixtral-large-latest',
+    'magistral-medium-2506',
   ],
-  // xAI Grok models
-  xai: ['grok-4', 'grok-4-fast-reasoning', 'grok-3', 'grok-3-fast', 'grok-3-mini'],
+  // xAI Grok models - grok-3 is more established
+  xai: ['grok-3', 'grok-3-fast', 'grok-3-mini', 'grok-4', 'grok-4-fast-reasoning'],
   // MiniMax models
   minimax: ['MiniMax-M2', 'MiniMax-M2-Stable'],
 } as const

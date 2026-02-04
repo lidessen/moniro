@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import type { ToolDefinition } from '../types.ts'
-import { FRONTIER_MODELS } from '../models.ts'
+import { FRONTIER_MODELS, getDefaultModel, DEFAULT_PROVIDER } from '../models.ts'
 import { sendRequest, isSessionActive } from './client.ts'
 import {
   startServer,
@@ -28,7 +28,7 @@ const sessionCmd = program.command('session').description('Manage sessions')
 sessionCmd
   .command('new')
   .description('Create a new session')
-  .requiredOption('-m, --model <model>', 'Model identifier')
+  .option('-m, --model <model>', `Model identifier (default: ${getDefaultModel()})`)
   .option('-s, --system <prompt>', 'System prompt', 'You are a helpful assistant.')
   .option('-f, --system-file <file>', 'Read system prompt from file')
   .option('-n, --name <name>', 'Session name for easy reference')
@@ -40,12 +40,15 @@ sessionCmd
       system = readFileSync(options.systemFile, 'utf-8')
     }
 
+    // Use default model if not specified
+    const model = options.model || getDefaultModel()
+
     const idleTimeout = parseInt(options.idleTimeout, 10)
 
     if (options.foreground) {
-      startServer({ model: options.model, system, name: options.name, idleTimeout })
+      startServer({ model, system, name: options.name, idleTimeout })
     } else {
-      const args = [process.argv[1], 'session', 'new', '-m', options.model, '-s', system, '--foreground']
+      const args = [process.argv[1], 'session', 'new', '-m', model, '-s', system, '--foreground']
       if (options.name) {
         args.push('-n', options.name)
       }
@@ -581,16 +584,23 @@ program
       const status = isConfigured ? '✓' : '✗'
       const statusText = isConfigured ? '' : ' (not configured)'
       const envHint = isConfigured ? '' : ` [${config.envVar}]`
-      console.log(`  ${status} ${name.padEnd(10)} - ${config.description}${statusText}${envHint}`)
+      // Show default model for each provider
+      const defaultModel = name === 'gateway'
+        ? ''
+        : ` → ${name}/${FRONTIER_MODELS[name as keyof typeof FRONTIER_MODELS]?.[0] || '?'}`
+      console.log(`  ${status} ${name.padEnd(10)} - ${config.description}${statusText}${envHint}${defaultModel}`)
     }
 
     // Get example models from FRONTIER_MODELS
+    const defaultModel = getDefaultModel()
     const gatewayExample = `openai/${FRONTIER_MODELS.openai[0]}`
     const directExample = `deepseek:${FRONTIER_MODELS.deepseek[0]}`
 
     console.log('\nUsage:')
-    console.log(`  Gateway format:  provider/model  (e.g., ${gatewayExample})`)
-    console.log(`  Direct format:   provider:model  (e.g., ${directExample})`)
+    console.log(`  Provider only:   provider         (e.g., openai → ${gatewayExample})`)
+    console.log(`  Gateway format:  provider/model   (e.g., ${gatewayExample})`)
+    console.log(`  Direct format:   provider:model   (e.g., ${directExample})`)
+    console.log(`\nDefault: ${defaultModel} (when no model specified)`)
   })
 
 program.parse()
