@@ -7,8 +7,26 @@ export {
   createBashToolsFromDirectory,
   createBashToolsFromFiles,
 } from './bash-tools.ts'
+export {
+  createBackend,
+  checkBackends,
+  listBackends,
+  ClaudeCliBackend,
+  CodexCliBackend,
+  SdkBackend,
+} from './backends/index.ts'
 export type { SupportedProvider } from './models.ts'
 export type { BashToolkit, BashToolsOptions, CreateBashToolOptions } from './bash-tools.ts'
+export type {
+  Backend,
+  BackendType,
+  BackendConfig,
+  BackendResponse,
+  BackendOptions,
+  ClaudeCliOptions,
+  CodexCliOptions,
+  SdkBackendOptions,
+} from './backends/index.ts'
 export type {
   AgentMessage,
   AgentResponse,

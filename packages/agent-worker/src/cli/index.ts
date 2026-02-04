@@ -602,4 +602,26 @@ program
     console.log(`\nDefault: ${defaultModel} (when no model specified)`)
   })
 
+// Backends command
+program
+  .command('backends')
+  .description('Check available backends (SDK, CLI tools)')
+  .action(async () => {
+    const { listBackends } = await import('../backends/index.ts')
+    const backends = await listBackends()
+
+    console.log('Backend Status:\n')
+
+    for (const backend of backends) {
+      const status = backend.available ? '✓' : '✗'
+      const statusText = backend.available ? '' : ' (not installed)'
+      console.log(`  ${status} ${backend.type.padEnd(8)} - ${backend.name}${statusText}`)
+    }
+
+    console.log('\nUsage:')
+    console.log('  SDK backend:    agent-worker session new -m openai/gpt-5.2')
+    console.log('  Claude CLI:     agent-worker session new --backend claude')
+    console.log('  Codex CLI:      agent-worker session new --backend codex')
+  })
+
 program.parse()
