@@ -1,0 +1,47 @@
+{
+  "name": "agent-prompt",
+  "version": "0.0.1",
+  "description": "SDK for controlled agent prompt testing with Vercel AI SDK",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "dev": "tsdown --watch",
+    "build": "tsdown",
+    "lint": "oxlint src",
+    "lint:fix": "oxlint src --fix",
+    "format": "oxfmt src",
+    "format:check": "oxfmt src --check",
+    "typecheck": "tsgo",
+    "prepublishOnly": "bun run build"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@typescript/native-preview": "^7.0.0-dev.20260203.1",
+    "oxfmt": "^0.28.0",
+    "oxlint": "^1.43.0",
+    "tsdown": "^0.20.1"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.36",
+    "@ai-sdk/openai": "^3.0.25",
+    "ai": "^6.0.69"
+  }
+}
