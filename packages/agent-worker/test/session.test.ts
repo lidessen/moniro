@@ -1166,3 +1166,115 @@ describe('tool approval workflow', () => {
     )
   })
 })
+
+describe('Backend factory', () => {
+  test('createBackend creates SDK backend', async () => {
+    const { createBackend } = await import('../src/backends/index.ts')
+
+    const backend = createBackend({ type: 'sdk', model: 'openai/gpt-5.2' })
+    expect(backend.type).toBe('sdk')
+    expect(backend.getInfo().name).toBe('Vercel AI SDK')
+    expect(backend.getInfo().model).toBe('openai/gpt-5.2')
+  })
+
+  test('createBackend creates Claude CLI backend', async () => {
+    const { createBackend } = await import('../src/backends/index.ts')
+
+    const backend = createBackend({ type: 'claude', model: 'sonnet' })
+    expect(backend.type).toBe('claude')
+    expect(backend.getInfo().name).toBe('Claude Code CLI')
+    expect(backend.getInfo().model).toBe('sonnet')
+  })
+
+  test('createBackend creates Codex CLI backend', async () => {
+    const { createBackend } = await import('../src/backends/index.ts')
+
+    const backend = createBackend({ type: 'codex', model: 'o3' })
+    expect(backend.type).toBe('codex')
+    expect(backend.getInfo().name).toBe('OpenAI Codex CLI')
+  })
+
+  test('createBackend creates Cursor CLI backend', async () => {
+    const { createBackend } = await import('../src/backends/index.ts')
+
+    const backend = createBackend({ type: 'cursor' })
+    expect(backend.type).toBe('cursor')
+    expect(backend.getInfo().name).toBe('Cursor Agent CLI')
+  })
+
+  test('createBackend throws for unknown type', async () => {
+    const { createBackend } = await import('../src/backends/index.ts')
+
+    expect(() =>
+      createBackend({ type: 'invalid' as 'sdk', model: 'test' })
+    ).toThrow('Unknown backend type: invalid')
+  })
+
+  test('checkBackends returns availability map', async () => {
+    const { checkBackends } = await import('../src/backends/index.ts')
+
+    const availability = await checkBackends()
+    expect(availability).toHaveProperty('sdk')
+    expect(availability).toHaveProperty('claude')
+    expect(availability).toHaveProperty('codex')
+    expect(availability).toHaveProperty('cursor')
+    expect(availability.sdk).toBe(true) // SDK is always available
+  })
+
+  test('listBackends returns backend info array', async () => {
+    const { listBackends } = await import('../src/backends/index.ts')
+
+    const backends = await listBackends()
+    expect(backends).toHaveLength(4)
+    expect(backends.map((b) => b.type)).toEqual(['sdk', 'claude', 'codex', 'cursor'])
+    expect(backends[0].name).toBe('Vercel AI SDK')
+  })
+})
+
+describe('CLI backend implementations', () => {
+  test('ClaudeCliBackend builds correct args', async () => {
+    const { ClaudeCliBackend } = await import('../src/backends/claude-cli.ts')
+
+    const backend = new ClaudeCliBackend({
+      model: 'opus',
+      outputFormat: 'json',
+      continue: true,
+    })
+
+    expect(backend.type).toBe('claude')
+    expect(backend.getInfo().model).toBe('opus')
+  })
+
+  test('CodexCliBackend builds correct args', async () => {
+    const { CodexCliBackend } = await import('../src/backends/codex-cli.ts')
+
+    const backend = new CodexCliBackend({
+      model: 'o3',
+      approvalMode: 'full-auto',
+    })
+
+    expect(backend.type).toBe('codex')
+    expect(backend.getInfo().model).toBe('o3')
+  })
+
+  test('CursorCliBackend builds correct args', async () => {
+    const { CursorCliBackend } = await import('../src/backends/cursor-cli.ts')
+
+    const backend = new CursorCliBackend({
+      model: 'gpt-5.2',
+    })
+
+    expect(backend.type).toBe('cursor')
+    expect(backend.getInfo().model).toBe('gpt-5.2')
+  })
+
+  test('SdkBackend getInfo returns correct info', async () => {
+    const { SdkBackend } = await import('../src/backends/sdk.ts')
+
+    const backend = new SdkBackend({ model: 'anthropic/claude-sonnet-4-5' })
+    const info = backend.getInfo()
+
+    expect(info.name).toBe('Vercel AI SDK')
+    expect(info.model).toBe('anthropic/claude-sonnet-4-5')
+  })
+})
