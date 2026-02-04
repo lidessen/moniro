@@ -5,11 +5,13 @@ const providerCache: Record<string, ((model: string) => LanguageModel) | null> =
 
 /**
  * Lazy load a provider, caching the result
+ * Supports custom baseURL for providers using compatible APIs (e.g., MiniMax using Claude API)
  */
 async function loadProvider(
   name: string,
   packageName: string,
-  exportName: string
+  exportName: string,
+  baseURL?: string
 ): Promise<((model: string) => LanguageModel) | null> {
   if (name in providerCache) {
     return providerCache[name]
@@ -17,6 +19,15 @@ async function loadProvider(
 
   try {
     const module = await import(packageName)
+    // If baseURL is provided, create provider instance with custom baseURL
+    if (baseURL) {
+      const createProvider = module[`create${exportName.charAt(0).toUpperCase() + exportName.slice(1)}`]
+      if (createProvider) {
+        const provider = createProvider({ baseURL })
+        providerCache[name] = provider
+        return providerCache[name]
+      }
+    }
     providerCache[name] = module[exportName]
     return providerCache[name]
   } catch {
@@ -116,7 +127,7 @@ export async function createModelAsync(modelId: string): Promise<LanguageModel> 
     throw new Error(`Invalid model identifier: ${modelId}. Model name is required.`)
   }
 
-  const providerConfigs: Record<string, { package: string; export: string }> = {
+  const providerConfigs: Record<string, { package: string; export: string; baseURL?: string }> = {
     anthropic: { package: '@ai-sdk/anthropic', export: 'anthropic' },
     openai: { package: '@ai-sdk/openai', export: 'openai' },
     deepseek: { package: '@ai-sdk/deepseek', export: 'deepseek' },
@@ -124,7 +135,8 @@ export async function createModelAsync(modelId: string): Promise<LanguageModel> 
     groq: { package: '@ai-sdk/groq', export: 'groq' },
     mistral: { package: '@ai-sdk/mistral', export: 'mistral' },
     xai: { package: '@ai-sdk/xai', export: 'xai' },
-    minimax: { package: 'vercel-minimax-ai-provider', export: 'minimax' },
+    // MiniMax uses Claude-compatible API (requires MINIMAX_API_KEY)
+    minimax: { package: '@ai-sdk/anthropic', export: 'anthropic', baseURL: 'https://api.minimax.chat/v1' },
   }
 
   const config = providerConfigs[provider]
@@ -136,7 +148,7 @@ export async function createModelAsync(modelId: string): Promise<LanguageModel> 
     )
   }
 
-  const providerFn = await loadProvider(provider, config.package, config.export)
+  const providerFn = await loadProvider(provider, config.package, config.export, config.baseURL)
   if (!providerFn) {
     throw new Error(`Install ${config.package} to use ${provider} models directly`)
   }
@@ -146,6 +158,7 @@ export async function createModelAsync(modelId: string): Promise<LanguageModel> 
 
 /**
  * List of supported providers for direct access
+ * Note: minimax uses Claude-compatible API via @ai-sdk/anthropic with custom baseURL
  */
 export const SUPPORTED_PROVIDERS = [
   'anthropic',

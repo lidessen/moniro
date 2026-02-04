@@ -110,7 +110,7 @@ export class ClaudeCliBackend implements Backend {
     }
 
     if (this.options.allowedTools?.length) {
-      args.push('--allowedTools', this.options.allowedTools.join(','))
+      args.push('--allowed-tools', this.options.allowedTools.join(','))
     }
 
     if (this.options.outputFormat) {
