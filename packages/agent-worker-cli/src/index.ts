@@ -2,6 +2,7 @@
 import { Command } from 'commander'
 import { readFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
+import { join } from 'node:path'
 import type { ToolDefinition } from 'agent-worker'
 import { sendRequest, isSessionActive } from './client.ts'
 import {
@@ -238,6 +239,38 @@ toolCmd
     if (res.success) {
       const approvalNote = options.needsApproval ? ' (needs approval)' : ''
       console.log(`Tool added: ${name}${approvalNote}`)
+    } else {
+      console.error('Error:', res.error)
+      process.exit(1)
+    }
+  })
+
+toolCmd
+  .command('import <file>')
+  .description('Import tools from JS/TS file')
+  .option('--to <target>', 'Target session')
+  .action(async (file, options) => {
+    const target = options.to
+
+    if (!isSessionActive(target)) {
+      console.error(target ? `Session not found: ${target}` : 'No active session')
+      process.exit(1)
+    }
+
+    // Resolve to absolute path
+    const filePath = file.startsWith('/') ? file : join(process.cwd(), file)
+
+    const res = await sendRequest({
+      action: 'tool_import',
+      payload: { filePath },
+    }, target)
+
+    if (res.success) {
+      const data = res.data as { imported: string[] }
+      console.log(`Imported ${data.imported.length} tool(s):`)
+      for (const name of data.imported) {
+        console.log(`  ${name}`)
+      }
     } else {
       console.error('Error:', res.error)
       process.exit(1)

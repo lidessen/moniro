@@ -181,6 +181,39 @@ async function handleRequest(req: Request): Promise<Response> {
         return { success: true, data: tools }
       }
 
+      case 'tool_import': {
+        const { filePath } = req.payload as { filePath: string }
+
+        // Dynamic import the file
+        const module = await import(filePath)
+
+        // Extract tools from module (support default export or named 'tools')
+        let tools: ToolDefinition[] = []
+        if (Array.isArray(module.default)) {
+          tools = module.default
+        } else if (typeof module.default === 'function') {
+          // Support async factory function
+          const result = await module.default()
+          tools = Array.isArray(result) ? result : []
+        } else if (Array.isArray(module.tools)) {
+          tools = module.tools
+        } else {
+          return { success: false, error: 'No tools found. Export default array or named "tools" array.' }
+        }
+
+        // Validate and add tools
+        const imported: string[] = []
+        for (const tool of tools) {
+          if (!tool.name || !tool.description || !tool.parameters) {
+            continue // Skip invalid tools
+          }
+          session.addTool(tool)
+          imported.push(tool.name)
+        }
+
+        return { success: true, data: { imported } }
+      }
+
       case 'history':
         return { success: true, data: session.history() }
 
