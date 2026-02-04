@@ -1,46 +1,15 @@
 {
   "name": "agent-prompt-cli",
-  "version": "0.0.1",
-  "description": "CLI for controlled agent prompt testing",
+  "module": "index.ts",
   "type": "module",
-  "bin": {
-    "agent-prompt": "./dist/index.mjs"
-  },
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.mts",
-  "exports": {
-    ".": {
-      "import": {
-        "types": "./dist/index.d.mts",
-        "default": "./dist/index.mjs"
-      },
-      "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
-      }
-    }
-  },
-  "files": ["dist"],
-  "scripts": {
-    "dev": "bun run src/index.ts",
-    "build": "tsdown",
-    "lint": "oxlint src",
-    "lint:fix": "oxlint src --fix",
-    "typecheck": "tsgo",
-    "prepublishOnly": "bun run build"
-  },
-  "dependencies": {
-    "commander": "^13.0.0",
-    "agent-prompt": "workspace:*"
-  },
+  "private": true,
   "devDependencies": {
-    "@types/bun": "latest",
-    "@typescript/native-preview": "^7.0.0-dev.20260203.1",
-    "oxlint": "^1.43.0",
-    "tsdown": "^0.20.1"
+    "@types/bun": "latest"
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "commander": "^14.0.3"
   }
 }
