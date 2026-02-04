@@ -322,6 +322,64 @@ describe('createModel', () => {
     expect(model).toBeDefined()
     expect(model.modelId).toBe('openai/gpt-5.2')
   })
+
+  test('createModelAsync handles gateway format', async () => {
+    const { createModelAsync } = await import('../src/models.ts')
+
+    const model = await createModelAsync('anthropic/claude-sonnet-4-5')
+    expect(model).toBeDefined()
+    expect(model.modelId).toBe('anthropic/claude-sonnet-4-5')
+  })
+
+  test('createModelAsync handles provider-only format', async () => {
+    const { createModelAsync, FRONTIER_MODELS } = await import('../src/models.ts')
+
+    const model = await createModelAsync('anthropic')
+    expect(model).toBeDefined()
+    expect(model.modelId).toBe(`anthropic/${FRONTIER_MODELS.anthropic[0]}`)
+  })
+
+  test('createModelAsync throws on unknown provider-only format', async () => {
+    const { createModelAsync } = await import('../src/models.ts')
+
+    await expect(createModelAsync('invalid-provider')).rejects.toThrow(
+      'Unknown provider: invalid-provider. Supported:'
+    )
+  })
+
+  test('createModelAsync throws on empty model name', async () => {
+    const { createModelAsync } = await import('../src/models.ts')
+
+    await expect(createModelAsync('openai:')).rejects.toThrow(
+      'Invalid model identifier: openai:. Model name is required.'
+    )
+  })
+
+  test('getDefaultModel returns correct format', async () => {
+    const { getDefaultModel, DEFAULT_PROVIDER, FRONTIER_MODELS } = await import('../src/models.ts')
+
+    const defaultModel = getDefaultModel()
+    expect(defaultModel).toBe(`${DEFAULT_PROVIDER}/${FRONTIER_MODELS[DEFAULT_PROVIDER][0]}`)
+  })
+
+  test('all providers in SUPPORTED_PROVIDERS have frontier models', async () => {
+    const { SUPPORTED_PROVIDERS, FRONTIER_MODELS } = await import('../src/models.ts')
+
+    for (const provider of SUPPORTED_PROVIDERS) {
+      expect(FRONTIER_MODELS[provider]).toBeDefined()
+      expect(Array.isArray(FRONTIER_MODELS[provider])).toBe(true)
+      expect(FRONTIER_MODELS[provider].length).toBeGreaterThan(0)
+    }
+  })
+
+  test('all providers can be resolved via provider-only format', async () => {
+    const { createModel, SUPPORTED_PROVIDERS, FRONTIER_MODELS } = await import('../src/models.ts')
+
+    for (const provider of SUPPORTED_PROVIDERS) {
+      const model = createModel(provider)
+      expect(model.modelId).toBe(`${provider}/${FRONTIER_MODELS[provider][0]}`)
+    }
+  })
 })
 
 describe('AgentSession advanced', () => {
@@ -809,5 +867,302 @@ describe('tool approval workflow', () => {
 
     expect(session.getPendingApprovals()).toHaveLength(1)
     expect(session.getPendingApprovals()[0].toolName).toBe('test_tool')
+  })
+
+  test('getTools returns tool definitions without execute', () => {
+    const session = new AgentSession({
+      model: 'openai/gpt-5.2',
+      system: 'Test',
+      tools: [
+        {
+          name: 'my_tool',
+          description: 'A test tool',
+          parameters: { type: 'object', properties: { input: { type: 'string' } } },
+          needsApproval: true,
+          execute: () => ({ result: 'executed' }),
+        },
+      ],
+    })
+
+    const tools = session.getTools()
+    expect(tools).toHaveLength(1)
+    expect(tools[0].name).toBe('my_tool')
+    expect(tools[0].description).toBe('A test tool')
+    expect(tools[0].needsApproval).toBe(true)
+    // execute should not be in the returned tools
+    expect(tools[0]).not.toHaveProperty('execute')
+  })
+
+  test('setMockResponse sets static response', () => {
+    const session = new AgentSession({
+      model: 'openai/gpt-5.2',
+      system: 'Test',
+      tools: [
+        {
+          name: 'api_tool',
+          description: 'API tool',
+          parameters: { type: 'object', properties: {} },
+        },
+      ],
+    })
+
+    session.setMockResponse('api_tool', { status: 'ok', data: [1, 2, 3] })
+
+    const tools = session.getTools()
+    expect(tools[0].mockResponse).toEqual({ status: 'ok', data: [1, 2, 3] })
+  })
+
+  test('setMockResponse throws for non-existent tool', () => {
+    const session = new AgentSession({
+      model: 'openai/gpt-5.2',
+      system: 'Test',
+    })
+
+    expect(() => session.setMockResponse('nonexistent', {})).toThrow(
+      'Tool not found: nonexistent'
+    )
+  })
+
+  test('getPendingApprovals filters out non-pending', () => {
+    const savedState = {
+      id: 'test-id',
+      createdAt: '2026-02-04T00:00:00.000Z',
+      messages: [],
+      totalUsage: { input: 0, output: 0, total: 0 },
+      pendingApprovals: [
+        {
+          id: 'approval-1',
+          toolName: 'tool1',
+          toolCallId: 'call-1',
+          arguments: {},
+          requestedAt: '2026-02-04T00:00:00.000Z',
+          status: 'pending' as const,
+        },
+        {
+          id: 'approval-2',
+          toolName: 'tool2',
+          toolCallId: 'call-2',
+          arguments: {},
+          requestedAt: '2026-02-04T00:00:00.000Z',
+          status: 'approved' as const,
+        },
+        {
+          id: 'approval-3',
+          toolName: 'tool3',
+          toolCallId: 'call-3',
+          arguments: {},
+          requestedAt: '2026-02-04T00:00:00.000Z',
+          status: 'denied' as const,
+        },
+      ],
+    }
+
+    const session = new AgentSession(
+      { model: 'openai/gpt-5.2', system: 'Test' },
+      savedState
+    )
+
+    const pending = session.getPendingApprovals()
+    expect(pending).toHaveLength(1)
+    expect(pending[0].toolName).toBe('tool1')
+  })
+
+  test('approve with already approved throws', async () => {
+    const savedState = {
+      id: 'test-id',
+      createdAt: '2026-02-04T00:00:00.000Z',
+      messages: [],
+      totalUsage: { input: 0, output: 0, total: 0 },
+      pendingApprovals: [
+        {
+          id: 'approval-1',
+          toolName: 'tool1',
+          toolCallId: 'call-1',
+          arguments: {},
+          requestedAt: '2026-02-04T00:00:00.000Z',
+          status: 'approved' as const,
+        },
+      ],
+    }
+
+    const session = new AgentSession(
+      { model: 'openai/gpt-5.2', system: 'Test' },
+      savedState
+    )
+
+    await expect(session.approve('approval-1')).rejects.toThrow(
+      'Approval already approved: approval-1'
+    )
+  })
+
+  test('deny with already denied throws', () => {
+    const savedState = {
+      id: 'test-id',
+      createdAt: '2026-02-04T00:00:00.000Z',
+      messages: [],
+      totalUsage: { input: 0, output: 0, total: 0 },
+      pendingApprovals: [
+        {
+          id: 'approval-1',
+          toolName: 'tool1',
+          toolCallId: 'call-1',
+          arguments: {},
+          requestedAt: '2026-02-04T00:00:00.000Z',
+          status: 'denied' as const,
+        },
+      ],
+    }
+
+    const session = new AgentSession(
+      { model: 'openai/gpt-5.2', system: 'Test' },
+      savedState
+    )
+
+    expect(() => session.deny('approval-1')).toThrow(
+      'Approval already denied: approval-1'
+    )
+  })
+
+  test('deny sets reason', () => {
+    const savedState = {
+      id: 'test-id',
+      createdAt: '2026-02-04T00:00:00.000Z',
+      messages: [],
+      totalUsage: { input: 0, output: 0, total: 0 },
+      pendingApprovals: [
+        {
+          id: 'approval-1',
+          toolName: 'tool1',
+          toolCallId: 'call-1',
+          arguments: {},
+          requestedAt: '2026-02-04T00:00:00.000Z',
+          status: 'pending' as const,
+        },
+      ],
+    }
+
+    const session = new AgentSession(
+      {
+        model: 'openai/gpt-5.2',
+        system: 'Test',
+        tools: [{ name: 'tool1', description: 'Test', parameters: { type: 'object', properties: {} } }],
+      },
+      savedState
+    )
+
+    session.deny('approval-1', 'Security concern')
+
+    const state = session.getState()
+    const approval = state.pendingApprovals?.find((p) => p.id === 'approval-1')
+    expect(approval?.status).toBe('denied')
+    expect(approval?.denyReason).toBe('Security concern')
+  })
+
+  test('approve executes tool with execute function', async () => {
+    let executeCalled = false
+    const savedState = {
+      id: 'test-id',
+      createdAt: '2026-02-04T00:00:00.000Z',
+      messages: [],
+      totalUsage: { input: 0, output: 0, total: 0 },
+      pendingApprovals: [
+        {
+          id: 'approval-1',
+          toolName: 'my_tool',
+          toolCallId: 'call-1',
+          arguments: { input: 'test' },
+          requestedAt: '2026-02-04T00:00:00.000Z',
+          status: 'pending' as const,
+        },
+      ],
+    }
+
+    const session = new AgentSession(
+      {
+        model: 'openai/gpt-5.2',
+        system: 'Test',
+        tools: [
+          {
+            name: 'my_tool',
+            description: 'Test',
+            parameters: { type: 'object', properties: {} },
+            execute: (args) => {
+              executeCalled = true
+              return { result: 'executed', args }
+            },
+          },
+        ],
+      },
+      savedState
+    )
+
+    const result = await session.approve('approval-1')
+    expect(executeCalled).toBe(true)
+    expect(result).toEqual({ result: 'executed', args: { input: 'test' } })
+  })
+
+  test('approve returns error for tool without execute', async () => {
+    const savedState = {
+      id: 'test-id',
+      createdAt: '2026-02-04T00:00:00.000Z',
+      messages: [],
+      totalUsage: { input: 0, output: 0, total: 0 },
+      pendingApprovals: [
+        {
+          id: 'approval-1',
+          toolName: 'my_tool',
+          toolCallId: 'call-1',
+          arguments: {},
+          requestedAt: '2026-02-04T00:00:00.000Z',
+          status: 'pending' as const,
+        },
+      ],
+    }
+
+    const session = new AgentSession(
+      {
+        model: 'openai/gpt-5.2',
+        system: 'Test',
+        tools: [
+          {
+            name: 'my_tool',
+            description: 'Test',
+            parameters: { type: 'object', properties: {} },
+          },
+        ],
+      },
+      savedState
+    )
+
+    const result = await session.approve('approval-1')
+    expect(result).toEqual({ error: 'No mock implementation provided' })
+  })
+
+  test('approve throws when tool not found', async () => {
+    const savedState = {
+      id: 'test-id',
+      createdAt: '2026-02-04T00:00:00.000Z',
+      messages: [],
+      totalUsage: { input: 0, output: 0, total: 0 },
+      pendingApprovals: [
+        {
+          id: 'approval-1',
+          toolName: 'nonexistent_tool',
+          toolCallId: 'call-1',
+          arguments: {},
+          requestedAt: '2026-02-04T00:00:00.000Z',
+          status: 'pending' as const,
+        },
+      ],
+    }
+
+    const session = new AgentSession(
+      { model: 'openai/gpt-5.2', system: 'Test' },
+      savedState
+    )
+
+    await expect(session.approve('approval-1')).rejects.toThrow(
+      'Tool not found: nonexistent_tool'
+    )
   })
 })
