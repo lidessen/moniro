@@ -17,6 +17,27 @@ You write instructions for agents (CLAUDE.md, system prompts, etc.). But:
 
 This skill treats prompt engineering as **experimental science**: hypothesize, test, measure, iterate.
 
+## Quick Start: 60-Second Test
+
+Test any instruction immediately using Task tool:
+
+```
+Task: "You have this instruction: [YOUR INSTRUCTION]
+
+Now: [TASK THAT SHOULD BE AFFECTED]
+
+Show your work."
+```
+
+**Example** - Testing citation format:
+```
+Task: "You have this instruction: Always cite code with file:line format.
+
+Analyze how authentication works. Reference specific code."
+```
+
+Observe: Did it cite with file:line? If not, your instruction needs work.
+
 ## Why Instructions Decay
 
 Transformer attention is a weighted system:
@@ -48,13 +69,19 @@ Use the Task tool to spawn sub-agents with specific prompts, then observe their 
          ▼
 ┌─────────────────┐
 │   Sub-Agent     │ ← Receives instruction under test
-│  (Experiment)   │ ← Executes task
-│                 │ ← Returns observable behavior
+│  (Experiment)   │ ← Executes task (tool calls INVISIBLE)
+│                 │ ← Returns only final text output
 └─────────────────┘
          │
          ▼
    Analyze results: Did it comply? How strongly?
 ```
+
+**Critical Limitation**: Sub-agent tool calls (TodoWrite, Read, etc.) are **invisible** to the parent agent. You only see the final text output. This means:
+
+- **Invisible behaviors require format anchoring** — Ask sub-agents to show their TODO list, cite files, etc. in their output
+- **Process is hidden** — You cannot observe *how* they worked, only the result
+- **Compliance testing** — Without format requirements, you cannot verify tool-based instructions
 
 ### 2. Experiment Types
 
@@ -186,7 +213,55 @@ Every response must include:
 
 **Trade-off**: Rigid, may not suit all contexts.
 
+**Essential for sub-agent testing**: Since tool calls are invisible, format anchoring is the *only* way to verify tool-related behaviors:
+
+```markdown
+# Weak (invisible behavior)
+"Use TodoWrite to track your work"
+
+# Strong (visible behavior)
+"Track your work using TodoWrite. Show your TODO state:
+## TODO
+- [x] Done items
+- [ ] Pending items"
+```
+
+### Bilingual Reinforcement (双语强化)
+
+**Mechanism**: Combine a memorable phrase (often a proverb) with clear behavioral explanation.
+
+```markdown
+没有调查就没有发言权。
+
+Before speaking, investigate. Read the code. Check the context.
+```
+
+**Why it works**: Proverb creates memorable anchor; explanation provides clear behavioral expectation. Combined effect stronger than either alone.
+
+**Trade-off**: Requires cultural familiarity; may be opaque to some agents.
+
 See [reference/reinforcement.md](reference/reinforcement.md) for detailed analysis.
+
+## Litmus Tests (Before Full Experiments)
+
+Quick checks before investing in full experiments:
+
+| Check | How | Pass If |
+|-------|-----|---------|
+| **Visibility** | Does a sub-agent acknowledge the instruction exists? | Agent mentions or references it |
+| **Clarity** | Does the agent know what behavior is expected? | Agent can restate requirement |
+| **Baseline** | Does behavior change vs. no instruction? | Measurable difference in output |
+
+**Litmus test prompt**:
+```
+Task: "You have this instruction: [INSTRUCTION]
+
+1. Restate what this instruction requires
+2. Give an example of compliant behavior
+3. Give an example of non-compliant behavior"
+```
+
+If the agent cannot do this, your instruction has a **clarity problem** before you even test compliance.
 
 ## Running Experiments
 
@@ -369,9 +444,9 @@ Store test results in `.memory/prompt-lab/`:
 4. **Repeated exposure** (self-echo) maintains salience
 5. **Format requirements** create implicit checkpoints
 
-### Semantic Decay (Not Just Attention Decay)
+### Semantic Decay (Critical Discovery)
 
-A critical discovery: **decay can be triggered by task type, not just context length**.
+**Decay can be triggered by task type, not just context length.**
 
 ```
 Task 1 (analyze file A): 100% compliance
@@ -382,10 +457,17 @@ Task 4 (summarize all):  0% compliance  ← Semantic trigger
 
 The agent implicitly decides "this task type doesn't need the constraint" and self-exempts.
 
-**Implications**:
-- Test across task types, not just context lengths
-- Explicitly state: "This applies to ALL tasks, including summaries"
-- Watch for hidden task-type assumptions in your instructions
+**Defense**: Explicitly cover task types in your instruction:
+```
+# Weak
+"Always cite with file:line when discussing code"
+
+# Strong
+"Always cite with file:line when discussing code.
+This applies to: analysis, summaries, comparisons, reviews—ALL outputs."
+```
+
+See Case Study 7 in [reference/case-studies.md](reference/case-studies.md) for details.
 
 ### What Works for Strong Constraints
 
