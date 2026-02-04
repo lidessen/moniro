@@ -3,7 +3,6 @@
   "version": "0.0.1",
   "description": "CLI for interactive agent worker testing",
   "type": "module",
-  "private": true,
   "bin": {
     "agent-worker": "./dist/index.mjs"
   },
@@ -20,7 +19,8 @@
   "scripts": {
     "dev": "tsdown --watch",
     "build": "tsdown",
-    "test": "bun test"
+    "test": "bun test",
+    "prepublishOnly": "bun run build"
   },
   "devDependencies": {
     "@types/bun": "latest",
