@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import type { ToolDefinition } from '../types.ts'
+import { FRONTIER_MODELS } from '../models.ts'
 import { sendRequest, isSessionActive } from './client.ts'
 import {
   startServer,
@@ -583,9 +584,13 @@ program
       console.log(`  ${status} ${name.padEnd(10)} - ${config.description}${statusText}${envHint}`)
     }
 
+    // Get example models from FRONTIER_MODELS
+    const gatewayExample = `openai/${FRONTIER_MODELS.openai[0]}`
+    const directExample = `deepseek:${FRONTIER_MODELS.deepseek[0]}`
+
     console.log('\nUsage:')
-    console.log('  Gateway format:  provider/model  (e.g., openai/gpt-5.2)')
-    console.log('  Direct format:   provider:model  (e.g., deepseek:deepseek-chat)')
+    console.log(`  Gateway format:  provider/model  (e.g., ${gatewayExample})`)
+    console.log(`  Direct format:   provider:model  (e.g., ${directExample})`)
   })
 
 program.parse()
