@@ -188,39 +188,15 @@ export function getDefaultModel(): string {
 
 /**
  * Frontier models for each provider (as of 2026-02)
- * NOTE: First model in each array is the most commonly used (not necessarily the best)
+ * Only includes the latest/best models, no legacy versions
  */
 export const FRONTIER_MODELS = {
-  // Anthropic Claude models - sonnet is most commonly used (good balance of cost/performance)
-  anthropic: [
-    'claude-sonnet-4-5',
-    'claude-haiku-4-5',
-    'claude-opus-4-5',
-    'claude-sonnet-4-0',
-    'claude-3-7-sonnet-latest',
-  ],
-  // OpenAI GPT models
+  anthropic: ['claude-sonnet-4-5', 'claude-haiku-4-5', 'claude-opus-4-5'],
   openai: ['gpt-5.2', 'gpt-5.2-codex'],
-  // Google Gemini models - flash is most commonly used (fast, cost-effective)
-  google: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-pro-preview'],
-  // DeepSeek models - chat is the standard choice
+  google: ['gemini-3-pro-preview', 'gemini-2.5-flash', 'gemini-2.5-pro'],
   deepseek: ['deepseek-chat', 'deepseek-reasoner'],
-  // Groq-hosted models - llama-3.3-70b is the go-to
-  groq: [
-    'llama-3.3-70b-versatile',
-    'meta-llama/llama-4-scout-17b-16e-instruct',
-    'deepseek-r1-distill-llama-70b',
-    'qwen-qwq-32b',
-  ],
-  // Mistral models - small is most commonly used (cost-effective)
-  mistral: [
-    'mistral-small-latest',
-    'mistral-large-latest',
-    'pixtral-large-latest',
-    'magistral-medium-2506',
-  ],
-  // xAI Grok models - grok-3 is more established
-  xai: ['grok-3', 'grok-3-fast', 'grok-3-mini', 'grok-4', 'grok-4-fast-reasoning'],
-  // MiniMax models
-  minimax: ['MiniMax-M2', 'MiniMax-M2-Stable'],
+  groq: ['meta-llama/llama-4-scout-17b-16e-instruct', 'deepseek-r1-distill-llama-70b'],
+  mistral: ['mistral-large-latest', 'pixtral-large-latest', 'magistral-medium-2506'],
+  xai: ['grok-4', 'grok-4-fast-reasoning'],
+  minimax: ['MiniMax-M2'],
 } as const
