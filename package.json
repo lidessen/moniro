@@ -3,7 +3,6 @@
   "private": true,
   "workspaces": ["packages/*"],
   "scripts": {
-    "build": "bun run --cwd packages/agent-worker build",
     "test": "bun test",
     "test:coverage": "bun test --coverage"
   }

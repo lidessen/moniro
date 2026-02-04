@@ -20,7 +20,8 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build packages
+      - name: Build
+        working-directory: packages/agent-worker
         run: bun run build
 
       - name: Run tests
@@ -48,11 +49,8 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build packages
-        run: bun run build
-
-      - name: Publish agent-worker
+      - name: Build and publish
         working-directory: packages/agent-worker
-        run: npm publish --provenance --access public
+        run: bun run build && npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
