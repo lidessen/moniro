@@ -20,17 +20,24 @@ interface SessionInfo {
   model: string
   socketPath: string
   pidFile: string
+  readyFile: string
   pid: number
   createdAt: string
+  idleTimeout?: number // ms, 0 = no timeout
 }
 
 interface ServerState {
   session: AgentSession
   server: Server
   info: SessionInfo
+  lastActivity: number
+  pendingRequests: number
+  idleTimer?: ReturnType<typeof setTimeout>
 }
 
 let state: ServerState | null = null
+
+const DEFAULT_IDLE_TIMEOUT = 30 * 60 * 1000 // 30 minutes
 
 interface Request {
   action: string
@@ -67,6 +74,52 @@ function loadRegistry(): SessionRegistry {
 function saveRegistry(registry: SessionRegistry): void {
   ensureDirs()
   writeFileSync(REGISTRY_FILE, JSON.stringify(registry, null, 2))
+}
+
+function resetIdleTimer(): void {
+  if (!state) return
+
+  state.lastActivity = Date.now()
+
+  // Clear existing timer
+  if (state.idleTimer) {
+    clearTimeout(state.idleTimer)
+    state.idleTimer = undefined
+  }
+
+  // Set new timer if idle timeout is configured
+  const timeout = state.info.idleTimeout ?? DEFAULT_IDLE_TIMEOUT
+  if (timeout > 0) {
+    state.idleTimer = setTimeout(() => {
+      if (state && state.pendingRequests === 0) {
+        console.log(`\nSession idle for ${timeout / 1000}s, shutting down...`)
+        gracefulShutdown()
+      } else {
+        // Requests pending, reset timer
+        resetIdleTimer()
+      }
+    }, timeout)
+  }
+}
+
+async function gracefulShutdown(): Promise<void> {
+  if (!state) {
+    process.exit(0)
+    return
+  }
+
+  // Stop accepting new connections
+  state.server.close()
+
+  // Wait for pending requests (max 10s)
+  const maxWait = 10000
+  const start = Date.now()
+  while (state.pendingRequests > 0 && Date.now() - start < maxWait) {
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+
+  cleanup()
+  process.exit(0)
 }
 
 export function registerSession(info: SessionInfo): void {
@@ -145,6 +198,10 @@ async function handleRequest(req: Request): Promise<Response> {
     return { success: false, error: 'No active session' }
   }
 
+  // Track activity
+  state.pendingRequests++
+  resetIdleTimer()
+
   const { session } = state
 
   try {
@@ -185,8 +242,21 @@ async function handleRequest(req: Request): Promise<Response> {
       case 'tool_import': {
         const { filePath } = req.payload as { filePath: string }
 
-        // Dynamic import the file
-        const module = await import(filePath)
+        // Validate file path
+        if (!filePath || typeof filePath !== 'string') {
+          return { success: false, error: 'File path is required' }
+        }
+
+        // Dynamic import the file with error handling
+        let module: Record<string, unknown>
+        try {
+          module = await import(filePath)
+        } catch (importError) {
+          const message = importError instanceof Error ? importError.message : String(importError)
+          // Sanitize path from error message for security
+          const sanitizedMsg = message.replace(filePath, '<file>')
+          return { success: false, error: `Failed to import file: ${sanitizedMsg}` }
+        }
 
         // Extract tools from module (support default export or named 'tools')
         let tools: ToolDefinition[] = []
@@ -194,8 +264,13 @@ async function handleRequest(req: Request): Promise<Response> {
           tools = module.default
         } else if (typeof module.default === 'function') {
           // Support async factory function
-          const result = await module.default()
-          tools = Array.isArray(result) ? result : []
+          try {
+            const result = await module.default()
+            tools = Array.isArray(result) ? result : []
+          } catch (factoryError) {
+            const message = factoryError instanceof Error ? factoryError.message : String(factoryError)
+            return { success: false, error: `Factory function failed: ${message}` }
+          }
         } else if (Array.isArray(module.tools)) {
           tools = module.tools
         } else {
@@ -204,15 +279,21 @@ async function handleRequest(req: Request): Promise<Response> {
 
         // Validate and add tools
         const imported: string[] = []
+        const skipped: string[] = []
         for (const tool of tools) {
-          if (!tool.name || !tool.description || !tool.parameters) {
-            continue // Skip invalid tools
+          if (!tool.name || typeof tool.name !== 'string') {
+            skipped.push('(unnamed)')
+            continue
+          }
+          if (!tool.description || !tool.parameters) {
+            skipped.push(tool.name)
+            continue
           }
           session.addTool(tool)
           imported.push(tool.name)
         }
 
-        return { success: true, data: { imported } }
+        return { success: true, data: { imported, skipped: skipped.length > 0 ? skipped : undefined } }
       }
 
       case 'history':
@@ -244,10 +325,9 @@ async function handleRequest(req: Request): Promise<Response> {
       }
 
       case 'shutdown':
-        setTimeout(() => {
-          cleanup()
-          process.exit(0)
-        }, 100)
+        // Decrement before async shutdown
+        state.pendingRequests--
+        setTimeout(() => gracefulShutdown(), 100)
         return { success: true, data: 'Shutting down' }
 
       default:
@@ -255,22 +335,32 @@ async function handleRequest(req: Request): Promise<Response> {
     }
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) }
+  } finally {
+    if (state && req.action !== 'shutdown') {
+      state.pendingRequests--
+    }
   }
 }
 
 function cleanup(): void {
   if (state) {
+    if (state.idleTimer) {
+      clearTimeout(state.idleTimer)
+    }
     if (existsSync(state.info.socketPath)) {
       unlinkSync(state.info.socketPath)
     }
     if (existsSync(state.info.pidFile)) {
       unlinkSync(state.info.pidFile)
     }
+    if (existsSync(state.info.readyFile)) {
+      unlinkSync(state.info.readyFile)
+    }
     unregisterSession(state.info.id)
   }
 }
 
-export function startServer(config: { model: string; system: string; name?: string }): void {
+export function startServer(config: { model: string; system: string; name?: string; idleTimeout?: number }): void {
   ensureDirs()
 
   // Create session
@@ -282,6 +372,7 @@ export function startServer(config: { model: string; system: string; name?: stri
   // Generate paths
   const socketPath = join(SESSIONS_DIR, `${session.id}.sock`)
   const pidFile = join(SESSIONS_DIR, `${session.id}.pid`)
+  const readyFile = join(SESSIONS_DIR, `${session.id}.ready`)
 
   // Clean up any existing socket
   if (existsSync(socketPath)) {
@@ -294,8 +385,10 @@ export function startServer(config: { model: string; system: string; name?: stri
     model: config.model,
     socketPath,
     pidFile,
+    readyFile,
     pid: process.pid,
     createdAt: session.createdAt,
+    idleTimeout: config.idleTimeout,
   }
 
   // Create Unix socket server
@@ -336,10 +429,24 @@ export function startServer(config: { model: string; system: string; name?: stri
     // Register session
     registerSession(info)
 
+    // Initialize state
+    state = {
+      session,
+      server,
+      info,
+      lastActivity: Date.now(),
+      pendingRequests: 0,
+    }
+
+    // Write ready file (signals CLI that server is ready)
+    writeFileSync(readyFile, session.id)
+
+    // Start idle timer
+    resetIdleTimer()
+
     const nameStr = config.name ? ` (${config.name})` : ''
     console.log(`Session started: ${session.id}${nameStr}`)
     console.log(`Model: ${session.model}`)
-    console.log(`Socket: ${socketPath}`)
   })
 
   server.on('error', (error) => {
@@ -347,8 +454,6 @@ export function startServer(config: { model: string; system: string; name?: stri
     cleanup()
     process.exit(1)
   })
-
-  state = { session, server, info }
 
   // Handle signals
   process.on('SIGINT', () => {
@@ -379,7 +484,32 @@ export function isSessionRunning(idOrName?: string): boolean {
     if (existsSync(info.pidFile)) {
       unlinkSync(info.pidFile)
     }
+    if (info.readyFile && existsSync(info.readyFile)) {
+      unlinkSync(info.readyFile)
+    }
     unregisterSession(info.id)
     return false
   }
+}
+
+/**
+ * Wait for a session to be ready (ready file exists)
+ * Returns session info if ready, null if timeout
+ */
+export async function waitForReady(
+  nameOrId: string | undefined,
+  timeoutMs: number = 5000
+): Promise<SessionInfo | null> {
+  const start = Date.now()
+  const pollInterval = 50
+
+  while (Date.now() - start < timeoutMs) {
+    const info = getSessionInfo(nameOrId)
+    if (info?.readyFile && existsSync(info.readyFile)) {
+      return info
+    }
+    await new Promise(resolve => setTimeout(resolve, pollInterval))
+  }
+
+  return null
 }

@@ -11,6 +11,7 @@ import {
   listSessions,
   setDefaultSession,
   getSessionInfo,
+  waitForReady,
 } from './server.ts'
 
 const program = new Command()
@@ -30,20 +31,24 @@ sessionCmd
   .option('-s, --system <prompt>', 'System prompt', 'You are a helpful assistant.')
   .option('-f, --system-file <file>', 'Read system prompt from file')
   .option('-n, --name <name>', 'Session name for easy reference')
+  .option('--idle-timeout <ms>', 'Idle timeout in ms (0 = no timeout)', '1800000')
   .option('--foreground', 'Run in foreground')
-  .action((options) => {
+  .action(async (options) => {
     let system = options.system
     if (options.systemFile) {
       system = readFileSync(options.systemFile, 'utf-8')
     }
 
+    const idleTimeout = parseInt(options.idleTimeout, 10)
+
     if (options.foreground) {
-      startServer({ model: options.model, system, name: options.name })
+      startServer({ model: options.model, system, name: options.name, idleTimeout })
     } else {
       const args = [process.argv[1], 'session', 'new', '-m', options.model, '-s', system, '--foreground']
       if (options.name) {
         args.push('-n', options.name)
       }
+      args.push('--idle-timeout', String(idleTimeout))
 
       const child = spawn(process.execPath, args, {
         detached: true,
@@ -51,17 +56,16 @@ sessionCmd
       })
       child.unref()
 
-      setTimeout(async () => {
-        const info = getSessionInfo(options.name)
-        if (info && isSessionRunning(options.name)) {
-          const nameStr = options.name ? ` (${options.name})` : ''
-          console.log(`Session started: ${info.id}${nameStr}`)
-          console.log(`Model: ${info.model}`)
-        } else {
-          console.error('Failed to start session')
-          process.exit(1)
-        }
-      }, 500)
+      // Wait for ready signal instead of blind timeout
+      const info = await waitForReady(options.name, 5000)
+      if (info) {
+        const nameStr = options.name ? ` (${options.name})` : ''
+        console.log(`Session started: ${info.id}${nameStr}`)
+        console.log(`Model: ${info.model}`)
+      } else {
+        console.error('Failed to start session')
+        process.exit(1)
+      }
     }
   })
 
@@ -266,10 +270,16 @@ toolCmd
     }, target)
 
     if (res.success) {
-      const data = res.data as { imported: string[] }
+      const data = res.data as { imported: string[]; skipped?: string[] }
       console.log(`Imported ${data.imported.length} tool(s):`)
       for (const name of data.imported) {
         console.log(`  ${name}`)
+      }
+      if (data.skipped && data.skipped.length > 0) {
+        console.log(`Skipped ${data.skipped.length} invalid tool(s):`)
+        for (const name of data.skipped) {
+          console.log(`  ${name}`)
+        }
       }
     } else {
       console.error('Error:', res.error)
