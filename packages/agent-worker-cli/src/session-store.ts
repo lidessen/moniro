@@ -3,12 +3,12 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import {
   AgentSession,
+  type AgentMessage,
   type PendingApproval,
   type SessionConfig,
   type SessionState,
   type TokenUsage,
 } from 'agent-worker'
-import type { ModelMessage } from 'ai'
 
 const CONFIG_DIR = join(homedir(), '.agent-worker')
 const SESSIONS_FILE = join(CONFIG_DIR, 'sessions.json')
@@ -20,7 +20,7 @@ interface StoredSession {
   tools: SessionConfig['tools']
   createdAt: string
   // Persisted state
-  messages: ModelMessage[]
+  messages: AgentMessage[]
   totalUsage: TokenUsage
   pendingApprovals: PendingApproval[]
 }

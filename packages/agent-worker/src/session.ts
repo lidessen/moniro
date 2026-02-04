@@ -2,6 +2,7 @@ import { ToolLoopAgent, stepCountIs, type ModelMessage } from 'ai'
 import { createModelAsync } from './models.ts'
 import { createTools } from './tools.ts'
 import type {
+  AgentMessage,
   AgentResponse,
   PendingApproval,
   SessionConfig,
@@ -48,13 +49,22 @@ export class AgentSession {
   private tools: ToolDefinition[]
   private maxTokens: number
   private maxSteps: number
-  private messages: ModelMessage[] = []
+  private messages: AgentMessage[] = []
   private totalUsage: TokenUsage = { input: 0, output: 0, total: 0 }
   private pendingApprovals: PendingApproval[] = []
 
   // Cached agent instance (rebuilt when tools change)
   private cachedAgent: ToolLoopAgent | null = null
   private toolsChanged = false
+
+  /**
+   * Convert AgentMessage[] to ModelMessage[] for AI SDK
+   */
+  private toModelMessages(): ModelMessage[] {
+    return this.messages
+      .filter((m) => m.status !== 'responding') // Exclude incomplete messages
+      .map((m) => ({ role: m.role, content: m.content })) as ModelMessage[]
+  }
 
   constructor(config: SessionConfig, restore?: SessionState) {
     // Restore from saved state or create new
@@ -151,9 +161,10 @@ export class AgentSession {
   async send(content: string, options: SendOptions = {}): Promise<AgentResponse> {
     const { autoApprove = true, onStepFinish } = options
     const startTime = performance.now()
+    const timestamp = new Date().toISOString()
 
     // Add user message to history
-    this.messages.push({ role: 'user', content })
+    this.messages.push({ role: 'user', content, status: 'complete', timestamp })
 
     const agent = await this.getAgent(autoApprove)
 
@@ -162,7 +173,7 @@ export class AgentSession {
     let stepNumber = 0
 
     const result = await agent.generate({
-      messages: this.messages,
+      messages: this.toModelMessages(),
       onStepFinish: async ({ usage, toolCalls, toolResults }) => {
         stepNumber++
 
@@ -196,8 +207,13 @@ export class AgentSession {
 
     const latency = Math.round(performance.now() - startTime)
 
-    // Add assistant response to history
-    this.messages.push({ role: 'assistant', content: result.text })
+    // Add assistant response to history (complete)
+    this.messages.push({
+      role: 'assistant',
+      content: result.text,
+      status: 'complete',
+      timestamp: new Date().toISOString(),
+    })
 
     // Update usage
     const usage: TokenUsage = {
@@ -234,9 +250,20 @@ export class AgentSession {
   ): AsyncGenerator<string, AgentResponse, unknown> {
     const { autoApprove = true, onStepFinish } = options
     const startTime = performance.now()
+    const timestamp = new Date().toISOString()
 
     // Add user message to history
-    this.messages.push({ role: 'user', content })
+    this.messages.push({ role: 'user', content, status: 'complete', timestamp })
+
+    // Add assistant message with 'responding' status immediately
+    // This allows other observers to see the message is in progress
+    const assistantMsg: AgentMessage = {
+      role: 'assistant',
+      content: '',
+      status: 'responding',
+      timestamp: new Date().toISOString(),
+    }
+    this.messages.push(assistantMsg)
 
     const agent = await this.getAgent(autoApprove)
 
@@ -245,7 +272,7 @@ export class AgentSession {
     let stepNumber = 0
 
     const result = await agent.stream({
-      messages: this.messages,
+      messages: this.toModelMessages(),
       onStepFinish: async ({ usage, toolCalls, toolResults }) => {
         stepNumber++
 
@@ -275,18 +302,18 @@ export class AgentSession {
       },
     })
 
-    // Stream text chunks
+    // Stream text chunks and update assistant message in real-time
     for await (const chunk of result.textStream) {
+      assistantMsg.content += chunk
       yield chunk
     }
 
     const latency = Math.round(performance.now() - startTime)
 
-    // Get final text
+    // Get final text and mark as complete
     const text = await result.text
-
-    // Add assistant response to history
-    this.messages.push({ role: 'assistant', content: text })
+    assistantMsg.content = text
+    assistantMsg.status = 'complete'
 
     // Update usage
     const finalUsage = await result.usage
@@ -334,9 +361,10 @@ export class AgentSession {
   }
 
   /**
-   * Get conversation history
+   * Get conversation history with status information
+   * Messages with status 'responding' are still being generated
    */
-  history(): ModelMessage[] {
+  history(): AgentMessage[] {
     return [...this.messages]
   }
 

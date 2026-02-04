@@ -1,6 +1,23 @@
 import type { ModelMessage } from 'ai'
 
 /**
+ * Message status for streaming/response tracking
+ */
+export type MessageStatus = 'responding' | 'complete'
+
+/**
+ * Extended message with status for tracking streaming state
+ */
+export interface AgentMessage {
+  role: 'user' | 'assistant' | 'system' | 'tool'
+  content: string
+  /** Message status - 'responding' while streaming, 'complete' when done */
+  status?: MessageStatus
+  /** Timestamp when message started */
+  timestamp?: string
+}
+
+/**
  * Tool definition with optional mock implementation
  */
 export interface ToolDefinition {
@@ -96,8 +113,8 @@ export interface SessionState {
   id: string
   /** Creation timestamp */
   createdAt: string
-  /** Conversation messages */
-  messages: ModelMessage[]
+  /** Conversation messages with status */
+  messages: AgentMessage[]
   /** Accumulated token usage */
   totalUsage: TokenUsage
   /** Pending tool approvals */
@@ -111,7 +128,7 @@ export interface Transcript {
   sessionId: string
   model: string
   system: string
-  messages: ModelMessage[]
+  messages: AgentMessage[]
   totalUsage: TokenUsage
   createdAt: string
 }

@@ -10,7 +10,9 @@ export {
 export type { SupportedProvider } from './models.ts'
 export type { BashToolkit, BashToolsOptions, CreateBashToolOptions } from './bash-tools.ts'
 export type {
+  AgentMessage,
   AgentResponse,
+  MessageStatus,
   PendingApproval,
   SessionConfig,
   SessionState,

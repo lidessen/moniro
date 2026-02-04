@@ -240,8 +240,9 @@ program
       }
       for (const msg of history) {
         const role = msg.role.toUpperCase()
+        const status = msg.status === 'responding' ? ' (responding...)' : ''
         const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
-        console.log(`[${role}] ${content}\n`)
+        console.log(`[${role}${status}] ${content}\n`)
       }
     }
   })
