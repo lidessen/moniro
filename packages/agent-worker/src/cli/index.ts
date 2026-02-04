@@ -620,9 +620,10 @@ program
 
     console.log('\nUsage:')
     console.log('  SDK backend:    agent-worker session new -m openai/gpt-5.2')
-    console.log('  Claude CLI:     agent-worker session new --backend claude')
-    console.log('  Codex CLI:      agent-worker session new --backend codex')
-    console.log('  Cursor CLI:     agent-worker session new --backend cursor')
+    console.log('  SDK backend:    agent-worker session new -m anthropic/claude-sonnet-4-5')
+    console.log('')
+    console.log('Note: CLI backends (claude, codex, cursor) are detected but not yet')
+    console.log('integrated into the session command. Currently only SDK backend is supported.')
   })
 
 program.parse()
