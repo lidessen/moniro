@@ -1,5 +1,5 @@
 import { generateText, stepCountIs, type LanguageModel, type ModelMessage } from 'ai'
-import { createModel } from './models.ts'
+import { createModelAsync } from './models.ts'
 import { createTools } from './tools.ts'
 import type {
   AgentResponse,
@@ -55,11 +55,11 @@ export class AgentSession {
   }
 
   /**
-   * Get or create cached model instance
+   * Get or create cached model instance (lazy loads provider if needed)
    */
-  private getModel(): LanguageModel {
+  private async getModel(): Promise<LanguageModel> {
     if (!this.cachedModel) {
-      this.cachedModel = createModel(this.model)
+      this.cachedModel = await createModelAsync(this.model)
     }
     return this.cachedModel
   }
@@ -88,7 +88,7 @@ export class AgentSession {
     this.messages.push({ role: 'user', content })
 
     const result = await generateText({
-      model: this.getModel(),
+      model: await this.getModel(),
       system: this.system,
       messages: this.messages,
       tools: this.getTools(),
