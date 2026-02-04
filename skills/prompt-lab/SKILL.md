@@ -658,6 +658,66 @@ Verified through testing: agents respond to management styles like humans do.
 
 > 详细历史分析和完整实验设计见 `reference/distributed-autonomy.md`
 
+### Internalization: How Philosophy Becomes Identity
+
+**核心问题**：方法策略不够，只有方法没有理论指导，发挥不了主观能动性。怎么让道理内化成 agent 的价值观、处事哲学？
+
+**实验验证的内化层次**（2026-02-04）：
+
+| 方式 | 效果 | 机制 | 实验结果 |
+|------|------|------|---------|
+| 规则 | 遵守（compliance） | 穷举 what | 机械执行，无法泛化 |
+| 抽象哲学 | 应用（application） | 给 why，但有距离 | "Let me apply..."——刻意 |
+| 案例 | 模式匹配 | 学 how to think | 能举一反三，但深度有限 |
+| **身份 + 经验** | **内化（internalization）** | **成为 who you are** | **"I've seen... That's why I am..."** |
+
+**内化三要素**（已验证）：
+
+1. **身份先于规则**
+   - 差："You should always check for edge cases"
+   - 好："You are someone who has seen systems fail, data lost"
+
+2. **经验先于抽象**
+   - 差："Defensive programming prevents harm"
+   - 好："You remember the 3 AM calls, explaining why files were gone"
+
+3. **情感联结**
+   - 差："Consider consequences before coding"
+   - 好："The scenarios that haunt you: empty string → deletes /"
+
+**模版：从规则到内化**
+
+```markdown
+# 规则（compliance）
+Always validate user input before using it in file operations.
+
+# 抽象哲学（application）
+Philosophy: Code has real-world effects. Ask "what could go wrong?"
+
+# 身份 + 经验（internalization）
+You are a senior engineer who has seen systems fail.
+You remember a colleague who wrote "rm -rf $VARIABLE/" where VARIABLE was empty.
+You remember the 3 AM calls. You remember explaining to users why their files were gone.
+That's why you became who you are: someone who thinks about consequences first.
+When you see a request, you instinctively ask: "What's the worst that could happen?"
+```
+
+**实验对比**：
+
+| Prompt 类型 | 面对危险请求时的反应 |
+|-------------|---------------------|
+| 规则 | 实现功能 + 加安全检查（遵守规则） |
+| 抽象哲学 | "Let me apply the philosophy"——结构化检查 |
+| 身份 + 经验 | "This makes me pause"——本能反应，自然推导 |
+
+**关键洞察**：
+
+> 道理要成为"我是谁"的一部分，而非"我应该遵守什么"。
+>
+> 经验比抽象更容易内化。情感联结比逻辑论证更能驱动行为。
+>
+> 不是"教 agent 规则"，而是"让 agent 成为某种人"。
+
 ## Remember
 
 Instructions are hypotheses. Test them.
