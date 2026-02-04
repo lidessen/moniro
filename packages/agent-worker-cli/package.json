@@ -1,11 +1,11 @@
 {
-  "name": "agent-prompt-cli",
+  "name": "agent-worker-cli",
   "version": "0.0.1",
-  "description": "CLI for interactive agent prompt testing",
+  "description": "CLI for interactive agent worker testing",
   "type": "module",
   "private": true,
   "bin": {
-    "agent-prompt": "./dist/index.mjs"
+    "agent-worker": "./dist/index.mjs"
   },
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
@@ -30,7 +30,7 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "agent-prompt": "workspace:*",
+    "agent-worker": "workspace:*",
     "commander": "^14.0.3"
   }
 }

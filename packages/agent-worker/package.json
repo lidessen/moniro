@@ -1,7 +1,7 @@
 {
-  "name": "agent-prompt",
+  "name": "agent-worker",
   "version": "0.0.1",
-  "description": "SDK for controlled agent prompt testing with Vercel AI SDK",
+  "description": "SDK for creating agent workers with Vercel AI SDK",
   "type": "module",
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Command } from 'commander'
 import { readFileSync } from 'node:fs'
-import { AgentSession, type ToolDefinition } from 'agent-prompt'
+import { AgentSession, type ToolDefinition } from 'agent-worker'
 import {
   createSession,
   getCurrentSession,
@@ -15,8 +15,8 @@ import {
 const program = new Command()
 
 program
-  .name('agent-prompt')
-  .description('CLI for controlled agent prompt testing')
+  .name('agent-worker')
+  .description('CLI for creating and testing agent workers')
   .version('0.0.1')
 
 // Session commands
@@ -93,7 +93,7 @@ program
   .action(async (message, options) => {
     const session = getCurrentSession()
     if (!session) {
-      console.error('No active session. Create one with: agent-prompt session new')
+      console.error('No active session. Create one with: agent-worker session new')
       process.exit(1)
     }
 

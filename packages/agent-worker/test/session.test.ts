@@ -254,20 +254,20 @@ describe('createTools', () => {
   })
 })
 
-describe('EXAMPLE_MODELS', () => {
+describe('FRONTIER_MODELS', () => {
   test('contains valid provider model lists', async () => {
-    const { EXAMPLE_MODELS, SUPPORTED_PROVIDERS } = await import('../src/models.ts')
+    const { FRONTIER_MODELS, SUPPORTED_PROVIDERS } = await import('../src/models.ts')
 
-    // All supported providers should have example models
+    // All supported providers should have frontier models
     for (const provider of SUPPORTED_PROVIDERS) {
-      expect(EXAMPLE_MODELS[provider]).toBeDefined()
-      expect(EXAMPLE_MODELS[provider].length).toBeGreaterThan(0)
+      expect(FRONTIER_MODELS[provider]).toBeDefined()
+      expect(FRONTIER_MODELS[provider].length).toBeGreaterThan(0)
     }
 
     // Check specific models exist
-    expect(EXAMPLE_MODELS.anthropic).toContain('claude-sonnet-4-5')
-    expect(EXAMPLE_MODELS.openai).toContain('gpt-5.2')
-    expect(EXAMPLE_MODELS.deepseek).toContain('deepseek-chat')
+    expect(FRONTIER_MODELS.anthropic).toContain('claude-sonnet-4-5')
+    expect(FRONTIER_MODELS.openai).toContain('gpt-5.2')
+    expect(FRONTIER_MODELS.deepseek).toContain('deepseek-chat')
   })
 })
 

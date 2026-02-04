@@ -6,10 +6,10 @@ import {
   type SessionConfig,
   type SessionState,
   type TokenUsage,
-} from 'agent-prompt'
+} from 'agent-worker'
 import type { ModelMessage } from 'ai'
 
-const CONFIG_DIR = join(homedir(), '.agent-prompt')
+const CONFIG_DIR = join(homedir(), '.agent-worker')
 const SESSIONS_FILE = join(CONFIG_DIR, 'sessions.json')
 
 interface StoredSession {

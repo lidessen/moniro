@@ -159,9 +159,9 @@ export const SUPPORTED_PROVIDERS = [
 export type SupportedProvider = (typeof SUPPORTED_PROVIDERS)[number]
 
 /**
- * Example models for each provider (as of 2026-02)
+ * Frontier models for each provider (as of 2026-02)
  */
-export const EXAMPLE_MODELS = {
+export const FRONTIER_MODELS = {
   // Anthropic Claude models
   anthropic: [
     'claude-opus-4-5',

@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 // We need to mock the config directory for testing
 // Create a test module that patches the paths
 
-const TEST_DIR = join(tmpdir(), `agent-prompt-test-${Date.now()}`)
+const TEST_DIR = join(tmpdir(), `agent-worker-test-${Date.now()}`)
 const TEST_SESSIONS_FILE = join(TEST_DIR, 'sessions.json')
 
 // Mock the session-store module by testing the logic directly
@@ -144,10 +144,10 @@ describe('session-store integration', () => {
   })
 })
 
-describe('AgentSession from agent-prompt', () => {
+describe('AgentSession from agent-worker', () => {
   test('can import and create session', async () => {
-    // Test that the agent-prompt package exports work correctly
-    const { AgentSession } = await import('../../agent-prompt/src/session.ts')
+    // Test that the agent-worker package exports work correctly
+    const { AgentSession } = await import('../../agent-worker/src/session.ts')
 
     const session = new AgentSession({
       model: 'openai/gpt-5.2',
@@ -160,7 +160,7 @@ describe('AgentSession from agent-prompt', () => {
   })
 
   test('session methods work correctly', async () => {
-    const { AgentSession } = await import('../../agent-prompt/src/session.ts')
+    const { AgentSession } = await import('../../agent-worker/src/session.ts')
 
     const session = new AgentSession({
       model: 'test/model',
@@ -183,7 +183,7 @@ describe('AgentSession from agent-prompt', () => {
   })
 
   test('tool definitions', async () => {
-    const { AgentSession } = await import('../../agent-prompt/src/session.ts')
+    const { AgentSession } = await import('../../agent-worker/src/session.ts')
 
     const session = new AgentSession({
       model: 'test/model',
