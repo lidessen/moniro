@@ -1,13 +1,30 @@
 {
   "name": "agent-prompt-cli",
-  "module": "index.ts",
+  "version": "0.0.1",
+  "description": "CLI for interactive agent prompt testing",
   "type": "module",
   "private": true,
+  "bin": {
+    "agent-prompt": "./dist/index.mjs"
+  },
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "files": ["dist"],
   "scripts": {
+    "dev": "tsdown --watch",
+    "build": "tsdown",
     "test": "bun test"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "tsdown": "^0.20.1"
   },
   "peerDependencies": {
     "typescript": "^5"

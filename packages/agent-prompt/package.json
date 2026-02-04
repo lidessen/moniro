@@ -3,19 +3,13 @@
   "version": "0.0.1",
   "description": "SDK for controlled agent prompt testing with Vercel AI SDK",
   "type": "module",
-  "main": "./dist/index.cjs",
+  "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/index.d.mts",
-        "default": "./dist/index.mjs"
-      },
-      "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
-      }
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
     }
   },
   "files": ["dist"],

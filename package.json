@@ -1,5 +1,10 @@
 {
   "name": "skills",
   "private": true,
-  "workspaces": ["packages/*"]
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "build": "bun --filter './packages/*' run build",
+    "test": "bun test",
+    "test:coverage": "bun test --coverage"
+  }
 }
