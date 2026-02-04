@@ -565,6 +565,7 @@ const PROVIDER_API_KEYS: Record<string, { envVar: string; description: string }>
   groq: { envVar: 'GROQ_API_KEY', description: 'Groq' },
   mistral: { envVar: 'MISTRAL_API_KEY', description: 'Mistral' },
   xai: { envVar: 'XAI_API_KEY', description: 'xAI Grok' },
+  minimax: { envVar: 'MINIMAX_API_KEY', description: 'MiniMax' },
 }
 
 // Providers command

@@ -55,6 +55,7 @@ async function loadProvider(
  *    - groq:llama-3.3-70b-versatile     (requires @ai-sdk/groq)
  *    - mistral:mistral-large-latest     (requires @ai-sdk/mistral)
  *    - xai:grok-4                       (requires @ai-sdk/xai)
+ *    - minimax:MiniMax-M2               (requires vercel-minimax-ai-provider)
  */
 export function createModel(modelId: string): LanguageModel {
   // Check if it's gateway format (contains /)
@@ -124,6 +125,7 @@ export async function createModelAsync(modelId: string): Promise<LanguageModel> 
     groq: { package: '@ai-sdk/groq', export: 'groq' },
     mistral: { package: '@ai-sdk/mistral', export: 'mistral' },
     xai: { package: '@ai-sdk/xai', export: 'xai' },
+    minimax: { package: 'vercel-minimax-ai-provider', export: 'minimax' },
   }
 
   const config = providerConfigs[provider]
@@ -154,6 +156,7 @@ export const SUPPORTED_PROVIDERS = [
   'groq',
   'mistral',
   'xai',
+  'minimax',
 ] as const
 
 export type SupportedProvider = (typeof SUPPORTED_PROVIDERS)[number]
@@ -192,4 +195,6 @@ export const FRONTIER_MODELS = {
   ],
   // xAI Grok models
   xai: ['grok-4', 'grok-4-fast-reasoning', 'grok-3', 'grok-3-fast', 'grok-3-mini'],
+  // MiniMax models
+  minimax: ['MiniMax-M2', 'MiniMax-M2-Stable'],
 } as const
