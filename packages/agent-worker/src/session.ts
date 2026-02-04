@@ -125,6 +125,10 @@ export class AgentSession {
         if (tool.execute) {
           return tool.execute(args)
         }
+        // Return static mock response if set
+        if (tool.mockResponse !== undefined) {
+          return tool.mockResponse
+        }
         return { error: 'No mock implementation provided' }
       },
     }))
@@ -353,6 +357,33 @@ export class AgentSession {
     const tool = this.tools.find((t) => t.name === name)
     if (tool) {
       tool.execute = mockFn
+      this.toolsChanged = true
+      this.cachedAgent = null // Force rebuild
+    } else {
+      throw new Error(`Tool not found: ${name}`)
+    }
+  }
+
+  /**
+   * Get current tool definitions (without execute functions)
+   */
+  getTools(): ToolDefinition[] {
+    return this.tools.map((t) => ({
+      name: t.name,
+      description: t.description,
+      parameters: t.parameters,
+      needsApproval: t.needsApproval,
+      mockResponse: t.mockResponse,
+    }))
+  }
+
+  /**
+   * Set a static mock response for an existing tool (JSON-serializable)
+   */
+  setMockResponse(name: string, response: unknown): void {
+    const tool = this.tools.find((t) => t.name === name)
+    if (tool) {
+      tool.mockResponse = response
       this.toolsChanged = true
       this.cachedAgent = null // Force rebuild
     } else {

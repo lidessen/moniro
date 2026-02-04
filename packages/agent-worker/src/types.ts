@@ -30,6 +30,8 @@ export interface ToolDefinition {
   }
   /** Mock function - returns controlled response for testing */
   execute?: (args: Record<string, unknown>) => unknown | Promise<unknown>
+  /** Static mock response (JSON-serializable, used when execute is not set) */
+  mockResponse?: unknown
   /** Require user approval before execution (default: false) */
   needsApproval?: boolean | ((args: Record<string, unknown>) => boolean)
 }
