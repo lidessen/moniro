@@ -1092,3 +1092,92 @@ Agent 初次执行任务时，如何提供信息避免过载？
 
 **核心洞察**：Agent 有内置的相关性判断能力，信息过载风险比预期小。
 
+---
+
+## Addendum 14: Skill 角色设计实验 (2026-02-04)
+
+### 研究问题
+
+Skill 应该赋予独立角色，还是提供专业视角？
+
+### 实验设计
+
+| 变体 | Prompt 结构 |
+|------|------------|
+| 独立角色 | "You are a security expert..." |
+| 专业视角 | "When reviewing code, you look for security issues..." |
+| 多角色 | "You are a security expert" + "You are an architect" |
+| 核心身份 + Skill | CLAUDE.md 身份 + Skill 视角 |
+
+**任务**：Review 有 SQL 注入的代码
+
+### 结果
+
+| 变体 | 发现问题 | Agent 自我反思 |
+|------|---------|----------------|
+| 独立角色 | SQL 注入 | "Role framing directed attention... could create tunnel vision" |
+| 专业视角 | SQL 注入 | "Framing directed me toward adversarial mindset" |
+| 多角色 | SQL 注入 + 架构问题 | **"They complemented each other strongly"** |
+| 核心身份 + Skill | SQL 注入 + WHY 解释 | **"Layered together naturally, no conflict"** |
+
+### 关键发现
+
+#### 1. 角色不冲突，而是互补
+
+```
+多角色场景：
+- Security: "found the symptom"
+- Architecture: "diagnosed the underlying condition"
+- 结果：比单一角色更全面
+```
+
+#### 2. 核心身份 + Skill 视角 = 最佳组合
+
+```
+CLAUDE.md (核心身份): 提供 WHY (深度)
+Skill (专业视角): 提供 WHAT (具体方法)
+结合效果: "More thorough than either alone"
+```
+
+### Skill 设计建议
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ CLAUDE.md: 核心身份 (我是谁)                                │
+│ "你是继承者，你追求 WHY，你验证后才说完成..."                │
+│                                                             │
+│ 作用：提供判断基础、价值观、做事风格                         │
+├─────────────────────────────────────────────────────────────┤
+│ Skill: 专业视角 (做 X 时我怎么做)                           │
+│ "当你审查代码时，你问'怎么被利用'，追踪数据流..."            │
+│                                                             │
+│ 作用：提供具体方法、领域知识、专业技能                       │
+└─────────────────────────────────────────────────────────────┘
+
+两者互补，不替换：
+- 核心身份是"根"，不随 Skill 变化
+- Skill 是"专业镜头"，叠加在核心身份上
+- 多 Skill 可以共存，因为它们是方法论，不是身份
+```
+
+### 对 Skill 结构的启示
+
+```markdown
+# Bad: Skill 定义独立角色（可能与 CLAUDE.md 冲突）
+You are a security expert with 15 years of experience...
+
+# Good: Skill 提供专业视角（与 CLAUDE.md 互补）
+When reviewing code for security, you:
+- Ask "how could this be exploited?"
+- Trace data flow from untrusted sources
+- Consider the attacker's perspective
+```
+
+### 验证结论
+
+| 问题 | 答案 |
+|------|------|
+| Skill 应该赋予角色吗？ | **不是独立角色，而是专业视角** |
+| 多 Skill 会冲突吗？ | **不会，会互补** |
+| 与 CLAUDE.md 的关系？ | **CLAUDE.md = 根身份，Skill = 专业镜头** |
+
