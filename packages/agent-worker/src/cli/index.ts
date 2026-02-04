@@ -3,7 +3,7 @@ import { Command } from 'commander'
 import { readFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
 import { join } from 'node:path'
-import type { ToolDefinition } from 'agent-worker'
+import type { ToolDefinition } from '../types.ts'
 import { sendRequest, isSessionActive } from './client.ts'
 import {
   startServer,

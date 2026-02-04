@@ -1,11 +1,14 @@
 {
   "name": "agent-worker",
   "version": "0.0.1",
-  "description": "SDK for creating agent workers with Vercel AI SDK",
+  "description": "SDK and CLI for creating and testing agent workers with Vercel AI SDK",
   "type": "module",
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
+  "bin": {
+    "agent-worker": "./dist/cli/index.mjs"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",
@@ -27,6 +30,7 @@
   "dependencies": {
     "ai": "^6.0.69",
     "bash-tool": "^1.3.12",
+    "commander": "^14.0.3",
     "just-bash": "^2.8.0"
   },
   "devDependencies": {

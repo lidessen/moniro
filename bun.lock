@@ -8,9 +8,13 @@
     "packages/agent-worker": {
       "name": "agent-worker",
       "version": "0.0.1",
+      "bin": {
+        "agent-worker": "./dist/cli/index.mjs",
+      },
       "dependencies": {
         "ai": "^6.0.69",
         "bash-tool": "^1.3.12",
+        "commander": "^14.0.3",
         "just-bash": "^2.8.0",
       },
       "devDependencies": {

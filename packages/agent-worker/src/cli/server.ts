@@ -2,7 +2,8 @@ import { createServer, type Server } from 'node:net'
 import { existsSync, unlinkSync, writeFileSync, readFileSync, mkdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { AgentSession, type ToolDefinition } from 'agent-worker'
+import { AgentSession } from '../session.ts'
+import type { ToolDefinition } from '../types.ts'
 
 const CONFIG_DIR = join(homedir(), '.agent-worker')
 const SESSIONS_DIR = join(CONFIG_DIR, 'sessions')
