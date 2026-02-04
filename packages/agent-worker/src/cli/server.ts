@@ -4,6 +4,8 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { AgentSession } from '../session.ts'
 import type { ToolDefinition } from '../types.ts'
+import type { Backend, BackendType } from '../backends/types.ts'
+import { createBackend } from '../backends/index.ts'
 
 const CONFIG_DIR = join(homedir(), '.agent-worker')
 const SESSIONS_DIR = join(CONFIG_DIR, 'sessions')
@@ -18,6 +20,7 @@ interface SessionInfo {
   id: string
   name?: string
   model: string
+  backend: BackendType
   socketPath: string
   pidFile: string
   readyFile: string
@@ -27,12 +30,15 @@ interface SessionInfo {
 }
 
 interface ServerState {
-  session: AgentSession
+  session: AgentSession | null // null when using CLI backend
+  backend: Backend | null // non-null when using CLI backend
   server: Server
   info: SessionInfo
   lastActivity: number
   pendingRequests: number
   idleTimer?: ReturnType<typeof setTimeout>
+  // For CLI backends: simple message history
+  cliHistory: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>
 }
 
 let state: ServerState | null = null
@@ -202,7 +208,7 @@ async function handleRequest(req: Request): Promise<Response> {
   state.pendingRequests++
   resetIdleTimer()
 
-  const { session } = state
+  const { session, backend, info } = state
 
   try {
     switch (req.action) {
@@ -210,36 +216,82 @@ async function handleRequest(req: Request): Promise<Response> {
         return {
           success: true,
           data: {
-            id: session.id,
-            model: session.model,
-            name: state.info.name,
-          }
+            id: info.id,
+            model: info.model,
+            backend: info.backend,
+            name: info.name,
+          },
         }
 
       case 'send': {
-        const { message, options } = req.payload as { message: string; options?: { autoApprove?: boolean } }
-        const response = await session.send(message, options)
-        return { success: true, data: response }
+        const { message, options } = req.payload as {
+          message: string
+          options?: { autoApprove?: boolean }
+        }
+
+        // CLI backend path
+        if (backend) {
+          const timestamp = new Date().toISOString()
+          state.cliHistory.push({ role: 'user', content: message, timestamp })
+
+          const result = await backend.send(message, { system: info.model })
+          state.cliHistory.push({
+            role: 'assistant',
+            content: result.content,
+            timestamp: new Date().toISOString(),
+          })
+
+          return {
+            success: true,
+            data: {
+              content: result.content,
+              toolCalls: result.toolCalls || [],
+              pendingApprovals: [],
+              usage: result.usage || { input: 0, output: 0, total: 0 },
+              latency: 0,
+            },
+          }
+        }
+
+        // SDK backend path
+        if (session) {
+          const response = await session.send(message, options)
+          return { success: true, data: response }
+        }
+
+        return { success: false, error: 'No backend configured' }
       }
 
       case 'tool_add': {
+        if (!session) {
+          return { success: false, error: 'Tool management not supported for CLI backends' }
+        }
         const tool = req.payload as ToolDefinition
         session.addTool(tool)
         return { success: true, data: { name: tool.name } }
       }
 
       case 'tool_mock': {
+        if (!session) {
+          return { success: false, error: 'Tool management not supported for CLI backends' }
+        }
         const { name, response } = req.payload as { name: string; response: unknown }
         session.setMockResponse(name, response)
         return { success: true, data: { name } }
       }
 
       case 'tool_list': {
+        if (!session) {
+          return { success: true, data: [] }
+        }
         const tools = session.getTools()
         return { success: true, data: tools }
       }
 
       case 'tool_import': {
+        if (!session) {
+          return { success: false, error: 'Tool import not supported for CLI backends' }
+        }
         const { filePath } = req.payload as { filePath: string }
 
         // Validate file path
@@ -268,13 +320,17 @@ async function handleRequest(req: Request): Promise<Response> {
             const result = await module.default()
             tools = Array.isArray(result) ? result : []
           } catch (factoryError) {
-            const message = factoryError instanceof Error ? factoryError.message : String(factoryError)
+            const message =
+              factoryError instanceof Error ? factoryError.message : String(factoryError)
             return { success: false, error: `Factory function failed: ${message}` }
           }
         } else if (Array.isArray(module.tools)) {
           tools = module.tools
         } else {
-          return { success: false, error: 'No tools found. Export default array or named "tools" array.' }
+          return {
+            success: false,
+            error: 'No tools found. Export default array or named "tools" array.',
+          }
         }
 
         // Validate and add tools
@@ -293,32 +349,81 @@ async function handleRequest(req: Request): Promise<Response> {
           imported.push(tool.name)
         }
 
-        return { success: true, data: { imported, skipped: skipped.length > 0 ? skipped : undefined } }
+        return {
+          success: true,
+          data: { imported, skipped: skipped.length > 0 ? skipped : undefined },
+        }
       }
 
       case 'history':
-        return { success: true, data: session.history() }
+        if (backend) {
+          return { success: true, data: state.cliHistory }
+        }
+        if (session) {
+          return { success: true, data: session.history() }
+        }
+        return { success: true, data: [] }
 
       case 'stats':
-        return { success: true, data: session.stats() }
+        if (backend) {
+          return {
+            success: true,
+            data: { messageCount: state.cliHistory.length, usage: { input: 0, output: 0, total: 0 } },
+          }
+        }
+        if (session) {
+          return { success: true, data: session.stats() }
+        }
+        return { success: true, data: { messageCount: 0, usage: { input: 0, output: 0, total: 0 } } }
 
       case 'export':
-        return { success: true, data: session.export() }
+        if (backend) {
+          return {
+            success: true,
+            data: {
+              sessionId: info.id,
+              model: info.model,
+              backend: info.backend,
+              messages: state.cliHistory,
+              createdAt: info.createdAt,
+            },
+          }
+        }
+        if (session) {
+          return { success: true, data: session.export() }
+        }
+        return { success: false, error: 'No session to export' }
 
       case 'clear':
-        session.clear()
+        if (backend) {
+          state.cliHistory = []
+          return { success: true }
+        }
+        if (session) {
+          session.clear()
+          return { success: true }
+        }
         return { success: true }
 
       case 'pending':
-        return { success: true, data: session.getPendingApprovals() }
+        if (session) {
+          return { success: true, data: session.getPendingApprovals() }
+        }
+        return { success: true, data: [] }
 
       case 'approve': {
+        if (!session) {
+          return { success: false, error: 'Approvals not supported for CLI backends' }
+        }
         const { id } = req.payload as { id: string }
         const result = await session.approve(id)
         return { success: true, data: result }
       }
 
       case 'deny': {
+        if (!session) {
+          return { success: false, error: 'Approvals not supported for CLI backends' }
+        }
         const { id, reason } = req.payload as { id: string; reason?: string }
         session.deny(id, reason)
         return { success: true }
@@ -360,19 +465,41 @@ function cleanup(): void {
   }
 }
 
-export function startServer(config: { model: string; system: string; name?: string; idleTimeout?: number }): void {
+export function startServer(config: {
+  model: string
+  system: string
+  name?: string
+  idleTimeout?: number
+  backend?: BackendType
+}): void {
   ensureDirs()
 
-  // Create session
-  const session = new AgentSession({
-    model: config.model,
-    system: config.system,
-  })
+  const backendType = config.backend || 'sdk'
+  const sessionId = crypto.randomUUID()
+  const createdAt = new Date().toISOString()
+
+  // Create session or backend based on type
+  let session: AgentSession | null = null
+  let backend: Backend | null = null
+
+  if (backendType === 'sdk') {
+    session = new AgentSession({
+      model: config.model,
+      system: config.system,
+    })
+  } else {
+    backend = createBackend({
+      type: backendType,
+      model: config.model,
+    } as Parameters<typeof createBackend>[0])
+  }
+
+  const effectiveId = session?.id || sessionId
 
   // Generate paths
-  const socketPath = join(SESSIONS_DIR, `${session.id}.sock`)
-  const pidFile = join(SESSIONS_DIR, `${session.id}.pid`)
-  const readyFile = join(SESSIONS_DIR, `${session.id}.ready`)
+  const socketPath = join(SESSIONS_DIR, `${effectiveId}.sock`)
+  const pidFile = join(SESSIONS_DIR, `${effectiveId}.pid`)
+  const readyFile = join(SESSIONS_DIR, `${effectiveId}.ready`)
 
   // Clean up any existing socket
   if (existsSync(socketPath)) {
@@ -380,14 +507,15 @@ export function startServer(config: { model: string; system: string; name?: stri
   }
 
   const info: SessionInfo = {
-    id: session.id,
+    id: effectiveId,
     name: config.name,
     model: config.model,
+    backend: backendType,
     socketPath,
     pidFile,
     readyFile,
     pid: process.pid,
-    createdAt: session.createdAt,
+    createdAt: session?.createdAt || createdAt,
     idleTimeout: config.idleTimeout,
   }
 
@@ -409,10 +537,12 @@ export function startServer(config: { model: string; system: string; name?: stri
           const res = await handleRequest(req)
           socket.write(JSON.stringify(res) + '\n')
         } catch (error) {
-          socket.write(JSON.stringify({
-            success: false,
-            error: error instanceof Error ? error.message : 'Parse error',
-          }) + '\n')
+          socket.write(
+            JSON.stringify({
+              success: false,
+              error: error instanceof Error ? error.message : 'Parse error',
+            }) + '\n'
+          )
         }
       }
     })
@@ -432,21 +562,24 @@ export function startServer(config: { model: string; system: string; name?: stri
     // Initialize state
     state = {
       session,
+      backend,
       server,
       info,
       lastActivity: Date.now(),
       pendingRequests: 0,
+      cliHistory: [],
     }
 
     // Write ready file (signals CLI that server is ready)
-    writeFileSync(readyFile, session.id)
+    writeFileSync(readyFile, effectiveId)
 
     // Start idle timer
     resetIdleTimer()
 
     const nameStr = config.name ? ` (${config.name})` : ''
-    console.log(`Session started: ${session.id}${nameStr}`)
-    console.log(`Model: ${session.model}`)
+    console.log(`Session started: ${effectiveId}${nameStr}`)
+    console.log(`Model: ${config.model}`)
+    console.log(`Backend: ${backendType}`)
   })
 
   server.on('error', (error) => {

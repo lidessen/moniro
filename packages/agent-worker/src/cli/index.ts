@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import type { ToolDefinition } from '../types.ts'
 import { FRONTIER_MODELS, getDefaultModel } from '../models.ts'
+import type { BackendType } from '../backends/types.ts'
 import { sendRequest, isSessionActive } from './client.ts'
 import {
   startServer,
@@ -28,6 +29,7 @@ sessionCmd
   .command('new')
   .description('Create a new session')
   .option('-m, --model <model>', `Model identifier (default: ${getDefaultModel()})`)
+  .option('-b, --backend <type>', 'Backend type: sdk, claude, codex, cursor (default: sdk)')
   .option('-s, --system <prompt>', 'System prompt', 'You are a helpful assistant.')
   .option('-f, --system-file <file>', 'Read system prompt from file')
   .option('-n, --name <name>', 'Session name for easy reference')
@@ -39,15 +41,25 @@ sessionCmd
       system = readFileSync(options.systemFile, 'utf-8')
     }
 
+    // Determine backend type
+    const backend = (options.backend || 'sdk') as BackendType
+
+    // Validate backend
+    const validBackends: BackendType[] = ['sdk', 'claude', 'codex', 'cursor']
+    if (!validBackends.includes(backend)) {
+      console.error(`Invalid backend: ${backend}. Valid options: ${validBackends.join(', ')}`)
+      process.exit(1)
+    }
+
     // Use default model if not specified
     const model = options.model || getDefaultModel()
 
     const idleTimeout = parseInt(options.idleTimeout, 10)
 
     if (options.foreground) {
-      startServer({ model, system, name: options.name, idleTimeout })
+      startServer({ model, system, name: options.name, idleTimeout, backend })
     } else {
-      const args = [process.argv[1], 'session', 'new', '-m', model, '-s', system, '--foreground']
+      const args = [process.argv[1], 'session', 'new', '-m', model, '-b', backend, '-s', system, '--foreground']
       if (options.name) {
         args.push('-n', options.name)
       }
@@ -65,6 +77,7 @@ sessionCmd
         const nameStr = options.name ? ` (${options.name})` : ''
         console.log(`Session started: ${info.id}${nameStr}`)
         console.log(`Model: ${info.model}`)
+        console.log(`Backend: ${backend}`)
       } else {
         console.error('Failed to start session')
         process.exit(1)
@@ -621,9 +634,12 @@ program
     console.log('\nUsage:')
     console.log('  SDK backend:    agent-worker session new -m openai/gpt-5.2')
     console.log('  SDK backend:    agent-worker session new -m anthropic/claude-sonnet-4-5')
+    console.log('  Claude CLI:     agent-worker session new -b claude')
+    console.log('  Codex CLI:      agent-worker session new -b codex')
+    console.log('  Cursor CLI:     agent-worker session new -b cursor')
     console.log('')
-    console.log('Note: CLI backends (claude, codex, cursor) are detected but not yet')
-    console.log('integrated into the session command. Currently only SDK backend is supported.')
+    console.log('Note: CLI backends use their own model selection. The -m flag is optional.')
+    console.log('Tool management (add, mock, import) is only supported with SDK backend.')
   })
 
 program.parse()
