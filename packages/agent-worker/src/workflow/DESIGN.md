@@ -121,7 +121,7 @@ interface ConditionalTask {
   send?: string
   shell?: string
   to?: string
-  as?: string
+  as?: string | { name: string; prompt: string }
 }
 
 interface ParallelTask {
