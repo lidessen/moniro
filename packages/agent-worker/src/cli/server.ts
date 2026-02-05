@@ -373,11 +373,14 @@ async function handleRequest(req: Request): Promise<Response> {
               timestamp: new Date().toISOString(),
             })
 
-            // Process in background
-            console.error('[DEBUG] Starting async backend.send()')
-            backend.send(message, { system: info.system })
+            // Process in background with timeout
+            const timeoutMs = 60000 // 60 seconds timeout
+            const timeoutPromise = new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('Request timed out after 60 seconds')), timeoutMs)
+            )
+
+            Promise.race([backend.send(message, { system: info.system }), timeoutPromise])
               .then((result) => {
-                console.error('[DEBUG] Async send succeeded')
                 // Update the last message (which is the placeholder)
                 const lastMsg = state.cliHistory[state.cliHistory.length - 1]
                 if (lastMsg && lastMsg.content === '(processing...)') {
@@ -386,7 +389,6 @@ async function handleRequest(req: Request): Promise<Response> {
                 }
               })
               .catch((error) => {
-                console.error('[DEBUG] Async send failed:', error)
                 const lastMsg = state.cliHistory[state.cliHistory.length - 1]
                 if (lastMsg && lastMsg.content === '(processing...)') {
                   lastMsg.content = `Error: ${error instanceof Error ? error.message : String(error)}`

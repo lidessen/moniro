@@ -114,6 +114,20 @@ Debug output shows:
 - Request/response timing
 - Error details
 
+**Backend Limitations:**
+
+The CLI supports two backend types:
+
+1. **SDK Backend (default)**: Full-featured, works in all environments. Requires `ANTHROPIC_API_KEY` environment variable.
+
+2. **Claude CLI Backend (`-b claude`)**: Uses `claude -p` for non-interactive mode.
+   - **Known limitation**: May not work properly within Claude Code environment itself due to command interception
+   - **Timeout**: Async requests timeout after 60 seconds to prevent indefinite hangs
+   - **Recommended use**: Normal terminal environments outside Claude Code
+   - **For testing**: Use SDK backend instead when developing within Claude Code
+
+If you see messages stuck in `(processing...)` state for more than 60 seconds, it indicates a backend issue. The message will automatically update to show a timeout error.
+
 ### Tool Management (SDK Backend Only)
 
 ```bash

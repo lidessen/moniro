@@ -40,6 +40,7 @@ export class ClaudeCliBackend implements Backend {
       const proc = spawn('claude', args, {
         cwd: this.options.cwd,
         env: process.env,
+        stdio: ['ignore', 'pipe', 'pipe'], // Ignore stdin, pipe stdout/stderr
       })
 
       let stdout = ''
