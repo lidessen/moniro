@@ -1,6 +1,6 @@
 {
   "name": "agent-worker",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "SDK and CLI for creating and testing agent workers with Vercel AI SDK",
   "type": "module",
   "main": "./dist/index.mjs",
