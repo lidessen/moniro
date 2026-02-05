@@ -400,7 +400,7 @@ async function handleRequest(req: Request): Promise<Response> {
               success: true,
               data: {
                 async: true,
-                message: 'Message sent. Use "peek" command to view response.',
+                message: 'Processing in background. Use `peek` to check the response.',
               },
             }
           }
@@ -439,7 +439,7 @@ async function handleRequest(req: Request): Promise<Response> {
               success: true,
               data: {
                 async: true,
-                message: 'Message sent. Use "peek" command to view response.',
+                message: 'Processing in background. Use `peek` to check the response.',
               },
             }
           }
