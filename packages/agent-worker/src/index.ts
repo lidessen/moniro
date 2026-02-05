@@ -16,6 +16,7 @@ export {
   CursorCliBackend,
   SdkBackend,
 } from './backends/index.ts'
+export { SkillsProvider, createSkillsTool, type SkillMetadata } from './skills/index.ts'
 export type { SupportedProvider } from './models.ts'
 export type { BashToolkit, BashToolsOptions, CreateBashToolOptions } from './bash-tools.ts'
 export type {

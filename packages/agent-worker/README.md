@@ -109,6 +109,65 @@ agent-worker approve <approval-id>
 agent-worker deny <approval-id> -r "Path not allowed"
 ```
 
+### Agent Skills
+
+Agent skills provide reusable instructions and methodologies that agents can access on demand. Compatible with the [Agent Skills](https://agentskills.io) ecosystem.
+
+```bash
+# Load skills from default directories (.agents/skills, .claude/skills, ~/.agents/skills)
+agent-worker session new
+
+# Add a specific skill directory
+agent-worker session new --skill ./my-skills/custom-skill
+
+# Scan additional directories for skills
+agent-worker session new --skill-dir ./team-skills --skill-dir ~/shared-skills
+
+# Combine multiple options
+agent-worker session new \
+  --skill ./my-skills/dive \
+  --skill-dir ~/company-skills
+```
+
+**Default Skill Directories:**
+- `.agents/skills/` - Project-level skills
+- `.claude/skills/` - Claude Code skills
+- `.cursor/skills/` - Cursor skills
+- `~/.agents/skills/` - User-level global skills
+- `~/.claude/skills/` - User-level Claude skills
+
+**Using Skills in Sessions:**
+
+Once loaded, agents can interact with skills via the `Skills` tool:
+
+```typescript
+// List available skills
+Skills({ operation: 'list' })
+
+// View a skill's complete instructions
+Skills({ operation: 'view', skillName: 'dive' })
+
+// Read skill reference files
+Skills({
+  operation: 'readFile',
+  skillName: 'dive',
+  filePath: 'references/search-strategies.md'
+})
+```
+
+**Installing Skills:**
+
+Use the [skills CLI](https://github.com/vercel-labs/skills) to install skills:
+
+```bash
+# Install from GitHub
+npx skills add vercel-labs/agent-skills
+
+# Or use the official skills tool
+npm install -g @agentskills/cli
+skills add vercel-labs/agent-skills
+```
+
 ### Backends
 
 ```bash
@@ -143,6 +202,8 @@ agent-worker session new -m deepseek:deepseek-chat
 
 ## SDK Usage
 
+### Basic Session
+
 ```typescript
 import { AgentSession } from 'agent-worker'
 
@@ -165,6 +226,39 @@ for await (const chunk of session.sendStream('Tell me a story')) {
 
 // Get state for persistence
 const state = session.getState()
+```
+
+### With Skills
+
+```typescript
+import {
+  AgentSession,
+  SkillsProvider,
+  createSkillsTool
+} from 'agent-worker'
+
+// Setup skills
+const skillsProvider = new SkillsProvider()
+await skillsProvider.scanDirectory('.agents/skills')
+await skillsProvider.scanDirectory('~/my-skills')
+
+// Or add individual skills
+await skillsProvider.addSkill('./custom-skills/my-skill')
+
+// Create session with Skills tool
+const session = new AgentSession({
+  model: 'anthropic/claude-sonnet-4-5',
+  system: 'You are a helpful assistant.',
+  tools: [
+    createSkillsTool(skillsProvider),
+    // ... other tools
+  ]
+})
+
+// Agent can now access skills
+const response = await session.send(
+  'What skills are available? Use the dive skill to analyze this codebase.'
+)
 ```
 
 ## Common Patterns

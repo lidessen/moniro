@@ -6,10 +6,71 @@ import { AgentSession } from '../session.ts'
 import type { ToolDefinition } from '../types.ts'
 import type { Backend, BackendType } from '../backends/types.ts'
 import { createBackend } from '../backends/index.ts'
+import { SkillsProvider, createSkillsTool } from '../skills/index.ts'
 
 const CONFIG_DIR = join(homedir(), '.agent-worker')
 const SESSIONS_DIR = join(CONFIG_DIR, 'sessions')
 const REGISTRY_FILE = join(CONFIG_DIR, 'registry.json')
+
+const DEFAULT_SKILL_DIRS = [
+  '.agents/skills',
+  '.claude/skills',
+  '.cursor/skills',
+  join(homedir(), '.agents/skills'),
+  join(homedir(), '.claude/skills'),
+]
+
+/**
+ * Setup skills provider and return Skills tool
+ * Uses synchronous operations to match server startup flow
+ */
+function setupSkills(
+  skillPaths?: string[],
+  skillDirs?: string[]
+): ToolDefinition[] {
+  const provider = new SkillsProvider()
+
+  // Scan default directories
+  for (const dir of DEFAULT_SKILL_DIRS) {
+    try {
+      provider.scanDirectorySync(dir)
+    } catch {
+      // Ignore errors from default paths
+    }
+  }
+
+  // Scan additional directories
+  if (skillDirs) {
+    for (const dir of skillDirs) {
+      try {
+        provider.scanDirectorySync(dir)
+      } catch (error) {
+        console.error(`Failed to scan skill directory ${dir}:`, error)
+      }
+    }
+  }
+
+  // Add individual skills
+  if (skillPaths) {
+    for (const skillPath of skillPaths) {
+      try {
+        provider.addSkillSync(skillPath)
+      } catch (error) {
+        console.error(`Failed to add skill ${skillPath}:`, error)
+      }
+    }
+  }
+
+  const skills = provider.list()
+  if (skills.length > 0) {
+    console.log(`Loaded ${skills.length} skill(s):`)
+    for (const skill of skills) {
+      console.log(`  - ${skill.name}: ${skill.description}`)
+    }
+  }
+
+  return [createSkillsTool(provider)]
+}
 
 interface SessionRegistry {
   sessions: Record<string, SessionInfo>
@@ -472,6 +533,8 @@ export function startServer(config: {
   name?: string
   idleTimeout?: number
   backend?: BackendType
+  skills?: string[]
+  skillDirs?: string[]
 }): void {
   ensureDirs()
 
@@ -487,6 +550,7 @@ export function startServer(config: {
     session = new AgentSession({
       model: config.model,
       system: config.system,
+      tools: setupSkills(config.skills, config.skillDirs),
     })
   } else {
     backend = createBackend({

@@ -38,6 +38,8 @@ sessionCmd
   .option('-f, --system-file <file>', 'Read system prompt from file')
   .option('-n, --name <name>', 'Session name for easy reference')
   .option('--idle-timeout <ms>', 'Idle timeout in ms (0 = no timeout)', '1800000')
+  .option('--skill <path...>', 'Add individual skill directories')
+  .option('--skill-dir <path...>', 'Scan directories for skills')
   .option('--foreground', 'Run in foreground')
   .action(async (options) => {
     let system = options.system
@@ -53,13 +55,31 @@ sessionCmd
     const idleTimeout = parseInt(options.idleTimeout, 10)
 
     if (options.foreground) {
-      startServer({ model, system, name: options.name, idleTimeout, backend })
+      startServer({
+        model,
+        system,
+        name: options.name,
+        idleTimeout,
+        backend,
+        skills: options.skill,
+        skillDirs: options.skillDir,
+      })
     } else {
       const args = [process.argv[1], 'session', 'new', '-m', model, '-b', backend, '-s', system, '--foreground']
       if (options.name) {
         args.push('-n', options.name)
       }
       args.push('--idle-timeout', String(idleTimeout))
+      if (options.skill) {
+        for (const skillPath of options.skill) {
+          args.push('--skill', skillPath)
+        }
+      }
+      if (options.skillDir) {
+        for (const dir of options.skillDir) {
+          args.push('--skill-dir', dir)
+        }
+      }
 
       const child = spawn(process.execPath, args, {
         detached: true,
