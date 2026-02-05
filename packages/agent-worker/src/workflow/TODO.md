@@ -18,6 +18,7 @@ Implementation tasks for the workflow v2 design. See [DESIGN.md](./DESIGN.md) fo
 - [x] Create `createContextMCPServer()` function
 - [x] Implement tools: `channel_send`, `channel_read`, `channel_peek`
 - [x] Implement tools: `document_read`, `document_write`, `document_append`
+- [x] Implement tool: `workflow_agents` for agent discovery
 - [ ] Implement `notifications/mention` for @mention push (pending MCP SDK support)
 - [x] Unix socket transport (primary)
 - [ ] HTTP transport (fallback) - deferred, Unix socket sufficient
@@ -40,7 +41,7 @@ Implementation tasks for the workflow v2 design. See [DESIGN.md](./DESIGN.md) fo
 
 ## Phase 5: Run/Start Modes
 
-- [ ] Run mode: exit when all agents idle (deferred - requires agent idle detection)
+- [x] Run mode: exit when all agents idle (via @mention polling)
 - [x] Start mode: persistent until stop (Ctrl+C or stop command)
 - [x] Background mode for start (--background flag)
 - [x] Integrate MCP server lifecycle with workflow (graceful shutdown)
@@ -64,5 +65,5 @@ Implementation tasks for the workflow v2 design. See [DESIGN.md](./DESIGN.md) fo
 | 2. Context MCP Server | ✅ Complete | MCP tools + stdio/Unix socket transports |
 | 3. Kickoff Model | ✅ Complete | runner-v2 with setup + kickoff execution |
 | 4. CLI Updates | ✅ Complete | start/stop/list commands + context subcommand |
-| 5. Run/Start Modes | ✅ Complete | start --background + graceful shutdown |
+| 5. Run/Start Modes | ✅ Complete | run idle detection + start --background + graceful shutdown |
 | 6. Agent MCP Integration | ✅ Complete | mcp-config.ts + mcp-stdio bridge |
