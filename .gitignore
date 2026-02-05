@@ -26,4 +26,6 @@ npm-debug.log*
 
 # Test files and directories
 test-skills.ts
+test-skills-cli.ts
+test-skills-with-mock.ts
 .agents/
