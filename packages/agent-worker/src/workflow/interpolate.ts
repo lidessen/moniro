@@ -108,17 +108,18 @@ export function evaluateCondition(expression: string, context: VariableContext):
     return value.endsWith(search)
   }
 
-  // Check for equality
-  const equalMatch = interpolated.match(/^(.+)\s*===?\s*['"](.+)['"]$/)
-  if (equalMatch) {
-    const [, left, right] = equalMatch
-    return left.trim() === right
-  }
-
-  const notEqualMatch = interpolated.match(/^(.+)\s*!==?\s*['"](.+)['"]$/)
+  // Check for inequality FIRST (before equality, since !== contains ==)
+  const notEqualMatch = interpolated.match(/^(.+?)\s*!==?\s*['"](.+)['"]$/)
   if (notEqualMatch) {
     const [, left, right] = notEqualMatch
     return left.trim() !== right
+  }
+
+  // Check for equality (use non-greedy match to avoid capturing operator)
+  const equalMatch = interpolated.match(/^(.+?)\s*===?\s*['"](.+)['"]$/)
+  if (equalMatch) {
+    const [, left, right] = equalMatch
+    return left.trim() === right
   }
 
   // Check for existence (truthy)

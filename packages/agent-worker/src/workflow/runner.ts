@@ -99,6 +99,14 @@ export async function runWorkflow(config: RunConfig): Promise<RunResult> {
         context[taskResult.name] = taskResult.output
       }
 
+      // Handle additional results from parallel tasks
+      if (taskResult.additionalResults) {
+        for (const [name, output] of Object.entries(taskResult.additionalResults)) {
+          results[name] = output
+          context[name] = output
+        }
+      }
+
       lastOutput = taskResult.output
     }
   } catch (error) {
@@ -122,6 +130,8 @@ export async function runWorkflow(config: RunConfig): Promise<RunResult> {
 interface TaskResult {
   output: string
   name?: string
+  /** Additional named results (for parallel tasks) */
+  additionalResults?: Record<string, string>
 }
 
 interface TaskContext extends RunConfig {
@@ -239,20 +249,33 @@ async function executeTask(
     // Parallel task - execute all in parallel
     if (verbose) log(`  parallel: ${task.parallel.length} tasks`)
 
-    const results = await Promise.all(
+    const subResults = await Promise.all(
       task.parallel.map(subTask => executeTask(subTask, context, config))
     )
 
-    // Merge results into context
-    for (const result of results) {
+    // Collect all named results
+    const additionalResults: Record<string, string> = {}
+    for (const result of subResults) {
       if (result.name) {
         context[result.name] = result.output
+        additionalResults[result.name] = result.output
+      }
+      // Also merge any nested additional results
+      if (result.additionalResults) {
+        for (const [name, output] of Object.entries(result.additionalResults)) {
+          context[name] = output
+          additionalResults[name] = output
+        }
       }
     }
 
-    // Return last result's output
-    const lastResult = results[results.length - 1]
-    return { output: lastResult?.output || '', name: lastResult?.name }
+    // Return last result's output with all additional results
+    const lastResult = subResults[subResults.length - 1]
+    return {
+      output: lastResult?.output || '',
+      name: lastResult?.name,
+      additionalResults,
+    }
   }
 
   return { output: '' }
