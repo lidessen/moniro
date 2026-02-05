@@ -14,6 +14,7 @@ import {
   setDefaultSession,
   waitForReady,
 } from './server.ts'
+import { buildAgentId, parseAgentId, isValidInstanceName, DEFAULT_INSTANCE } from './instance.ts'
 
 const program = new Command()
 
@@ -49,11 +50,25 @@ async function createAgentAction(name: string | undefined, options: {
   const model = options.model || getDefaultModel()
   const idleTimeout = parseInt(options.idleTimeout ?? '1800000', 10)
 
+  // Build agent name with instance
+  let agentName = name
+  if (name && options.instance) {
+    if (!isValidInstanceName(options.instance)) {
+      console.error(`Invalid instance name: ${options.instance}`)
+      console.error('Instance names must be alphanumeric, hyphen, or underscore')
+      process.exit(1)
+    }
+    agentName = buildAgentId(name, options.instance)
+  } else if (name && !name.includes('@')) {
+    // Add default instance if not already specified
+    agentName = buildAgentId(name, DEFAULT_INSTANCE)
+  }
+
   if (options.foreground) {
     startServer({
       model,
       system,
-      name,
+      name: agentName,
       idleTimeout,
       backend,
       skills: options.skill,
@@ -62,8 +77,8 @@ async function createAgentAction(name: string | undefined, options: {
     })
   } else {
     const args = [process.argv[1], 'new', '-m', model, '-b', backend, '-s', system, '--foreground']
-    if (name) {
-      args.splice(2, 0, name)
+    if (agentName) {
+      args.splice(2, 0, agentName)
     }
     args.push('--idle-timeout', String(idleTimeout))
     if (options.skill) {
@@ -89,10 +104,11 @@ async function createAgentAction(name: string | undefined, options: {
     child.unref()
 
     // Wait for ready signal instead of blind timeout
-    const info = await waitForReady(name, 5000)
+    const info = await waitForReady(agentName, 5000)
     if (info) {
-      const nameStr = name ? ` (${name})` : ''
-      console.log(`Agent started: ${info.id}${nameStr}`)
+      const displayName = name || info.id.slice(0, 8)
+      const instanceStr = options.instance ? `@${options.instance}` : ''
+      console.log(`Agent started: ${displayName}${instanceStr}`)
       console.log(`Model: ${info.model}`)
       console.log(`Backend: ${backend}`)
     } else {
@@ -113,8 +129,14 @@ function listAgentsAction() {
   for (const s of sessions) {
     const running = isSessionRunning(s.id)
     const status = running ? 'running' : 'stopped'
-    const nameStr = s.name ? ` (${s.name})` : ''
-    console.log(`  ${s.id.slice(0, 8)}${nameStr} - ${s.model} [${status}]`)
+    // Parse name to show agent@instance format
+    if (s.name) {
+      const parsed = parseAgentId(s.name)
+      const instanceStr = parsed.instance !== DEFAULT_INSTANCE ? `@${parsed.instance}` : ''
+      console.log(`  ${parsed.agent}${instanceStr} - ${s.model} [${status}]`)
+    } else {
+      console.log(`  ${s.id.slice(0, 8)} - ${s.model} [${status}]`)
+    }
   }
 }
 
