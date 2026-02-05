@@ -6,11 +6,11 @@ Implementation tasks for the workflow v2 design. See [DESIGN.md](./DESIGN.md) fo
 
 ## Phase 1: Context Provider
 
-- [ ] Define `ContextProvider` interface
-- [ ] Implement `FileContextProvider` (markdown storage)
-- [ ] Implement `MemoryContextProvider` (testing)
-- [ ] Channel: append-only with @mention extraction
-- [ ] Document: read/write workspace
+- [x] Define `ContextProvider` interface
+- [x] Implement `FileContextProvider` (markdown storage)
+- [x] Implement `MemoryContextProvider` (testing)
+- [x] Channel: append-only with @mention extraction
+- [x] Document: read/write workspace
 
 ## Phase 2: Context MCP Server
 
@@ -60,7 +60,7 @@ Implementation tasks for the workflow v2 design. See [DESIGN.md](./DESIGN.md) fo
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| 1. Context Provider | Not started | |
+| 1. Context Provider | ✅ Complete | `context/` module with Memory + File providers |
 | 2. Context MCP Server | Not started | |
 | 3. Kickoff Model | Not started | |
 | 4. CLI Updates | Not started | |
