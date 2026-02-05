@@ -135,6 +135,59 @@ async function executeTask(
 ): Promise<TaskResult> {
   const { verbose, log = console.log } = config
 
+  // Check conditional FIRST (before shell/send) since conditional tasks can have shell/send
+  if (isConditionalTask(task)) {
+    // Conditional task
+    const conditionMet = evaluateCondition(task.if, context)
+
+    if (verbose) log(`  if: ${task.if} => ${conditionMet}`)
+
+    if (!conditionMet) {
+      return { output: '' }
+    }
+
+    // Execute the conditional action
+    if (task.shell) {
+      const command = interpolate(task.shell, context)
+      if (verbose) log(`  shell: ${command.slice(0, 50)}...`)
+      const { stdout } = await execAsync(command)
+      const output = stdout.trim()
+      if (verbose) log(`  output: ${output.slice(0, 100)}${output.length > 100 ? '...' : ''}`)
+      return { output, name: typeof task.as === 'string' ? task.as : task.as?.name }
+    }
+
+    if (task.send && task.to) {
+      const message = TASK_MODE_PREFIX + interpolate(task.send, context)
+      if (verbose) log(`  send to ${task.to}: ${task.send.slice(0, 50)}...`)
+
+      // Lazy start agent if needed
+      if (!config.startedAgents.has(task.to)) {
+        const agentDef = config.workflow.agents[task.to]
+        if (!agentDef) {
+          throw new Error(`Agent not defined: ${task.to}`)
+        }
+        await config.startAgent(task.to, agentDef)
+        config.startedAgents.add(task.to)
+      }
+
+      let outputPrompt: string | undefined
+      let outputName: string | undefined
+
+      if (typeof task.as === 'object') {
+        outputName = task.as.name
+        outputPrompt = task.as.prompt
+      } else {
+        outputName = task.as
+      }
+
+      const output = await config.sendToAgent(task.to, message, outputPrompt)
+      if (verbose) log(`  response: ${output.slice(0, 100)}${output.length > 100 ? '...' : ''}`)
+      return { output, name: outputName }
+    }
+
+    return { output: '' }
+  }
+
   if (isShellTask(task)) {
     // Shell task
     const command = interpolate(task.shell, context)
@@ -180,54 +233,6 @@ async function executeTask(
     if (verbose) log(`  response: ${output.slice(0, 100)}${output.length > 100 ? '...' : ''}`)
 
     return { output, name: outputName }
-  }
-
-  if (isConditionalTask(task)) {
-    // Conditional task
-    const conditionStr = interpolate(task.if, context)
-    const conditionMet = evaluateCondition(task.if, context)
-
-    if (verbose) log(`  if: ${conditionStr} => ${conditionMet}`)
-
-    if (!conditionMet) {
-      return { output: '' }
-    }
-
-    // Execute the conditional action
-    if (task.shell) {
-      const command = interpolate(task.shell, context)
-      const { stdout } = await execAsync(command)
-      return { output: stdout.trim(), name: typeof task.as === 'string' ? task.as : task.as?.name }
-    }
-
-    if (task.send && task.to) {
-      const message = TASK_MODE_PREFIX + interpolate(task.send, context)
-
-      // Lazy start agent if needed
-      if (!config.startedAgents.has(task.to)) {
-        const agentDef = config.workflow.agents[task.to]
-        if (!agentDef) {
-          throw new Error(`Agent not defined: ${task.to}`)
-        }
-        await config.startAgent(task.to, agentDef)
-        config.startedAgents.add(task.to)
-      }
-
-      let outputPrompt: string | undefined
-      let outputName: string | undefined
-
-      if (typeof task.as === 'object') {
-        outputName = task.as.name
-        outputPrompt = task.as.prompt
-      } else {
-        outputName = task.as
-      }
-
-      const output = await config.sendToAgent(task.to, message, outputPrompt)
-      return { output, name: outputName }
-    }
-
-    return { output: '' }
   }
 
   if (isParallelTask(task)) {

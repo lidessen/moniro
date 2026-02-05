@@ -901,6 +901,9 @@ program
   .option('--json', 'Output results as JSON')
   .action(async (file, options) => {
     const { parseWorkflowFile, runWorkflow } = await import('../workflow/index.ts')
+    type ResolvedAgent = Awaited<ReturnType<typeof parseWorkflowFile>>['agents'][string]
+
+    const startedAgents: string[] = []
 
     try {
       // Parse workflow
@@ -913,20 +916,216 @@ program
         console.log('')
       }
 
-      // TODO: Implement full agent management
-      // For now, print workflow info
-      console.log(`Workflow: ${workflow.name}`)
-      console.log(`Instance: ${options.instance}`)
-      console.log(`Agents: ${Object.keys(workflow.agents).join(', ')}`)
-      console.log(`Tasks: ${workflow.tasks.length}`)
-      console.log('')
-      console.log('Note: Full workflow execution not yet implemented.')
-      console.log('This command will execute tasks using managed agents.')
+      // Helper to start an agent
+      const startAgent = async (agentName: string, config: ResolvedAgent) => {
+        const fullName = buildAgentId(agentName, options.instance)
+
+        if (options.verbose) {
+          console.log(`Starting agent: ${fullName}`)
+        }
+
+        // Start agent in foreground mode (we'll manage lifecycle)
+        await createAgentAction(fullName, {
+          model: config.model,
+          system: config.resolvedSystemPrompt,
+          backend: 'sdk',
+        })
+
+        startedAgents.push(fullName)
+      }
+
+      // Helper to send message to agent
+      const sendToAgent = async (agentName: string, message: string, outputPrompt?: string): Promise<string> => {
+        const fullName = buildAgentId(agentName, options.instance)
+
+        // Send message and wait for response
+        const res = await sendRequest({
+          action: 'send',
+          payload: { message, options: { autoApprove: true }, async: false },
+        }, fullName)
+
+        if (!res.success) {
+          throw new Error(`Failed to send to ${agentName}: ${res.error}`)
+        }
+
+        const response = res.data as { content: string }
+        let result = response.content
+
+        // If output prompt specified, send follow-up
+        if (outputPrompt) {
+          const summaryRes = await sendRequest({
+            action: 'send',
+            payload: {
+              message: `[Output Request] ${outputPrompt}`,
+              options: { autoApprove: true },
+              async: false,
+            },
+          }, fullName)
+
+          if (summaryRes.success) {
+            result = (summaryRes.data as { content: string }).content
+          }
+        }
+
+        return result
+      }
+
+      // Run workflow
+      const result = await runWorkflow({
+        workflow,
+        instance: options.instance,
+        lazy: options.lazy,
+        verbose: options.verbose,
+        startAgent,
+        sendToAgent,
+        log: options.verbose ? console.log : () => {},
+      })
+
+      // Output results
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2))
+      } else {
+        if (result.success) {
+          console.log('\n--- Result ---')
+          console.log(result.output)
+          console.log(`\nCompleted in ${result.duration}ms`)
+        } else {
+          console.error('\n--- Error ---')
+          console.error(result.error)
+          process.exit(1)
+        }
+      }
 
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : String(error))
       process.exit(1)
+    } finally {
+      // Cleanup: stop all started agents
+      for (const agentName of startedAgents) {
+        try {
+          await sendRequest({ action: 'shutdown' }, agentName)
+          if (options.verbose) {
+            console.log(`Stopped agent: ${agentName}`)
+          }
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
     }
+  })
+
+// Up workflow (run and keep agents alive)
+program
+  .command('up <file>')
+  .description('Execute workflow tasks and keep agents alive')
+  .option('--instance <name>', 'Instance name', 'default')
+  .option('--lazy', 'Lazy agent startup')
+  .option('--verbose', 'Show detailed progress')
+  .action(async (file, options) => {
+    const { parseWorkflowFile, runWorkflow } = await import('../workflow/index.ts')
+    type ResolvedAgent = Awaited<ReturnType<typeof parseWorkflowFile>>['agents'][string]
+
+    const startedAgents: string[] = []
+
+    try {
+      // Parse workflow
+      const workflow = await parseWorkflowFile(file)
+
+      console.log(`Starting workflow: ${workflow.name}`)
+      console.log(`Instance: ${options.instance}`)
+
+      // Helper to start an agent
+      const startAgent = async (agentName: string, config: ResolvedAgent) => {
+        const fullName = buildAgentId(agentName, options.instance)
+
+        if (options.verbose) {
+          console.log(`Starting agent: ${fullName}`)
+        }
+
+        await createAgentAction(fullName, {
+          model: config.model,
+          system: config.resolvedSystemPrompt,
+          backend: 'sdk',
+        })
+
+        startedAgents.push(fullName)
+      }
+
+      // Helper to send message to agent
+      const sendToAgent = async (agentName: string, message: string, outputPrompt?: string): Promise<string> => {
+        const fullName = buildAgentId(agentName, options.instance)
+
+        const res = await sendRequest({
+          action: 'send',
+          payload: { message, options: { autoApprove: true }, async: false },
+        }, fullName)
+
+        if (!res.success) {
+          throw new Error(`Failed to send to ${agentName}: ${res.error}`)
+        }
+
+        const response = res.data as { content: string }
+        let result = response.content
+
+        if (outputPrompt) {
+          const summaryRes = await sendRequest({
+            action: 'send',
+            payload: {
+              message: `[Output Request] ${outputPrompt}`,
+              options: { autoApprove: true },
+              async: false,
+            },
+          }, fullName)
+
+          if (summaryRes.success) {
+            result = (summaryRes.data as { content: string }).content
+          }
+        }
+
+        return result
+      }
+
+      // Run workflow tasks (if any)
+      if (workflow.tasks.length > 0) {
+        const result = await runWorkflow({
+          workflow,
+          instance: options.instance,
+          lazy: options.lazy,
+          verbose: options.verbose,
+          startAgent,
+          sendToAgent,
+          log: options.verbose ? console.log : () => {},
+        })
+
+        if (!result.success) {
+          console.error('Workflow execution failed:', result.error)
+          // Still keep agents running
+        } else if (options.verbose) {
+          console.log('\nWorkflow tasks completed.')
+        }
+      }
+
+      // Print running agents
+      console.log('\nAgents running:')
+      for (const agent of startedAgents) {
+        console.log(`  ${agent}`)
+      }
+      console.log('\nUse `agent-worker send --to <agent>` to interact.')
+      console.log('Use `agent-worker down --all` to stop all agents.')
+
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error))
+      // Cleanup on error
+      for (const agentName of startedAgents) {
+        try {
+          await sendRequest({ action: 'shutdown' }, agentName)
+        } catch {
+          // Ignore
+        }
+      }
+      process.exit(1)
+    }
+    // Note: agents are NOT cleaned up - they stay running
   })
 
 // List running workflows/agents (ps)
