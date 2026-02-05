@@ -106,8 +106,11 @@ interface SendTask {
   /** Target agent name */
   to: string
 
-  /** Variable name to store response */
-  as?: string
+  /** Output variable - string or object with prompt */
+  as?: string | {
+    name: string
+    prompt: string  // Summary/extraction instruction
+  }
 }
 
 interface ConditionalTask {
@@ -560,7 +563,39 @@ tasks:
 
 **Condition syntax**: `${{ expression }}` where expression is evaluated as JavaScript.
 
-### 3. Parallel Tasks
+### 3. Task Mode and Output Capture
+
+Workflow tasks run in **task execution mode**, not conversation mode:
+
+**Automatic context injection**:
+```
+[Task Mode] This is a task execution, not a conversation.
+Complete the task and provide your final result in the last message.
+
+Task: {send content}
+```
+
+**Output capture** - `as` field stores the agent's last message:
+
+```yaml
+# Basic: store last message
+- send: "Review this code"
+  to: reviewer
+  as: review
+
+# With summary prompt: agent summarizes before storing
+- send: "Review this code"
+  to: reviewer
+  as:
+    name: review
+    prompt: "Summarize your review in one sentence"
+```
+
+**Behavior**:
+- `as: review` → stores agent's last message as `review`
+- `as: { name, prompt }` → sends additional prompt, stores that response
+
+### 4. Parallel Tasks
 
 Supported via `parallel` keyword for clarity and extensibility:
 
