@@ -32,11 +32,11 @@ Implementation tasks for the workflow v2 design. See [DESIGN.md](./DESIGN.md) fo
 
 ## Phase 4: CLI Updates
 
-- [ ] Rename `up` → `start`
-- [ ] Rename `down` → `stop`
-- [ ] Rename `ps` → `list`
-- [ ] Unify standalone and workflow agent listing
-- [ ] Add `context` subcommand for CLI fallback
+- [x] Rename `up` → `start`
+- [x] Rename `down` → `stop`
+- [x] Rename `ps` → `list`
+- [x] Unify standalone and workflow agent listing (via `list` command)
+- [x] Add `context` subcommand for CLI fallback
 
 ## Phase 5: Run/Start Modes
 
@@ -63,6 +63,6 @@ Implementation tasks for the workflow v2 design. See [DESIGN.md](./DESIGN.md) fo
 | 1. Context Provider | ✅ Complete | `context/` module with Memory + File providers |
 | 2. Context MCP Server | 🔄 In Progress | MCP tools done, transports pending |
 | 3. Kickoff Model | 🔄 In Progress | Schema + parser done, runtime pending |
-| 4. CLI Updates | Not started | |
+| 4. CLI Updates | ✅ Complete | start/stop/list commands + context subcommand |
 | 5. Run/Start Modes | Not started | |
 | 6. Agent MCP Integration | Not started | |

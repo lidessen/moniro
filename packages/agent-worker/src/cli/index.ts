@@ -258,12 +258,13 @@ program
   .description('List all agents (alias for "agent list")')
   .action(listAgentsAction)
 
-// `down` as alias for `agent end`
+// `down` as alias for `stop` (deprecated)
 program
   .command('down [target]')
-  .description('Stop an agent (alias for "agent end")')
+  .description('Stop an agent (deprecated, use "stop")')
   .option('--all', 'Stop all agents')
   .action(async (target, options) => {
+    deprecationWarning('down', 'stop')
     if (options.all) {
       const sessions = listSessions()
       for (const s of sessions) {
@@ -1014,14 +1015,130 @@ program
     }
   })
 
-// Up workflow (run and keep agents alive)
+// Start workflow (v2 - run and keep agents alive)
 program
-  .command('up <file>')
-  .description('Execute workflow tasks and keep agents alive')
+  .command('start <file>')
+  .description('Start workflow and keep agents running')
   .option('--instance <name>', 'Instance name', 'default')
   .option('--lazy', 'Lazy agent startup')
   .option('--verbose', 'Show detailed progress')
   .action(async (file, options) => {
+    const { parseWorkflowFile, runWorkflow } = await import('../workflow/index.ts')
+    type ResolvedAgent = Awaited<ReturnType<typeof parseWorkflowFile>>['agents'][string]
+
+    const startedAgents: string[] = []
+
+    try {
+      // Parse workflow
+      const workflow = await parseWorkflowFile(file, { instance: options.instance })
+
+      console.log(`Starting workflow: ${workflow.name}`)
+      console.log(`Instance: ${options.instance}`)
+
+      // Helper to start an agent
+      const startAgent = async (agentName: string, config: ResolvedAgent) => {
+        const fullName = buildAgentId(agentName, options.instance)
+
+        if (options.verbose) {
+          console.log(`Starting agent: ${fullName}`)
+        }
+
+        await createAgentAction(fullName, {
+          model: config.model,
+          system: config.resolvedSystemPrompt,
+          backend: 'sdk',
+        })
+
+        startedAgents.push(fullName)
+      }
+
+      // Helper to send message to agent
+      const sendToAgent = async (agentName: string, message: string, outputPrompt?: string): Promise<string> => {
+        const fullName = buildAgentId(agentName, options.instance)
+
+        const res = await sendRequest({
+          action: 'send',
+          payload: { message, options: { autoApprove: true }, async: false },
+        }, fullName)
+
+        if (!res.success) {
+          throw new Error(`Failed to send to ${agentName}: ${res.error}`)
+        }
+
+        const response = res.data as { content: string }
+        let result = response.content
+
+        if (outputPrompt) {
+          const summaryRes = await sendRequest({
+            action: 'send',
+            payload: {
+              message: `[Output Request] ${outputPrompt}`,
+              options: { autoApprove: true },
+              async: false,
+            },
+          }, fullName)
+
+          if (summaryRes.success) {
+            result = (summaryRes.data as { content: string }).content
+          }
+        }
+
+        return result
+      }
+
+      // Run workflow tasks (if any)
+      if (workflow.tasks.length > 0) {
+        const result = await runWorkflow({
+          workflow,
+          instance: options.instance,
+          lazy: options.lazy,
+          verbose: options.verbose,
+          startAgent,
+          sendToAgent,
+          log: options.verbose ? console.log : () => {},
+        })
+
+        if (!result.success) {
+          console.error('Workflow execution failed:', result.error)
+          // Still keep agents running
+        } else if (options.verbose) {
+          console.log('\nWorkflow tasks completed.')
+        }
+      }
+
+      // Print running agents
+      console.log('\nAgents running:')
+      for (const agent of startedAgents) {
+        console.log(`  ${agent}`)
+      }
+      console.log('\nUse `agent-worker send --to <agent>` to interact.')
+      console.log('Use `agent-worker stop --all` to stop all agents.')
+
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error))
+      // Cleanup on error
+      for (const agentName of startedAgents) {
+        try {
+          await sendRequest({ action: 'shutdown' }, agentName)
+        } catch {
+          // Ignore
+        }
+      }
+      process.exit(1)
+    }
+    // Note: agents are NOT cleaned up - they stay running
+  })
+
+// Up workflow (deprecated alias for start)
+program
+  .command('up <file>')
+  .description('Execute workflow tasks and keep agents alive (deprecated, use "start")')
+  .option('--instance <name>', 'Instance name', 'default')
+  .option('--lazy', 'Lazy agent startup')
+  .option('--verbose', 'Show detailed progress')
+  .action(async (file, options) => {
+    deprecationWarning('up', 'start')
+    // Forward to start command logic
     const { parseWorkflowFile, runWorkflow } = await import('../workflow/index.ts')
     type ResolvedAgent = Awaited<ReturnType<typeof parseWorkflowFile>>['agents'][string]
 
@@ -1128,10 +1245,58 @@ program
     // Note: agents are NOT cleaned up - they stay running
   })
 
-// List running workflows/agents (ps)
+// Stop workflow/agents (v2)
 program
-  .command('ps')
-  .description('List running agents from workflows')
+  .command('stop [target]')
+  .description('Stop workflow agents')
+  .option('--all', 'Stop all agents')
+  .option('--instance <name>', 'Instance name to stop')
+  .action(async (target, options) => {
+    if (options.all) {
+      const sessions = listSessions()
+      for (const s of sessions) {
+        if (isSessionRunning(s.id)) {
+          await sendRequest({ action: 'shutdown' }, s.id)
+          console.log(`Stopped: ${s.name || s.id}`)
+        }
+      }
+      return
+    }
+
+    if (options.instance) {
+      // Stop all agents for this instance
+      const sessions = listSessions()
+      for (const s of sessions) {
+        if (s.name && s.name.includes(`@${options.instance}`) && isSessionRunning(s.id)) {
+          await sendRequest({ action: 'shutdown' }, s.id)
+          console.log(`Stopped: ${s.name}`)
+        }
+      }
+      return
+    }
+
+    if (!target) {
+      console.error('Specify target agent or use --all/--instance')
+      process.exit(1)
+    }
+
+    if (!isSessionRunning(target)) {
+      console.log(`Agent not found: ${target}`)
+      return
+    }
+
+    const res = await sendRequest({ action: 'shutdown' }, target)
+    if (res.success) {
+      console.log('Agent stopped')
+    } else {
+      console.error('Error:', res.error)
+    }
+  })
+
+// List running workflows/agents (v2)
+program
+  .command('list')
+  .description('List running agents')
   .option('--json', 'Output as JSON')
   .action((options) => {
     const sessions = listSessions()
@@ -1161,6 +1326,234 @@ program
       const name = s.name || s.id.slice(0, 8)
       console.log(name.padEnd(25) + s.model.padEnd(35) + status)
     }
+  })
+
+// ps (deprecated alias for list)
+program
+  .command('ps')
+  .description('List running agents (deprecated, use "list")')
+  .option('--json', 'Output as JSON')
+  .action((options) => {
+    deprecationWarning('ps', 'list')
+    const sessions = listSessions()
+
+    if (sessions.length === 0) {
+      console.log('No running agents')
+      return
+    }
+
+    if (options.json) {
+      console.log(JSON.stringify(sessions.map(s => ({
+        name: s.name,
+        model: s.model,
+        backend: s.backend,
+        running: isSessionRunning(s.id),
+      })), null, 2))
+      return
+    }
+
+    // Table header
+    console.log('NAME'.padEnd(25) + 'MODEL'.padEnd(35) + 'STATUS')
+    console.log('-'.repeat(70))
+
+    for (const s of sessions) {
+      const running = isSessionRunning(s.id)
+      const status = running ? 'running' : 'stopped'
+      const name = s.name || s.id.slice(0, 8)
+      console.log(name.padEnd(25) + s.model.padEnd(35) + status)
+    }
+  })
+
+// ============================================================================
+// Context commands (CLI fallback for MCP)
+// ============================================================================
+const contextCmd = program.command('context').description('Interact with shared workflow context (CLI fallback for MCP)')
+
+// Context channel subcommands
+const channelCmd = contextCmd.command('channel').description('Channel operations')
+
+channelCmd
+  .command('send <message>')
+  .description('Send a message to the channel')
+  .requiredOption('--from <agent>', 'Agent name sending the message')
+  .requiredOption('--dir <path>', 'Context directory path')
+  .option('--agents <list>', 'Comma-separated list of valid agent names')
+  .action(async (message, options) => {
+    const { createFileContextProvider } = await import('../workflow/context/index.ts')
+
+    const validAgents = options.agents ? options.agents.split(',') : [options.from]
+    const provider = createFileContextProvider(options.dir, validAgents)
+
+    const entry = await provider.appendChannel(options.from, message)
+    console.log(`[${entry.timestamp}] Message sent`)
+    if (entry.mentions.length > 0) {
+      console.log(`Mentions: ${entry.mentions.join(', ')}`)
+    }
+  })
+
+channelCmd
+  .command('read')
+  .description('Read channel entries')
+  .requiredOption('--dir <path>', 'Context directory path')
+  .option('--since <timestamp>', 'Read entries after this timestamp')
+  .option('--limit <count>', 'Maximum entries to return', parseInt)
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    const { createFileContextProvider } = await import('../workflow/context/index.ts')
+
+    const provider = createFileContextProvider(options.dir, [])
+    const entries = await provider.readChannel(options.since, options.limit)
+
+    if (options.json) {
+      console.log(JSON.stringify(entries, null, 2))
+      return
+    }
+
+    if (entries.length === 0) {
+      console.log('No messages')
+      return
+    }
+
+    for (const entry of entries) {
+      const mentions = entry.mentions.length > 0 ? ` → @${entry.mentions.join(' @')}` : ''
+      console.log(`[${entry.timestamp}] ${entry.from}${mentions}`)
+      console.log(`  ${entry.message.split('\n').join('\n  ')}`)
+    }
+  })
+
+channelCmd
+  .command('peek')
+  .description('Peek at recent channel messages')
+  .requiredOption('--dir <path>', 'Context directory path')
+  .option('-n, --count <count>', 'Number of messages', '5')
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    const { createFileContextProvider } = await import('../workflow/context/index.ts')
+
+    const provider = createFileContextProvider(options.dir, [])
+    const count = parseInt(options.count, 10)
+    const entries = await provider.readChannel(undefined, count)
+
+    if (options.json) {
+      console.log(JSON.stringify(entries, null, 2))
+      return
+    }
+
+    if (entries.length === 0) {
+      console.log('No messages')
+      return
+    }
+
+    for (const entry of entries) {
+      const mentions = entry.mentions.length > 0 ? ` → @${entry.mentions.join(' @')}` : ''
+      console.log(`[${entry.from}]${mentions} ${entry.message.length > 80 ? entry.message.slice(0, 80) + '...' : entry.message}`)
+    }
+  })
+
+channelCmd
+  .command('mentions')
+  .description('Get unread mentions for an agent')
+  .requiredOption('--agent <name>', 'Agent to check mentions for')
+  .requiredOption('--dir <path>', 'Context directory path')
+  .option('--agents <list>', 'Comma-separated list of valid agent names')
+  .option('--ack <timestamp>', 'Acknowledge mentions up to this timestamp')
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    const { createFileContextProvider } = await import('../workflow/context/index.ts')
+
+    const validAgents = options.agents ? options.agents.split(',') : [options.agent]
+    const provider = createFileContextProvider(options.dir, validAgents)
+
+    if (options.ack) {
+      await provider.acknowledgeMentions(options.agent, options.ack)
+      console.log(`Acknowledged mentions up to: ${options.ack}`)
+      return
+    }
+
+    const mentions = await provider.getUnreadMentions(options.agent)
+
+    if (options.json) {
+      console.log(JSON.stringify(mentions, null, 2))
+      return
+    }
+
+    if (mentions.length === 0) {
+      console.log('No unread mentions')
+      return
+    }
+
+    console.log(`${mentions.length} unread mention(s):`)
+    for (const m of mentions) {
+      console.log(`  [${m.timestamp}] from ${m.from}: ${m.message.slice(0, 60)}...`)
+    }
+  })
+
+// Context document subcommands
+const documentCmd = contextCmd.command('document').description('Document operations')
+
+documentCmd
+  .command('read')
+  .description('Read the shared document')
+  .requiredOption('--dir <path>', 'Context directory path')
+  .action(async (options) => {
+    const { createFileContextProvider } = await import('../workflow/context/index.ts')
+
+    const provider = createFileContextProvider(options.dir, [])
+    const content = await provider.readDocument()
+
+    if (content) {
+      console.log(content)
+    } else {
+      console.log('(empty document)')
+    }
+  })
+
+documentCmd
+  .command('write')
+  .description('Write content to the shared document')
+  .requiredOption('--dir <path>', 'Context directory path')
+  .option('--content <text>', 'Content to write')
+  .option('--file <path>', 'Read content from file')
+  .action(async (options) => {
+    const { createFileContextProvider } = await import('../workflow/context/index.ts')
+
+    let content = options.content
+    if (options.file) {
+      content = readFileSync(options.file, 'utf-8')
+    }
+
+    if (!content) {
+      console.error('Provide --content or --file')
+      process.exit(1)
+    }
+
+    const provider = createFileContextProvider(options.dir, [])
+    await provider.writeDocument(content)
+    console.log('Document written')
+  })
+
+documentCmd
+  .command('append')
+  .description('Append content to the shared document')
+  .requiredOption('--dir <path>', 'Context directory path')
+  .option('--content <text>', 'Content to append')
+  .option('--file <path>', 'Read content from file')
+  .action(async (options) => {
+    const { createFileContextProvider } = await import('../workflow/context/index.ts')
+
+    let content = options.content
+    if (options.file) {
+      content = readFileSync(options.file, 'utf-8')
+    }
+
+    if (!content) {
+      console.error('Provide --content or --file')
+      process.exit(1)
+    }
+
+    const provider = createFileContextProvider(options.dir, [])
+    await provider.appendDocument(content)
+    console.log('Content appended')
   })
 
 program.parse()
