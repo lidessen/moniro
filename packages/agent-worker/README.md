@@ -186,7 +186,7 @@ agent-worker session new \
 
 # Import skills from Git repositories (temporary, session-scoped)
 agent-worker session new --import-skill vercel-labs/agent-skills:dive
-agent-worker session new --import-skill lidessen/skills:{memory,orientation}
+agent-worker session new --import-skill lidessen/moniro:{memory,orientation}
 agent-worker session new --import-skill gitlab:myorg/skills@v1.0.0:custom
 ```
 
@@ -381,7 +381,7 @@ const importer = new SkillImporter(sessionId)
 
 // Import from GitHub
 await importer.import('vercel-labs/agent-skills:dive')
-await importer.import('lidessen/skills:{memory,orientation}')
+await importer.import('lidessen/moniro:{memory,orientation}')
 
 // Or import multiple specs at once
 await importer.importMultiple([

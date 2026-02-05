@@ -26,7 +26,7 @@ This isn't optional "best practice"—it's the infrastructure that enables agent
 
 ### 1. Create CLAUDE.md
 
-Base it on [lidessen/skills/CLAUDE.md](https://github.com/lidessen/skills/blob/main/CLAUDE.md).
+Base it on [lidessen/moniro/CLAUDE.md](https://github.com/lidessen/moniro/blob/main/CLAUDE.md).
 
 **Keep these sections as-is** (core working method):
 - Opening block (`FIRST`/`ALWAYS`/`LAST`)
@@ -63,7 +63,7 @@ mkdir -p .memory/{notes,decisions,todos}
 
 Create `.memory/notes/to-those-who-come-after.md`.
 
-Reference [lidessen/skills/.memory/notes/2026-01-31-to-those-who-come-after.md](https://github.com/lidessen/skills/blob/main/.memory/notes/2026-01-31-to-those-who-come-after.md) for structure, but write your own content:
+Reference [lidessen/moniro/.memory/notes/2026-01-31-to-those-who-come-after.md](https://github.com/lidessen/moniro/blob/main/.memory/notes/2026-01-31-to-those-who-come-after.md) for structure, but write your own content:
 
 - What this project does
 - What you (first agent) established
@@ -98,6 +98,6 @@ After setup, verify:
 
 ## Reference
 
-Source: [lidessen/skills](https://github.com/lidessen/skills)
+Source: [lidessen/moniro](https://github.com/lidessen/moniro)
 
 For the origin and evolution of this system, see that repository's `.memory/notes/` directory.

@@ -4,7 +4,7 @@
 
 ### Minor Changes
 
-- [#28](https://github.com/lidessen/skills/pull/28) [`2101512`](https://github.com/lidessen/skills/commit/21015121ef7fff314b0bd9172c2c56beb3ab5afb) Thanks [@lidessen](https://github.com/lidessen)! - Improve CLI messaging system with async-by-default behavior and better UX
+- [#28](https://github.com/lidessen/moniro/pull/28) [`2101512`](https://github.com/lidessen/moniro/commit/21015121ef7fff314b0bd9172c2c56beb3ab5afb) Thanks [@lidessen](https://github.com/lidessen)! - Improve CLI messaging system with async-by-default behavior and better UX
 
   **Breaking Changes:**
 
@@ -35,7 +35,7 @@
 
 ### Minor Changes
 
-- [#26](https://github.com/lidessen/skills/pull/26) [`1e921f4`](https://github.com/lidessen/skills/commit/1e921f43ee3efcff9ce5710e985f44ce65d3600f) Thanks [@lidessen](https://github.com/lidessen)! - Add `--import-skill` for temporary Git repository imports
+- [#26](https://github.com/lidessen/moniro/pull/26) [`1e921f4`](https://github.com/lidessen/moniro/commit/1e921f43ee3efcff9ce5710e985f44ce65d3600f) Thanks [@lidessen](https://github.com/lidessen)! - Add `--import-skill` for temporary Git repository imports
 
   This release adds support for importing agent skills directly from Git repositories during session creation. Skills are cloned to a session-specific temporary directory and automatically cleaned up when the session ends.
 
@@ -54,7 +54,7 @@
   ```bash
   # CLI usage
   agent-worker session new --import-skill vercel-labs/agent-skills:dive
-  agent-worker session new --import-skill lidessen/skills:{memory,orientation}
+  agent-worker session new --import-skill lidessen/moniro:{memory,orientation}
   agent-worker session new --import-skill gitlab:myorg/skills@v1.0.0:custom
   ```
 
@@ -87,7 +87,7 @@
 
 ### Minor Changes
 
-- [#19](https://github.com/lidessen/skills/pull/19) [`9e65da6`](https://github.com/lidessen/skills/commit/9e65da6858480aaae93eb7f9bfabeaacf77a4998) Thanks [@lidessen](https://github.com/lidessen)! - Add CLI backend support for Claude Code, Codex, and Cursor
+- [#19](https://github.com/lidessen/moniro/pull/19) [`9e65da6`](https://github.com/lidessen/moniro/commit/9e65da6858480aaae93eb7f9bfabeaacf77a4998) Thanks [@lidessen](https://github.com/lidessen)! - Add CLI backend support for Claude Code, Codex, and Cursor
 
   - New pluggable backend system supporting multiple execution engines
   - `sdk`: Vercel AI SDK (default)

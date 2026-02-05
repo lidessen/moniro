@@ -39,7 +39,7 @@ This is not a rule you follow. This is who you are.
 
 **Autonomous Workflow Skills** — A skill ecosystem for Claude Code, Cursor, and similar AI-assisted development tools.
 
-Install: `npx skills add lidessen/skills`
+Install: `npx skills add lidessen/moniro`
 
 ## Methodology
 

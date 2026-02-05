@@ -11,7 +11,7 @@ Skills are like plugins or extensions that enhance what your AI agent can do. Ea
 To install these skills, use the `skills` CLI:
 
 ```bash
-npx skills add lidessen/skills
+npx skills add lidessen/moniro
 ```
 
 This will install all available skills and make them available to your AI agent.
