@@ -52,14 +52,14 @@ agent-worker session end --all
 ### Sending Messages
 
 ```bash
-# Send to current session (synchronous - waits for response)
-agent-worker send "What is 2+2?"
+# Send to current session (async by default - returns immediately)
+agent-worker send "Analyze this codebase"
 
 # Send to specific session
 agent-worker send "Explain recursion" --to my-session
 
-# Send asynchronously (returns immediately, agent processes in background)
-agent-worker send "Analyze this codebase" --async
+# Send and wait for response (synchronous mode)
+agent-worker send "What is 2+2?" --wait
 
 # Send with debug logging (useful for troubleshooting)
 agent-worker send "Debug this" --debug
@@ -82,20 +82,20 @@ agent-worker clear
 
 The CLI supports two modes for sending messages:
 
-1. **Synchronous (default)**: The command waits for the agent to fully process the message and return a response. This is best for quick questions.
+1. **Asynchronous (default)**: The command returns immediately after sending. The agent processes in the background. Use `history` to view the response.
    ```bash
-   agent-worker send "What is 2+2?"
-   # Waits for response, then prints: 4
+   # Send message (returns immediately)
+   agent-worker send "Analyze this large codebase"
+   # Output: "Message sent. Use 'history' command to view response."
+
+   # View response later
+   agent-worker history --last 2
    ```
 
-2. **Asynchronous (`--async`)**: The command returns immediately after sending. The agent processes in the background. Use `history` to view the response.
+2. **Synchronous (`--wait`)**: The command waits for the agent to fully process the message and return a response. This is best for quick questions when you need immediate results.
    ```bash
-   # Terminal 1: Send message
-   agent-worker send "Analyze this large codebase" --async
-   # Returns immediately: "Message sent. Use 'history' command to view response."
-
-   # Terminal 2 (or later): View response
-   agent-worker history --last 2
+   agent-worker send "What is 2+2?" --wait
+   # Waits for response, then prints: 4
    ```
 
 **Troubleshooting:**

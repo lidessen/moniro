@@ -188,12 +188,12 @@ sessionCmd
 // Send command
 program
   .command('send <message>')
-  .description('Send a message')
+  .description('Send a message (async by default, use --wait to wait for response)')
   .option('--to <target>', 'Target session (name or ID)')
   .option('--json', 'Output full JSON response')
   .option('--auto-approve', 'Auto-approve all tool calls (default)')
   .option('--no-auto-approve', 'Require manual approval')
-  .option('--async', 'Send message asynchronously (return immediately, view response via history)')
+  .option('--wait', 'Wait for response before returning (synchronous mode)')
   .option('--debug', 'Show debug information')
   .action(async (message, options) => {
     const target = options.to
@@ -208,9 +208,12 @@ program
     }
 
     const autoApprove = options.autoApprove !== false
+    // Default is async (wait=false means async=true)
+    const async = !options.wait
+
     const res = await sendRequest({
       action: 'send',
-      payload: { message, options: { autoApprove }, async: options.async },
+      payload: { message, options: { autoApprove }, async },
     }, target, { debug: options.debug })
 
     if (!res.success) {
@@ -219,7 +222,7 @@ program
     }
 
     // Handle async response
-    if (options.async) {
+    if (async) {
       const asyncData = res.data as { async: boolean; message: string }
       console.log(asyncData.message)
       return
