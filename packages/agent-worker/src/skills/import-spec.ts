@@ -48,6 +48,28 @@ export function parseImportSpec(spec: string): ImportSpec {
     )
   }
 
+  // Security: Validate owner, repo, and ref to prevent git argument injection
+  // Only allow: alphanumeric, hyphen, underscore, dot (but not starting with - or .)
+  const safeNamePattern = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/
+
+  if (!safeNamePattern.test(owner)) {
+    throw new Error(
+      `Invalid owner: "${owner}". Must start with alphanumeric and only contain alphanumeric, hyphen, underscore, or dot`
+    )
+  }
+
+  if (!safeNamePattern.test(repo)) {
+    throw new Error(
+      `Invalid repo: "${repo}". Must start with alphanumeric and only contain alphanumeric, hyphen, underscore, or dot`
+    )
+  }
+
+  if (!safeNamePattern.test(ref)) {
+    throw new Error(
+      `Invalid ref: "${ref}". Must start with alphanumeric and only contain alphanumeric, hyphen, underscore, or dot`
+    )
+  }
+
   // Parse skills
   let skills: string[] | 'all' = 'all'
   if (skillsStr) {

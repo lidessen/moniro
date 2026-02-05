@@ -253,7 +253,7 @@ description: Skill found by sync scan
       )
     })
 
-    test('prevents path traversal', async () => {
+    test('prevents path traversal with ../', async () => {
       const skillDir = join(testDir, 'secure-skill')
       mkdirSync(skillDir)
       writeFileSync(join(skillDir, 'SKILL.md'), validSkillMd)
@@ -264,6 +264,39 @@ description: Skill found by sync scan
       await expect(provider.readFile('test-skill', '../../../etc/passwd')).rejects.toThrow(
         'Path traversal not allowed'
       )
+    })
+
+    test('prevents path traversal with mixed paths', async () => {
+      const skillDir = join(testDir, 'secure-skill2')
+      mkdirSync(skillDir)
+      writeFileSync(join(skillDir, 'SKILL.md'), validSkillMd)
+
+      const provider = new SkillsProvider()
+      await provider.addSkill(skillDir)
+
+      // Various traversal attempts
+      await expect(provider.readFile('test-skill', 'references/../../../etc/passwd')).rejects.toThrow(
+        'Path traversal not allowed'
+      )
+      await expect(provider.readFile('test-skill', 'references/../../secret.txt')).rejects.toThrow(
+        'Path traversal not allowed'
+      )
+      await expect(provider.readFile('test-skill', '../secret.txt')).rejects.toThrow(
+        'Path traversal not allowed'
+      )
+    })
+
+    test('absolute paths are safely contained', async () => {
+      const skillDir = join(testDir, 'secure-skill3')
+      mkdirSync(skillDir)
+      writeFileSync(join(skillDir, 'SKILL.md'), validSkillMd)
+
+      const provider = new SkillsProvider()
+      await provider.addSkill(skillDir)
+
+      // Absolute paths are treated as relative (safe behavior)
+      await expect(provider.readFile('test-skill', '/etc/passwd')).rejects.toThrow()
+      await expect(provider.readFile('test-skill', '/absolute/path')).rejects.toThrow()
     })
 
     test('reads scripts and assets', async () => {
@@ -564,6 +597,66 @@ describe('parseImportSpec', () => {
   test('handles whitespace in skill lists', () => {
     const spec = parseImportSpec('owner/repo:{ a , b , c }')
     expect(spec.skills).toEqual(['a', 'b', 'c'])
+  })
+
+  // Security tests: prevent git argument injection
+  test('rejects owner starting with hyphen', () => {
+    expect(() => parseImportSpec('--upload-pack=evil/repo')).toThrow('Invalid owner')
+  })
+
+  test('rejects repo starting with hyphen', () => {
+    expect(() => parseImportSpec('owner/--config=evil')).toThrow('Invalid repo')
+  })
+
+  test('rejects ref starting with hyphen', () => {
+    expect(() => parseImportSpec('owner/repo@--upload-pack=evil')).toThrow('Invalid ref')
+  })
+
+  test('rejects owner with shell metacharacters', () => {
+    expect(() => parseImportSpec('owner;whoami/repo')).toThrow('Invalid owner')
+    expect(() => parseImportSpec('owner$(cmd)/repo')).toThrow('Invalid owner')
+    expect(() => parseImportSpec('owner`cmd`/repo')).toThrow('Invalid owner')
+  })
+
+  test('rejects repo with shell metacharacters', () => {
+    expect(() => parseImportSpec('owner/repo;whoami')).toThrow('Invalid repo')
+    expect(() => parseImportSpec('owner/repo&&cmd')).toThrow('Invalid repo')
+    expect(() => parseImportSpec('owner/repo|cat')).toThrow('Invalid repo') // Validation catches it
+  })
+
+  test('rejects ref with shell metacharacters', () => {
+    expect(() => parseImportSpec('owner/repo@v1.0;evil')).toThrow('Invalid ref')
+  })
+
+  test('rejects names with spaces', () => {
+    expect(() => parseImportSpec('owner with spaces/repo')).toThrow('Invalid owner')
+    expect(() => parseImportSpec('owner/repo with spaces')).toThrow('Invalid repo')
+  })
+
+  test('rejects names with quotes', () => {
+    expect(() => parseImportSpec('owner/"repo"')).toThrow('Invalid repo')
+    expect(() => parseImportSpec("owner/'repo'")).toThrow('Invalid repo')
+  })
+
+  test('rejects names with newlines', () => {
+    expect(() => parseImportSpec('owner/repo\nmalicious')).toThrow('Invalid repo')
+  })
+
+  test('rejects names with null bytes', () => {
+    expect(() => parseImportSpec('owner/repo\x00')).toThrow('Invalid repo')
+  })
+
+  test('accepts valid names with hyphens, underscores, dots', () => {
+    const spec1 = parseImportSpec('my-org/my-repo')
+    expect(spec1.owner).toBe('my-org')
+    expect(spec1.repo).toBe('my-repo')
+
+    const spec2 = parseImportSpec('my_org/my_repo.js')
+    expect(spec2.owner).toBe('my_org')
+    expect(spec2.repo).toBe('my_repo.js')
+
+    const spec3 = parseImportSpec('org123/repo456@v1.2.3')
+    expect(spec3.ref).toBe('v1.2.3')
   })
 })
 

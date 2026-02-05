@@ -37,4 +37,11 @@ await skillsProvider.addImportedSkills(importer)
 await importer.cleanup()
 ```
 
+**Security:**
+
+- Input validation to prevent git argument injection attacks
+- Path traversal protection for skill file access
+- Strict validation of owner/repo/ref names (alphanumeric, hyphen, underscore, dot only)
+- Protection against shell metacharacters and malicious input
+
 **Note:** For permanent skill installation, use the Vercel skills CLI (`npx skills add`). This feature is designed for temporary, session-scoped skill imports.
