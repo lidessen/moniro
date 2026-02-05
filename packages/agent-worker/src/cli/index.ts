@@ -40,6 +40,7 @@ sessionCmd
   .option('--idle-timeout <ms>', 'Idle timeout in ms (0 = no timeout)', '1800000')
   .option('--skill <path...>', 'Add individual skill directories')
   .option('--skill-dir <path...>', 'Scan directories for skills')
+  .option('--import-skill <spec...>', 'Import skills from Git (owner/repo:{skill1,skill2})')
   .option('--foreground', 'Run in foreground')
   .action(async (options) => {
     let system = options.system
@@ -63,6 +64,7 @@ sessionCmd
         backend,
         skills: options.skill,
         skillDirs: options.skillDir,
+        importSkills: options.importSkill,
       })
     } else {
       const args = [process.argv[1], 'session', 'new', '-m', model, '-b', backend, '-s', system, '--foreground']
@@ -78,6 +80,11 @@ sessionCmd
       if (options.skillDir) {
         for (const dir of options.skillDir) {
           args.push('--skill-dir', dir)
+        }
+      }
+      if (options.importSkill) {
+        for (const spec of options.importSkill) {
+          args.push('--import-skill', spec)
         }
       }
 

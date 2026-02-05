@@ -2,7 +2,14 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { SkillsProvider, createSkillsTool } from '../src/skills/index.ts'
+import {
+  SkillsProvider,
+  createSkillsTool,
+  parseImportSpec,
+  buildGitUrl,
+  getSpecDisplayName,
+  SkillImporter,
+} from '../src/skills/index.ts'
 
 // Test skill content
 const validSkillMd = `---
@@ -490,5 +497,223 @@ For details, see [references/advanced.md](references/advanced.md)
       filePath: 'references/advanced.md',
     })) as { content: string }
     expect(refResult.content).toContain('Advanced Topics')
+  })
+})
+
+// ==================== Import Spec Tests ====================
+
+describe('parseImportSpec', () => {
+  test('parses minimal spec (owner/repo)', () => {
+    const spec = parseImportSpec('vercel-labs/agent-skills')
+    expect(spec.provider).toBe('github')
+    expect(spec.owner).toBe('vercel-labs')
+    expect(spec.repo).toBe('agent-skills')
+    expect(spec.ref).toBe('main')
+    expect(spec.skills).toBe('all')
+    expect(spec.rawSpec).toBe('vercel-labs/agent-skills')
+  })
+
+  test('parses with single skill', () => {
+    const spec = parseImportSpec('vercel-labs/agent-skills:react')
+    expect(spec.skills).toEqual(['react'])
+  })
+
+  test('parses with multiple skills (brace expansion)', () => {
+    const spec = parseImportSpec('vercel-labs/agent-skills:{react,web,nextjs}')
+    expect(spec.skills).toEqual(['react', 'web', 'nextjs'])
+  })
+
+  test('parses with ref', () => {
+    const spec = parseImportSpec('vercel-labs/agent-skills@v1.0.0:react')
+    expect(spec.ref).toBe('v1.0.0')
+    expect(spec.skills).toEqual(['react'])
+  })
+
+  test('parses with provider', () => {
+    const spec = parseImportSpec('gitlab:myorg/myrepo:skill1')
+    expect(spec.provider).toBe('gitlab')
+    expect(spec.owner).toBe('myorg')
+    expect(spec.repo).toBe('myrepo')
+  })
+
+  test('parses gitee provider', () => {
+    const spec = parseImportSpec('gitee:org/repo@main:{a,b}')
+    expect(spec.provider).toBe('gitee')
+    expect(spec.ref).toBe('main')
+    expect(spec.skills).toEqual(['a', 'b'])
+  })
+
+  test('throws on invalid format', () => {
+    expect(() => parseImportSpec('invalid')).toThrow('Invalid import spec')
+    expect(() => parseImportSpec('no-slash')).toThrow('Invalid import spec')
+    expect(() => parseImportSpec('/no-owner/repo')).toThrow('Invalid import spec')
+  })
+
+  test('throws on unsupported provider', () => {
+    expect(() => parseImportSpec('bitbucket:owner/repo')).toThrow(
+      'Unsupported provider'
+    )
+  })
+
+  test('throws on empty skill list in braces', () => {
+    expect(() => parseImportSpec('owner/repo:{}')).toThrow(
+      'Empty skill list in braces'
+    )
+  })
+
+  test('handles whitespace in skill lists', () => {
+    const spec = parseImportSpec('owner/repo:{ a , b , c }')
+    expect(spec.skills).toEqual(['a', 'b', 'c'])
+  })
+})
+
+describe('buildGitUrl', () => {
+  test('builds GitHub URL', () => {
+    const spec = parseImportSpec('vercel-labs/agent-skills')
+    const url = buildGitUrl(spec)
+    expect(url).toBe('https://github.com/vercel-labs/agent-skills.git')
+  })
+
+  test('builds GitLab URL', () => {
+    const spec = parseImportSpec('gitlab:myorg/myrepo')
+    const url = buildGitUrl(spec)
+    expect(url).toBe('https://gitlab.com/myorg/myrepo.git')
+  })
+
+  test('builds Gitee URL', () => {
+    const spec = parseImportSpec('gitee:org/repo')
+    const url = buildGitUrl(spec)
+    expect(url).toBe('https://gitee.com/org/repo.git')
+  })
+})
+
+describe('getSpecDisplayName', () => {
+  test('displays "all skills" when skills is "all"', () => {
+    const spec = parseImportSpec('owner/repo')
+    const name = getSpecDisplayName(spec)
+    expect(name).toBe('owner/repo@main (all skills)')
+  })
+
+  test('displays single skill name', () => {
+    const spec = parseImportSpec('owner/repo:react')
+    const name = getSpecDisplayName(spec)
+    expect(name).toBe('owner/repo@main (react)')
+  })
+
+  test('displays skill count for multiple skills', () => {
+    const spec = parseImportSpec('owner/repo:{a,b,c}')
+    const name = getSpecDisplayName(spec)
+    expect(name).toBe('owner/repo@main (3 skills)')
+  })
+})
+
+// ==================== SkillImporter Tests ====================
+
+describe('SkillImporter', () => {
+  let importer: SkillImporter
+  let sessionId: string
+
+  beforeEach(() => {
+    sessionId = `test-${Date.now()}`
+    importer = new SkillImporter(sessionId)
+  })
+
+  afterEach(async () => {
+    await importer.cleanup()
+  })
+
+  test('creates temp directory with session ID', () => {
+    const tempDir = importer.getTempDir()
+    expect(tempDir).toContain(`agent-worker-skills-${sessionId}`)
+  })
+
+  test('cleanup removes temp directory', async () => {
+    const tempDir = importer.getTempDir()
+
+    // Create temp dir to simulate import
+    mkdirSync(tempDir, { recursive: true })
+    writeFileSync(join(tempDir, 'test.txt'), 'test')
+
+    await importer.cleanup()
+
+    // Verify it's gone
+    expect(() => {
+      const fs = require('node:fs')
+      fs.accessSync(tempDir)
+    }).toThrow()
+  })
+
+  test('getImportedSkills returns empty array initially', () => {
+    expect(importer.getImportedSkills()).toEqual([])
+  })
+
+  test('getAllImportedSkillPaths returns empty array initially', () => {
+    expect(importer.getAllImportedSkillPaths()).toEqual([])
+  })
+
+  test('getImportedSkillPath returns null for unknown skill', () => {
+    expect(importer.getImportedSkillPath('unknown')).toBeNull()
+  })
+
+  // Note: Full integration test with actual git clone would require network
+  // and is better suited for e2e tests. Unit tests focus on the API surface.
+})
+
+// ==================== Integration with SkillsProvider ====================
+
+describe('SkillsProvider with imported skills', () => {
+  let testDir: string
+  let provider: SkillsProvider
+
+  beforeEach(() => {
+    testDir = join(tmpdir(), `skills-import-test-${Date.now()}`)
+    mkdirSync(testDir, { recursive: true })
+    provider = new SkillsProvider()
+  })
+
+  afterEach(() => {
+    rmSync(testDir, { recursive: true, force: true })
+  })
+
+  test('addImportedSkills loads skills from importer paths', async () => {
+    // Create a mock skill
+    const skillDir = join(testDir, 'test-skill')
+    mkdirSync(skillDir, { recursive: true })
+    writeFileSync(
+      join(skillDir, 'SKILL.md'),
+      `---\nname: test-skill\ndescription: Test\n---\n\n# Test`
+    )
+
+    // Create a mock importer-like object
+    const mockImporter = {
+      getAllImportedSkillPaths: () => [skillDir],
+    }
+
+    await provider.addImportedSkills(mockImporter)
+
+    const skills = provider.list()
+    expect(skills).toHaveLength(1)
+    expect(skills[0].name).toBe('test-skill')
+  })
+
+  test('addImportedSkillsSync loads skills synchronously', () => {
+    // Create a mock skill
+    const skillDir = join(testDir, 'sync-skill')
+    mkdirSync(skillDir, { recursive: true })
+    writeFileSync(
+      join(skillDir, 'SKILL.md'),
+      `---\nname: sync-skill\ndescription: Sync test\n---\n\n# Sync`
+    )
+
+    // Create a mock importer-like object
+    const mockImporter = {
+      getAllImportedSkillPaths: () => [skillDir],
+    }
+
+    provider.addImportedSkillsSync(mockImporter)
+
+    const skills = provider.list()
+    expect(skills).toHaveLength(1)
+    expect(skills[0].name).toBe('sync-skill')
   })
 })

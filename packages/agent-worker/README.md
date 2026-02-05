@@ -127,7 +127,30 @@ agent-worker session new --skill-dir ./team-skills --skill-dir ~/shared-skills
 agent-worker session new \
   --skill ./my-skills/dive \
   --skill-dir ~/company-skills
+
+# Import skills from Git repositories (temporary, session-scoped)
+agent-worker session new --import-skill vercel-labs/agent-skills:dive
+agent-worker session new --import-skill lidessen/skills:{memory,orientation}
+agent-worker session new --import-skill gitlab:myorg/skills@v1.0.0:custom
 ```
+
+**Import Skill Spec Format:**
+
+The `--import-skill` option supports temporary skill imports from Git repositories. Skills are cloned to a session-specific temp directory and cleaned up when the session ends.
+
+```
+[provider:]owner/repo[@ref]:{skill1,skill2,...}
+```
+
+Examples:
+- `vercel-labs/agent-skills` - Import all skills from GitHub main branch
+- `vercel-labs/agent-skills:dive` - Import single skill
+- `vercel-labs/agent-skills:{dive,memory}` - Import multiple skills (brace expansion)
+- `vercel-labs/agent-skills@v1.0.0:dive` - Import from specific tag/branch
+- `gitlab:myorg/skills:custom` - Import from GitLab
+- `gitee:org/repo@dev:{a,b}` - Import from Gitee dev branch
+
+Supported providers: `github` (default), `gitlab`, `gitee`
 
 **Default Skill Directories:**
 - `.agents/skills/` - Project-level skills
@@ -259,6 +282,49 @@ const session = new AgentSession({
 const response = await session.send(
   'What skills are available? Use the dive skill to analyze this codebase.'
 )
+```
+
+### With Imported Skills
+
+```typescript
+import {
+  AgentSession,
+  SkillsProvider,
+  SkillImporter,
+  createSkillsTool
+} from 'agent-worker'
+
+// Setup skills provider
+const skillsProvider = new SkillsProvider()
+
+// Import skills from Git repositories
+const sessionId = 'my-session-123'
+const importer = new SkillImporter(sessionId)
+
+// Import from GitHub
+await importer.import('vercel-labs/agent-skills:dive')
+await importer.import('lidessen/skills:{memory,orientation}')
+
+// Or import multiple specs at once
+await importer.importMultiple([
+  'vercel-labs/agent-skills:{dive,react}',
+  'gitlab:myorg/skills@v1.0.0:custom'
+])
+
+// Add imported skills to provider
+await skillsProvider.addImportedSkills(importer)
+
+// Create session
+const session = new AgentSession({
+  model: 'anthropic/claude-sonnet-4-5',
+  system: 'You are a helpful assistant.',
+  tools: [createSkillsTool(skillsProvider)]
+})
+
+// Don't forget cleanup when done
+process.on('exit', async () => {
+  await importer.cleanup()
+})
 ```
 
 ## Common Patterns

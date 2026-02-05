@@ -209,4 +209,31 @@ export class SkillsProvider {
       )
     }
   }
+
+  /**
+   * Add skills from a SkillImporter (async)
+   * Used for temporary imported skills during session lifecycle
+   */
+  async addImportedSkills(
+    importer: { getAllImportedSkillPaths(): string[] }
+  ): Promise<void> {
+    const skillPaths = importer.getAllImportedSkillPaths()
+
+    for (const skillPath of skillPaths) {
+      await this.addSkill(skillPath)
+    }
+  }
+
+  /**
+   * Add skills from a SkillImporter (sync)
+   */
+  addImportedSkillsSync(
+    importer: { getAllImportedSkillPaths(): string[] }
+  ): void {
+    const skillPaths = importer.getAllImportedSkillPaths()
+
+    for (const skillPath of skillPaths) {
+      this.addSkillSync(skillPath)
+    }
+  }
 }

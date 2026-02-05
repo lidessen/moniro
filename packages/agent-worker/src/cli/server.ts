@@ -6,7 +6,7 @@ import { AgentSession } from '../session.ts'
 import type { ToolDefinition } from '../types.ts'
 import type { Backend, BackendType } from '../backends/types.ts'
 import { createBackend } from '../backends/index.ts'
-import { SkillsProvider, createSkillsTool } from '../skills/index.ts'
+import { SkillsProvider, createSkillsTool, SkillImporter } from '../skills/index.ts'
 
 const CONFIG_DIR = join(homedir(), '.agent-worker')
 const SESSIONS_DIR = join(CONFIG_DIR, 'sessions')
@@ -22,15 +22,17 @@ const DEFAULT_SKILL_DIRS = [
 
 /**
  * Setup skills provider and return Skills tool
- * Uses synchronous operations to match server startup flow
+ * Supports both local and imported skills
  */
-function setupSkills(
+async function setupSkills(
+  sessionId: string,
   skillPaths?: string[],
-  skillDirs?: string[]
-): ToolDefinition[] {
+  skillDirs?: string[],
+  importSkills?: string[]
+): Promise<{ tools: ToolDefinition[]; importer?: SkillImporter }> {
   const provider = new SkillsProvider()
 
-  // Scan default directories
+  // Scan default directories (sync)
   for (const dir of DEFAULT_SKILL_DIRS) {
     try {
       provider.scanDirectorySync(dir)
@@ -39,7 +41,7 @@ function setupSkills(
     }
   }
 
-  // Scan additional directories
+  // Scan additional directories (sync)
   if (skillDirs) {
     for (const dir of skillDirs) {
       try {
@@ -50,7 +52,7 @@ function setupSkills(
     }
   }
 
-  // Add individual skills
+  // Add individual skills (sync)
   if (skillPaths) {
     for (const skillPath of skillPaths) {
       try {
@@ -58,6 +60,19 @@ function setupSkills(
       } catch (error) {
         console.error(`Failed to add skill ${skillPath}:`, error)
       }
+    }
+  }
+
+  // Import remote skills (async)
+  let importer: SkillImporter | undefined
+  if (importSkills && importSkills.length > 0) {
+    importer = new SkillImporter(sessionId)
+
+    try {
+      await importer.importMultiple(importSkills)
+      await provider.addImportedSkills(importer)
+    } catch (error) {
+      console.error('Failed to import skills:', error)
     }
   }
 
@@ -69,7 +84,10 @@ function setupSkills(
     }
   }
 
-  return [createSkillsTool(provider)]
+  return {
+    tools: [createSkillsTool(provider)],
+    importer,
+  }
 }
 
 interface SessionRegistry {
@@ -99,6 +117,7 @@ interface ServerState {
   lastActivity: number
   pendingRequests: number
   idleTimer?: ReturnType<typeof setTimeout>
+  importer?: SkillImporter // For cleaning up imported skills
   // For CLI backends: simple message history
   cliHistory: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>
 }
@@ -184,6 +203,11 @@ async function gracefulShutdown(): Promise<void> {
   const start = Date.now()
   while (state.pendingRequests > 0 && Date.now() - start < maxWait) {
     await new Promise(resolve => setTimeout(resolve, 100))
+  }
+
+  // Cleanup imported skills
+  if (state.importer) {
+    await state.importer.cleanup()
   }
 
   cleanup()
@@ -527,7 +551,7 @@ function cleanup(): void {
   }
 }
 
-export function startServer(config: {
+export async function startServer(config: {
   model: string
   system: string
   name?: string
@@ -535,12 +559,21 @@ export function startServer(config: {
   backend?: BackendType
   skills?: string[]
   skillDirs?: string[]
-}): void {
+  importSkills?: string[]
+}): Promise<void> {
   ensureDirs()
 
   const backendType = config.backend || 'sdk'
   const sessionId = crypto.randomUUID()
   const createdAt = new Date().toISOString()
+
+  // Setup skills (both local and imported)
+  const { tools, importer } = await setupSkills(
+    sessionId,
+    config.skills,
+    config.skillDirs,
+    config.importSkills
+  )
 
   // Create session or backend based on type
   let session: AgentSession | null = null
@@ -550,7 +583,7 @@ export function startServer(config: {
     session = new AgentSession({
       model: config.model,
       system: config.system,
-      tools: setupSkills(config.skills, config.skillDirs),
+      tools,
     })
   } else {
     backend = createBackend({
@@ -633,6 +666,7 @@ export function startServer(config: {
       info,
       lastActivity: Date.now(),
       pendingRequests: 0,
+      importer,
       cliHistory: [],
     }
 
