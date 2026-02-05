@@ -32,6 +32,7 @@ export interface ContextMCPServerOptions {
  * - document_read: Read shared document
  * - document_write: Write shared document
  * - document_append: Append to shared document
+ * - workflow_agents: List all agents in the workflow (for @mention discovery)
  */
 export function createContextMCPServer(options: ContextMCPServerOptions) {
   const { provider, validAgents, name = 'workflow-context', version = '1.0.0' } = options
@@ -206,6 +207,37 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
           {
             type: 'text' as const,
             text: 'Content appended successfully',
+          },
+        ],
+      }
+    }
+  )
+
+  // ==================== Workflow Tools ====================
+
+  server.tool(
+    'workflow_agents',
+    'List all agents in this workflow. Use to discover which agents you can @mention.',
+    {},
+    async (_args, extra) => {
+      const currentAgent = getAgentId(extra) || 'anonymous'
+
+      // Return list of agents with their names
+      const agents = validAgents.map((name) => ({
+        name,
+        mention: `@${name}`,
+        isYou: name === currentAgent,
+      }))
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              agents,
+              count: agents.length,
+              hint: 'Use @agent in channel_send to mention other agents',
+            }),
           },
         ],
       }
