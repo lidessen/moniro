@@ -655,6 +655,72 @@ describe('SkillImporter', () => {
     expect(importer.getImportedSkillPath('unknown')).toBeNull()
   })
 
+  test('importMultiple handles multiple specs', async () => {
+    // Mock the import method to avoid actual git clones
+    const originalImport = importer.import.bind(importer)
+    let importCalls = 0
+
+    importer.import = async (spec: string) => {
+      importCalls++
+      // Simulate failure for one spec
+      if (spec.includes('failing')) {
+        throw new Error('Git clone failed')
+      }
+      return []
+    }
+
+    const specs = ['owner/repo1:skill1', 'owner/failing:skill2', 'owner/repo3:skill3']
+    const result = await importer.importMultiple(specs)
+
+    // Should continue after error
+    expect(importCalls).toBe(3)
+    expect(result).toEqual([])
+
+    // Restore original method
+    importer.import = originalImport
+  })
+
+  test('cleanup is safe when temp dir does not exist', async () => {
+    // Should not throw when cleaning up non-existent directory
+    await expect(importer.cleanup()).resolves.toBeUndefined()
+  })
+
+  test('cleanup can be called multiple times', async () => {
+    const tempDir = importer.getTempDir()
+    mkdirSync(tempDir, { recursive: true })
+
+    await importer.cleanup()
+    await importer.cleanup() // Should not throw
+
+    // Still cleaned up
+    expect(() => {
+      const fs = require('node:fs')
+      fs.accessSync(tempDir)
+    }).toThrow()
+  })
+
+  test('getImportedSkills returns imported skill metadata', () => {
+    // Manually set an imported skill to test getters
+    const mockSkill = {
+      name: 'test-skill',
+      source: 'owner/repo:test-skill',
+      tempPath: '/tmp/test-skill',
+    }
+
+    // Access private property for testing
+    ;(importer as any).imported.set('test-skill', mockSkill)
+
+    const skills = importer.getImportedSkills()
+    expect(skills).toHaveLength(1)
+    expect(skills[0]).toEqual(mockSkill)
+
+    const path = importer.getImportedSkillPath('test-skill')
+    expect(path).toBe('/tmp/test-skill')
+
+    const paths = importer.getAllImportedSkillPaths()
+    expect(paths).toEqual(['/tmp/test-skill'])
+  })
+
   // Note: Full integration test with actual git clone would require network
   // and is better suited for e2e tests. Unit tests focus on the API surface.
 })
