@@ -23,3 +23,7 @@ npm-debug.log*
 # Memory (hybrid: share decisions/notes, keep sessions/context personal)
 .memory/sessions/
 .memory/context.md
+
+# Test files and directories
+test-skills.ts
+.agents/
