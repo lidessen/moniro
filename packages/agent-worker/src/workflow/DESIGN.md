@@ -643,41 +643,44 @@ agent-worker context read --agent reviewer@pr-123
 
 ### CLI Backend MCP Configuration
 
-All major CLI backends support MCP, enabling custom tools that were previously unavailable.
+All major CLI backends support MCP at runtime via config flags - no permanent configuration changes needed.
 
-**Claude CLI**:
+**MCP Config File Format** (generated per workflow instance):
+```json
+// .workflow/pr-123/mcp.json
+{
+  "mcpServers": {
+    "workflow-context": {
+      "type": "stdio",
+      "command": "node",
+      "args": [".workflow/pr-123/context-server.js"]
+    }
+  }
+}
+```
+
+**Claude CLI** (runtime flags):
 ```bash
-# Add MCP server (Unix socket)
-claude mcp add workflow-context --socket .workflow/pr-123/context.sock
+# Pass MCP config at runtime (temporary, no permanent changes)
+claude -p --mcp-config .workflow/pr-123/mcp.json "your prompt"
 
-# Or via HTTP (fallback)
-claude mcp add workflow-context --url http://localhost:3100/mcp
+# Use --strict-mcp-config to ONLY use this config, ignore user's other MCP servers
+claude -p --strict-mcp-config --mcp-config .workflow/pr-123/mcp.json "your prompt"
 
-# List configured servers
-claude mcp list
-
-# Remove server
-claude mcp remove workflow-context
+# Can also pass JSON string directly
+claude -p --mcp-config '{"mcpServers":{"context":{"type":"stdio","command":"node","args":["server.js"]}}}' "prompt"
 ```
 
 **Codex CLI**:
 ```bash
-# Add MCP server
-codex mcp add workflow-context --socket .workflow/pr-123/context.sock
-
-# List configured servers
-codex mcp list
+# Similar runtime config approach
+codex --mcp-config .workflow/pr-123/mcp.json "your prompt"
 ```
 
 **Cursor Agent**:
 ```bash
-# List MCP servers
-cursor-agent mcp list
-
-# List available tools from servers
-cursor-agent mcp list-tools
-
-# Configure via .cursor/mcp.json
+# Uses project-level .cursor/mcp.json (created/cleaned per workflow)
+cursor-agent --config .workflow/pr-123/.cursor/mcp.json "your prompt"
 ```
 
 ### CLI Backend Tool Support via MCP
@@ -691,17 +694,28 @@ With MCP support, CLI backends can now use custom tools that were previously onl
 | @mention notifications | Not possible | MCP notifications |
 | Document read/write | Wrapper CLI | Native tools |
 
-**Workflow runner auto-configures MCP** for CLI backends:
+**Workflow runner passes MCP config at runtime**:
 ```typescript
 // When starting a Claude CLI agent in workflow
-async function startClaudeAgent(agentId: string, socketPath: string) {
-  // Auto-add context MCP server
-  await exec(`claude mcp add workflow-context --socket ${socketPath}`)
-
-  // Start agent with context tools available
-  await exec(`claude --system-prompt "${prompt}"`)
+async function startClaudeAgent(
+  agentId: string,
+  mcpConfigPath: string,
+  systemPrompt: string
+) {
+  // No permanent config changes - pass at runtime
+  await exec(`claude -p \
+    --strict-mcp-config \
+    --mcp-config ${mcpConfigPath} \
+    --system-prompt "${systemPrompt}" \
+    "You are ${agentId}. Check channel_mentions for your tasks."
+  `)
 }
 ```
+
+**Key benefit**: Runtime config means:
+- No pollution of user's global MCP settings
+- Each workflow instance has isolated MCP context
+- Automatic cleanup (just delete the workflow directory)
 
 ### Workflow Startup Flow
 
@@ -1043,11 +1057,11 @@ agent-worker send "Check the notes in the document"
 
 ### Phase 6: Agent MCP Integration
 - [ ] SDK backend: inject MCP client with Unix socket
-- [ ] Claude CLI: auto-configure via `claude mcp add`
-- [ ] Codex CLI: auto-configure via `codex mcp add`
-- [ ] Cursor Agent: auto-configure via `.cursor/mcp.json`
+- [ ] Generate per-instance mcp.json config file
+- [ ] Claude CLI: pass `--mcp-config` and `--strict-mcp-config` at runtime
+- [ ] Codex CLI: pass `--mcp-config` at runtime
+- [ ] Cursor Agent: generate `.cursor/mcp.json` per workflow
 - [ ] Fallback: `agent-worker context` CLI wrapper
-- [ ] Auto-cleanup MCP configuration on workflow stop
 
 ---
 
