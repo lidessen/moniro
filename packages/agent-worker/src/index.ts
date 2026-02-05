@@ -6,7 +6,7 @@ export {
   createBashTools,
   createBashToolsFromDirectory,
   createBashToolsFromFiles,
-} from './bash-tools.ts'
+} from './tools/bash.ts'
 export {
   createBackend,
   checkBackends,
@@ -29,7 +29,7 @@ export {
   type GitProvider,
 } from './skills/index.ts'
 export type { SupportedProvider } from './models.ts'
-export type { BashToolkit, BashToolsOptions, CreateBashToolOptions } from './bash-tools.ts'
+export type { BashToolkit, BashToolsOptions, CreateBashToolOptions } from './tools/bash.ts'
 export type {
   Backend,
   BackendType,
