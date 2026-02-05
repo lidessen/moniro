@@ -24,14 +24,22 @@ agent-worker session new -m anthropic/claude-sonnet-4-5
 # Create with Claude CLI backend
 agent-worker session new -b claude
 
-# Send a message
+# Send a message (async by default)
 agent-worker send "What is 2+2?"
+
+# Check the response
+agent-worker peek
+
+# Or send and wait for immediate response
+agent-worker send "What is 3+3?" --wait
 
 # End session
 agent-worker session end
 ```
 
 That's it. Session persists across commands. State maintained until you end it.
+
+**Note**: `send` is async by default (non-blocking). Use `peek` to view responses, or add `--wait` for synchronous behavior.
 
 ---
 
@@ -57,7 +65,10 @@ agent-worker session new -b codex
 agent-worker session new -b cursor
 ```
 
-**Note**: Tool management (add, mock, import) only works with SDK backend.
+**Important Notes**:
+- Tool management (add, mock, import) only works with SDK backend
+- Claude CLI backend may not work properly within Claude Code environment itself (use SDK backend for testing)
+- Async requests timeout after 60 seconds to prevent indefinite hangs
 
 ---
 
@@ -110,14 +121,16 @@ agent-worker session status
 # Statistics (tokens, messages)
 agent-worker stats
 
-# Conversation history
-agent-worker history
-agent-worker history --last 5
+# View messages (default: last 10)
+agent-worker peek
+agent-worker peek --last 5          # Show last 5 messages
+agent-worker peek --all             # Show all messages
+agent-worker peek --find "error"    # Search messages containing "error"
 
 # Export full transcript
 agent-worker export > transcript.json
 
-# Clear history (keep session)
+# Clear messages (keep session)
 agent-worker clear
 ```
 
@@ -231,12 +244,15 @@ agent-worker providers
 # Create session with your system prompt
 agent-worker session new -f ./my-prompt.txt -n test
 
-# Run test cases
+# Run test cases (async)
 agent-worker send "Test case 1: ..." --to test
 agent-worker send "Test case 2: ..." --to test
 
-# Check history
-agent-worker history --to test
+# Check responses
+agent-worker peek --to test
+
+# Or send synchronously for quick tests
+agent-worker send "Test case 3: ..." --to test --wait
 
 # Clean up
 agent-worker session end test
@@ -270,9 +286,9 @@ agent-worker session new -b claude -n claude-cli
 agent-worker send "Explain recursion" --to anthropic
 agent-worker send "Explain recursion" --to claude-cli
 
-# Compare
-agent-worker history --to anthropic
-agent-worker history --to claude-cli
+# Compare responses
+agent-worker peek --to anthropic
+agent-worker peek --to claude-cli
 ```
 
 ---
@@ -314,6 +330,9 @@ const state = session.getState()
 | "Tool management not supported" | Use SDK backend (`-b sdk` or omit `-b`) |
 | "Provider not loaded" | Check API key with `agent-worker providers` |
 | Session not responding | Check if process alive: `agent-worker session status` |
+| Message stuck in "(processing...)" | Wait up to 60s (timeout), or check with `--debug` |
+| Send appears to hang | Use `agent-worker send "message" --debug` to see details |
+| Claude backend not working | Use SDK backend instead (Claude CLI has environment limitations) |
 
 ---
 
@@ -326,11 +345,16 @@ agent-worker session status  Check session
 agent-worker session use     Set default
 agent-worker session end     End session
 
-agent-worker send            Send message
-agent-worker history         Show history
+agent-worker send            Send message (async by default)
+  --wait                     Wait for response (synchronous mode)
+  --debug                    Show debug information
+agent-worker peek            View messages (default: last 10)
+  --all                      Show all messages
+  --last N                   Show last N messages
+  --find <text>              Search messages containing text
 agent-worker stats           Show statistics
 agent-worker export          Export transcript
-agent-worker clear           Clear history
+agent-worker clear           Clear messages
 
 agent-worker tool add        Add tool
 agent-worker tool import     Import from file
