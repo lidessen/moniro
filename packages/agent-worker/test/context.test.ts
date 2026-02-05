@@ -398,3 +398,19 @@ describe('createContextMCPServer', () => {
     expect(agentConnections.size).toBe(0)
   })
 })
+
+// ==================== Transport Tests ====================
+
+describe('getSocketPath', () => {
+  const { getSocketPath } = require('../src/workflow/context/transport.ts')
+
+  test('generates socket path with workflow name and instance', () => {
+    const path = getSocketPath('my-workflow', 'production')
+    expect(path).toMatch(/agent-worker-my-workflow-production\.sock$/)
+  })
+
+  test('uses tmp directory', () => {
+    const path = getSocketPath('test', 'default')
+    expect(path).toMatch(/^(\/tmp|\/var)/)
+  })
+})

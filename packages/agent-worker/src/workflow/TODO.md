@@ -19,9 +19,9 @@ Implementation tasks for the workflow v2 design. See [DESIGN.md](./DESIGN.md) fo
 - [x] Implement tools: `channel_send`, `channel_read`, `channel_peek`
 - [x] Implement tools: `document_read`, `document_write`, `document_append`
 - [ ] Implement `notifications/mention` for @mention push (pending MCP SDK support)
-- [ ] Unix socket transport (primary)
-- [ ] HTTP transport (fallback, with dynamic port allocation)
-- [ ] stdio transport (testing)
+- [x] Unix socket transport (primary)
+- [ ] HTTP transport (fallback) - deferred, Unix socket sufficient
+- [x] stdio transport (testing)
 
 ## Phase 3: Kickoff Model
 
@@ -61,7 +61,7 @@ Implementation tasks for the workflow v2 design. See [DESIGN.md](./DESIGN.md) fo
 | Phase | Status | Notes |
 |-------|--------|-------|
 | 1. Context Provider | ✅ Complete | `context/` module with Memory + File providers |
-| 2. Context MCP Server | 🔄 In Progress | MCP tools done, transports pending |
+| 2. Context MCP Server | ✅ Complete | MCP tools + stdio/Unix socket transports |
 | 3. Kickoff Model | 🔄 In Progress | Schema + parser done, runtime pending |
 | 4. CLI Updates | ✅ Complete | start/stop/list commands + context subcommand |
 | 5. Run/Start Modes | Not started | |
