@@ -152,12 +152,27 @@ Examples:
 
 Supported providers: `github` (default), `gitlab`, `gitee`
 
+**Skills Support by Backend:**
+
+| Backend | Skills Support | How It Works | `--import-skill` |
+|---------|----------------|--------------|------------------|
+| **SDK** (default) | ✅ Full | Skills loaded as a tool that agents can call | ✅ Supported |
+| **Claude CLI** | ✅ Full | Loads from `.claude/skills/` and `~/.claude/skills/` | ⚠️ Manual install required |
+| **Codex CLI** | ✅ Full | Loads from `.agents/skills/`, `~/.codex/skills/`, `~/.agents/skills/` | ⚠️ Manual install required |
+| **Cursor CLI** | ✅ Full | Loads from `.agents/skills/` and `~/.cursor/skills/` | ⚠️ Manual install required |
+
+**Notes:**
+- **SDK Backend**: Skills work through the Skills tool, allowing dynamic file reading. `--import-skill` is fully supported.
+- **CLI Backends** (claude, codex, cursor): Skills are loaded from filesystem locations by the CLI tool itself. To use `--import-skill` with these backends, install skills manually using `npx skills add <repo> --global`.
+- If you specify `--import-skill` with a CLI backend, agent-worker will show a warning and suggest using SDK backend or manual installation.
+
 **Default Skill Directories:**
-- `.agents/skills/` - Project-level skills
-- `.claude/skills/` - Claude Code skills
-- `.cursor/skills/` - Cursor skills
-- `~/.agents/skills/` - User-level global skills
+- `.agents/skills/` - Project-level skills (all backends)
+- `.claude/skills/` - Claude Code project skills
+- `.cursor/skills/` - Cursor project skills
+- `~/.agents/skills/` - User-level global skills (all backends)
 - `~/.claude/skills/` - User-level Claude skills
+- `~/.codex/skills/` - User-level Codex skills
 
 **Using Skills in Sessions:**
 
