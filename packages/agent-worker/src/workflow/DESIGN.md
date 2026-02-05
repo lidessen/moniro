@@ -282,7 +282,7 @@ Context is provided to agents via an MCP server, not direct file access.
 │                      Workflow Runner                           │
 │                                                                │
 │  ┌──────────────────────────────────────────────────────────┐ │
-│  │               Context MCP Server (HTTP)                   │ │
+│  │           Context MCP Server (Unix Socket)                │ │
 │  │                                                           │ │
 │  │  Tools:                        Notifications:            │ │
 │  │   - channel_send                - mention                │ │
@@ -297,13 +297,13 @@ Context is provided to agents via an MCP server, not direct file access.
 │  └────────────────────────┬─────────────────────────────────┘ │
 │                           │                                   │
 └───────────────────────────┼───────────────────────────────────┘
-                            │ HTTP + X-Agent-Id header
+                            │ Unix Socket + X-Agent-Id header
               ┌─────────────┼─────────────┐
               │             │             │
               ▼             ▼             ▼
          ┌────────┐   ┌────────┐    ┌────────┐
          │ Agent  │   │ Agent  │    │ Agent  │
-         │ (SDK)  │   │(Claude)│    │(Codex) │
+         │ (SDK)  │   │(Claude)│    │(Cursor)│
          └────────┘   └────────┘    └────────┘
 ```
 
@@ -548,13 +548,33 @@ class MemoryContextProvider implements ContextProvider {
 
 ### Transport Options
 
-**For multi-agent workflows, use HTTP transport** (recommended):
+**For multi-agent workflows, use Unix socket** (recommended):
+
+```typescript
+import { createServer } from 'node:net'
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
+
+// Unix socket avoids port conflicts and provides better isolation
+const socketPath = `.workflow/${instance}/context.sock`
+
+const transport = new StreamableHTTPServerTransport({
+  sessionIdGenerator: (req) => req.headers.get('x-agent-id') || 'anonymous',
+})
+
+const unixServer = createServer((socket) => {
+  // Handle HTTP-over-Unix-socket
+})
+unixServer.listen(socketPath)
+
+await server.connect(transport)
+```
+
+**Alternative: HTTP transport** (when Unix socket not suitable):
 
 ```typescript
 import { Hono } from 'hono'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 
-// HTTP server allows multiple agents to connect
 const app = new Hono()
 const transport = new StreamableHTTPServerTransport({
   sessionIdGenerator: (req) => req.headers.get('x-agent-id') || 'anonymous',
@@ -566,8 +586,9 @@ app.all('/mcp/*', async (c) => {
 
 await server.connect(transport)
 
-// Start HTTP server
-export default { port: 3000, fetch: app.fetch }
+// Use dynamic port to avoid conflicts
+const port = await findAvailablePort(3100, 3200)
+export default { port, fetch: app.fetch }
 ```
 
 **For single-agent or testing, stdio works**:
@@ -585,8 +606,8 @@ await server.connect(transport)
 Each agent identifies itself when connecting:
 
 ```typescript
-// HTTP: via header
-const response = await fetch('http://localhost:3000/mcp', {
+// Via X-Agent-Id header (both Unix socket and HTTP)
+const response = await fetch('unix://.workflow/pr-123/context.sock:/mcp', {
   headers: { 'X-Agent-Id': 'reviewer@pr-123' },
   // ... MCP request
 })
@@ -597,27 +618,89 @@ const response = await fetch('http://localhost:3000/mcp', {
 
 ### Agent Connection
 
-Workflow runner passes MCP URL to agents:
+Workflow runner passes MCP socket/URL to agents:
 
 ```typescript
 // For SDK backend - MCP client with identity
 import { McpClient } from '@modelcontextprotocol/sdk/client/mcp.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 
+// Unix socket connection (preferred)
+const socketPath = '.workflow/pr-123/context.sock'
 const transport = new StreamableHTTPClientTransport({
-  url: 'http://localhost:3000/mcp',
+  socketPath,
   headers: { 'X-Agent-Id': agentId },
 })
 const client = new McpClient()
 await client.connect(transport)
 
-// For Claude CLI - via --mcp flag
-// Claude CLI sets agent identity automatically
-claude --mcp "http://localhost:3000/mcp"
+// For CLI backends - via MCP configuration (see below)
 
 // For unsupported backends - CLI wrapper
 agent-worker context send "message" --agent reviewer@pr-123
 agent-worker context read --agent reviewer@pr-123
+```
+
+### CLI Backend MCP Configuration
+
+All major CLI backends support MCP, enabling custom tools that were previously unavailable.
+
+**Claude CLI**:
+```bash
+# Add MCP server (Unix socket)
+claude mcp add workflow-context --socket .workflow/pr-123/context.sock
+
+# Or via HTTP (fallback)
+claude mcp add workflow-context --url http://localhost:3100/mcp
+
+# List configured servers
+claude mcp list
+
+# Remove server
+claude mcp remove workflow-context
+```
+
+**Codex CLI**:
+```bash
+# Add MCP server
+codex mcp add workflow-context --socket .workflow/pr-123/context.sock
+
+# List configured servers
+codex mcp list
+```
+
+**Cursor Agent**:
+```bash
+# List MCP servers
+cursor-agent mcp list
+
+# List available tools from servers
+cursor-agent mcp list-tools
+
+# Configure via .cursor/mcp.json
+```
+
+### CLI Backend Tool Support via MCP
+
+With MCP support, CLI backends can now use custom tools that were previously only available to SDK backends:
+
+| Feature | Before MCP | With MCP |
+|---------|------------|----------|
+| Custom tools | SDK only | All backends |
+| Channel access | Wrapper CLI | Native tools |
+| @mention notifications | Not possible | MCP notifications |
+| Document read/write | Wrapper CLI | Native tools |
+
+**Workflow runner auto-configures MCP** for CLI backends:
+```typescript
+// When starting a Claude CLI agent in workflow
+async function startClaudeAgent(agentId: string, socketPath: string) {
+  // Auto-add context MCP server
+  await exec(`claude mcp add workflow-context --socket ${socketPath}`)
+
+  // Start agent with context tools available
+  await exec(`claude --system-prompt "${prompt}"`)
+}
 ```
 
 ### Workflow Startup Flow
@@ -933,9 +1016,11 @@ agent-worker send "Check the notes in the document"
 - [ ] Add `@modelcontextprotocol/sdk` dependency
 - [ ] Create `createContextMCPServer()` function
 - [ ] Implement tools: `channel_send`, `channel_read`, `channel_peek`
-- [ ] Implement tools: `document_read`, `document_write`
+- [ ] Implement tools: `document_read`, `document_write`, `document_append`
 - [ ] Implement `notifications/mention` for @mention push
-- [ ] Support stdio and HTTP transports
+- [ ] Unix socket transport (primary)
+- [ ] HTTP transport (fallback, with dynamic port allocation)
+- [ ] stdio transport (testing)
 
 ### Phase 3: Kickoff Model
 - [ ] Update workflow schema: `setup` + `kickoff` (replace `tasks`)
@@ -957,9 +1042,12 @@ agent-worker send "Check the notes in the document"
 - [ ] Integrate MCP server lifecycle with workflow
 
 ### Phase 6: Agent MCP Integration
-- [ ] SDK backend: inject MCP client
-- [ ] Claude CLI: pass `--mcp` flag
+- [ ] SDK backend: inject MCP client with Unix socket
+- [ ] Claude CLI: auto-configure via `claude mcp add`
+- [ ] Codex CLI: auto-configure via `codex mcp add`
+- [ ] Cursor Agent: auto-configure via `.cursor/mcp.json`
 - [ ] Fallback: `agent-worker context` CLI wrapper
+- [ ] Auto-cleanup MCP configuration on workflow stop
 
 ---
 
