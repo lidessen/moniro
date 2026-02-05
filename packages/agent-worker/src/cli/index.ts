@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { Command } from 'commander'
+import { Command, Option } from 'commander'
 import { readFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
 import { join } from 'node:path'
@@ -29,7 +29,11 @@ sessionCmd
   .command('new')
   .description('Create a new session')
   .option('-m, --model <model>', `Model identifier (default: ${getDefaultModel()})`)
-  .option('-b, --backend <type>', 'Backend type: sdk, claude, codex, cursor (default: sdk)')
+  .addOption(
+    new Option('-b, --backend <type>', 'Backend type')
+      .choices(['sdk', 'claude', 'codex', 'cursor'])
+      .default('sdk')
+  )
   .option('-s, --system <prompt>', 'System prompt', 'You are a helpful assistant.')
   .option('-f, --system-file <file>', 'Read system prompt from file')
   .option('-n, --name <name>', 'Session name for easy reference')
@@ -41,15 +45,7 @@ sessionCmd
       system = readFileSync(options.systemFile, 'utf-8')
     }
 
-    // Determine backend type
-    const backend = (options.backend || 'sdk') as BackendType
-
-    // Validate backend
-    const validBackends: BackendType[] = ['sdk', 'claude', 'codex', 'cursor']
-    if (!validBackends.includes(backend)) {
-      console.error(`Invalid backend: ${backend}. Valid options: ${validBackends.join(', ')}`)
-      process.exit(1)
-    }
+    const backend = options.backend as BackendType
 
     // Use default model if not specified
     const model = options.model || getDefaultModel()

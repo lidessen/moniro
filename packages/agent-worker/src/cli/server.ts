@@ -20,6 +20,7 @@ interface SessionInfo {
   id: string
   name?: string
   model: string
+  system: string
   backend: BackendType
   socketPath: string
   pidFile: string
@@ -234,7 +235,7 @@ async function handleRequest(req: Request): Promise<Response> {
           const timestamp = new Date().toISOString()
           state.cliHistory.push({ role: 'user', content: message, timestamp })
 
-          const result = await backend.send(message, { system: info.model })
+          const result = await backend.send(message, { system: info.system })
           state.cliHistory.push({
             role: 'assistant',
             content: result.content,
@@ -510,6 +511,7 @@ export function startServer(config: {
     id: effectiveId,
     name: config.name,
     model: config.model,
+    system: config.system,
     backend: backendType,
     socketPath,
     pidFile,
