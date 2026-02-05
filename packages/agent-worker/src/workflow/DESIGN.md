@@ -89,7 +89,10 @@ interface AgentDefinition {
   max_steps?: number
 }
 
-type Task = ShellTask | SendTask
+/** Task can be a single task or an array of tasks (parallel execution) */
+type Task = SingleTask | SingleTask[]
+
+type SingleTask = ShellTask | SendTask | ConditionalTask
 
 interface ShellTask {
   /** Shell command to execute */
@@ -107,6 +110,17 @@ interface SendTask {
   to: string
 
   /** Variable name to store response */
+  as?: string
+}
+
+interface ConditionalTask {
+  /** Condition expression */
+  if: string
+
+  /** Task to execute if condition is true */
+  send?: string
+  shell?: string
+  to?: string
   as?: string
 }
 ```
@@ -503,45 +517,76 @@ agent-worker down reviewer
 - [ ] Implement send task executor
 - [ ] Add task output capture
 
+### Phase 6: Advanced Task Features
+- [ ] Implement parallel task execution (nested arrays)
+- [ ] Implement conditional tasks (`if` field)
+- [ ] Add condition expression evaluator
+
 ---
 
-## Open Questions
+## Design Decisions
 
-1. **Tool definition in workflow**: Should workflows define tools inline or reference external files?
-   ```yaml
-   # Option A: Reference
-   tools:
-     - read_file
-     - ./my-tools.ts
+### 1. Tool Definition
 
-   # Option B: Inline
-   tools:
-     read_file:
-       description: "Read a file"
-       parameters: ...
-   ```
+Tools can only be **referenced by name or file path**, not defined inline:
 
-2. **Conditional tasks**: Should we support conditionals?
-   ```yaml
-   tasks:
-     - send: "Review"
-       to: reviewer
-       as: review
+```yaml
+agents:
+  reviewer:
+    tools:
+      - read_file              # Built-in tool name
+      - search_code            # Built-in tool name
+      - ./my-tools.ts          # External file
+```
 
-     - if: ${{ review.contains('security') }}
-       send: "Deep security review"
-       to: security-reviewer
-   ```
+**Rationale**: Tool definitions are complex (parameters, implementations). Inline definition would bloat workflow files and duplicate definitions across workflows.
 
-3. **Parallel tasks**: Should we support parallel execution?
-   ```yaml
-   tasks:
-     - parallel:
-         - send: "Review code"
-           to: code-reviewer
-         - send: "Review docs"
-           to: doc-reviewer
-   ```
+### 2. Conditional Tasks
+
+Supported via `if` field:
+
+```yaml
+tasks:
+  - send: "Review"
+    to: reviewer
+    as: review
+
+  - if: ${{ review.contains('security') }}
+    send: "Deep security review"
+    to: security-reviewer
+```
+
+**Condition syntax**: `${{ expression }}` where expression is evaluated as JavaScript.
+
+### 3. Parallel Tasks
+
+Supported via **nested arrays** - no extra keyword needed:
+
+```yaml
+tasks:
+  # Sequential task
+  - send: "Review code"
+    to: code-reviewer
+    as: review
+
+  # Parallel tasks (array of tasks)
+  - - send: "Security review based on ${{ review }}"
+      to: security-reviewer
+      as: security
+    - send: "Performance review based on ${{ review }}"
+      to: perf-reviewer
+      as: perf
+
+  # Sequential (waits for parallel to complete)
+  - send: "Summarize: ${{ security }} and ${{ perf }}"
+    to: summarizer
+```
+
+**Execution model**:
+- Top-level array items execute sequentially
+- Nested arrays execute in parallel
+- All parallel tasks must complete before next sequential task starts
+- Variables from parallel tasks are all available after the parallel block
 
 ---
 
