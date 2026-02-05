@@ -1,4 +1,4 @@
-import type { SkillsProvider } from './provider.ts'
+import type { SkillsProvider } from '../skills/provider.ts'
 import type { ToolDefinition } from '../types.ts'
 
 /**

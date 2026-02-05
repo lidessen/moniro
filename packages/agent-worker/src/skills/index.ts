@@ -1,6 +1,6 @@
 export { SkillsProvider } from './provider.ts'
 export type { SkillMetadata } from './provider.ts'
-export { createSkillsTool } from './tool.ts'
+export { createSkillsTool } from '../tools/skills.ts'
 export { SkillImporter } from './importer.ts'
 export type { ImportedSkill } from './importer.ts'
 export { parseImportSpec, buildGitUrl, getSpecDisplayName } from './import-spec.ts'
