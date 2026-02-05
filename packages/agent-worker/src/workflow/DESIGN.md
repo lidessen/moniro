@@ -138,8 +138,13 @@ interface WorkflowFile {
   /** Workflow name (defaults to filename) */
   name?: string
 
-  /** Shared context configuration */
-  context?: ContextConfig | true
+  /**
+   * Shared context configuration
+   * - undefined: no context (agents can't communicate)
+   * - null/empty: enable with all defaults
+   * - object: custom configuration
+   */
+  context?: ContextConfig | null
 
   /** Agent definitions */
   agents: Record<string, AgentDefinition>
@@ -147,19 +152,22 @@ interface WorkflowFile {
   /** Setup commands (run before kickoff) */
   setup?: SetupTask[]
 
-  /** Kickoff message - initiates workflow via @mention */
-  kickoff: string
+  /**
+   * Kickoff message - initiates workflow via @mention
+   * Optional: if omitted, agents start but wait for external trigger
+   */
+  kickoff?: string
 }
 
 interface ContextConfig {
-  /** Context directory */
+  /** Context directory (default: .workflow/${{ instance }}/) */
   dir?: string
 
-  /** Channel config (true = defaults) */
-  channel?: ChannelConfig | true
+  /** Channel config (null/empty = defaults, undefined = disabled) */
+  channel?: ChannelConfig | null
 
-  /** Document config (true = defaults) */
-  document?: DocumentConfig | true
+  /** Document config (null/empty = defaults, undefined = disabled) */
+  document?: DocumentConfig | null
 }
 
 interface ChannelConfig {
@@ -187,6 +195,30 @@ interface SetupTask {
 
   /** Variable name to store output */
   as?: string
+}
+
+/** A single channel entry */
+interface ChannelEntry {
+  /** ISO timestamp */
+  timestamp: string
+  /** Author agent name or 'system' */
+  from: string
+  /** Message content */
+  message: string
+  /** Extracted @mentions */
+  mentions: string[]
+}
+
+/** @mention notification */
+interface MentionNotification {
+  /** Who sent the message */
+  from: string
+  /** Who was mentioned */
+  target: string
+  /** The message content */
+  message: string
+  /** Entry timestamp */
+  timestamp: string
 }
 ```
 
@@ -239,32 +271,6 @@ function extractMentions(message: string, validAgents: string[]): string[] {
 
 ---
 
-## Agent Tools
-
-Agents receive context tools when context is enabled:
-
-```typescript
-// Channel tool - communication
-channel: {
-  action: 'send' | 'read' | 'peek',
-  message?: string,      // for send (auto-parses @mentions)
-  since?: string,        // for read/peek
-  limit?: number,        // for read/peek
-}
-
-// Document tool - shared workspace
-document: {
-  action: 'read' | 'write' | 'append',
-  content?: string,      // for write/append
-}
-```
-
-**peek vs read:**
-- `peek` = view without marking as read
-- `read` = view and acknowledge @mentions
-
----
-
 ## Context MCP Server
 
 Context is provided to agents via an MCP server, not direct file access.
@@ -272,31 +278,33 @@ Context is provided to agents via an MCP server, not direct file access.
 ### Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                   Workflow Runner                        │
-│                                                          │
-│  ┌────────────────────────────────────────────────────┐ │
-│  │              Context MCP Server                     │ │
-│  │                                                     │ │
-│  │  Tools:                Notifications:              │ │
-│  │   - channel_send        - mention                  │ │
-│  │   - channel_read                                   │ │
-│  │   - channel_peek                                   │ │
-│  │   - document_read                                  │ │
-│  │   - document_write                                 │ │
-│  │                                                     │ │
-│  │  Provider: FileProvider | MemoryProvider           │ │
-│  └─────────────────────┬───────────────────────────────┘ │
-│                        │                                 │
-└────────────────────────┼─────────────────────────────────┘
-                         │ MCP Protocol (stdio / HTTP)
-           ┌─────────────┼─────────────┐
-           │             │             │
-           ▼             ▼             ▼
-      ┌────────┐   ┌────────┐    ┌────────┐
-      │ Agent  │   │ Agent  │    │ Agent  │
-      │ (SDK)  │   │(Claude)│    │(Codex) │
-      └────────┘   └────────┘    └────────┘
+┌───────────────────────────────────────────────────────────────┐
+│                      Workflow Runner                           │
+│                                                                │
+│  ┌──────────────────────────────────────────────────────────┐ │
+│  │               Context MCP Server (HTTP)                   │ │
+│  │                                                           │ │
+│  │  Tools:                        Notifications:            │ │
+│  │   - channel_send                - mention                │ │
+│  │   - channel_read (ack mentions)                          │ │
+│  │   - channel_peek (no ack)                                │ │
+│  │   - channel_mentions                                     │ │
+│  │   - document_read                                        │ │
+│  │   - document_write                                       │ │
+│  │   - document_append                                      │ │
+│  │                                                           │ │
+│  │  Provider: FileProvider | MemoryProvider                 │ │
+│  └────────────────────────┬─────────────────────────────────┘ │
+│                           │                                   │
+└───────────────────────────┼───────────────────────────────────┘
+                            │ HTTP + X-Agent-Id header
+              ┌─────────────┼─────────────┐
+              │             │             │
+              ▼             ▼             ▼
+         ┌────────┐   ┌────────┐    ┌────────┐
+         │ Agent  │   │ Agent  │    │ Agent  │
+         │ (SDK)  │   │(Claude)│    │(Codex) │
+         └────────┘   └────────┘    └────────┘
 ```
 
 ### Implementation
@@ -309,10 +317,13 @@ import { z } from 'zod'
 
 // Context Provider interface (storage abstraction)
 interface ContextProvider {
-  appendChannel(from: string, message: string): Promise<void>
+  appendChannel(from: string, message: string): Promise<ChannelEntry>
   readChannel(since?: string, limit?: number): Promise<ChannelEntry[]>
+  getUnreadMentions(agent: string): Promise<MentionNotification[]>
+  acknowledgeMentions(agent: string, until: string): Promise<void>
   readDocument(): Promise<string>
   writeDocument(content: string): Promise<void>
+  appendDocument(content: string): Promise<void>
 }
 
 // MCP Server for Context
@@ -325,39 +336,65 @@ function createContextMCPServer(
     version: '1.0.0',
   })
 
+  // Track connected agents for notifications
+  const agentConnections = new Map<string, McpConnection>()
+
   // Channel tools
   server.tool('channel_send', {
     message: z.string().describe('Message to send, can include @mentions'),
   }, async ({ message }, extra) => {
-    const from = extra.meta?.agentId as string
-    const mentions = extractMentions(message, validAgents)
+    // Agent identity from connection metadata (set during handshake)
+    const from = extra.sessionId  // Agent ID from session
+    const entry = await provider.appendChannel(from, message)
 
-    await provider.appendChannel(from, message)
-
-    // Notify mentioned agents
-    for (const agent of mentions) {
-      await server.notification({
-        method: 'notifications/mention',
-        params: { from, target: agent, message },
-      })
+    // Notify mentioned agents via MCP notifications
+    for (const target of entry.mentions) {
+      const conn = agentConnections.get(target)
+      if (conn) {
+        await conn.notify('notifications/mention', {
+          from,
+          target,
+          message,
+          timestamp: entry.timestamp,
+        })
+      }
     }
 
     return { content: [{ type: 'text', text: 'sent' }] }
   })
 
   server.tool('channel_read', {
-    since: z.string().optional(),
-    limit: z.number().optional(),
-  }, async ({ since, limit }) => {
+    since: z.string().optional().describe('Read entries after this timestamp'),
+    limit: z.number().optional().describe('Max entries to return'),
+  }, async ({ since, limit }, extra) => {
+    const agent = extra.sessionId
     const entries = await provider.readChannel(since, limit)
+
+    // Acknowledge mentions for this agent up to latest entry
+    if (entries.length > 0) {
+      const latest = entries[entries.length - 1].timestamp
+      await provider.acknowledgeMentions(agent, latest)
+    }
+
     return { content: [{ type: 'text', text: JSON.stringify(entries) }] }
   })
 
   server.tool('channel_peek', {
-    limit: z.number().optional(),
+    limit: z.number().optional().describe('Max entries to return'),
   }, async ({ limit }) => {
+    // Peek doesn't acknowledge mentions
     const entries = await provider.readChannel(undefined, limit)
     return { content: [{ type: 'text', text: JSON.stringify(entries) }] }
+  })
+
+  server.tool('channel_mentions', {
+    unread_only: z.boolean().optional().describe('Only unread mentions'),
+  }, async ({ unread_only }, extra) => {
+    const agent = extra.sessionId
+    const mentions = unread_only
+      ? await provider.getUnreadMentions(agent)
+      : [] // TODO: get all mentions
+    return { content: [{ type: 'text', text: JSON.stringify(mentions) }] }
   })
 
   // Document tools
@@ -367,13 +404,20 @@ function createContextMCPServer(
   })
 
   server.tool('document_write', {
-    content: z.string(),
+    content: z.string().describe('New document content (replaces existing)'),
   }, async ({ content }) => {
     await provider.writeDocument(content)
     return { content: [{ type: 'text', text: 'written' }] }
   })
 
-  return server
+  server.tool('document_append', {
+    content: z.string().describe('Content to append to document'),
+  }, async ({ content }) => {
+    await provider.appendDocument(content)
+    return { content: [{ type: 'text', text: 'appended' }] }
+  })
+
+  return { server, agentConnections }
 }
 ```
 
@@ -382,28 +426,80 @@ function createContextMCPServer(
 ```typescript
 // File-based provider (production)
 class FileContextProvider implements ContextProvider {
+  private mentionState: Map<string, string> = new Map()  // agent -> last ack timestamp
+
   constructor(
     private channelPath: string,
-    private documentPath: string
-  ) {}
-
-  async appendChannel(from: string, message: string) {
-    const timestamp = new Date().toISOString().slice(11, 19)
-    const entry = `\n### ${timestamp} [${from}]\n${message}\n`
-    await fs.appendFile(this.channelPath, entry)
+    private documentPath: string,
+    private mentionStatePath: string,
+    private validAgents: string[]
+  ) {
+    this.loadMentionState()
   }
 
-  async readChannel(since?: string, limit?: number) {
+  async appendChannel(from: string, message: string): Promise<ChannelEntry> {
+    const timestamp = new Date().toISOString()
+    const mentions = extractMentions(message, this.validAgents)
+    const entry: ChannelEntry = { timestamp, from, message, mentions }
+
+    // Append to markdown file
+    const markdown = `\n### ${timestamp.slice(11, 19)} [${from}]\n${message}\n`
+    await fs.appendFile(this.channelPath, markdown)
+
+    return entry
+  }
+
+  async readChannel(since?: string, limit?: number): Promise<ChannelEntry[]> {
     const content = await fs.readFile(this.channelPath, 'utf-8')
-    return parseChannelMarkdown(content, since, limit)
+    return parseChannelMarkdown(content, this.validAgents, since, limit)
   }
 
-  async readDocument() {
-    return fs.readFile(this.documentPath, 'utf-8')
+  async getUnreadMentions(agent: string): Promise<MentionNotification[]> {
+    const lastAck = this.mentionState.get(agent) || ''
+    const entries = await this.readChannel(lastAck)
+    return entries
+      .filter(e => e.mentions.includes(agent))
+      .map(e => ({
+        from: e.from,
+        target: agent,
+        message: e.message,
+        timestamp: e.timestamp,
+      }))
   }
 
-  async writeDocument(content: string) {
+  async acknowledgeMentions(agent: string, until: string): Promise<void> {
+    this.mentionState.set(agent, until)
+    await this.saveMentionState()
+  }
+
+  async readDocument(): Promise<string> {
+    try {
+      return await fs.readFile(this.documentPath, 'utf-8')
+    } catch {
+      return ''
+    }
+  }
+
+  async writeDocument(content: string): Promise<void> {
     await fs.writeFile(this.documentPath, content)
+  }
+
+  async appendDocument(content: string): Promise<void> {
+    await fs.appendFile(this.documentPath, content)
+  }
+
+  private loadMentionState() {
+    try {
+      const data = JSON.parse(fs.readFileSync(this.mentionStatePath, 'utf-8'))
+      this.mentionState = new Map(Object.entries(data))
+    } catch {
+      // No state file yet
+    }
+  }
+
+  private async saveMentionState() {
+    const data = Object.fromEntries(this.mentionState)
+    await fs.writeFile(this.mentionStatePath, JSON.stringify(data))
   }
 }
 
@@ -411,47 +507,117 @@ class FileContextProvider implements ContextProvider {
 class MemoryContextProvider implements ContextProvider {
   private channel: ChannelEntry[] = []
   private document: string = ''
-  // ...
+  private mentionState: Map<string, string> = new Map()
+
+  constructor(private validAgents: string[]) {}
+
+  async appendChannel(from: string, message: string): Promise<ChannelEntry> {
+    const entry: ChannelEntry = {
+      timestamp: new Date().toISOString(),
+      from,
+      message,
+      mentions: extractMentions(message, this.validAgents),
+    }
+    this.channel.push(entry)
+    return entry
+  }
+
+  async readChannel(since?: string, limit?: number): Promise<ChannelEntry[]> {
+    let entries = this.channel
+    if (since) entries = entries.filter(e => e.timestamp > since)
+    if (limit) entries = entries.slice(-limit)
+    return entries
+  }
+
+  async getUnreadMentions(agent: string): Promise<MentionNotification[]> {
+    const lastAck = this.mentionState.get(agent) || ''
+    return this.channel
+      .filter(e => e.timestamp > lastAck && e.mentions.includes(agent))
+      .map(e => ({ from: e.from, target: agent, message: e.message, timestamp: e.timestamp }))
+  }
+
+  async acknowledgeMentions(agent: string, until: string): Promise<void> {
+    this.mentionState.set(agent, until)
+  }
+
+  async readDocument(): Promise<string> { return this.document }
+  async writeDocument(content: string): Promise<void> { this.document = content }
+  async appendDocument(content: string): Promise<void> { this.document += content }
 }
 ```
 
 ### Transport Options
 
+**For multi-agent workflows, use HTTP transport** (recommended):
+
 ```typescript
-// Option 1: stdio (same process)
+import { Hono } from 'hono'
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
+
+// HTTP server allows multiple agents to connect
+const app = new Hono()
+const transport = new StreamableHTTPServerTransport({
+  sessionIdGenerator: (req) => req.headers.get('x-agent-id') || 'anonymous',
+})
+
+app.all('/mcp/*', async (c) => {
+  return transport.handleRequest(c.req.raw)
+})
+
+await server.connect(transport)
+
+// Start HTTP server
+export default { port: 3000, fetch: app.fetch }
+```
+
+**For single-agent or testing, stdio works**:
+
+```typescript
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
+
+// stdio is 1:1 - only one agent can connect
 const transport = new StdioServerTransport()
 await server.connect(transport)
+```
 
-// Option 2: HTTP + SSE (remote)
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-const transport = new StreamableHTTPServerTransport({ endpoint: '/mcp' })
-await server.connect(transport)
+### Agent Identity
 
-// Option 3: Hono adapter
-import { Hono } from 'hono'
-import { toFetchHandler } from '@modelcontextprotocol/sdk/server/hono.js'
+Each agent identifies itself when connecting:
 
-const app = new Hono()
-app.all('/mcp/*', toFetchHandler(server))
+```typescript
+// HTTP: via header
+const response = await fetch('http://localhost:3000/mcp', {
+  headers: { 'X-Agent-Id': 'reviewer@pr-123' },
+  // ... MCP request
+})
+
+// The sessionIdGenerator extracts this as the session ID
+// All tool calls from this connection use this identity
 ```
 
 ### Agent Connection
 
-Workflow runner passes MCP connection info to agents:
+Workflow runner passes MCP URL to agents:
 
 ```typescript
-// For SDK backend - direct MCP client
+// For SDK backend - MCP client with identity
 import { McpClient } from '@modelcontextprotocol/sdk/client/mcp.js'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+
+const transport = new StreamableHTTPClientTransport({
+  url: 'http://localhost:3000/mcp',
+  headers: { 'X-Agent-Id': agentId },
+})
 const client = new McpClient()
 await client.connect(transport)
 
 // For Claude CLI - via --mcp flag
+// Claude CLI sets agent identity automatically
 claude --mcp "http://localhost:3000/mcp"
 
 // For unsupported backends - CLI wrapper
-agent-worker context send "message"
-agent-worker context read
+agent-worker context send "message" --agent reviewer@pr-123
+agent-worker context read --agent reviewer@pr-123
 ```
 
 ### Workflow Startup Flow
