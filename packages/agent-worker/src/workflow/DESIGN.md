@@ -643,7 +643,13 @@ agent-worker context read --agent reviewer@pr-123
 
 ### CLI Backend MCP Configuration
 
-All major CLI backends support MCP at runtime via config flags - no permanent configuration changes needed.
+Different CLI backends have different MCP configuration approaches:
+
+| Backend | Config Method | Isolation |
+|---------|--------------|-----------|
+| Claude CLI | `--mcp-config` flag | ✓ Full runtime isolation |
+| Codex CLI | `~/.codex/config.toml` | ✗ User-level only |
+| Cursor Agent | `.cursor/mcp.json` file | ✓ Project-level |
 
 **MCP Config File Format** (generated per workflow instance):
 ```json
@@ -659,7 +665,7 @@ All major CLI backends support MCP at runtime via config flags - no permanent co
 }
 ```
 
-**Claude CLI** (runtime flags):
+**Claude CLI** (runtime flags - recommended):
 ```bash
 # Pass MCP config at runtime (temporary, no permanent changes)
 claude -p --mcp-config .workflow/pr-123/mcp.json "your prompt"
@@ -671,16 +677,36 @@ claude -p --strict-mcp-config --mcp-config .workflow/pr-123/mcp.json "your promp
 claude -p --mcp-config '{"mcpServers":{"context":{"type":"stdio","command":"node","args":["server.js"]}}}' "prompt"
 ```
 
-**Codex CLI**:
+**Codex CLI** (user-level config - requires add/remove):
 ```bash
-# Similar runtime config approach
-codex --mcp-config .workflow/pr-123/mcp.json "your prompt"
+# No runtime flag available - must modify user config
+# Add before workflow
+codex mcp add workflow-context -- node .workflow/pr-123/context-server.js
+
+# Run workflow
+codex "your prompt"
+
+# Remove after workflow (cleanup)
+codex mcp remove workflow-context
 ```
 
-**Cursor Agent**:
+**Cursor Agent** (project-level file discovery):
 ```bash
-# Uses project-level .cursor/mcp.json (created/cleaned per workflow)
-cursor-agent --config .workflow/pr-123/.cursor/mcp.json "your prompt"
+# Create project-level config (auto-discovered)
+# File: .cursor/mcp.json
+{
+  "mcpServers": {
+    "workflow-context": {
+      "command": "node",
+      "args": [".workflow/pr-123/context-server.js"]
+    }
+  }
+}
+
+# Run - config is auto-discovered from project root
+cursor-agent "your prompt"
+
+# Cleanup: delete or restore .cursor/mcp.json
 ```
 
 ### CLI Backend Tool Support via MCP
@@ -694,28 +720,44 @@ With MCP support, CLI backends can now use custom tools that were previously onl
 | @mention notifications | Not possible | MCP notifications |
 | Document read/write | Wrapper CLI | Native tools |
 
-**Workflow runner passes MCP config at runtime**:
+**Workflow runner configures MCP per backend**:
 ```typescript
-// When starting a Claude CLI agent in workflow
-async function startClaudeAgent(
-  agentId: string,
-  mcpConfigPath: string,
-  systemPrompt: string
-) {
-  // No permanent config changes - pass at runtime
-  await exec(`claude -p \
-    --strict-mcp-config \
-    --mcp-config ${mcpConfigPath} \
-    --system-prompt "${systemPrompt}" \
-    "You are ${agentId}. Check channel_mentions for your tasks."
-  `)
+// Claude CLI - best isolation via runtime flags
+async function startClaudeAgent(agentId: string, mcpConfigPath: string, prompt: string) {
+  await exec(`claude -p --strict-mcp-config --mcp-config ${mcpConfigPath} \
+    --system-prompt "You are ${agentId}" "${prompt}"`)
+}
+
+// Codex CLI - requires add/remove (less ideal)
+async function startCodexAgent(agentId: string, serverCmd: string, prompt: string) {
+  const serverName = `workflow-${agentId}`
+  await exec(`codex mcp add ${serverName} -- ${serverCmd}`)
+  try {
+    await exec(`codex "${prompt}"`)
+  } finally {
+    await exec(`codex mcp remove ${serverName}`)  // Cleanup
+  }
+}
+
+// Cursor Agent - project-level config file
+async function startCursorAgent(agentId: string, mcpConfig: object, prompt: string) {
+  const configPath = '.cursor/mcp.json'
+  const backup = existsSync(configPath) ? readFileSync(configPath) : null
+  writeFileSync(configPath, JSON.stringify(mcpConfig))
+  try {
+    await exec(`cursor-agent "${prompt}"`)
+  } finally {
+    backup ? writeFileSync(configPath, backup) : unlinkSync(configPath)  // Restore
+  }
 }
 ```
 
-**Key benefit**: Runtime config means:
-- No pollution of user's global MCP settings
-- Each workflow instance has isolated MCP context
-- Automatic cleanup (just delete the workflow directory)
+**Isolation comparison**:
+| Backend | Isolation | Cleanup Required |
+|---------|-----------|------------------|
+| Claude CLI | ✓ Full (runtime flag) | None |
+| Codex CLI | ✗ User-level pollution | `codex mcp remove` |
+| Cursor Agent | ✓ Project-level | Restore `.cursor/mcp.json` |
 
 ### Workflow Startup Flow
 
@@ -1059,9 +1101,9 @@ agent-worker send "Check the notes in the document"
 - [ ] SDK backend: inject MCP client with Unix socket
 - [ ] Generate per-instance mcp.json config file
 - [ ] Claude CLI: pass `--mcp-config` and `--strict-mcp-config` at runtime
-- [ ] Codex CLI: pass `--mcp-config` at runtime
-- [ ] Cursor Agent: generate `.cursor/mcp.json` per workflow
-- [ ] Fallback: `agent-worker context` CLI wrapper
+- [ ] Codex CLI: use `codex mcp add/remove` with cleanup handling
+- [ ] Cursor Agent: manage `.cursor/mcp.json` with backup/restore
+- [ ] Fallback: `agent-worker context` CLI wrapper for unsupported backends
 
 ---
 
