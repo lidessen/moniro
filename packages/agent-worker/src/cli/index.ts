@@ -1371,15 +1371,18 @@ contextCmd
     // Connect to the Unix socket
     const socket = createConnection(options.socket)
 
-    // Send agent ID header
-    socket.write(`X-Agent-Id: ${options.agent}\n\n`)
-
-    // Bridge stdio to socket
-    process.stdin.pipe(socket)
-    socket.pipe(process.stdout)
+    // Wait for connection before sending header and piping
+    socket.on('connect', () => {
+      // Send agent ID header first, then start piping
+      socket.write(`X-Agent-Id: ${options.agent}\n\n`, () => {
+        // Header sent — now bridge stdio to socket
+        process.stdin.pipe(socket)
+        socket.pipe(process.stdout)
+      })
+    })
 
     socket.on('error', (err) => {
-      console.error('Socket error:', err.message)
+      process.stderr.write(`mcp-stdio [${options.agent}]: socket error: ${err.message}\n`)
       process.exit(1)
     })
 
@@ -1387,7 +1390,7 @@ contextCmd
       process.exit(0)
     })
 
-    // Handle stdin close
+    // Handle stdin close (parent process finished)
     process.stdin.on('end', () => {
       socket.end()
     })

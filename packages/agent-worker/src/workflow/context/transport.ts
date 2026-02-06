@@ -121,6 +121,11 @@ export async function runWithUnixSocket(
           if (remaining) {
             readable.push(Buffer.from(remaining))
           }
+          // Update connection with resolved agentId
+          const conn = connections.get(connectionId)
+          if (conn) {
+            conn.agentId = agentId
+          }
           // Notify connection
           if (options?.onConnect) {
             options.onConnect(agentId, connectionId)
@@ -147,7 +152,7 @@ export async function runWithUnixSocket(
       connections.delete(connectionId)
     })
 
-    // Store connection
+    // Store connection (agentId will be updated when X-Agent-Id header arrives)
     connections.set(connectionId, {
       socket,
       transport,

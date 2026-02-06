@@ -186,6 +186,12 @@ describe('buildAgentPrompt', () => {
     expect(result).toContain('## Shared Document')
     expect(result).toContain('# Notes')
     expect(result).toContain('## Instructions')
+    expect(result).toContain('channel_send')
+    expect(result).toContain('channel_read')
+    expect(result).toContain('inbox_check')
+    expect(result).toContain('inbox_ack')
+    expect(result).toContain('workflow_agents')
+    expect(result).toContain('MUST use channel_send')
     expect(result).not.toContain('retry attempt')
   })
 
