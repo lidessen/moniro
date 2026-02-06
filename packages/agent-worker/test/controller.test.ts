@@ -272,11 +272,22 @@ describe('generateWorkflowMCPConfig', () => {
     const config = generateWorkflowMCPConfig('/tmp/workflow.sock', 'alice')
 
     expect(config).toHaveProperty('mcpServers')
-    expect((config as any).mcpServers['workflow-context']).toBeDefined()
-    expect((config as any).mcpServers['workflow-context'].type).toBe('stdio')
-    expect((config as any).mcpServers['workflow-context'].args).toContain('/tmp/workflow.sock')
-    expect((config as any).mcpServers['workflow-context'].args).toContain('--agent')
-    expect((config as any).mcpServers['workflow-context'].args).toContain('alice')
+    const server = (config as any).mcpServers['workflow-context']
+    expect(server).toBeDefined()
+    expect(server.type).toBe('stdio')
+    expect(server.args).toContain('/tmp/workflow.sock')
+    expect(server.args).toContain('--agent')
+    expect(server.args).toContain('alice')
+    // Should include mcp-stdio subcommand args
+    expect(server.args).toContain('context')
+    expect(server.args).toContain('mcp-stdio')
+  })
+
+  test('uses process.execPath for command (not hardcoded agent-worker)', () => {
+    const config = generateWorkflowMCPConfig('/tmp/test.sock', 'bob')
+    const server = (config as any).mcpServers['workflow-context']
+    // Command should be the current runtime (node/bun), not 'agent-worker'
+    expect(server.command).toBe(process.execPath)
   })
 })
 

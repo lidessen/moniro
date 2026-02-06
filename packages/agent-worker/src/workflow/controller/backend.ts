@@ -5,7 +5,7 @@
 
 import { spawn } from 'node:child_process'
 import { writeFileSync, unlinkSync, existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import type { AgentBackend, AgentRunContext, AgentRunResult, ParsedModel } from './types.ts'
 import { parseModel } from './types.ts'
@@ -184,13 +184,34 @@ export interface WorkflowMCPConfig {
   mcpServers: Record<string, unknown>
 }
 
+/**
+ * Resolve the command and prefix args to invoke agent-worker CLI.
+ * Works for: npx tsx (dev), bun (dev), installed binary (production).
+ *
+ * Uses the current process's runtime + loader flags + script path
+ * so the subprocess runs in the same environment as the parent.
+ */
+function resolveAgentWorkerCLI(): { command: string; prefixArgs: string[] } {
+  const scriptPath = process.argv[1]
+  if (scriptPath) {
+    // Replicate exact runtime: node --import tsx/esm script.ts  OR  bun script.ts
+    return {
+      command: process.execPath,
+      prefixArgs: [...process.execArgv, resolve(scriptPath)],
+    }
+  }
+  // Fallback: assume agent-worker is in PATH (installed package)
+  return { command: 'agent-worker', prefixArgs: [] }
+}
+
 export function generateWorkflowMCPConfig(socketPath: string, agentName: string): WorkflowMCPConfig {
+  const { command, prefixArgs } = resolveAgentWorkerCLI()
   return {
     mcpServers: {
       'workflow-context': {
         type: 'stdio',
-        command: 'agent-worker',
-        args: ['context', 'mcp-stdio', '--socket', socketPath, '--agent', agentName],
+        command,
+        args: [...prefixArgs, 'context', 'mcp-stdio', '--socket', socketPath, '--agent', agentName],
       },
     },
   }
