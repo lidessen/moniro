@@ -80,8 +80,9 @@ context: false
 ```typescript
 const CONTEXT_DEFAULTS = {
   dir: '.workflow/${{ instance }}/',
-  channel: 'channel.md',
-  document: 'notes.md',
+  channel: 'channel.md',           // Channel file (in dir)
+  documentDir: 'documents/',       // Document directory (in dir)
+  document: 'notes.md',            // Entry point (in documentDir)
 }
 ```
 
@@ -215,13 +216,30 @@ Fixed, @reviewer please verify
 - Defer performance fix to next sprint
 ```
 
+### File-Based Context Storage
+
+When using `provider: file`, the context system stores data in the instance directory:
+
+```
+.workflow/instance/
+├── _state/                 # Internal state (managed by system)
+│   ├── inbox-state.json    # Per-agent read cursors
+│   └── proposals.json      # Active proposals
+├── channel.md              # Channel: communication log (append-only)
+└── documents/              # Document: user workspace (separate system)
+    └── ...
+```
+
+**Channel** and **Document** are two independent systems:
+- Channel: append-only communication log (`channel.md`)
+- Document: editable workspace (one or more files in `documents/`)
+
 ### Multi-File Document Structure
 
 Documents can span multiple files with a single entry point. This keeps the workspace organized while maintaining agent orientation.
 
 ```
-.workflow/instance/
-├── channel.md          # Communication log (append-only)
+.workflow/instance/documents/
 ├── workspace.md        # Entry point document
 ├── goals.md            # Project goals and success criteria
 ├── todos.md            # Current tasks and status
@@ -259,9 +277,10 @@ context:
   provider: file
   config:
     dir: .workflow/${{ instance }}/
-    channel: channel.md
-    document: workspace.md    # Entry point only
-    documents:                # Additional structured documents
+    channel: channel.md              # Channel file (separate from documents)
+    documentDir: documents/          # Document directory
+    document: workspace.md           # Entry point (relative to documentDir)
+    documents:                       # Additional structured documents
       - goals.md
       - todos.md
       - methodology.md
@@ -735,18 +754,20 @@ Proposals have two storage locations with different purposes:
 
 ```
 .workflow/instance/
-├── channel.md          # Communication log (events)
-├── notes.md            # Document (entry point)
-├── decisions.md        # Decision archive (permanent record)
-├── inbox-state.json    # Per-agent read cursors
-└── proposals.json      # Active proposals only (runtime state)
+├── _state/                 # Internal state
+│   ├── inbox-state.json    # Per-agent read cursors
+│   └── proposals.json      # Active proposals only (runtime)
+├── channel.md              # Channel: communication log
+└── documents/              # Document: user workspace
+    ├── notes.md            # Entry point
+    └── decisions.md        # Decision archive (permanent)
 ```
 
 | Storage | Purpose | Lifecycle |
 |---------|---------|-----------|
-| `proposals.json` | Active proposal state | Short-term (deleted on resolve) |
+| `_state/proposals.json` | Active proposal state | Short-term (deleted on resolve) |
 | `channel.md` | Event timeline ([VOTE] messages) | Append-only |
-| `decisions.md` | Decision archive | Permanent (queryable record) |
+| `documents/decisions.md` | Decision archive | Permanent (queryable record) |
 
 ```typescript
 // proposals.json - only active proposals
@@ -757,7 +778,7 @@ interface ProposalsState {
 
 // Load active proposals on startup
 async function loadProposals(contextDir: string): Promise<Map<string, Proposal>> {
-  const path = join(contextDir, 'proposals.json')
+  const path = join(contextDir, '_state', 'proposals.json')
   try {
     const data = JSON.parse(await fs.readFile(path, 'utf-8'))
     return new Map(Object.entries(data.proposals))
@@ -773,7 +794,7 @@ async function saveProposals(contextDir: string, proposals: Map<string, Proposal
     proposals: Object.fromEntries(activeOnly),
     version: Date.now(),
   }
-  await fs.writeFile(join(contextDir, 'proposals.json'), JSON.stringify(data, null, 2))
+  await fs.writeFile(join(contextDir, '_state', 'proposals.json'), JSON.stringify(data, null, 2))
 }
 ```
 
@@ -849,9 +870,9 @@ ${proposal.binding ? '- **Binding**: Yes (applied to system)' : '- **Binding**: 
 ```
 
 This ensures:
-- Active proposals survive runner restarts (`proposals.json`)
+- Active proposals survive runner restarts (`_state/proposals.json`)
 - All events are logged in timeline (`channel.md`)
-- Decisions are permanently archived and queryable (`decisions.md`)
+- Decisions are permanently archived and queryable (`documents/decisions.md`)
 - No state bloat (resolved proposals removed from runtime)
 
 **Use Case Examples:**
@@ -1760,8 +1781,9 @@ interface FileContextConfig {
   documentOwner?: string
   config?: {
     dir?: string           // default: .workflow/${{ instance }}/
-    channel?: string       // default: channel.md
-    document?: string      // default: notes.md
+    channel?: string       // default: channel.md (in dir)
+    documentDir?: string   // default: documents/ (in dir)
+    document?: string      // default: notes.md (in documentDir)
   }
 }
 
