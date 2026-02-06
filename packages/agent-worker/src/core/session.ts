@@ -12,6 +12,17 @@ import type {
   TokenUsage,
   Transcript,
 } from './types.ts'
+import type { Backend } from '../backends/types.ts'
+
+/**
+ * Extended session config that supports both SDK and CLI backends.
+ * When a backend is provided, send() delegates to it instead of ToolLoopAgent.
+ * This enables unified session management regardless of backend type.
+ */
+export interface AgentSessionConfig extends SessionConfig {
+  /** CLI backend - when provided, send() delegates to this backend */
+  backend?: Backend
+}
 
 /**
  * Step finish callback info
@@ -53,9 +64,19 @@ export class AgentSession {
   private totalUsage: TokenUsage = { input: 0, output: 0, total: 0 }
   private pendingApprovals: PendingApproval[] = []
 
-  // Cached agent instance (rebuilt when tools change)
+  // CLI backend (null for SDK sessions)
+  private backend: Backend | null
+
+  // Cached agent instance (rebuilt when tools change) - SDK only
   private cachedAgent: ToolLoopAgent | null = null
   private toolsChanged = false
+
+  /**
+   * Whether this session supports tool management (SDK backend only)
+   */
+  get supportsTools(): boolean {
+    return this.backend === null
+  }
 
   /**
    * Convert AgentMessage[] to ModelMessage[] for AI SDK
@@ -66,7 +87,7 @@ export class AgentSession {
       .map((m) => ({ role: m.role, content: m.content })) as ModelMessage[]
   }
 
-  constructor(config: SessionConfig, restore?: SessionState) {
+  constructor(config: AgentSessionConfig, restore?: SessionState) {
     // Restore from saved state or create new
     if (restore) {
       this.id = restore.id
@@ -84,6 +105,7 @@ export class AgentSession {
     this.tools = config.tools ?? []
     this.maxTokens = config.maxTokens ?? 4096
     this.maxSteps = config.maxSteps ?? 10
+    this.backend = config.backend ?? null
   }
 
   /**
@@ -156,6 +178,55 @@ export class AgentSession {
   }
 
   /**
+   * Send a message via CLI backend (non-SDK path)
+   * Delegates to backend.send() and manages history/usage uniformly
+   */
+  private async sendViaBackend(content: string): Promise<AgentResponse> {
+    const startTime = performance.now()
+    const timestamp = new Date().toISOString()
+
+    // Add user message to history
+    this.messages.push({ role: 'user', content, status: 'complete', timestamp })
+
+    const result = await this.backend!.send(content, { system: this.system })
+    const latency = Math.round(performance.now() - startTime)
+
+    // Add assistant response to history
+    this.messages.push({
+      role: 'assistant',
+      content: result.content,
+      status: 'complete',
+      timestamp: new Date().toISOString(),
+    })
+
+    // Track usage if backend provides it
+    const usage: TokenUsage = {
+      input: result.usage?.input ?? 0,
+      output: result.usage?.output ?? 0,
+      total: result.usage?.total ?? 0,
+    }
+    this.totalUsage.input += usage.input
+    this.totalUsage.output += usage.output
+    this.totalUsage.total += usage.total
+
+    // Map backend tool calls to ToolCall format
+    const toolCalls: ToolCall[] = (result.toolCalls ?? []).map((tc) => ({
+      name: tc.name,
+      arguments: tc.arguments as Record<string, unknown>,
+      result: tc.result,
+      timing: 0,
+    }))
+
+    return {
+      content: result.content,
+      toolCalls,
+      pendingApprovals: [],
+      usage,
+      latency,
+    }
+  }
+
+  /**
    * Send a message and get the agent's response
    * Conversation state is maintained across calls
    *
@@ -163,6 +234,12 @@ export class AgentSession {
    * @param options - Send options (autoApprove, onStepFinish, etc.)
    */
   async send(content: string, options: SendOptions = {}): Promise<AgentResponse> {
+    // CLI backend: delegate to backend.send()
+    if (this.backend) {
+      return this.sendViaBackend(content)
+    }
+
+    // SDK backend: use ToolLoopAgent
     const { autoApprove = true, onStepFinish } = options
     const startTime = performance.now()
     const timestamp = new Date().toISOString()
@@ -245,6 +322,9 @@ export class AgentSession {
    * Send a message and stream the response
    * Returns an async iterable of text chunks
    *
+   * For CLI backends, falls back to non-streaming: calls send() and yields
+   * the full response as a single chunk.
+   *
    * @param content - The message to send
    * @param options - Send options (autoApprove, onStepFinish, etc.)
    */
@@ -252,6 +332,14 @@ export class AgentSession {
     content: string,
     options: SendOptions = {}
   ): AsyncGenerator<string, AgentResponse, unknown> {
+    // CLI backends: fall back to non-streaming
+    if (this.backend) {
+      const response = await this.sendViaBackend(content)
+      yield response.content
+      return response
+    }
+
+    // SDK backend: full streaming support
     const { autoApprove = true, onStepFinish } = options
     const startTime = performance.now()
     const timestamp = new Date().toISOString()
@@ -343,8 +431,12 @@ export class AgentSession {
 
   /**
    * Add a tool definition with mock implementation
+   * Only supported for SDK backends (ToolLoopAgent)
    */
   addTool(tool: ToolDefinition): void {
+    if (this.backend) {
+      throw new Error('Tool management not supported for CLI backends')
+    }
     this.tools.push(tool)
     this.toolsChanged = true
     this.cachedAgent = null // Force rebuild
@@ -352,8 +444,12 @@ export class AgentSession {
 
   /**
    * Set mock response for an existing tool
+   * Only supported for SDK backends
    */
   mockTool(name: string, mockFn: (args: Record<string, unknown>) => unknown): void {
+    if (this.backend) {
+      throw new Error('Tool management not supported for CLI backends')
+    }
     const tool = this.tools.find((t) => t.name === name)
     if (tool) {
       tool.execute = mockFn
@@ -379,8 +475,12 @@ export class AgentSession {
 
   /**
    * Set a static mock response for an existing tool (JSON-serializable)
+   * Only supported for SDK backends
    */
   setMockResponse(name: string, response: unknown): void {
+    if (this.backend) {
+      throw new Error('Tool management not supported for CLI backends')
+    }
     const tool = this.tools.find((t) => t.name === name)
     if (tool) {
       tool.mockResponse = response

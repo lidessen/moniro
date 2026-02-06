@@ -1,21 +1,17 @@
 import type { Server } from 'node:net'
 import type { AgentSession } from '../core/session.ts'
 import type { ToolDefinition } from '../core/types.ts'
-import type { Backend } from '../backends/types.ts'
 import type { SkillImporter } from '../skills/index.ts'
 import type { SessionInfo } from './registry.ts'
 
 export interface ServerState {
-  session: AgentSession | null // null when using CLI backend
-  backend: Backend | null // non-null when using CLI backend
+  session: AgentSession // Always non-null: unified session for all backends
   server: Server
   info: SessionInfo
   lastActivity: number
   pendingRequests: number
   idleTimer?: ReturnType<typeof setTimeout>
   importer?: SkillImporter // For cleaning up imported skills
-  // For CLI backends: simple message history
-  cliHistory: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>
 }
 
 export interface Request {
@@ -44,7 +40,7 @@ export async function handleRequest(
   state.pendingRequests++
   resetIdleTimer()
 
-  const { session, backend, info } = state
+  const { session, info } = state
 
   try {
     switch (req.action) {
@@ -60,137 +56,49 @@ export async function handleRequest(
         }
 
       case 'send': {
-        const { message, options, async } = req.payload as {
+        const { message, options, async: isAsync } = req.payload as {
           message: string
           options?: { autoApprove?: boolean }
           async?: boolean
         }
 
-        // CLI backend path
-        if (backend) {
-          const timestamp = new Date().toISOString()
-          state.cliHistory.push({ role: 'user', content: message, timestamp })
-
-          // Async mode: return immediately, process in background
-          if (async) {
-            // Add placeholder for assistant response
-            state.cliHistory.push({
-              role: 'assistant',
-              content: '(processing...)',
-              timestamp: new Date().toISOString(),
-            })
-
-            // Process in background with timeout
-            const timeoutMs = 60000 // 60 seconds timeout
-            const timeoutPromise = new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error('Request timed out after 60 seconds')), timeoutMs)
-            )
-
-            Promise.race([backend.send(message, { system: info.system }), timeoutPromise])
-              .then((result) => {
-                // Update the last message (which is the placeholder)
-                const currentState = getState()
-                if (!currentState) return
-                const lastMsg = currentState.cliHistory[currentState.cliHistory.length - 1]
-                if (lastMsg && lastMsg.content === '(processing...)') {
-                  lastMsg.content = result.content
-                  lastMsg.timestamp = new Date().toISOString()
-                }
-              })
-              .catch((error) => {
-                const currentState = getState()
-                if (!currentState) return
-                const lastMsg = currentState.cliHistory[currentState.cliHistory.length - 1]
-                if (lastMsg && lastMsg.content === '(processing...)') {
-                  lastMsg.content = `Error: ${error instanceof Error ? error.message : String(error)}`
-                  lastMsg.timestamp = new Date().toISOString()
-                }
-              })
-
-            return {
-              success: true,
-              data: {
-                async: true,
-                message: 'Processing in background. Use `peek` to check the response.',
-              },
-            }
-          }
-
-          // Sync mode: wait for response
-          const result = await backend.send(message, { system: info.system })
-          state.cliHistory.push({
-            role: 'assistant',
-            content: result.content,
-            timestamp: new Date().toISOString(),
+        if (isAsync) {
+          session.send(message, options).catch((error) => {
+            console.error('Background send error:', error)
           })
 
           return {
             success: true,
             data: {
-              content: result.content,
-              toolCalls: result.toolCalls || [],
-              pendingApprovals: [],
-              usage: result.usage || { input: 0, output: 0, total: 0 },
-              latency: 0,
+              async: true,
+              message: 'Processing in background. Use `peek` to check the response.',
             },
           }
         }
 
-        // SDK backend path
-        if (session) {
-          // Async mode for SDK backend
-          if (async) {
-            // Process in background, return immediately
-            session.send(message, options)
-              .catch((error) => {
-                console.error('Background send error:', error)
-              })
-
-            return {
-              success: true,
-              data: {
-                async: true,
-                message: 'Processing in background. Use `peek` to check the response.',
-              },
-            }
-          }
-
-          // Sync mode
-          const response = await session.send(message, options)
-          return { success: true, data: response }
-        }
-
-        return { success: false, error: 'No backend configured' }
+        const response = await session.send(message, options)
+        return { success: true, data: response }
       }
 
       case 'tool_add': {
-        if (!session) {
-          return { success: false, error: 'Tool management not supported for CLI backends' }
-        }
         const tool = req.payload as ToolDefinition
         session.addTool(tool)
         return { success: true, data: { name: tool.name } }
       }
 
       case 'tool_mock': {
-        if (!session) {
-          return { success: false, error: 'Tool management not supported for CLI backends' }
-        }
         const { name, response } = req.payload as { name: string; response: unknown }
         session.setMockResponse(name, response)
         return { success: true, data: { name } }
       }
 
       case 'tool_list': {
-        if (!session) {
-          return { success: true, data: [] }
-        }
         const tools = session.getTools()
         return { success: true, data: tools }
       }
 
       case 'tool_import': {
-        if (!session) {
+        if (!session.supportsTools) {
           return { success: false, error: 'Tool import not supported for CLI backends' }
         }
         const { filePath } = req.payload as { filePath: string }
@@ -257,74 +165,28 @@ export async function handleRequest(
       }
 
       case 'history':
-        if (backend) {
-          return { success: true, data: state.cliHistory }
-        }
-        if (session) {
-          return { success: true, data: session.history() }
-        }
-        return { success: true, data: [] }
+        return { success: true, data: session.history() }
 
       case 'stats':
-        if (backend) {
-          return {
-            success: true,
-            data: { messageCount: state.cliHistory.length, usage: { input: 0, output: 0, total: 0 } },
-          }
-        }
-        if (session) {
-          return { success: true, data: session.stats() }
-        }
-        return { success: true, data: { messageCount: 0, usage: { input: 0, output: 0, total: 0 } } }
+        return { success: true, data: session.stats() }
 
       case 'export':
-        if (backend) {
-          return {
-            success: true,
-            data: {
-              sessionId: info.id,
-              model: info.model,
-              backend: info.backend,
-              messages: state.cliHistory,
-              createdAt: info.createdAt,
-            },
-          }
-        }
-        if (session) {
-          return { success: true, data: session.export() }
-        }
-        return { success: false, error: 'No session to export' }
+        return { success: true, data: session.export() }
 
       case 'clear':
-        if (backend) {
-          state.cliHistory = []
-          return { success: true }
-        }
-        if (session) {
-          session.clear()
-          return { success: true }
-        }
+        session.clear()
         return { success: true }
 
       case 'pending':
-        if (session) {
-          return { success: true, data: session.getPendingApprovals() }
-        }
-        return { success: true, data: [] }
+        return { success: true, data: session.getPendingApprovals() }
 
       case 'approve': {
-        if (!session) {
-          return { success: false, error: 'Approvals not supported for CLI backends' }
-        }
         const { id } = req.payload as { id: string }
         const result = await session.approve(id)
         return { success: true, data: result }
       }
 
       case 'deny': {
-        if (!session) {
-          return { success: false, error: 'Approvals not supported for CLI backends' }
-        }
         const { id, reason } = req.payload as { id: string; reason?: string }
         session.deny(id, reason)
         return { success: true }

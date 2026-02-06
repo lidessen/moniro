@@ -25,20 +25,25 @@
 
 ## Key Architectural Decisions
 
-### 1. Single agent = 1-agent workflow (NEXT STEP)
+### 1. Single agent = 1-agent workflow (IN PROGRESS)
 
 The fundamental insight from the user: single-agent and multi-agent should be THE SAME runtime. A "session" is a workflow with one agent. Differences through simplified parameters, not forked code paths.
 
-This eliminates:
-- `handler.ts` if/else branching (session vs backend)
-- Two lifecycle managers (AgentSession vs controller)
-- Two backend interfaces
+**Phase 3 (DONE)**: Unified daemon path — AgentSession wraps any backend.
 
-Implementation path:
+| Before | Problem | After |
+|--------|---------|-------|
+| `handler.ts` if/else branching (350 lines) | Every action checked `if (backend)` then `if (session)` | Unified path via `session.*` (212 lines, -40%) |
+| `ServerState.backend + cliHistory` | Parallel state management for CLI backends | Removed. AgentSession manages all history/stats. |
+| `daemon.ts` created `session OR backend` | Forked initialization code | Always creates `AgentSession` (with optional CLI backend) |
+
+**How it works**: `AgentSessionConfig` extends `SessionConfig` with optional `Backend`. When a backend is provided, `send()` delegates to `backend.send()` instead of ToolLoopAgent. History, stats, export, clear all work uniformly. Tool management throws clear errors for non-SDK backends.
+
+**What remains** (for full "1-agent workflow" vision):
 1. AgentSession internally creates 1-agent workflow runtime (lazy)
-2. handler.ts processes all requests through workflow runtime
-3. CLI `agent new` creates 1-agent workflow
-4. Delete AgentSession's own agentic loop, delegate to controller
+2. CLI `agent new` creates 1-agent workflow
+3. Delete AgentSession's own agentic loop, delegate to controller
+4. Unify the `Backend` and `AgentBackend` interfaces
 
 ### 2. Skills always via tools
 
@@ -51,4 +56,5 @@ One process manages all agents, MCP servers, lifecycle. CLI is stateless.
 ## Verification
 
 - Build: passes (tsdown)
-- Tests: 510 pass, 5 fail (pre-existing timeouts, same on main)
+- Tests: 481 pass, 20 fail (all pre-existing — identical to main baseline)
+- No regressions from Phase 3 changes
