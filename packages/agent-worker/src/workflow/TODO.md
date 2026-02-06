@@ -125,6 +125,15 @@ Tool updates:
 - [ ] Update any tests using old method names
 - [ ] Update any tests using old storage paths
 
+### Validation (Phase 0)
+
+- [ ] **Unit tests**: MemoryContextProvider passes all tests with new interface
+- [ ] **Unit tests**: FileContextProvider passes all tests with new interface
+- [ ] **Unit tests**: MCP server tools work correctly (inbox_check, inbox_ack, document_*)
+- [ ] **Integration test**: Create workflow, send messages, verify inbox/ack flow
+- [ ] **Integration test**: Multi-file document operations (create, list, read, write)
+- [ ] **Manual test**: `agent-worker run` with sample workflow, verify storage structure
+
 > **Note**: No backward compatibility with old storage structure. Clean break - new design only.
 
 ---
@@ -228,6 +237,12 @@ Phase 0 (Migration)
 - [ ] Add priority detection (multiple mentions, urgent keywords)
 - [ ] Update agent system prompts with work loop guidance
 
+### Validation (Phase 7)
+
+- [ ] **Unit test**: Priority detection for multiple mentions
+- [ ] **Unit test**: Priority detection for urgent keywords
+- [ ] **Manual test**: Agent receives correct priority in inbox
+
 > **Design Decision**: `inbox_check` and `channel_read` do NOT acknowledge messages.
 > Only explicit `inbox_ack` acknowledges. This allows: check inbox → process → ack on success.
 
@@ -279,12 +294,33 @@ Phase 0 (Migration)
 - [ ] Add graceful shutdown for controllers
 - [ ] Add backend configuration to workflow YAML (optional override)
 
+### Validation (Phase 8)
+
+- [ ] **Unit test**: AgentController state transitions (idle → running → idle)
+- [ ] **Unit test**: wake() interrupts polling loop
+- [ ] **Unit test**: Retry with exponential backoff
+- [ ] **Unit test**: Inbox acknowledged only on success
+- [ ] **Unit test**: SDKBackend runs agent with MCP tools
+- [ ] **Unit test**: CLIBackend detects success/failure
+- [ ] **Unit test**: Idle detection with debounce
+- [ ] **Integration test**: Two-agent workflow with @mention handoff
+- [ ] **Integration test**: Agent retry on failure, then success
+- [ ] **Integration test**: Run mode exits when all idle
+- [ ] **Manual test**: `agent-worker send` to workflow agent
+
 ## Phase 9: Multi-File Documents
 
 > **Note**: Core multi-file changes are in Phase 0 Migration. This phase covers remaining work.
 
 - [ ] Support nested document directories (e.g., `findings/auth.md`)
 - [ ] Implement `deleteDocument()` - remove document file (optional, may not be needed)
+
+### Validation (Phase 9)
+
+- [ ] **Unit test**: Create nested document `findings/auth.md`
+- [ ] **Unit test**: List documents shows nested paths
+- [ ] **Unit test**: Read/write nested documents
+- [ ] **Manual test**: Agent creates nested document via MCP
 
 ## Phase 10: Document Ownership (Optional)
 
@@ -302,6 +338,14 @@ Single-writer model to prevent concurrent document conflicts.
 - [ ] Add `document_suggest` MCP tool for non-owners
 - [ ] Non-owner write attempts return error with guidance to use `document_suggest`
 - [ ] `document_suggest` posts @mention to owner in channel
+
+### Validation (Phase 10)
+
+- [ ] **Unit test**: Single agent workflow has no ownership restriction
+- [ ] **Unit test**: Owner can write, non-owner gets error
+- [ ] **Unit test**: `document_suggest` posts to channel with @mention
+- [ ] **Integration test**: Non-owner suggests, owner applies change
+- [ ] **Manual test**: 3-agent workflow with configured owner
 
 > **When to use**: Workflows with 3+ agents, when document consistency matters.
 > **When NOT to use**: Simple workflows, speed over consistency.
@@ -349,6 +393,20 @@ Generic collaborative decision-making for elections, design decisions, task assi
 - [ ] Auto-create document owner election when needed (binding)
 - [ ] Post [PROPOSAL], [VOTE], [RESOLVED], [EXPIRED] messages to channel
 - [ ] Update system prompt guidance for voting
+
+### Validation (Phase 11)
+
+- [ ] **Unit test**: Create proposal, vote, resolve with plurality
+- [ ] **Unit test**: Majority resolution requires >50%
+- [ ] **Unit test**: Unanimous resolution requires all votes
+- [ ] **Unit test**: Duplicate vote (same choice) is idempotent
+- [ ] **Unit test**: Duplicate vote (different choice) is rejected
+- [ ] **Unit test**: Timeout with partial votes resolves correctly
+- [ ] **Unit test**: Timeout with no votes disables feature
+- [ ] **Unit test**: Proposal archived to decisions.md on resolution
+- [ ] **Integration test**: Document owner election before kickoff
+- [ ] **Integration test**: Agents vote, winner becomes owner
+- [ ] **Manual test**: 3-agent workflow with election, verify owner enforced
 
 > **Use cases**: Document owner election, design decisions, task assignment, merge approval
 
