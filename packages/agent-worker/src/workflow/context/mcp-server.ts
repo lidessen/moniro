@@ -6,7 +6,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import type { ContextProvider } from './provider.js'
-import type { InboxMessage } from './types.js'
+import type { ChannelEntry, InboxMessage } from './types.js'
 
 /**
  * MCP Server options
@@ -20,6 +20,11 @@ export interface ContextMCPServerOptions {
   name?: string
   /** Server version (default: '1.0.0') */
   version?: string
+  /**
+   * Callback when an agent is @mentioned in channel_send
+   * Used by controller to wake agents on mention
+   */
+  onMention?: (from: string, target: string, entry: ChannelEntry) => void
 }
 
 /**
@@ -58,7 +63,7 @@ function formatInbox(messages: InboxMessage[]): string {
  * - workflow_agents: List all agents in the workflow
  */
 export function createContextMCPServer(options: ContextMCPServerOptions) {
-  const { provider, validAgents, name = 'workflow-context', version = '1.0.0' } = options
+  const { provider, validAgents, name = 'workflow-context', version = '1.0.0', onMention } = options
 
   const server = new McpServer({
     name,
@@ -83,8 +88,14 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
       const from = getAgentId(extra) || 'anonymous'
       const entry = await provider.appendChannel(from, message)
 
-      // Notify mentioned agents via MCP notifications (if connected)
+      // Notify mentioned agents
       for (const target of entry.mentions) {
+        // Call onMention callback (used by controller to wake agents)
+        if (onMention) {
+          onMention(from, target, entry)
+        }
+
+        // Also try MCP notifications (if connected)
         const conn = agentConnections.get(target)
         if (conn) {
           // TODO: Send notification when MCP SDK supports it

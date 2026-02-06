@@ -206,7 +206,7 @@ Tool updates:
 | 5. Run/Start Modes | ✅ Complete | run idle detection + start --background + graceful shutdown |
 | 6. Agent MCP Integration | ✅ Complete | mcp-config.ts + mcp-stdio bridge |
 | 7. Inbox Model | ✅ Complete | Priority detection implemented and tested |
-| 8. Agent Controller | 🔄 Pending | Controller + backend abstraction |
+| 8. Agent Controller | 🔄 In Progress | Core controller + backends implemented, CLI send pending |
 | 9. Multi-File Documents | 🔄 Pending | Nested dirs (core merged into Phase 0) |
 | 10. Document Ownership | 🔄 Pending | Optional, requires Phase 11 for election |
 | 11. Proposal & Voting | 🔄 Pending | Generic decision-making system |
@@ -250,37 +250,37 @@ Phase 0 (Migration)
 ## Phase 8: Agent Controller & Backend Abstraction
 
 ### Agent Controller
-- [ ] Define `AgentController` interface (state: idle/running/stopped)
-- [ ] Define `AgentControllerConfig` types with `RetryConfig`
-- [ ] Implement `createAgentController()` factory
-- [ ] Implement polling loop with `wake()` interrupt
-- [ ] **Add `onMention` callback to `createContextMCPServer()` options**
-- [ ] Call `onMention` in `channel_send` for each @mention (decoupled from controller)
-- [ ] **Controller acknowledges inbox ONLY on successful agent run**
-- [ ] Implement retry with exponential backoff (default: 3 attempts)
-- [ ] **Add `retryAttempt` to `AgentRunContext`** (let agent know if retry)
+- [x] Define `AgentController` interface (state: idle/running/stopped)
+- [x] Define `AgentControllerConfig` types with `RetryConfig`
+- [x] Implement `createAgentController()` factory
+- [x] Implement polling loop with `wake()` interrupt
+- [x] **Add `onMention` callback to `createContextMCPServer()` options**
+- [x] Call `onMention` in `channel_send` for each @mention (decoupled from controller)
+- [x] **Controller acknowledges inbox ONLY on successful agent run**
+- [x] Implement retry with exponential backoff (default: 3 attempts)
+- [x] **Add `retryAttempt` to `AgentRunContext`** (let agent know if retry)
 
 ### Context Management
-- [ ] Define `AgentRunContext` interface (with `retryAttempt` field)
-- [ ] Implement `buildAgentPrompt()` - unified prompt from inbox/channel/document
-- [ ] Implement `formatInbox()` and `formatChannel()` helpers
-- [ ] Configure recent channel limit (last N entries)
+- [x] Define `AgentRunContext` interface (with `retryAttempt` field)
+- [x] Implement `buildAgentPrompt()` - unified prompt from inbox/channel/document
+- [x] Implement `formatInbox()` and `formatChannel()` helpers
+- [x] Configure recent channel limit (last N entries)
 
 ### Backend Abstraction
-- [ ] Define `AgentBackend` interface
-- [ ] Define `AgentRunResult` type
-- [ ] Implement `SDKBackend` (Anthropic SDK with MCP tools)
-- [ ] Implement `CLIBackend` base class
-- [ ] Implement Claude CLI backend (`claude -p --mcp-config`)
-- [ ] Implement Codex CLI backend (project-level config)
-- [ ] Implement `getBackendForModel()` selector
-- [ ] **Implement `parseModel()` with aliases and version mapping**
-- [ ] **Add `detectCLIError()` for CLI backend success criteria**
+- [x] Define `AgentBackend` interface
+- [x] Define `AgentRunResult` type
+- [x] Implement `SDKBackend` (Anthropic SDK with MCP tools)
+- [x] Implement `CLIBackend` base class
+- [x] Implement Claude CLI backend (`claude -p --mcp-config`)
+- [x] Implement Codex CLI backend (project-level config)
+- [x] Implement `getBackendForModel()` selector
+- [x] **Implement `parseModel()` with aliases and version mapping**
+- [x] **Add `detectCLIError()` for CLI backend success criteria**
 
 ### Idle Detection (Run Mode)
-- [ ] Define `WorkflowIdleState` interface
+- [x] Define `WorkflowIdleState` interface
 - [ ] Implement `isWorkflowComplete()` - check all idle conditions
-- [ ] Implement `checkWorkflowIdle()` with debounce
+- [x] Implement `checkWorkflowIdle()` with debounce
 - [ ] Exit conditions: all idle + no unread inbox + no active proposals
 
 ### CLI Send Command
@@ -297,15 +297,15 @@ Phase 0 (Migration)
 
 ### Validation (Phase 8)
 
-- [ ] **Unit test**: AgentController state transitions (idle → running → idle)
-- [ ] **Unit test**: wake() interrupts polling loop
-- [ ] **Unit test**: Retry with exponential backoff
-- [ ] **Unit test**: Inbox acknowledged only on success
+- [x] **Unit test**: AgentController state transitions (idle → running → idle)
+- [x] **Unit test**: wake() interrupts polling loop
+- [x] **Unit test**: Retry with exponential backoff
+- [x] **Unit test**: Inbox acknowledged only on success
 - [ ] **Unit test**: SDKBackend runs agent with MCP tools
-- [ ] **Unit test**: CLIBackend detects success/failure
-- [ ] **Unit test**: Idle detection with debounce
+- [x] **Unit test**: CLIBackend detects success/failure
+- [x] **Unit test**: Idle detection with debounce
 - [ ] **Integration test**: Two-agent workflow with @mention handoff
-- [ ] **Integration test**: Agent retry on failure, then success
+- [x] **Integration test**: Agent retry on failure, then success
 - [ ] **Integration test**: Run mode exits when all idle
 - [ ] **Manual test**: `agent-worker send` to workflow agent
 
