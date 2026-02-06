@@ -1,6 +1,10 @@
 # Agent Worker Workflow Implementation
 
-Implementation tasks for the workflow design. See [DESIGN.md](./DESIGN.md) for full specification.
+Implementation tasks for the workflow design.
+
+**Related documents:**
+- [DESIGN.md](./DESIGN.md) - Design concepts and decisions
+- [REFERENCE.md](./REFERENCE.md) - Implementation details, interfaces, code examples
 
 ---
 
