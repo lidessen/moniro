@@ -31,6 +31,11 @@ export interface ContextMCPServerOptions {
    * If not provided, proposal tools will not be registered
    */
   proposalManager?: ProposalManager
+  /**
+   * Debug log function for tool calls (optional)
+   * When provided, logs all tool calls with agent and parameters
+   */
+  debugLog?: (message: string) => void
 }
 
 /**
@@ -78,7 +83,23 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
     version = '1.0.0',
     onMention,
     proposalManager,
+    debugLog,
   } = options
+
+  // Helper to log tool calls
+  const logTool = (tool: string, agent: string | undefined, params: Record<string, unknown>) => {
+    if (debugLog) {
+      const agentStr = agent || 'anonymous'
+      const paramsStr = Object.entries(params)
+        .filter(([_, v]) => v !== undefined)
+        .map(([k, v]) => {
+          const val = typeof v === 'string' && v.length > 50 ? v.slice(0, 50) + '...' : v
+          return `${k}=${JSON.stringify(val)}`
+        })
+        .join(', ')
+      debugLog(`[mcp:${agentStr}] ${tool}(${paramsStr})`)
+    }
+  }
 
   const server = new McpServer({
     name,
@@ -101,6 +122,7 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
     async ({ message }, extra) => {
       // Agent identity from session (set during connection)
       const from = getAgentId(extra) || 'anonymous'
+      logTool('channel_send', from, { message })
       const entry = await provider.appendChannel(from, message)
 
       // Notify mentioned agents
@@ -145,7 +167,9 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
       since: z.string().optional().describe('Read entries after this timestamp (ISO format)'),
       limit: z.number().optional().describe('Maximum entries to return'),
     },
-    async ({ since, limit }) => {
+    async ({ since, limit }, extra) => {
+      const agent = getAgentId(extra)
+      logTool('channel_read', agent, { since, limit })
       const entries = await provider.readChannel(since, limit)
 
       return {
@@ -171,6 +195,7 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
     },
     async ({ content, type }, extra) => {
       const createdBy = getAgentId(extra) || 'anonymous'
+      logTool('attachment_create', createdBy, { type, contentLen: content.length })
       const result = await provider.createAttachment(content, createdBy, type as AttachmentType)
 
       return {
@@ -227,7 +252,11 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
     {},
     async (_args, extra) => {
       const agent = getAgentId(extra) || 'anonymous'
+      logTool('inbox_check', agent, {})
       const messages = await provider.getInbox(agent)
+      if (debugLog && messages.length > 0) {
+        debugLog(`[mcp:${agent}] inbox_check → ${messages.length} unread`)
+      }
 
       return {
         content: [
@@ -248,6 +277,7 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
     },
     async ({ until }, extra) => {
       const agent = getAgentId(extra) || 'anonymous'
+      logTool('inbox_ack', agent, { until })
       await provider.ackInbox(agent, until)
 
       return {
@@ -269,7 +299,9 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
     {
       file: z.string().optional().describe('Document file path (default: notes.md)'),
     },
-    async ({ file }) => {
+    async ({ file }, extra) => {
+      const agent = getAgentId(extra)
+      logTool('document_read', agent, { file })
       const content = await provider.readDocument(file)
 
       return {
@@ -290,7 +322,9 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
       content: z.string().describe('New document content (replaces existing)'),
       file: z.string().optional().describe('Document file path (default: notes.md)'),
     },
-    async ({ content, file }) => {
+    async ({ content, file }, extra) => {
+      const agent = getAgentId(extra)
+      logTool('document_write', agent, { file, contentLen: content.length })
       await provider.writeDocument(content, file)
 
       return {
@@ -311,7 +345,9 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
       content: z.string().describe('Content to append to the document'),
       file: z.string().optional().describe('Document file path (default: notes.md)'),
     },
-    async ({ content, file }) => {
+    async ({ content, file }, extra) => {
+      const agent = getAgentId(extra)
+      logTool('document_append', agent, { file, contentLen: content.length })
       await provider.appendDocument(content, file)
 
       return {

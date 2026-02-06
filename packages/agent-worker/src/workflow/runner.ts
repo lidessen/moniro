@@ -497,6 +497,7 @@ export async function runWorkflowWithControllers(config: ControllerRunConfig): P
           controller.wake()
         }
       },
+      debugLog: debug ? (msg) => logger.debug(msg) : undefined,
     })
 
     logger.debug('Runtime initialized', {
@@ -522,7 +523,7 @@ export async function runWorkflowWithControllers(config: ControllerRunConfig): P
       if (createBackend) {
         backend = createBackend(agentName, agentDef)
       } else if (agentDef.backend) {
-        backend = getBackendByType(agentDef.backend)
+        backend = getBackendByType(agentDef.backend, { model: agentDef.model })
       } else if (agentDef.model) {
         backend = getBackendForModel(agentDef.model)
       } else {
@@ -640,10 +641,12 @@ interface InitWithMentionsConfig {
   verbose: boolean
   log: (message: string) => void
   onMention: (from: string, target: string, entry: import('./context/types.ts').ChannelEntry) => void
+  /** Debug log function for MCP tool calls */
+  debugLog?: (message: string) => void
 }
 
 async function initWorkflowWithMentions(config: InitWithMentionsConfig): Promise<WorkflowRuntime> {
-  const { workflow, instance, verbose, log, onMention } = config
+  const { workflow, instance, verbose, log, onMention, debugLog } = config
   const startTime = Date.now()
 
   const agentNames = Object.keys(workflow.agents)
@@ -687,6 +690,7 @@ async function initWorkflowWithMentions(config: InitWithMentionsConfig): Promise
         name: `${workflow.name}-context`,
         version: '1.0.0',
         onMention, // Wire up the callback
+        debugLog, // Pass debug log function for tool call logging
       }).server,
     mcpSocketPath,
     {

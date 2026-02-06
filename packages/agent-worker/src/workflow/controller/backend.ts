@@ -10,6 +10,10 @@ import { tmpdir } from 'node:os'
 import type { AgentBackend, AgentRunContext, AgentRunResult, ParsedModel } from './types.ts'
 import { parseModel } from './types.ts'
 import { buildAgentPrompt } from './prompt.ts'
+import { CursorBackend as CursorCLI } from '../../backends/cursor.ts'
+import { ClaudeCodeBackend as ClaudeCLI } from '../../backends/claude-code.ts'
+import { CodexBackend as CodexCLI } from '../../backends/codex.ts'
+import { getModelForBackend } from '../../backends/types.ts'
 
 // ==================== SDK Backend ====================
 
@@ -319,7 +323,7 @@ export interface BackendOptions {
  */
 export function getBackendByType(
   backendType: 'sdk' | 'claude' | 'cursor' | 'codex',
-  options?: BackendOptions
+  options?: BackendOptions & { model?: string }
 ): AgentBackend {
   switch (backendType) {
     case 'sdk':
@@ -329,13 +333,13 @@ export function getBackendByType(
       return new SDKBackend(options.getClient, options.getMCPTools)
 
     case 'claude':
-      return createClaudeCLIBackend()
+      return createClaudeCodeBackend(options?.model)
 
     case 'codex':
-      return createCodexCLIBackend()
+      return createCodexBackend(options?.model)
 
     case 'cursor':
-      return createCursorBackend()
+      return createCursorBackend(options?.model)
 
     default:
       throw new Error(`Unknown backend type: ${backendType}`)
@@ -369,18 +373,58 @@ export function getBackendForModel(
   }
 }
 
+// ==================== CLI Adapter Backends ====================
+
 /**
- * Create a Cursor backend (placeholder - Cursor doesn't have standalone CLI yet)
+ * Adapter that wraps new CLI backends for workflow controller
  */
-function createCursorBackend(): AgentBackend {
-  // Cursor uses its own extension, not a standalone CLI
-  // For now, return a placeholder that throws
-  return {
-    name: 'cursor',
-    run: async () => ({
-      success: false,
-      error: 'Cursor backend not implemented - use within Cursor IDE',
-      duration: 0,
-    }),
+class CLIAdapterBackend implements AgentBackend {
+  constructor(
+    public readonly name: string,
+    private cli: { send: (message: string, options?: { system?: string }) => Promise<{ content: string }> }
+  ) {}
+
+  async run(ctx: AgentRunContext): Promise<AgentRunResult> {
+    const startTime = Date.now()
+
+    try {
+      const prompt = buildAgentPrompt(ctx)
+      await this.cli.send(prompt, { system: ctx.agent.resolvedSystemPrompt })
+
+      return { success: true, duration: Date.now() - startTime }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        duration: Date.now() - startTime,
+      }
+    }
   }
+}
+
+/**
+ * Create a Cursor backend using cursor-agent CLI
+ */
+function createCursorBackend(model?: string): AgentBackend {
+  const translatedModel = model ? getModelForBackend(model, 'cursor') : undefined
+  const cli = new CursorCLI({ model: translatedModel, cwd: process.cwd() })
+  return new CLIAdapterBackend('cursor', cli)
+}
+
+/**
+ * Create a Claude Code backend using claude CLI
+ */
+function createClaudeCodeBackend(model?: string): AgentBackend {
+  const translatedModel = model ? getModelForBackend(model, 'claude') : undefined
+  const cli = new ClaudeCLI({ model: translatedModel, cwd: process.cwd() })
+  return new CLIAdapterBackend('claude', cli)
+}
+
+/**
+ * Create a Codex backend using codex CLI
+ */
+function createCodexBackend(model?: string): AgentBackend {
+  const translatedModel = model ? getModelForBackend(model, 'codex') : undefined
+  const cli = new CodexCLI({ model: translatedModel, cwd: process.cwd() })
+  return new CLIAdapterBackend('codex', cli)
 }

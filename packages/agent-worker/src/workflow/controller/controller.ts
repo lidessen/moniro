@@ -113,7 +113,7 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
         if (lastResult.success) {
           log(`[${name}] Success (${lastResult.duration}ms)`)
 
-          // Acknowledge inbox ONLY on success
+          // Acknowledge inbox on success
           await contextProvider.ackInbox(name, latestTimestamp)
           break
         }
@@ -126,6 +126,12 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
           log(`[${name}] Retrying in ${delay}ms...`)
           await sleep(delay)
         }
+      }
+
+      // If all retries exhausted, still acknowledge to prevent infinite loop
+      if (lastResult && !lastResult.success) {
+        log(`[${name}] Max retries exhausted, acknowledging inbox to prevent retry loop`)
+        await contextProvider.ackInbox(name, latestTimestamp)
       }
 
       // Notify completion
