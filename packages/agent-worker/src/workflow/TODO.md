@@ -207,7 +207,7 @@ Tool updates:
 | 6. Agent MCP Integration | ✅ Complete | mcp-config.ts + mcp-stdio bridge |
 | 7. Inbox Model | ✅ Complete | Priority detection implemented and tested |
 | 8. Agent Controller | ✅ Complete | Controller + backends + runWorkflowWithControllers |
-| 9. Multi-File Documents | 🔄 Pending | Nested dirs (core merged into Phase 0) |
+| 9. Multi-File Documents | ✅ Complete | Nested dirs implemented in Phase 0, all tests passing |
 | 10. Document Ownership | 🔄 Pending | Optional, requires Phase 11 for election |
 | 11. Proposal & Voting | 🔄 Pending | Generic decision-making system |
 
@@ -320,14 +320,14 @@ Phase 0 (Migration)
 
 > **Note**: Core multi-file changes are in Phase 0 Migration. This phase covers remaining work.
 
-- [ ] Support nested document directories (e.g., `findings/auth.md`)
-- [ ] Implement `deleteDocument()` - remove document file (optional, may not be needed)
+- [x] Support nested document directories (e.g., `findings/auth.md`) - implemented in Phase 0
+- [ ] Implement `deleteDocument()` - remove document file (deferred, not needed yet)
 
 ### Validation (Phase 9)
 
-- [ ] **Unit test**: Create nested document `findings/auth.md`
-- [ ] **Unit test**: List documents shows nested paths
-- [ ] **Unit test**: Read/write nested documents
+- [x] **Unit test**: Create nested document `findings/auth.md`
+- [x] **Unit test**: List documents shows nested paths
+- [x] **Unit test**: Read/write nested documents
 - [ ] **Manual test**: Agent creates nested document via MCP
 
 ## Phase 10: Document Ownership (Optional)
