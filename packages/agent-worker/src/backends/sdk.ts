@@ -43,15 +43,15 @@ export class SdkBackend implements Backend {
       model: this.model,
       system: options?.system,
       prompt: message,
-      maxTokens: this.maxTokens,
+      maxOutputTokens: this.maxTokens,
     })
 
     return {
       content: result.text,
       usage: {
-        input: result.usage.promptTokens,
-        output: result.usage.completionTokens,
-        total: result.usage.totalTokens,
+        input: result.usage.inputTokens ?? 0,
+        output: result.usage.outputTokens ?? 0,
+        total: result.usage.totalTokens ?? 0,
       },
     }
   }

@@ -7,7 +7,9 @@
  *   agent-worker send "What's the weather in Tokyo?" --to test
  */
 
-import type { ToolDefinition } from 'agent-worker'
+// Note: In a real project, import from 'agent-worker' after installing the package
+// For development, we use relative imports
+import type { ToolDefinition } from '../src/types.ts'
 
 const tools: ToolDefinition[] = [
   {
@@ -21,7 +23,9 @@ const tools: ToolDefinition[] = [
       },
       required: ['location'],
     },
-    execute: async ({ location, unit = 'celsius' }) => {
+    execute: async (args) => {
+      const location = args.location as string
+      const unit = (args.unit as string) || 'celsius'
       // Mock implementation
       return {
         location,
@@ -42,14 +46,16 @@ const tools: ToolDefinition[] = [
       },
       required: ['query'],
     },
-    execute: async ({ query, maxResults = 5 }) => {
+    execute: async (args) => {
+      const query = args.query as string
+      const maxResults = (args.maxResults as number) || 5
       // Mock implementation
       return {
         query,
         results: [
           { title: `Result 1 for "${query}"`, url: 'https://example.com/1' },
           { title: `Result 2 for "${query}"`, url: 'https://example.com/2' },
-        ].slice(0, maxResults as number),
+        ].slice(0, maxResults),
       }
     },
   },
@@ -66,14 +72,17 @@ const tools: ToolDefinition[] = [
       required: ['action', 'path'],
     },
     // Conditional approval: only require approval for delete operations
-    needsApproval: (args) => args.action === 'delete',
-    execute: async ({ action, path, content }) => {
+    needsApproval: (args) => (args.action as string) === 'delete',
+    execute: async (args) => {
+      const action = args.action as string
+      const path = args.path as string
+      const content = args.content as string | undefined
       // Mock implementation
       switch (action) {
         case 'read':
           return { content: `Contents of ${path}` }
         case 'write':
-          return { success: true, path, bytesWritten: (content as string)?.length ?? 0 }
+          return { success: true, path, bytesWritten: content?.length ?? 0 }
         case 'delete':
           return { success: true, deleted: path }
         default:

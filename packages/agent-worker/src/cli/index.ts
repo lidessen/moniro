@@ -76,7 +76,8 @@ async function createAgentAction(name: string | undefined, options: {
       importSkills: options.importSkill,
     })
   } else {
-    const args = [process.argv[1], 'new', '-m', model, '-b', backend, '-s', system, '--foreground']
+    const scriptPath = process.argv[1] ?? ''
+    const args = [scriptPath, 'new', '-m', model, '-b', backend, '-s', system, '--foreground']
     if (agentName) {
       args.splice(2, 0, agentName)
     }

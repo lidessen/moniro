@@ -62,7 +62,12 @@ export class CodexCliBackend implements Backend {
           try {
             // Codex outputs newline-delimited JSON events
             const lines = stdout.trim().split('\n')
-            const lastEvent = JSON.parse(lines[lines.length - 1])
+            const lastLine = lines[lines.length - 1]
+            if (!lastLine) {
+              resolve({ content: stdout.trim() })
+              return
+            }
+            const lastEvent = JSON.parse(lastLine)
             resolve({
               content: lastEvent.message || lastEvent.content || stdout,
               toolCalls: lastEvent.toolCalls,
