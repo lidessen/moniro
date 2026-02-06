@@ -8,14 +8,6 @@ export { CodexBackend, type CodexOptions } from './codex.ts'
 export { CursorBackend, type CursorOptions } from './cursor.ts'
 export { SdkBackend, type SdkBackendOptions } from './sdk.ts'
 
-// Backward compatibility aliases
-export { ClaudeCodeBackend as ClaudeCliBackend } from './claude-code.ts'
-export { CodexBackend as CodexCliBackend } from './codex.ts'
-export { CursorBackend as CursorCliBackend } from './cursor.ts'
-export type { ClaudeCodeOptions as ClaudeCliOptions } from './claude-code.ts'
-export type { CodexOptions as CodexCliOptions } from './codex.ts'
-export type { CursorOptions as CursorCliOptions } from './cursor.ts'
-
 import type { Backend, BackendType } from './types.ts'
 import { getModelForBackend } from './types.ts'
 import { ClaudeCodeBackend, type ClaudeCodeOptions } from './claude-code.ts'

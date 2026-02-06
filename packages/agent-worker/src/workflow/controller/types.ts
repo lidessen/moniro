@@ -7,20 +7,6 @@ import type { ResolvedAgent } from '../types.ts'
 import type { ContextProvider } from '../../context/provider.ts'
 import type { Message, InboxMessage } from '../../context/types.ts'
 
-// Re-export model maps from canonical source
-export {
-  type BackendType,
-  type ParsedModel,
-  BACKEND_DEFAULT_MODELS,
-  SDK_MODEL_ALIASES,
-  CURSOR_MODEL_MAP,
-  CLAUDE_MODEL_MAP,
-  CODEX_MODEL_MAP,
-  getModelForBackend,
-  parseModel,
-  resolveModelAlias,
-} from '../../core/model-maps.ts'
-
 // ==================== Controller ====================
 
 /** Agent controller state */

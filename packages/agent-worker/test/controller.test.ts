@@ -5,16 +5,15 @@
 
 import { describe, test, expect, beforeEach, mock } from 'bun:test'
 import {
-  parseModel,
-  resolveModelAlias,
   CONTROLLER_DEFAULTS,
   type AgentRunContext,
   type AgentBackend,
   type AgentRunResult,
 } from '../src/workflow/controller/types.ts'
+import { parseModel, resolveModelAlias } from '../src/core/model-maps.ts'
 import { formatInbox, formatChannel, buildAgentPrompt } from '../src/workflow/controller/prompt.ts'
 import { createAgentController, checkWorkflowIdle, isWorkflowComplete, buildWorkflowIdleState } from '../src/workflow/controller/controller.ts'
-import { detectCLIError, generateWorkflowMCPConfig } from '../src/workflow/controller/backend.ts'
+import { generateWorkflowMCPConfig } from '../src/workflow/controller/backend.ts'
 import { parseSendTarget, sendToWorkflowChannel, formatUserSender } from '../src/workflow/controller/send.ts'
 import type { WorkflowIdleState } from '../src/workflow/controller/types.ts'
 import { createMemoryContextProvider } from '../src/context/memory-provider.ts'
@@ -236,35 +235,6 @@ describe('buildAgentPrompt', () => {
 
     const result = buildAgentPrompt(ctx)
     expect(result).toContain('2 messages for you')
-  })
-})
-
-// ==================== CLI Backend Helpers Tests ====================
-
-describe('detectCLIError', () => {
-  test('detects non-zero exit code', () => {
-    const error = detectCLIError('', '', 1)
-    expect(error).toBe('Process exited with code 1')
-  })
-
-  test('detects error patterns in stderr', () => {
-    const error = detectCLIError('', 'Error: Something went wrong', 0)
-    expect(error).toContain('Error detected')
-  })
-
-  test('detects error patterns in stdout', () => {
-    const error = detectCLIError('Failed to connect', '', 0)
-    expect(error).toContain('Error detected')
-  })
-
-  test('detects rate limit errors', () => {
-    const error = detectCLIError('rate limit exceeded', '', 0)
-    expect(error).toContain('Error detected')
-  })
-
-  test('returns undefined for successful output', () => {
-    const error = detectCLIError('Task completed successfully', '', 0)
-    expect(error).toBeUndefined()
   })
 })
 
