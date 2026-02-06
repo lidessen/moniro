@@ -9,7 +9,6 @@ export type {
   ContextConfig,
   FileContextConfig,
   MemoryContextConfig,
-  FileProviderConfig,
 } from './context/types.js'
 
 // ==================== Workflow File ====================
@@ -108,10 +107,6 @@ export interface ResolvedFileContext {
   provider: 'file'
   /** Context directory path */
   dir: string
-  /** Channel file name */
-  channel: string
-  /** Document directory (relative to dir) */
-  documentDir: string
   /** Document owner (single-writer model, optional) */
   documentOwner?: string
 }

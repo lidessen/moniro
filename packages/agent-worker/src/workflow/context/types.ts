@@ -90,12 +90,6 @@ export function isResourceId(str: string): boolean {
   return str.startsWith(RESOURCE_PREFIX)
 }
 
-// Legacy aliases for backward compatibility during migration
-/** @deprecated Use ResourceType */
-export type AttachmentType = ResourceType
-/** @deprecated Use ResourceResult */
-export type AttachmentResult = ResourceResult
-
 /** Inbox message (unread @mention) */
 export interface InboxMessage {
   /** Original channel entry */
@@ -139,20 +133,13 @@ export interface MemoryContextConfig {
 export interface FileProviderConfig {
   /** Context directory (default: ~/.agent-worker/workflows/${{ workflow.name }}/${{ instance }}/) */
   dir?: string
-  /** Channel file name (default: channel.md) */
-  channel?: string
-  /** Document directory (default: documents/) */
-  documentDir?: string
-  /** Default document file name (default: notes.md) */
-  document?: string
 }
 
 /** Default context configuration values */
 export const CONTEXT_DEFAULTS = {
+  /** Default context directory template */
   dir: '~/.agent-worker/workflows/${{ workflow.name }}/${{ instance }}/',
-  channel: 'channel.md',
-  stateDir: '_state/',
-  documentDir: 'documents/',
+  /** Default document file name */
   document: 'notes.md',
 } as const
 

@@ -1,7 +1,6 @@
 /**
  * File Context Provider
  * Thin wrapper around ContextProviderImpl + FileStorage.
- * Provides file-based persistence with backward-compatible factory function.
  */
 
 import { ContextProviderImpl } from './provider.js'
@@ -13,10 +12,7 @@ import { FileStorage } from './storage.js'
  * FileStorage handles I/O.
  */
 export class FileContextProvider extends ContextProviderImpl {
-  constructor(
-    storage: FileStorage,
-    validAgents: string[]
-  ) {
+  constructor(storage: FileStorage, validAgents: string[]) {
     super(storage, validAgents)
   }
 }
@@ -37,11 +33,7 @@ export class FileContextProvider extends ContextProviderImpl {
  */
 export function createFileContextProvider(
   contextDir: string,
-  validAgents: string[],
-  _options?: {
-    channelFile?: string
-    documentDir?: string
-  }
+  validAgents: string[]
 ): FileContextProvider {
   const storage = new FileStorage(contextDir)
   return new FileContextProvider(storage, validAgents)

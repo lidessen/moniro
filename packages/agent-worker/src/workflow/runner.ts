@@ -240,10 +240,7 @@ export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> 
 
     if (verbose) log(`Context directory: ${contextDir}`)
 
-    contextProvider = createFileContextProvider(contextDir, agentNames, {
-      channelFile: fileContext.channel,
-      documentDir: fileContext.documentDir,
-    })
+    contextProvider = createFileContextProvider(contextDir, agentNames)
   }
 
   // Create MCP server (HTTP)
@@ -709,10 +706,7 @@ async function initWorkflowWithMentions(config: InitWithMentionsConfig): Promise
 
     if (verbose) log(`Context directory: ${contextDir}`)
 
-    contextProvider = createFileContextProvider(contextDir, agentNames, {
-      channelFile: fileContext.channel,
-      documentDir: fileContext.documentDir,
-    })
+    contextProvider = createFileContextProvider(contextDir, agentNames)
   }
 
   // Create MCP server factory

@@ -138,12 +138,7 @@ function resolveContext(
   // undefined or null = default file provider enabled
   if (config === undefined || config === null) {
     const dir = resolveContextDir(CONTEXT_DEFAULTS.dir, workflowDir, workflowName, instance)
-    return {
-      provider: 'file',
-      dir,
-      channel: CONTEXT_DEFAULTS.channel,
-      documentDir: CONTEXT_DEFAULTS.documentDir,
-    }
+    return { provider: 'file', dir }
   }
 
   // Memory provider
@@ -155,15 +150,12 @@ function resolveContext(
   }
 
   // File provider with custom config
-  const fileConfig = config.config || {}
-  const dirTemplate = fileConfig.dir || CONTEXT_DEFAULTS.dir
+  const dirTemplate = config.config?.dir || CONTEXT_DEFAULTS.dir
   const dir = resolveContextDir(dirTemplate, workflowDir, workflowName, instance)
 
   return {
     provider: 'file',
     dir,
-    channel: fileConfig.channel || CONTEXT_DEFAULTS.channel,
-    documentDir: fileConfig.documentDir || CONTEXT_DEFAULTS.documentDir,
     documentOwner: config.documentOwner,
   }
 }
@@ -275,15 +267,6 @@ function validateContext(context: unknown, errors: ValidationError[]): void {
     const cfg = c.config as Record<string, unknown>
     if (cfg.dir !== undefined && typeof cfg.dir !== 'string') {
       errors.push({ path: 'context.config.dir', message: 'Context config dir must be a string' })
-    }
-    if (cfg.channel !== undefined && typeof cfg.channel !== 'string') {
-      errors.push({ path: 'context.config.channel', message: 'Context config channel must be a string' })
-    }
-    if (cfg.documentDir !== undefined && typeof cfg.documentDir !== 'string') {
-      errors.push({ path: 'context.config.documentDir', message: 'Context config documentDir must be a string' })
-    }
-    if (cfg.document !== undefined && typeof cfg.document !== 'string') {
-      errors.push({ path: 'context.config.document', message: 'Context config document must be a string' })
     }
   }
 }
