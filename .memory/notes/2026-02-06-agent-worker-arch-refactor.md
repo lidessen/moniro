@@ -3,32 +3,52 @@
 **Date**: 2026-02-06
 **Branch**: `claude/refactor-agent-worker-arch-0uVss`
 
-## What Was Done
-
-Restructured agent-worker from a tangled monolith into clean modules with clear responsibilities.
-
-### Before → After
+## Phase 1: Module Restructuring
 
 | Before | Problem | After |
 |--------|---------|-------|
-| `cli/index.ts` (1400 lines) | Mixed commands, business logic, formatting | `cli/commands/*` (7 files, ~100-230 lines each) |
-| `cli/server.ts` (871 lines) | Registry + handler + IPC + skills + lifecycle | `daemon/` (4 files: registry, handler, daemon, index) |
-| `workflow/context/` | Context buried under workflow, seemed workflow-specific | `context/` (top-level module) |
-| Model maps in 2 places | `backends/types.ts` and `workflow/controller/types.ts` duplicated | `core/model-maps.ts` (single source of truth) |
-| Two init functions | `initWorkflow` and `initWorkflowWithMentions` near-identical | Single `initWorkflow` with optional params |
-| Deprecated aliases | `session *`, `down`, `up`, `ps` - ~300 lines of dead code | Removed |
+| `cli/index.ts` (1400 lines) | Mixed commands, business logic, formatting | `cli/commands/*` (7 files) |
+| `cli/server.ts` (871 lines) | Registry + handler + IPC + skills + lifecycle | `daemon/` (4 files) |
+| `workflow/context/` | Context buried under workflow | `context/` (top-level) |
+| Model maps in 2 places | Duplicated across backends/ and controller/ | `core/model-maps.ts` (single source) |
+| Two init functions | `initWorkflow` and `initWorkflowWithMentions` | Single `initWorkflow` |
+| Deprecated aliases | ~300 lines dead code | Removed |
 
-### Key Architectural Decision: Daemon Module
+## Phase 2: Consolidation
 
-The daemon is the central process manager. One daemon process manages all agents, MCP servers, and lifecycle. The CLI is thin and stateless — it connects, sends a request, prints the response, exits.
+| Before | Problem | After |
+|--------|---------|-------|
+| session.ts, models.ts, tools.ts, types.ts at src root | Scattered domain logic | `core/` module |
+| `skills-compatibility.ts` (179 lines) | Per-backend filesystem guessing | Deleted. Skills always tool-based. |
+| `CLIAdapterBackend` wrapper | Bridge between two interfaces | Deleted. CLI backends implement `run()` natively. |
+| 90 lines ANSI formatting in runner.ts | Presentation mixed with business logic | `workflow/display.ts` |
 
-### What Still Needs Work
+## Key Architectural Decisions
 
-1. **Unified Backend interface** — Still two competing interfaces: `Backend.send()` (backends/) and `AgentBackend.run()` (workflow/controller/). Should be merged into one.
-2. **Move session.ts, models.ts, tools.ts into core/** — Currently at src root, belong in core/
-3. **True daemon mode** — Current "daemon" is still one-process-per-agent. Should be a single long-lived process managing all agents.
+### 1. Single agent = 1-agent workflow (NEXT STEP)
+
+The fundamental insight from the user: single-agent and multi-agent should be THE SAME runtime. A "session" is a workflow with one agent. Differences through simplified parameters, not forked code paths.
+
+This eliminates:
+- `handler.ts` if/else branching (session vs backend)
+- Two lifecycle managers (AgentSession vs controller)
+- Two backend interfaces
+
+Implementation path:
+1. AgentSession internally creates 1-agent workflow runtime (lazy)
+2. handler.ts processes all requests through workflow runtime
+3. CLI `agent new` creates 1-agent workflow
+4. Delete AgentSession's own agentic loop, delegate to controller
+
+### 2. Skills always via tools
+
+Skills are loaded by agent-worker and exposed as tools, regardless of backend. Transport (direct SDK tool vs MCP) is a backend concern.
+
+### 3. Daemon as center
+
+One process manages all agents, MCP servers, lifecycle. CLI is stateless.
 
 ## Verification
 
 - Build: passes (tsdown)
-- Tests: 510 pass, 5 fail (pre-existing timeouts, confirmed same on main)
+- Tests: 510 pass, 5 fail (pre-existing timeouts, same on main)
