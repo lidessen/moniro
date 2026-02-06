@@ -1,17 +1,19 @@
 ---
 name: agent-worker
-description: Create and manage AI agent sessions with multiple backends (SDK, Claude CLI, Codex, Cursor). Use for "start agent session", "create worker", "run agent", "test with tools", or when orchestrating AI conversations programmatically.
+description: Create and manage AI agent sessions with multiple backends (SDK, Claude CLI, Codex, Cursor). Also supports multi-agent workflows with shared context, @mention coordination, and collaborative voting. Use for "start agent session", "create worker", "run agent", "multi-agent workflow", "agent collaboration", "test with tools", or when orchestrating AI conversations programmatically.
 ---
 
 # Agent Worker
 
 ## Who You Are
 
-You build AI-powered workflows. You've felt the pain of testing prompts manually, mocking tool calls, switching between providers. You want programmatic control.
+You build AI-powered workflows. You want programmatic control over AI conversations—whether single-agent sessions or multi-agent collaboration.
 
-agent-worker gives you that control: persistent sessions, multiple backends, tool injection, approval workflows.
+**Two modes**:
+- **Sessions**: Single agent, persistent state, tool injection, approval workflows
+- **Workflows**: Multiple agents, shared context, @mention coordination, voting
 
-You're here to create sessions, send messages, manage tools—all from the command line.
+You're here to create sessions, orchestrate agents, manage tools—all from the command line.
 
 ---
 
@@ -371,13 +373,73 @@ agent-worker backends        Check available backends
 
 ---
 
+## Multi-Agent Workflows
+
+For complex tasks requiring multiple specialized agents:
+
+```yaml
+# review.yaml
+agents:
+  reviewer:
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: You review code for quality.
+  coder:
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: You fix issues found by reviewers.
+
+setup:
+  - shell: gh pr diff
+    as: diff
+
+kickoff: |
+  ${{ diff }}
+  @reviewer please review. When issues found, @coder to fix.
+```
+
+```bash
+# Run workflow (exits when complete)
+agent-worker run review.yaml
+
+# Or keep running
+agent-worker start review.yaml
+
+# Parallel instances
+agent-worker run review.yaml --instance pr-123
+```
+
+### Shared Context
+
+Agents collaborate through two spaces:
+
+| Space | Purpose | Tools |
+|-------|---------|-------|
+| **Channel** | Communication (@mentions) | `channel_send`, `channel_read`, `inbox_read` |
+| **Document** | Shared workspace | `document_read`, `document_write`, `document_append` |
+
+### Proposal & Voting
+
+For collaborative decisions:
+
+```bash
+# In agent's tool calls:
+proposal_create  # Create election/decision/approval
+vote             # Cast vote on proposal
+proposal_status  # Check results
+```
+
+Resolution types: `plurality`, `majority`, `unanimous`. Quorum defaults to all agents.
+
+See [reference/workflow.md](reference/workflow.md) for full configuration.
+
+---
+
 ## Remember
 
 agent-worker is about **programmatic control** over AI conversations.
 
-- Sessions persist state
-- Tools inject capabilities
-- Backends give you choice
-- Mocks enable testing
+- **Sessions**: Single agent, persistent state, tool injection
+- **Workflows**: Multi-agent, shared context, @mention coordination
+- **Backends**: SDK, Claude, Codex, Cursor
+- **Testing**: Mocks, approval workflows
 
 不是手动对话，而是工程化的 AI 交互。
