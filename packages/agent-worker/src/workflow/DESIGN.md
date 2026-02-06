@@ -730,51 +730,130 @@ async function applyProposalResult(proposal: Proposal, winner: string) {
 }
 ```
 
-**Proposal Persistence:**
+**Proposal Persistence & Archiving:**
 
-Proposals are stored in context alongside channel and document:
+Proposals have two storage locations with different purposes:
 
 ```
 .workflow/instance/
-├── channel.md          # Communication log
+├── channel.md          # Communication log (events)
 ├── notes.md            # Document (entry point)
+├── decisions.md        # Decision archive (permanent record)
 ├── inbox-state.json    # Per-agent read cursors
-└── proposals.json      # Active and resolved proposals
+└── proposals.json      # Active proposals only (runtime state)
 ```
 
+| Storage | Purpose | Lifecycle |
+|---------|---------|-----------|
+| `proposals.json` | Active proposal state | Short-term (deleted on resolve) |
+| `channel.md` | Event timeline ([VOTE] messages) | Append-only |
+| `decisions.md` | Decision archive | Permanent (queryable record) |
+
 ```typescript
-// proposals.json structure
+// proposals.json - only active proposals
 interface ProposalsState {
-  proposals: Record<string, Proposal>
-  version: number  // For optimistic locking
+  proposals: Record<string, Proposal>  // Only status === 'active'
+  version: number
 }
 
-// On workflow start, load existing proposals
+// Load active proposals on startup
 async function loadProposals(contextDir: string): Promise<Map<string, Proposal>> {
   const path = join(contextDir, 'proposals.json')
   try {
     const data = JSON.parse(await fs.readFile(path, 'utf-8'))
     return new Map(Object.entries(data.proposals))
   } catch {
-    return new Map()  // No existing proposals
+    return new Map()
   }
 }
 
-// Save after any proposal mutation
+// Save after mutation (only active proposals)
 async function saveProposals(contextDir: string, proposals: Map<string, Proposal>): Promise<void> {
-  const path = join(contextDir, 'proposals.json')
+  const activeOnly = [...proposals.entries()].filter(([_, p]) => p.status === 'active')
   const data: ProposalsState = {
-    proposals: Object.fromEntries(proposals),
+    proposals: Object.fromEntries(activeOnly),
     version: Date.now(),
   }
-  await fs.writeFile(path, JSON.stringify(data, null, 2))
+  await fs.writeFile(join(contextDir, 'proposals.json'), JSON.stringify(data, null, 2))
 }
 ```
 
+**Decision Archiving:**
+
+When a proposal resolves, it's archived to `decisions.md` for permanent record:
+
+```typescript
+async function resolveProposal(proposal: Proposal) {
+  // ... existing resolution logic ...
+
+  proposal.status = 'resolved'
+  proposal.result!.resolvedAt = new Date().toISOString()
+
+  // 1. Post to channel (event log)
+  await provider.appendChannel('system', `[RESOLVED:${proposal.id}] ...`)
+
+  // 2. Archive to decisions.md (permanent record)
+  await archiveDecision(proposal)
+
+  // 3. Remove from proposals.json (cleanup)
+  proposals.delete(proposal.id)
+  await saveProposals(contextDir, proposals)
+
+  // 4. Apply binding result
+  if (proposal.binding && proposal.result!.winner) {
+    await applyProposalResult(proposal, proposal.result!.winner)
+  }
+}
+
+async function archiveDecision(proposal: Proposal) {
+  const winner = proposal.options.find(o => o.id === proposal.result!.winner)
+  const votes = [...proposal.result!.votes.entries()]
+    .map(([voter, choice]) => `${voter}→${choice}`)
+    .join(', ')
+
+  const archive = `
+### ${proposal.title}
+- **ID**: ${proposal.id}
+- **Type**: ${proposal.type}
+- **Resolved**: ${proposal.result!.resolvedAt}
+- **Result**: ${winner?.label || 'No winner'}
+- **Votes**: ${votes || 'None'}
+${proposal.binding ? '- **Binding**: Yes (applied to system)' : '- **Binding**: No (advisory)'}
+---
+`
+  await provider.appendDocument(archive, 'decisions.md')
+}
+```
+
+**decisions.md Example:**
+
+```markdown
+# Decisions Log
+
+### Document Owner Election
+- **ID**: doc-owner-001
+- **Type**: election
+- **Resolved**: 2024-01-15T10:05:00Z
+- **Result**: @scribe
+- **Votes**: reviewer→scribe, coder→scribe, scribe→coder
+- **Binding**: Yes (applied to system)
+---
+
+### Authentication Approach
+- **ID**: decision-auth-001
+- **Type**: decision
+- **Resolved**: 2024-01-15T10:30:00Z
+- **Result**: JWT tokens
+- **Votes**: reviewer→jwt, coder→jwt
+- **Binding**: No (advisory)
+---
+```
+
 This ensures:
-- Proposals survive workflow runner restarts
-- State is recoverable after crashes
-- Multiple instances can have independent proposals
+- Active proposals survive runner restarts (`proposals.json`)
+- All events are logged in timeline (`channel.md`)
+- Decisions are permanently archived and queryable (`decisions.md`)
+- No state bloat (resolved proposals removed from runtime)
 
 **Use Case Examples:**
 

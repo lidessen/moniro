@@ -167,11 +167,14 @@ Generic collaborative decision-making for elections, design decisions, task assi
 - [ ] Proposal types: election, decision, approval, assignment
 - [ ] Resolution types: plurality, majority, unanimous
 
-### Persistence
+### Persistence & Archiving
 - [ ] Define `ProposalsState` interface (proposals + version)
-- [ ] Implement `loadProposals()` from proposals.json
-- [ ] Implement `saveProposals()` to proposals.json
+- [ ] Implement `loadProposals()` from proposals.json (active only)
+- [ ] Implement `saveProposals()` to proposals.json (filter active)
 - [ ] Store proposals in `.workflow/instance/proposals.json`
+- [ ] Implement `archiveDecision()` - append to decisions.md
+- [ ] Remove resolved proposals from proposals.json after archiving
+- [ ] Create decisions.md with header on first archive
 
 ### MCP Tools
 - [ ] Add `proposal_create` tool
