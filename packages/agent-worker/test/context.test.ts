@@ -296,58 +296,51 @@ describe('MemoryContextProvider', () => {
     })
   })
 
-  describe('attachment mechanism', () => {
-    test('stores long messages as attachments', async () => {
-      // Create a message longer than threshold (500 chars)
-      const longMessage = 'A'.repeat(600)
-      const entry = await provider.appendChannel('agent1', longMessage)
+  describe('attachment API', () => {
+    test('createAttachment returns ID and ref', async () => {
+      const content = '# Report\n' + 'Content line\n'.repeat(100)
+      const result = await provider.createAttachment(content, 'agent1')
 
-      // Entry should have attachment
-      expect(entry.attachment).toBeDefined()
-      expect(entry.attachment).toMatch(/^attachments\//)
-
-      // Message should be truncated preview
-      expect(entry.message.length).toBeLessThan(200)
+      expect(result.id).toMatch(/^att_/)
+      expect(result.ref).toBe(`attachment:${result.id}`)
     })
 
-    test('short messages have no attachment', async () => {
-      const entry = await provider.appendChannel('agent1', 'Short message')
+    test('readAttachment returns content by ID', async () => {
+      const content = '# Long Document\n' + 'Content line\n'.repeat(100)
+      const { id } = await provider.createAttachment(content, 'agent1')
 
-      expect(entry.attachment).toBeUndefined()
-      expect(entry.message).toBe('Short message')
+      const retrieved = await provider.readAttachment(id)
+      expect(retrieved).toBe(content)
     })
 
-    test('readAttachment returns content', async () => {
-      const longMessage = '# Long Document\n' + 'Content line\n'.repeat(100)
-      const entry = await provider.appendChannel('agent1', longMessage)
-
-      const content = await provider.readAttachment!(entry.attachment!)
-      expect(content).toBe(longMessage)
-    })
-
-    test('readAttachment returns null for missing attachment', async () => {
-      const content = await provider.readAttachment!('attachments/nonexistent.md')
+    test('readAttachment returns null for missing ID', async () => {
+      const content = await provider.readAttachment('att_nonexistent')
       expect(content).toBeNull()
     })
 
     test('clear also clears attachments', async () => {
-      const longMessage = 'A'.repeat(600)
-      const entry = await provider.appendChannel('agent1', longMessage)
+      const { id } = await provider.createAttachment('Test content', 'agent1')
 
       provider.clear()
 
-      const content = await provider.readAttachment!(entry.attachment!)
+      const content = await provider.readAttachment(id)
       expect(content).toBeNull()
     })
 
     test('getAttachments returns all attachments', async () => {
-      const msg1 = 'A'.repeat(600)
-      const msg2 = 'B'.repeat(600)
-      await provider.appendChannel('agent1', msg1)
-      await provider.appendChannel('agent2', msg2)
+      await provider.createAttachment('Content 1', 'agent1')
+      await provider.createAttachment('Content 2', 'agent2')
 
       const attachments = provider.getAttachments()
       expect(attachments.size).toBe(2)
+    })
+
+    test('channel message can reference attachment', async () => {
+      const { ref } = await provider.createAttachment('Full report content', 'agent1')
+      await provider.appendChannel('agent1', `Analysis complete. See [full report](${ref})`)
+
+      const entries = await provider.readChannel()
+      expect(entries[0].message).toContain('attachment:att_')
     })
   })
 
@@ -548,61 +541,53 @@ describe('FileContextProvider', () => {
     })
   })
 
-  describe('attachment mechanism', () => {
-    test('stores long messages as attachments in file', async () => {
-      const longMessage = '# Long Report\n' + 'Line content\n'.repeat(100)
-      const entry = await provider.appendChannel('agent1', longMessage)
+  describe('attachment API', () => {
+    test('createAttachment stores file and returns ID', async () => {
+      const content = '# Long Report\n' + 'Line content\n'.repeat(100)
+      const result = await provider.createAttachment(content, 'agent1')
 
-      // Entry should have attachment reference
-      expect(entry.attachment).toBeDefined()
-      expect(entry.attachment).toMatch(/^attachments\//)
+      // Should return ID and ref
+      expect(result.id).toMatch(/^att_/)
+      expect(result.ref).toBe(`attachment:${result.id}`)
 
-      // Attachment file should exist
-      const attachmentPath = join(testDir, entry.attachment!)
-      expect(existsSync(attachmentPath)).toBe(true)
-      expect(readFileSync(attachmentPath, 'utf-8')).toBe(longMessage)
+      // File should exist in attachments directory
+      const attachmentsDir = join(testDir, 'attachments')
+      expect(existsSync(attachmentsDir)).toBe(true)
     })
 
-    test('channel file contains attachment reference', async () => {
-      const longMessage = 'A'.repeat(600)
-      await provider.appendChannel('agent1', longMessage)
+    test('readAttachment returns file content by ID', async () => {
+      const content = '# Long Document\n' + 'Content\n'.repeat(100)
+      const { id } = await provider.createAttachment(content, 'agent1', 'markdown')
 
-      const channelPath = join(testDir, 'channel.md')
-      const channelContent = readFileSync(channelPath, 'utf-8')
-
-      // Should contain the attachment reference marker
-      expect(channelContent).toContain('📎 See: attachments/')
+      const retrieved = await provider.readAttachment(id)
+      expect(retrieved).toBe(content)
     })
 
-    test('readAttachment returns file content', async () => {
-      const longMessage = '# Long Document\n' + 'Content\n'.repeat(100)
-      const entry = await provider.appendChannel('agent1', longMessage)
-
-      const content = await provider.readAttachment(entry.attachment!)
-      expect(content).toBe(longMessage)
-    })
-
-    test('readAttachment returns null for missing file', async () => {
-      const content = await provider.readAttachment('attachments/nonexistent.md')
+    test('readAttachment returns null for missing ID', async () => {
+      const content = await provider.readAttachment('att_nonexistent')
       expect(content).toBeNull()
     })
 
-    test('parses channel with attachment references', async () => {
-      const longMessage = 'A'.repeat(600)
-      await provider.appendChannel('agent1', longMessage)
+    test('supports different content types', async () => {
+      const mdContent = '# Markdown'
+      const jsonContent = '{"key": "value"}'
+      const diffContent = '+ added\n- removed'
 
-      const entries = await provider.readChannel()
-      expect(entries).toHaveLength(1)
-      expect(entries[0].attachment).toBeDefined()
-      expect(entries[0].attachment).toMatch(/^attachments\//)
+      const mdResult = await provider.createAttachment(mdContent, 'agent1', 'markdown')
+      const jsonResult = await provider.createAttachment(jsonContent, 'agent1', 'json')
+      const diffResult = await provider.createAttachment(diffContent, 'agent1', 'diff')
+
+      expect(await provider.readAttachment(mdResult.id)).toBe(mdContent)
+      expect(await provider.readAttachment(jsonResult.id)).toBe(jsonContent)
+      expect(await provider.readAttachment(diffResult.id)).toBe(diffContent)
     })
 
-    test('attachments directory is created', async () => {
-      const longMessage = 'A'.repeat(600)
-      await provider.appendChannel('agent1', longMessage)
+    test('channel message can reference attachment', async () => {
+      const { ref } = await provider.createAttachment('Full report content', 'agent1')
+      await provider.appendChannel('agent1', `Analysis complete. See [full report](${ref})`)
 
-      const attachmentsDir = join(testDir, 'attachments')
-      expect(existsSync(attachmentsDir)).toBe(true)
+      const entries = await provider.readChannel()
+      expect(entries[0].message).toContain('attachment:att_')
     })
   })
 })
@@ -836,19 +821,45 @@ describe('MCP Server Tools', () => {
     })
   })
 
+  describe('attachment_create', () => {
+    test('creates attachment and returns ID/ref', async () => {
+      const content = '# Long Document\n' + 'Content line\n'.repeat(100)
+
+      const result = (await callTool('attachment_create', { content }, { sessionId: 'agent1' })) as {
+        id: string
+        ref: string
+        hint: string
+      }
+
+      expect(result.id).toMatch(/^att_/)
+      expect(result.ref).toBe(`attachment:${result.id}`)
+      expect(result.hint).toContain('Use [description]')
+    })
+
+    test('supports type parameter', async () => {
+      const result = (await callTool(
+        'attachment_create',
+        { content: '{"key": "value"}', type: 'json' },
+        { sessionId: 'agent1' }
+      )) as { id: string }
+
+      expect(result.id).toMatch(/^att_/)
+    })
+  })
+
   describe('attachment_read', () => {
-    test('reads attachment content', async () => {
-      const longMessage = '# Long Document\n' + 'Content line\n'.repeat(100)
-      const entry = await provider.appendChannel('agent1', longMessage)
+    test('reads attachment content by ID', async () => {
+      const content = '# Long Document\n' + 'Content line\n'.repeat(100)
+      const { id } = await provider.createAttachment(content, 'agent1')
 
-      const result = await callTool('attachment_read', { path: entry.attachment! })
+      const result = await callTool('attachment_read', { id })
 
-      expect(result).toBe(longMessage)
+      expect(result).toBe(content)
     })
 
     test('returns error for missing attachment', async () => {
       const result = (await callTool('attachment_read', {
-        path: 'attachments/nonexistent.md',
+        id: 'att_nonexistent',
       })) as { error: string }
 
       expect(result.error).toContain('not found')

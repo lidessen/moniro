@@ -4,8 +4,8 @@
  */
 
 import type { ContextProvider } from './provider.js'
-import type { ChannelEntry, InboxMessage, InboxState } from './types.js'
-import { CONTEXT_DEFAULTS, ATTACHMENT_THRESHOLD, ATTACHMENTS_DIR, calculatePriority, extractMentions } from './types.js'
+import type { ChannelEntry, InboxMessage, InboxState, AttachmentResult, AttachmentType } from './types.js'
+import { CONTEXT_DEFAULTS, calculatePriority, extractMentions, generateAttachmentId, createAttachmentRef } from './types.js'
 
 /**
  * In-memory implementation of ContextProvider
@@ -27,30 +27,6 @@ export class MemoryContextProvider implements ContextProvider {
     // Add sequence as microseconds to ensure uniqueness
     const timestamp = `${now.toISOString().slice(0, -1)}${seq.toString().padStart(3, '0')}Z`
 
-    // Check if message exceeds threshold
-    if (message.length > ATTACHMENT_THRESHOLD) {
-      // Create attachment
-      const safeTimestamp = timestamp.replace(/:/g, '-')
-      const attachmentName = `${safeTimestamp}-${from}.md`
-      const attachmentRef = `${ATTACHMENTS_DIR}/${attachmentName}`
-
-      this.attachments.set(attachmentRef, message)
-
-      // Create preview
-      const firstLine = message.split('\n')[0] || ''
-      const preview = firstLine.length > 100 ? firstLine.slice(0, 100) + '...' : firstLine
-
-      const entry: ChannelEntry = {
-        timestamp,
-        from,
-        message: preview,
-        mentions: extractMentions(message, this.validAgents),
-        attachment: attachmentRef,
-      }
-      this.channel.push(entry)
-      return entry
-    }
-
     const entry: ChannelEntry = {
       timestamp,
       from,
@@ -61,8 +37,18 @@ export class MemoryContextProvider implements ContextProvider {
     return entry
   }
 
-  async readAttachment(attachmentPath: string): Promise<string | null> {
-    return this.attachments.get(attachmentPath) ?? null
+  async createAttachment(
+    content: string,
+    createdBy: string,
+    _type: AttachmentType = 'text'
+  ): Promise<AttachmentResult> {
+    const id = generateAttachmentId()
+    this.attachments.set(id, content)
+    return { id, ref: createAttachmentRef(id) }
+  }
+
+  async readAttachment(id: string): Promise<string | null> {
+    return this.attachments.get(id) ?? null
   }
 
   async readChannel(since?: string, limit?: number): Promise<ChannelEntry[]> {

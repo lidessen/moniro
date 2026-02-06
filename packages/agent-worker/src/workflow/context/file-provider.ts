@@ -6,8 +6,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import type { ContextProvider } from './provider.js'
-import type { ChannelEntry, InboxMessage, InboxState } from './types.js'
-import { CONTEXT_DEFAULTS, ATTACHMENT_THRESHOLD, ATTACHMENTS_DIR, calculatePriority, extractMentions } from './types.js'
+import type { ChannelEntry, InboxMessage, InboxState, AttachmentResult, AttachmentType } from './types.js'
+import { CONTEXT_DEFAULTS, ATTACHMENTS_DIR, calculatePriority, extractMentions, generateAttachmentId, createAttachmentRef } from './types.js'
 
 /**
  * File-based implementation of ContextProvider
@@ -59,69 +59,45 @@ export class FileContextProvider implements ContextProvider {
   async appendChannel(from: string, message: string): Promise<ChannelEntry> {
     const timestamp = new Date().toISOString()
     const mentions = extractMentions(message, this.validAgents)
-
-    // Check if message exceeds threshold
-    if (message.length > ATTACHMENT_THRESHOLD) {
-      // Create attachment file
-      const attachmentName = this.generateAttachmentName(timestamp, from)
-      const attachmentPath = join(this.attachmentsDir, attachmentName)
-      writeFileSync(attachmentPath, message)
-
-      // Create preview (first line or first 100 chars)
-      const firstLine = message.split('\n')[0] || ''
-      const preview = firstLine.length > 100 ? firstLine.slice(0, 100) + '...' : firstLine
-      const attachmentRef = `${ATTACHMENTS_DIR}/${attachmentName}`
-
-      const entry: ChannelEntry = {
-        timestamp,
-        from,
-        message: preview,
-        mentions,
-        attachment: attachmentRef,
-      }
-
-      // Format with attachment reference
-      const markdown = `\n### ${timestamp} [${from}]\n${preview}\n📎 See: ${attachmentRef}\n`
-      appendFileSync(this.channelPath, markdown)
-
-      return entry
-    }
-
-    // Normal message (under threshold)
     const entry: ChannelEntry = { timestamp, from, message, mentions }
 
     // Format: ### YYYY-MM-DDTHH:MM:SS.sssZ [agent]\nmessage\n
-    // Using full ISO timestamp to preserve millisecond precision for filtering
     const markdown = `\n### ${timestamp} [${from}]\n${message}\n`
-
     appendFileSync(this.channelPath, markdown)
 
     return entry
   }
 
-  /**
-   * Generate attachment filename from timestamp and agent name
-   * Format: 2026-02-06T08-30-00-123Z-agentname.md
-   */
-  private generateAttachmentName(timestamp: string, from: string): string {
-    // Replace colons with dashes for filename compatibility
-    const safeTimestamp = timestamp.replace(/:/g, '-')
-    return `${safeTimestamp}-${from}.md`
+  async createAttachment(
+    content: string,
+    createdBy: string,
+    type: AttachmentType = 'text'
+  ): Promise<AttachmentResult> {
+    const id = generateAttachmentId()
+
+    // Determine file extension based on type
+    const ext = type === 'json' ? 'json' : type === 'diff' ? 'diff' : 'md'
+    const filename = `${id}.${ext}`
+    const filePath = join(this.attachmentsDir, filename)
+
+    writeFileSync(filePath, content)
+
+    return { id, ref: createAttachmentRef(id) }
   }
 
-  /**
-   * Read attachment content by path
-   */
-  async readAttachment(attachmentPath: string): Promise<string | null> {
-    const fullPath = join(this.contextDir || dirname(this.channelPath), attachmentPath)
-    try {
-      if (existsSync(fullPath)) {
-        return readFileSync(fullPath, 'utf-8')
+  async readAttachment(id: string): Promise<string | null> {
+    // Try common extensions
+    for (const ext of ['md', 'json', 'diff', 'txt']) {
+      const filePath = join(this.attachmentsDir, `${id}.${ext}`)
+      try {
+        if (existsSync(filePath)) {
+          return readFileSync(filePath, 'utf-8')
+        }
+      } catch {
+        // Continue to next extension
       }
-      return null
-    } catch {
-      return null
     }
+    return null
   }
 
   async readChannel(since?: string, limit?: number): Promise<ChannelEntry[]> {
@@ -151,7 +127,6 @@ export class FileContextProvider implements ContextProvider {
    * ### 2026-02-05T14:30:22.123Z [agent]
    * message content
    * possibly multiple lines
-   * 📎 See: attachments/xxx.md (optional)
    *
    * Format (legacy - time only, assumes today):
    * ### HH:MM:SS [agent]
@@ -164,9 +139,6 @@ export class FileContextProvider implements ContextProvider {
     let currentEntry: Partial<ChannelEntry> | null = null
     let messageLines: string[] = []
 
-    // Pattern to match attachment reference: 📎 See: attachments/xxx.md
-    const attachmentPattern = /^📎 See: (.+)$/
-
     for (const line of lines) {
       // Try full ISO format first: ### 2026-02-05T14:30:22.123Z [agent]
       const isoMatch = line.match(/^### (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z) \[([^\]]+)\]$/)
@@ -176,13 +148,12 @@ export class FileContextProvider implements ContextProvider {
       if (isoMatch || legacyMatch) {
         // Save previous entry
         if (currentEntry && currentEntry.timestamp && currentEntry.from) {
-          const { message, attachment } = this.extractMessageAndAttachment(messageLines, attachmentPattern)
+          const message = messageLines.join('\n').trim()
           entries.push({
             timestamp: currentEntry.timestamp,
             from: currentEntry.from,
             message,
             mentions: extractMentions(message, this.validAgents),
-            attachment,
           })
         }
 
@@ -212,42 +183,16 @@ export class FileContextProvider implements ContextProvider {
 
     // Save last entry
     if (currentEntry && currentEntry.timestamp && currentEntry.from) {
-      const { message, attachment } = this.extractMessageAndAttachment(messageLines, attachmentPattern)
+      const message = messageLines.join('\n').trim()
       entries.push({
         timestamp: currentEntry.timestamp,
         from: currentEntry.from,
         message,
         mentions: extractMentions(message, this.validAgents),
-        attachment,
       })
     }
 
     return entries
-  }
-
-  /**
-   * Extract message content and attachment reference from lines
-   */
-  private extractMessageAndAttachment(
-    lines: string[],
-    attachmentPattern: RegExp
-  ): { message: string; attachment?: string } {
-    let attachment: string | undefined
-    const contentLines: string[] = []
-
-    for (const line of lines) {
-      const attachMatch = line.match(attachmentPattern)
-      if (attachMatch) {
-        attachment = attachMatch[1]
-      } else {
-        contentLines.push(line)
-      }
-    }
-
-    return {
-      message: contentLines.join('\n').trim(),
-      attachment,
-    }
   }
 
   async getInbox(agent: string): Promise<InboxMessage[]> {

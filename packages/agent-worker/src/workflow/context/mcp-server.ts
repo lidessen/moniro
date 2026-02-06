@@ -6,7 +6,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import type { ContextProvider } from './provider.js'
-import type { ChannelEntry, InboxMessage } from './types.js'
+import type { ChannelEntry, InboxMessage, AttachmentType } from './types.js'
 import { formatProposal, formatProposalList, type ProposalManager } from './proposals.js'
 
 /**
@@ -59,6 +59,8 @@ function formatInbox(messages: InboxMessage[]): string {
  * Tools provided:
  * - channel_send: Send message to channel (with @mention support)
  * - channel_read: Read channel messages (does NOT acknowledge)
+ * - attachment_create: Create attachment, returns ID and ref for markdown links
+ * - attachment_read: Read attachment content by ID
  * - inbox_check: Get unread inbox messages (does NOT acknowledge)
  * - inbox_ack: Acknowledge inbox messages up to timestamp
  * - document_read: Read document (supports multiple files)
@@ -158,31 +160,49 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
   )
 
   server.tool(
-    'attachment_read',
-    'Read full content of a channel attachment. Use when a channel message has an attachment field.',
+    'attachment_create',
+    'Create an attachment for large content. Returns ID and ref for use in markdown links like [title](attachment:id)',
     {
-      path: z.string().describe('Attachment path (from channel entry attachment field)'),
+      content: z.string().describe('Content to store as attachment'),
+      type: z
+        .enum(['markdown', 'json', 'text', 'diff'])
+        .optional()
+        .describe('Content type hint (default: text)'),
     },
-    async ({ path }) => {
-      if (!provider.readAttachment) {
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: JSON.stringify({ error: 'Attachment reading not supported by this provider' }),
-            },
-          ],
-        }
-      }
+    async ({ content, type }, extra) => {
+      const createdBy = getAgentId(extra) || 'anonymous'
+      const result = await provider.createAttachment(content, createdBy, type as AttachmentType)
 
-      const content = await provider.readAttachment(path)
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              id: result.id,
+              ref: result.ref,
+              hint: `Use [description](${result.ref}) in your message`,
+            }),
+          },
+        ],
+      }
+    }
+  )
+
+  server.tool(
+    'attachment_read',
+    'Read attachment content by ID. Use when a message contains attachment:id references.',
+    {
+      id: z.string().describe('Attachment ID (e.g., att_abc123)'),
+    },
+    async ({ id }) => {
+      const content = await provider.readAttachment(id)
 
       if (content === null) {
         return {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify({ error: `Attachment not found: ${path}` }),
+              text: JSON.stringify({ error: `Attachment not found: ${id}` }),
             },
           ],
         }

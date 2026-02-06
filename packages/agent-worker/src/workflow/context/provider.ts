@@ -3,7 +3,7 @@
  * Abstract storage layer for channel, inbox, and document operations
  */
 
-import type { ChannelEntry, InboxMessage } from './types.js'
+import type { ChannelEntry, InboxMessage, AttachmentResult, AttachmentType } from './types.js'
 
 /**
  * Context Provider interface - storage abstraction for workflow context
@@ -80,9 +80,22 @@ export interface ContextProvider {
   createDocument(file: string, content: string): Promise<void>
 
   /**
-   * Read attachment content
-   * @param attachmentPath - Path to attachment (relative to context dir)
+   * Create an attachment
+   * @param content - Attachment content
+   * @param createdBy - Agent creating the attachment
+   * @param type - Content type hint (default: 'text')
+   * @returns Attachment ID and ready-to-use reference
+   */
+  createAttachment(
+    content: string,
+    createdBy: string,
+    type?: AttachmentType
+  ): Promise<AttachmentResult>
+
+  /**
+   * Read attachment content by ID
+   * @param id - Attachment ID (e.g., att_abc123)
    * @returns Attachment content or null if not found
    */
-  readAttachment?(attachmentPath: string): Promise<string | null>
+  readAttachment(id: string): Promise<string | null>
 }
