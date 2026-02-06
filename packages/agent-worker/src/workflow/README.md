@@ -205,14 +205,12 @@ Claude recently released [Agent Teams](https://code.claude.com/docs/en/agent-tea
 
 | Aspect | Agent Worker Workflow | Claude Agent Teams |
 |--------|----------------------|-------------------|
-| **Status** | Production-ready | Experimental, disabled by default |
 | **Coordination** | @mention in shared channel | Mailbox messaging system |
 | **Context** | Channel + Document (persistent) | Task list only |
 | **Session resumption** | ✓ File-based context survives | ✗ In-process teammates can't resume |
 | **Backend support** | Any MCP-compatible agent | Claude Code only |
 | **Terminal requirements** | None | tmux/iTerm2 for split panes |
 | **Parallel instances** | ✓ Instance-based isolation | ✗ One team per session |
-| **Nested orchestration** | ✓ Agents can spawn sub-workflows | ✗ Teammates can't spawn teams |
 | **Configuration** | YAML workflow files | Natural language prompts |
 
 ### Why We Think Our Design is Better
@@ -252,22 +250,22 @@ Agent Teams relies on natural language prompts to define team structure. Our YAM
 
 **5. Backend flexibility**
 
-Need to use Claude for reasoning and Codex for code execution? Mix backends:
+Mix different models based on task requirements:
 
 ```yaml
 agents:
   architect:
-    model: anthropic/claude-opus-4  # Claude for design
+    model: anthropic/claude-opus-4    # Opus for complex reasoning
     system_prompt: prompts/architect.md
 
   implementer:
-    model: openai/codex             # Codex for code
+    model: anthropic/claude-sonnet-4-5  # Sonnet for fast iteration
     system_prompt: prompts/implementer.md
 ```
 
-**6. Production-ready architecture**
+**6. Designed for reliability**
 
-Agent Teams has known limitations: no session resumption, task status lag, slow shutdown, single team per session. Our design addresses these from the start:
+Agent Teams has known limitations: no session resumption, task status lag, slow shutdown, single team per session. Our design addresses these:
 
 - File-based context = session resumption
 - MCP notifications = real-time updates
@@ -281,10 +279,13 @@ Agent Teams has known limitations: no session resumption, task status lag, slow 
 ```yaml
 agents:
   security_reviewer:
+    model: anthropic/claude-sonnet-4-5
     system_prompt: Focus on security vulnerabilities
   performance_reviewer:
+    model: anthropic/claude-sonnet-4-5
     system_prompt: Focus on performance issues
   synthesizer:
+    model: anthropic/claude-sonnet-4-5
     system_prompt: Combine findings into actionable report
 
 kickoff: |
@@ -301,10 +302,13 @@ kickoff: |
 ```yaml
 agents:
   researcher:
+    model: anthropic/claude-sonnet-4-5
     system_prompt: Investigate and gather information
   critic:
+    model: anthropic/claude-sonnet-4-5
     system_prompt: Challenge assumptions and find flaws
   writer:
+    model: anthropic/claude-sonnet-4-5
     system_prompt: Synthesize into clear documentation
 
 kickoff: |
@@ -320,10 +324,13 @@ kickoff: |
 ```yaml
 agents:
   hypothesis_a:
+    model: anthropic/claude-sonnet-4-5
     system_prompt: Investigate memory leaks
   hypothesis_b:
+    model: anthropic/claude-sonnet-4-5
     system_prompt: Investigate race conditions
   hypothesis_c:
+    model: anthropic/claude-sonnet-4-5
     system_prompt: Investigate external dependencies
 
 kickoff: |
@@ -338,8 +345,10 @@ kickoff: |
 ## Quick Start
 
 ```bash
-# Install
-npm install -g agent-worker
+# Install (from source)
+git clone https://github.com/lidessen/moniro.git
+cd moniro/packages/agent-worker
+bun install && bun run build
 
 # Create a workflow
 cat > review.yaml << 'EOF'
