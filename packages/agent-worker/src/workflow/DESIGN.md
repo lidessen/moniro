@@ -85,6 +85,60 @@ const CONTEXT_DEFAULTS = {
 }
 ```
 
+### The Three Context Layers
+
+Agents interact with three complementary context layers:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     Agent Context Model                          │
+│                                                                   │
+│  ┌──────────────┐   ┌──────────────────┐   ┌─────────────────┐  │
+│  │    INBOX     │   │     CHANNEL      │   │    DOCUMENT     │  │
+│  │              │   │                  │   │                 │  │
+│  │  "What's     │   │  "What happened  │   │  "What are we   │  │
+│  │   for me?"   │   │   so far?"       │   │   working on?"  │  │
+│  │              │   │                  │   │                 │  │
+│  │  - Unread    │   │  - Full history  │   │  - Goals        │  │
+│  │    @mentions │   │  - Who said what │   │  - Todos        │  │
+│  │  - Priority  │   │  - Timeline      │   │  - Methodology  │  │
+│  │    signals   │   │  - Context       │   │  - Decisions    │  │
+│  └──────────────┘   └──────────────────┘   └─────────────────┘  │
+│         │                    │                      │            │
+│         └────────────────────┼──────────────────────┘            │
+│                              │                                   │
+│                     Agent Work Loop                              │
+│            ┌─────────────────┴─────────────────┐                 │
+│            │  1. Check inbox (what's new?)     │                 │
+│            │  2. Read channel (get context)    │                 │
+│            │  3. Check document (goals/todos)  │                 │
+│            │  4. Do work                       │                 │
+│            │  5. Update document (if needed)   │                 │
+│            │  6. Send to channel (ack + next)  │                 │
+│            │  7. Repeat                        │                 │
+│            └───────────────────────────────────┘                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+| Layer | Purpose | Data Model | Persistence |
+|-------|---------|------------|-------------|
+| **Inbox** | "What needs my attention?" | Derived from channel @mentions | Transient (read state) |
+| **Channel** | "What's the full context?" | Append-only timeline | Permanent log |
+| **Document** | "What are the goals/methodology?" | Structured workspace | Editable, versioned |
+
+### Why Three Layers?
+
+**Inbox alone is insufficient**: An agent waking up to 5 unread messages has no context. What's the project? What happened before? What's the methodology?
+
+**Channel alone is overwhelming**: Scrolling through 100 messages to find "what's for me" is inefficient. The inbox filters the signal.
+
+**Document alone is static**: Goals and methodology don't change often, but the work does. Channel captures the dynamic flow.
+
+**Together they form a complete picture**:
+- **Inbox** → immediate attention (what's urgent?)
+- **Channel** → situational awareness (what's happening?)
+- **Document** → strategic context (what's the mission?)
+
 ### Channel vs Document
 
 | Aspect | Channel | Document |
@@ -117,6 +171,252 @@ Fixed, @reviewer please verify
 ## Decisions
 - Use zod for validation
 - Defer performance fix to next sprint
+```
+
+### Multi-File Document Structure
+
+Documents can span multiple files with a single entry point. This keeps the workspace organized while maintaining agent orientation.
+
+```
+.workflow/instance/
+├── channel.md          # Communication log (append-only)
+├── workspace.md        # Entry point document
+├── goals.md            # Project goals and success criteria
+├── todos.md            # Current tasks and status
+├── methodology.md      # How we work (patterns, conventions)
+├── decisions.md        # ADRs and key decisions
+└── findings/           # Detailed findings by topic
+    ├── auth-issues.md
+    └── performance.md
+```
+
+**Entry Point Pattern**:
+
+The entry point (`workspace.md`) serves as an index and orientation document:
+
+```markdown
+# PR #123 Review Workspace
+
+## Quick Links
+- [Goals](goals.md) - What success looks like
+- [Todos](todos.md) - Current tasks
+- [Decisions](decisions.md) - Key choices made
+
+## Current Focus
+@reviewer is investigating auth validation
+@coder is on standby for fixes
+
+## Methodology
+See [methodology.md](methodology.md) for review patterns.
+```
+
+**Document Configuration**:
+
+```yaml
+context:
+  provider: file
+  config:
+    dir: .workflow/${{ instance }}/
+    channel: channel.md
+    document: workspace.md    # Entry point only
+    documents:                # Additional structured documents
+      - goals.md
+      - todos.md
+      - methodology.md
+      - decisions.md
+```
+
+**MCP Tools for Multi-File Documents**:
+
+| Tool | Purpose |
+|------|---------|
+| `document_read` | Read entry point (default) or specific file |
+| `document_write` | Write to entry point or specific file |
+| `document_list` | List all document files |
+| `document_create` | Create new document file |
+
+```typescript
+// Read entry point
+await tools.document_read()
+
+// Read specific document
+await tools.document_read({ file: 'todos.md' })
+
+// Update todos
+await tools.document_write({
+  file: 'todos.md',
+  content: '# Todos\n- [x] Review auth\n- [ ] Check performance'
+})
+
+// Create new finding
+await tools.document_create({
+  file: 'findings/memory-leak.md',
+  content: '# Memory Leak Investigation\n...'
+})
+```
+
+### Inbox Design
+
+The inbox is a **derived view** of channel @mentions, filtered to unread messages for a specific agent.
+
+**Inbox State**:
+
+```typescript
+interface InboxState {
+  /** Per-agent read cursor (timestamp of last read message) */
+  readCursors: Map<string, string>
+}
+
+interface InboxMessage {
+  /** Original channel entry */
+  entry: ChannelEntry
+  /** Is this message unread? */
+  unread: boolean
+  /** Priority (multiple @mentions, urgent keywords) */
+  priority: 'normal' | 'high'
+}
+```
+
+**Inbox Operations**:
+
+| Operation | Effect |
+|-----------|--------|
+| `inbox_check` | Get unread messages for this agent |
+| `inbox_ack` | Mark messages as read (up to timestamp) |
+| `inbox_peek` | View inbox without marking as read |
+
+**Example Flow**:
+
+```
+1. @reviewer sends: "@coder please fix the auth issue"
+
+2. Channel entry created:
+   { from: 'reviewer', message: '@coder please fix...', mentions: ['coder'] }
+
+3. Coder's inbox now shows 1 unread:
+   inbox_check() → [{ entry: {...}, unread: true }]
+
+4. Coder reads and acknowledges:
+   inbox_ack({ until: '2024-01-15T10:05:00Z' })
+
+5. Coder's inbox is now empty:
+   inbox_check() → []
+```
+
+**Priority Detection**:
+
+Messages with multiple @mentions or urgent keywords get elevated priority:
+
+```typescript
+function calculatePriority(entry: ChannelEntry): 'normal' | 'high' {
+  // Multiple mentions = coordination needed
+  if (entry.mentions.length > 1) return 'high'
+
+  // Urgent keywords
+  const urgentPatterns = /\b(urgent|asap|blocked|critical)\b/i
+  if (urgentPatterns.test(entry.message)) return 'high'
+
+  return 'normal'
+}
+```
+
+### Agent Work Loop
+
+The recommended interaction pattern for agents:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                       Agent Work Loop                            │
+│                                                                   │
+│  ┌─────────────┐                                                │
+│  │   START     │                                                │
+│  └──────┬──────┘                                                │
+│         │                                                        │
+│         ▼                                                        │
+│  ┌─────────────────┐     ┌─────────────────────────────────┐   │
+│  │  inbox_check()  │────▶│ Unread messages?                │   │
+│  └─────────────────┘     └──────────────┬──────────────────┘   │
+│                                         │                        │
+│                          ┌──────────────┼──────────────┐        │
+│                          │              │              │        │
+│                          No            Yes            Yes       │
+│                      (0 msgs)      (normal)        (high)       │
+│                          │              │              │        │
+│                          ▼              ▼              ▼        │
+│                    ┌──────────┐  ┌───────────┐  ┌───────────┐  │
+│                    │  Wait/   │  │  Process  │  │  Process  │  │
+│                    │  Idle    │  │  in order │  │  priority │  │
+│                    └──────────┘  └─────┬─────┘  └─────┬─────┘  │
+│                          │             │              │        │
+│                          │             └──────┬───────┘        │
+│                          │                    │                 │
+│                          │                    ▼                 │
+│                          │        ┌─────────────────────┐      │
+│                          │        │ channel_read()      │      │
+│                          │        │ (get full context)  │      │
+│                          │        └──────────┬──────────┘      │
+│                          │                   │                  │
+│                          │                   ▼                  │
+│                          │        ┌─────────────────────┐      │
+│                          │        │ document_read()     │      │
+│                          │        │ (check goals/todos) │      │
+│                          │        └──────────┬──────────┘      │
+│                          │                   │                  │
+│                          │                   ▼                  │
+│                          │        ┌─────────────────────┐      │
+│                          │        │ DO WORK             │      │
+│                          │        │ (actual task)       │      │
+│                          │        └──────────┬──────────┘      │
+│                          │                   │                  │
+│                          │                   ▼                  │
+│                          │        ┌─────────────────────┐      │
+│                          │        │ document_write()    │      │
+│                          │        │ (update findings)   │      │
+│                          │        └──────────┬──────────┘      │
+│                          │                   │                  │
+│                          │                   ▼                  │
+│                          │        ┌─────────────────────┐      │
+│                          │        │ channel_send()      │      │
+│                          │        │ (report + @mention) │      │
+│                          │        └──────────┬──────────┘      │
+│                          │                   │                  │
+│                          │                   ▼                  │
+│                          │        ┌─────────────────────┐      │
+│                          │        │ inbox_ack()         │      │
+│                          │        │ (mark as handled)   │      │
+│                          │        └──────────┬──────────┘      │
+│                          │                   │                  │
+│                          └───────────────────┴─────────────────┘
+│                                              │
+│                                              ▼
+│                                        (loop back)
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**System Prompt Guidance** (for agents):
+
+```markdown
+## Workflow Participation
+
+You are part of a multi-agent workflow. Use these tools to collaborate:
+
+### Starting Work
+1. `inbox_check()` - See what messages are waiting for you
+2. `channel_read()` - Understand the full context
+3. `document_read()` - Check goals and current status
+
+### During Work
+- Update `document_write()` with findings as you go
+- Use `channel_send()` to coordinate with others (@mention them)
+
+### Completing Work
+1. `channel_send()` - Report completion, @mention next agent if needed
+2. `inbox_ack()` - Mark handled messages as read
+3. Check inbox again for new messages
+
+### Priority
+- High priority (multiple @mentions, "urgent") - handle first
+- Normal priority - handle in order received
 ```
 
 ---
@@ -207,6 +507,22 @@ interface MentionNotification {
   /** Entry timestamp */
   timestamp: string
 }
+
+/** Inbox message (derived from channel @mentions) */
+interface InboxMessage {
+  /** Original channel entry */
+  entry: ChannelEntry
+  /** Is this message unread? */
+  unread: boolean
+  /** Message priority */
+  priority: 'normal' | 'high'
+}
+
+/** Per-agent inbox state */
+interface InboxState {
+  /** Last acknowledged timestamp per agent */
+  readCursors: Map<string, string>
+}
 ```
 
 ---
@@ -271,14 +587,12 @@ Context is provided to agents via an MCP server, not direct file access.
 │  ┌──────────────────────────────────────────────────────────┐ │
 │  │           Context MCP Server (Unix Socket)                │ │
 │  │                                                           │ │
-│  │  Tools:                        Notifications:            │ │
-│  │   - channel_send                - mention                │ │
-│  │   - channel_read (ack mentions)                          │ │
-│  │   - channel_peek (no ack)                                │ │
-│  │   - channel_mentions                                     │ │
-│  │   - document_read                                        │ │
-│  │   - document_write                                       │ │
-│  │   - document_append                                      │ │
+│  │  Channel:              Inbox:              Document:     │ │
+│  │   - channel_send        - inbox_check       - document_read     │ │
+│  │   - channel_read        - inbox_ack         - document_write    │ │
+│  │   - channel_peek        - inbox_peek        - document_append   │ │
+│  │                                              - document_list     │ │
+│  │                                              - document_create   │ │
 │  │                                                           │ │
 │  │  Provider: FileProvider | MemoryProvider                 │ │
 │  └────────────────────────┬─────────────────────────────────┘ │
@@ -304,13 +618,24 @@ import { z } from 'zod'
 
 // Context Provider interface (storage abstraction)
 interface ContextProvider {
+  // Channel operations
   appendChannel(from: string, message: string): Promise<ChannelEntry>
   readChannel(since?: string, limit?: number): Promise<ChannelEntry[]>
-  getUnreadMentions(agent: string): Promise<MentionNotification[]>
-  acknowledgeMentions(agent: string, until: string): Promise<void>
-  readDocument(): Promise<string>
-  writeDocument(content: string): Promise<void>
-  appendDocument(content: string): Promise<void>
+
+  // Inbox operations (derived from channel @mentions)
+  getInbox(agent: string): Promise<InboxMessage[]>
+  ackInbox(agent: string, until: string): Promise<void>
+  peekInbox(agent: string): Promise<InboxMessage[]>  // No ack
+
+  // Document operations (single file - legacy)
+  readDocument(file?: string): Promise<string>
+  writeDocument(content: string, file?: string): Promise<void>
+  appendDocument(content: string, file?: string): Promise<void>
+
+  // Multi-file document operations
+  listDocuments(): Promise<string[]>
+  createDocument(file: string, content: string): Promise<void>
+  deleteDocument(file: string): Promise<void>
 }
 
 // MCP Server for Context
@@ -374,34 +699,62 @@ function createContextMCPServer(
     return { content: [{ type: 'text', text: JSON.stringify(entries) }] }
   })
 
-  server.tool('channel_mentions', {
-    unread_only: z.boolean().optional().describe('Only unread mentions'),
-  }, async ({ unread_only }, extra) => {
+  // Inbox tools
+  server.tool('inbox_check', {}, async (_, extra) => {
     const agent = extra.sessionId
-    const mentions = unread_only
-      ? await provider.getUnreadMentions(agent)
-      : [] // TODO: get all mentions
-    return { content: [{ type: 'text', text: JSON.stringify(mentions) }] }
+    const messages = await provider.getInbox(agent)
+    return { content: [{ type: 'text', text: JSON.stringify(messages) }] }
+  })
+
+  server.tool('inbox_ack', {
+    until: z.string().describe('Acknowledge messages up to this timestamp'),
+  }, async ({ until }, extra) => {
+    const agent = extra.sessionId
+    await provider.ackInbox(agent, until)
+    return { content: [{ type: 'text', text: 'acknowledged' }] }
+  })
+
+  server.tool('inbox_peek', {}, async (_, extra) => {
+    const agent = extra.sessionId
+    const messages = await provider.peekInbox(agent)
+    return { content: [{ type: 'text', text: JSON.stringify(messages) }] }
   })
 
   // Document tools
-  server.tool('document_read', {}, async () => {
-    const content = await provider.readDocument()
+  server.tool('document_read', {
+    file: z.string().optional().describe('File to read (default: entry point)'),
+  }, async ({ file }) => {
+    const content = await provider.readDocument(file)
     return { content: [{ type: 'text', text: content }] }
   })
 
   server.tool('document_write', {
     content: z.string().describe('New document content (replaces existing)'),
-  }, async ({ content }) => {
-    await provider.writeDocument(content)
+    file: z.string().optional().describe('File to write (default: entry point)'),
+  }, async ({ content, file }) => {
+    await provider.writeDocument(content, file)
     return { content: [{ type: 'text', text: 'written' }] }
   })
 
   server.tool('document_append', {
     content: z.string().describe('Content to append to document'),
-  }, async ({ content }) => {
-    await provider.appendDocument(content)
+    file: z.string().optional().describe('File to append to (default: entry point)'),
+  }, async ({ content, file }) => {
+    await provider.appendDocument(content, file)
     return { content: [{ type: 'text', text: 'appended' }] }
+  })
+
+  server.tool('document_list', {}, async () => {
+    const files = await provider.listDocuments()
+    return { content: [{ type: 'text', text: JSON.stringify(files) }] }
+  })
+
+  server.tool('document_create', {
+    file: z.string().describe('File path relative to context dir'),
+    content: z.string().describe('Initial content'),
+  }, async ({ file, content }) => {
+    await provider.createDocument(file, content)
+    return { content: [{ type: 'text', text: 'created' }] }
   })
 
   return { server, agentConnections }

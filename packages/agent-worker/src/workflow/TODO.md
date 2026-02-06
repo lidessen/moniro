@@ -72,6 +72,29 @@ Implementation tasks for the workflow design. See [DESIGN.md](./DESIGN.md) for f
 
 ---
 
+## Phase 7: Inbox Model
+
+- [ ] Add `InboxMessage` and `InboxState` types
+- [ ] Add inbox methods to `ContextProvider` interface
+- [ ] Implement `getInbox()` - get unread @mentions for agent
+- [ ] Implement `ackInbox()` - acknowledge messages up to timestamp
+- [ ] Implement `peekInbox()` - view inbox without acknowledging
+- [ ] Add priority detection (multiple mentions, urgent keywords)
+- [ ] Add MCP tools: `inbox_check`, `inbox_ack`, `inbox_peek`
+- [ ] Update agent system prompts with work loop guidance
+
+## Phase 8: Multi-File Documents
+
+- [ ] Add `documents` config option for additional document files
+- [ ] Add `file` parameter to `document_read`, `document_write`, `document_append`
+- [ ] Implement `listDocuments()` - list all document files
+- [ ] Implement `createDocument()` - create new document file
+- [ ] Implement `deleteDocument()` - remove document file
+- [ ] Add MCP tools: `document_list`, `document_create`
+- [ ] Support nested document directories (e.g., `findings/auth.md`)
+
+---
+
 ## Future Improvements
 
 Ideas for future enhancements (not currently planned):
