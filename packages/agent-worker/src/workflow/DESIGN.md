@@ -388,166 +388,381 @@ agents:
 - When speed matters more than consistency
 - When agents rarely update documents
 
-### Document Owner Election
+### Proposal & Voting System
 
-When multiple agents exist and no `documentOwner` is specified, agents elect one via voting.
+A generic mechanism for collaborative decision-making: document ownership, design decisions, task assignment, etc.
 
-**Election Flow:**
+**Core Concepts:**
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Document Owner Election                       │
+│                    Proposal & Voting                             │
 │                                                                  │
-│  1. Workflow starts with multiple agents, no documentOwner      │
+│  Proposal Types:                                                 │
+│   - election: Choose one agent (document owner, task lead)      │
+│   - decision: Choose one option (design choice, approach)       │
+│   - approval: Yes/No on a single proposal                       │
+│   - assignment: Distribute tasks among agents                   │
 │                                                                  │
-│  2. System posts to channel:                                    │
-│     "[ELECTION] Document owner needed. Use document_vote_owner  │
-│      to nominate. Election closes after all agents vote or      │
-│      30 seconds of inactivity."                                 │
+│  Resolution Rules:                                               │
+│   - plurality: Most votes wins (default)                        │
+│   - majority: >50% required                                     │
+│   - unanimous: All must agree                                   │
+│   - quorum: Minimum voters required                             │
 │                                                                  │
-│  3. Agents vote (can vote for self or others):                  │
-│     @reviewer: document_vote_owner({ nominee: 'scribe' })       │
-│     @coder: document_vote_owner({ nominee: 'scribe' })          │
-│     @scribe: document_vote_owner({ nominee: 'scribe' })         │
+│  Lifecycle:                                                      │
+│   pending → active → resolved/expired                           │
 │                                                                  │
-│  4. Election resolves:                                          │
-│     - All agents voted → winner announced                       │
-│     - Timeout → most votes wins (tie: first nominated)          │
-│                                                                  │
-│  5. System posts result:                                        │
-│     "[ELECTION] @scribe elected as document owner (3 votes)"    │
-│                                                                  │
-│  6. Document write tools now enforce ownership                  │
+│  Binding:                                                        │
+│   - binding: System enforces result (e.g., document owner)      │
+│   - advisory: Agents should respect but not enforced            │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**MCP Tools for Election:**
+**Proposal Interface:**
 
 ```typescript
-// Election state
-interface ElectionState {
-  status: 'pending' | 'active' | 'resolved'
-  votes: Map<string, string>  // voter → nominee
-  winner?: string
-  startedAt?: string
+interface Proposal {
+  id: string                    // Unique ID (e.g., 'doc-owner-001')
+  type: 'election' | 'decision' | 'approval' | 'assignment'
+  title: string                 // "Document Owner Election"
+  description?: string          // Context for voters
+  options: ProposalOption[]     // Available choices
+  createdBy: string             // Agent or 'system'
+  createdAt: string             // ISO timestamp
+  expiresAt?: string            // Auto-resolve deadline
+  resolution: ResolutionRule
+  binding: boolean              // Enforced by system?
+  status: 'active' | 'resolved' | 'expired' | 'cancelled'
+  result?: ProposalResult
 }
 
-server.tool('document_vote_owner', {
-  nominee: z.string().describe('Agent name to nominate as document owner'),
-  reason: z.string().optional().describe('Why this agent should own documents'),
-}, async ({ nominee, reason }, extra) => {
-  const voter = extra.sessionId
+interface ProposalOption {
+  id: string                    // 'opt-1', 'scribe', etc.
+  label: string                 // Display text
+  metadata?: Record<string, unknown>  // Type-specific data
+}
 
-  // Validate nominee is a valid agent
-  if (!validAgents.includes(nominee)) {
-    return {
-      content: [{
-        type: 'text',
-        text: `Error: @${nominee} is not a valid agent. Valid: ${validAgents.join(', ')}`
-      }]
-    }
+interface ResolutionRule {
+  type: 'plurality' | 'majority' | 'unanimous'
+  quorum?: number               // Minimum voters (default: all agents)
+  tieBreaker?: 'first' | 'random' | 'creator-decides'
+}
+
+interface ProposalResult {
+  winner?: string               // Winning option ID
+  votes: Map<string, string>    // voter → option
+  counts: Map<string, number>   // option → count
+  resolvedAt: string
+  resolvedBy: 'votes' | 'timeout' | 'creator' | 'system'
+}
+```
+
+**MCP Tools:**
+
+```typescript
+// Create a new proposal
+server.tool('proposal_create', {
+  type: z.enum(['election', 'decision', 'approval', 'assignment']),
+  title: z.string(),
+  description: z.string().optional(),
+  options: z.array(z.object({
+    id: z.string(),
+    label: z.string(),
+  })).optional(),  // Auto-generated for election (agents) / approval (yes/no)
+  resolution: z.object({
+    type: z.enum(['plurality', 'majority', 'unanimous']).default('plurality'),
+    quorum: z.number().optional(),
+  }).optional(),
+  binding: z.boolean().default(false),
+  timeoutSeconds: z.number().default(60),
+}, async (params, extra) => {
+  const creator = extra.sessionId
+  const proposal = createProposal(creator, params)
+
+  // Post to channel
+  await provider.appendChannel('system',
+    `[PROPOSAL:${proposal.id}] ${proposal.title}\n` +
+    `Type: ${proposal.type} | Resolution: ${proposal.resolution.type}\n` +
+    `Options: ${proposal.options.map(o => o.label).join(', ')}\n` +
+    `Vote with: vote({ proposal: '${proposal.id}', choice: '<option-id>' })`
+  )
+
+  return { content: [{ type: 'text', text: JSON.stringify(proposal) }] }
+})
+
+// Vote on a proposal
+server.tool('vote', {
+  proposal: z.string().describe('Proposal ID'),
+  choice: z.string().describe('Option ID to vote for'),
+  reason: z.string().optional(),
+}, async ({ proposal: proposalId, choice, reason }, extra) => {
+  const voter = extra.sessionId
+  const proposal = proposals.get(proposalId)
+
+  if (!proposal) {
+    return { content: [{ type: 'text', text: `Error: Proposal ${proposalId} not found` }] }
+  }
+
+  if (proposal.status !== 'active') {
+    return { content: [{ type: 'text', text: `Error: Proposal is ${proposal.status}` }] }
+  }
+
+  if (!proposal.options.find(o => o.id === choice)) {
+    return { content: [{ type: 'text', text: `Error: Invalid option. Valid: ${proposal.options.map(o => o.id).join(', ')}` }] }
   }
 
   // Record vote
-  electionState.votes.set(voter, nominee)
+  proposal.result!.votes.set(voter, choice)
 
   // Post to channel
   const reasonInfo = reason ? ` (${reason})` : ''
-  await provider.appendChannel(voter, `[VOTE] I nominate @${nominee} as document owner${reasonInfo}`)
+  const optionLabel = proposal.options.find(o => o.id === choice)!.label
+  await provider.appendChannel(voter,
+    `[VOTE:${proposalId}] I vote for "${optionLabel}"${reasonInfo}`
+  )
 
-  // Check if election should resolve
-  if (electionState.votes.size === validAgents.length) {
-    await resolveElection()
+  // Check if should resolve
+  const voteCount = proposal.result!.votes.size
+  const quorum = proposal.resolution.quorum || validAgents.length
+
+  if (voteCount >= quorum) {
+    await resolveProposal(proposal)
   }
 
   return {
     content: [{
       type: 'text',
-      text: `Vote recorded for @${nominee}. ${electionState.votes.size}/${validAgents.length} agents voted.`
+      text: `Vote recorded. ${voteCount}/${quorum} votes received.`
     }]
   }
 })
 
-server.tool('document_election_status', {}, async () => {
-  const votes = Array.from(electionState.votes.entries())
-  const voteCounts = countVotes(electionState.votes)
-
-  return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify({
-        status: electionState.status,
-        votes: votes.map(([voter, nominee]) => ({ voter, nominee })),
-        counts: Object.fromEntries(voteCounts),
-        winner: electionState.winner,
-      })
-    }]
+// Check proposal status
+server.tool('proposal_status', {
+  proposal: z.string().optional().describe('Proposal ID (omit for all active)'),
+}, async ({ proposal: proposalId }) => {
+  if (proposalId) {
+    const proposal = proposals.get(proposalId)
+    return { content: [{ type: 'text', text: JSON.stringify(proposal) }] }
   }
+
+  const active = Array.from(proposals.values()).filter(p => p.status === 'active')
+  return { content: [{ type: 'text', text: JSON.stringify(active) }] }
 })
 
-async function resolveElection() {
-  const voteCounts = countVotes(electionState.votes)
+// Cancel a proposal (creator only)
+server.tool('proposal_cancel', {
+  proposal: z.string(),
+  reason: z.string().optional(),
+}, async ({ proposal: proposalId, reason }, extra) => {
+  const agent = extra.sessionId
+  const proposal = proposals.get(proposalId)
 
-  // Find winner (most votes, tie goes to first nominated)
-  let winner = ''
-  let maxVotes = 0
-  for (const [nominee, count] of voteCounts) {
-    if (count > maxVotes) {
-      maxVotes = count
-      winner = nominee
-    }
+  if (!proposal) {
+    return { content: [{ type: 'text', text: `Error: Proposal ${proposalId} not found` }] }
   }
 
-  electionState.status = 'resolved'
-  electionState.winner = winner
-  config.documentOwner = winner  // Set the owner
+  if (proposal.createdBy !== agent && agent !== 'system') {
+    return { content: [{ type: 'text', text: `Error: Only creator can cancel` }] }
+  }
+
+  proposal.status = 'cancelled'
 
   await provider.appendChannel('system',
-    `[ELECTION] @${winner} elected as document owner (${maxVotes} vote${maxVotes > 1 ? 's' : ''})`
+    `[PROPOSAL:${proposalId}] Cancelled${reason ? `: ${reason}` : ''}`
   )
-}
 
-function countVotes(votes: Map<string, string>): Map<string, number> {
-  const counts = new Map<string, number>()
-  for (const nominee of votes.values()) {
-    counts.set(nominee, (counts.get(nominee) || 0) + 1)
-  }
-  return counts
-}
+  return { content: [{ type: 'text', text: 'Proposal cancelled' }] }
+})
 ```
 
-**Election Timeout:**
+**Resolution Logic:**
 
 ```typescript
-// Start election timeout when first vote received
-function startElectionTimeout() {
-  setTimeout(async () => {
-    if (electionState.status === 'active' && electionState.votes.size > 0) {
-      await resolveElection()
+async function resolveProposal(proposal: Proposal) {
+  const votes = proposal.result!.votes
+  const counts = new Map<string, number>()
+
+  // Count votes
+  for (const choice of votes.values()) {
+    counts.set(choice, (counts.get(choice) || 0) + 1)
+  }
+
+  proposal.result!.counts = counts
+
+  // Determine winner based on resolution rule
+  let winner: string | undefined
+
+  switch (proposal.resolution.type) {
+    case 'plurality': {
+      // Most votes wins
+      let maxVotes = 0
+      for (const [option, count] of counts) {
+        if (count > maxVotes) {
+          maxVotes = count
+          winner = option
+        }
+      }
+      break
     }
-  }, 30_000)  // 30 seconds
+    case 'majority': {
+      // >50% required
+      const total = votes.size
+      for (const [option, count] of counts) {
+        if (count > total / 2) {
+          winner = option
+          break
+        }
+      }
+      break
+    }
+    case 'unanimous': {
+      // All same vote
+      const choices = new Set(votes.values())
+      if (choices.size === 1) {
+        winner = [...choices][0]
+      }
+      break
+    }
+  }
+
+  proposal.status = 'resolved'
+  proposal.result!.winner = winner
+  proposal.result!.resolvedAt = new Date().toISOString()
+  proposal.result!.resolvedBy = 'votes'
+
+  // Post result
+  const winnerLabel = winner
+    ? proposal.options.find(o => o.id === winner)!.label
+    : 'No winner (tie/no majority)'
+
+  await provider.appendChannel('system',
+    `[RESOLVED:${proposal.id}] ${proposal.title}\n` +
+    `Result: ${winnerLabel}\n` +
+    `Votes: ${Array.from(counts.entries()).map(([o, c]) => `${o}=${c}`).join(', ')}`
+  )
+
+  // Apply binding result
+  if (proposal.binding && winner) {
+    await applyProposalResult(proposal, winner)
+  }
+}
+
+async function applyProposalResult(proposal: Proposal, winner: string) {
+  // Type-specific binding logic
+  switch (proposal.type) {
+    case 'election':
+      // Check if this is a document owner election
+      if (proposal.id.startsWith('doc-owner')) {
+        config.documentOwner = winner
+      }
+      break
+    case 'assignment':
+      // Could update task assignments
+      break
+    // Other types are typically advisory
+  }
 }
 ```
 
-**System Prompt Guidance for Election:**
+**Use Case Examples:**
+
+```typescript
+// 1. Document Owner Election (system-initiated)
+await tools.proposal_create({
+  type: 'election',
+  title: 'Document Owner Election',
+  description: 'Choose who maintains workflow documentation',
+  // options auto-populated with agent names
+  binding: true,
+  timeoutSeconds: 30,
+})
+
+// 2. Design Decision (agent-initiated)
+await tools.proposal_create({
+  type: 'decision',
+  title: 'Authentication Approach',
+  description: 'How should we implement user auth?',
+  options: [
+    { id: 'jwt', label: 'JWT tokens' },
+    { id: 'session', label: 'Server sessions' },
+    { id: 'oauth', label: 'OAuth only' },
+  ],
+  resolution: { type: 'majority' },
+  binding: false,  // Advisory - agents decide how to proceed
+  timeoutSeconds: 120,
+})
+
+// 3. Task Assignment
+await tools.proposal_create({
+  type: 'assignment',
+  title: 'Code Review Tasks',
+  description: 'Who handles which part?',
+  options: [
+    { id: 'auth', label: 'Auth module → ?' },
+    { id: 'api', label: 'API routes → ?' },
+    { id: 'db', label: 'Database → ?' },
+  ],
+  // Agents vote for tasks they want
+  binding: false,
+  timeoutSeconds: 60,
+})
+
+// 4. Simple Approval
+await tools.proposal_create({
+  type: 'approval',
+  title: 'Ready to merge?',
+  description: 'All issues addressed, tests passing. Approve merge?',
+  // options auto: [{ id: 'yes', label: 'Approve' }, { id: 'no', label: 'Reject' }]
+  resolution: { type: 'unanimous' },
+  binding: false,
+  timeoutSeconds: 60,
+})
+```
+
+**System Prompt Guidance:**
 
 ```markdown
-## Document Ownership
+## Proposals & Voting
 
-If you see an [ELECTION] message, you need to vote for a document owner:
+When you see a [PROPOSAL] message, participate in the decision:
 
-1. Consider who should maintain documentation:
-   - Agent with documentation focus
-   - Agent who writes most content
-   - Agent available throughout workflow
+1. **Review the proposal** - understand what's being decided
+2. **Vote** using: `vote({ proposal: '<id>', choice: '<option>', reason: '...' })`
+3. **Check status** with: `proposal_status({ proposal: '<id>' })`
 
-2. Vote using: `document_vote_owner({ nominee: 'agent-name' })`
-   - You can nominate yourself if appropriate
-   - Add a reason to help others decide
+You can also create proposals:
+- **Decision needed?** Create a decision proposal
+- **Task distribution?** Create an assignment proposal
+- **Need consensus?** Create an approval proposal
 
-3. After election resolves:
-   - Winner: use `document_write`, `document_create`
-   - Others: use `document_suggest` to request changes
+Binding proposals are enforced by the system. Advisory proposals rely on agent cooperation.
+```
+
+**Document Owner Election (Simplified):**
+
+With the generic system, document owner election becomes:
+
+```typescript
+// System auto-creates this when multiple agents + no documentOwner
+function startDocumentOwnerElection() {
+  const options = validAgents.map(agent => ({
+    id: agent,
+    label: `@${agent}`,
+  }))
+
+  return tools.proposal_create({
+    type: 'election',
+    title: 'Document Owner Election',
+    description: 'Elect an agent to maintain workflow documents. ' +
+                 'The winner will have exclusive write access.',
+    options,
+    resolution: { type: 'plurality', tieBreaker: 'first' },
+    binding: true,
+    timeoutSeconds: 30,
+  })
+}
 ```
 
 ### Inbox Design
@@ -2339,11 +2554,17 @@ interface RetryConfig {
 
 **Phase 10: Document Ownership** (optional)
 1. Move `documentOwner` to context level (cross-provider)
-2. Default behavior: single agent = disabled, multiple + unspecified = election
+2. Default behavior: single agent = disabled, multiple + unspecified = election (Phase 11)
 3. Add ownership check to write/create/append tools
 4. Add `document_suggest` tool for non-owners
-5. Add election tools: `document_vote_owner`, `document_election_status`
-6. Implement election flow with timeout (30s)
+
+**Phase 11: Proposal & Voting System**
+1. Define `Proposal`, `ProposalOption`, `ResolutionRule`, `ProposalResult` types
+2. Implement `proposal_create`, `vote`, `proposal_status`, `proposal_cancel` tools
+3. Resolution rules: plurality, majority, unanimous
+4. Binding vs advisory proposals
+5. Auto-create document owner election when needed
+6. Timeout resolution with tie-breaker
 
 ---
 

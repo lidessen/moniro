@@ -136,7 +136,7 @@ Single-writer model to prevent concurrent document conflicts:
 ### Configuration
 - [ ] Move `documentOwner` to context level (cross-provider, not in config.*)
 - [ ] Update `FileContextConfig` and `MemoryContextConfig` interfaces
-- [ ] Default: single agent = disabled, multiple + not specified = election
+- [ ] Default: single agent = disabled, multiple + not specified = election (via Phase 11)
 
 ### Ownership Enforcement
 - [ ] Add ownership check to `document_write`, `document_create`, `document_append`
@@ -144,17 +144,39 @@ Single-writer model to prevent concurrent document conflicts:
 - [ ] Non-owner write attempts return error with guidance to use `document_suggest`
 - [ ] `document_suggest` posts @mention to owner in channel
 
-### Election Mechanism
-- [ ] Add `ElectionState` interface (pending/active/resolved, votes, winner)
-- [ ] Add `document_vote_owner` MCP tool
-- [ ] Add `document_election_status` MCP tool
-- [ ] Post [ELECTION] message to channel when election needed
-- [ ] Resolve election when all agents voted OR timeout (30s)
-- [ ] Tie-breaker: first nominated wins
-- [ ] Post [ELECTION] result to channel
-
 > **When to use**: Workflows with 3+ agents, when document consistency matters.
 > **When NOT to use**: Simple workflows, speed over consistency.
+
+## Phase 11: Proposal & Voting System
+
+Generic collaborative decision-making for elections, design decisions, task assignment, etc.
+
+### Core Types
+- [ ] Define `Proposal` interface (id, type, title, options, resolution, binding, status)
+- [ ] Define `ProposalOption` interface (id, label, metadata)
+- [ ] Define `ResolutionRule` interface (type, quorum, tieBreaker)
+- [ ] Define `ProposalResult` interface (winner, votes, counts, resolvedAt, resolvedBy)
+- [ ] Proposal types: election, decision, approval, assignment
+- [ ] Resolution types: plurality, majority, unanimous
+
+### MCP Tools
+- [ ] Add `proposal_create` tool
+- [ ] Add `vote` tool
+- [ ] Add `proposal_status` tool
+- [ ] Add `proposal_cancel` tool (creator only)
+
+### Resolution Logic
+- [ ] Implement `resolveProposal()` with plurality/majority/unanimous rules
+- [ ] Implement `applyProposalResult()` for binding proposals
+- [ ] Handle timeout resolution
+- [ ] Handle tie-breaker logic
+
+### Integration
+- [ ] Auto-create document owner election when needed (binding)
+- [ ] Post [PROPOSAL], [VOTE], [RESOLVED] messages to channel
+- [ ] Update system prompt guidance for voting
+
+> **Use cases**: Document owner election, design decisions, task assignment, merge approval
 
 ---
 
