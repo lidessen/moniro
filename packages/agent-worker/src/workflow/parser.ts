@@ -106,13 +106,16 @@ function resolveContext(
       provider: 'file',
       dir,
       channel: CONTEXT_DEFAULTS.channel,
-      document: CONTEXT_DEFAULTS.document,
+      documentDir: CONTEXT_DEFAULTS.documentDir,
     }
   }
 
   // Memory provider
   if (config.provider === 'memory') {
-    return { provider: 'memory' }
+    return {
+      provider: 'memory',
+      documentOwner: config.documentOwner,
+    }
   }
 
   // File provider with custom config
@@ -124,7 +127,8 @@ function resolveContext(
     provider: 'file',
     dir,
     channel: fileConfig.channel || CONTEXT_DEFAULTS.channel,
-    document: fileConfig.document || CONTEXT_DEFAULTS.document,
+    documentDir: fileConfig.documentDir || CONTEXT_DEFAULTS.documentDir,
+    documentOwner: config.documentOwner,
   }
 }
 
@@ -220,6 +224,11 @@ function validateContext(context: unknown, errors: ValidationError[]): void {
     return
   }
 
+  // Validate documentOwner (optional, valid for both providers)
+  if (c.documentOwner !== undefined && typeof c.documentOwner !== 'string') {
+    errors.push({ path: 'context.documentOwner', message: 'Context documentOwner must be a string' })
+  }
+
   // Validate file provider config
   if (c.provider === 'file' && c.config !== undefined) {
     if (typeof c.config !== 'object' || c.config === null) {
@@ -233,6 +242,9 @@ function validateContext(context: unknown, errors: ValidationError[]): void {
     }
     if (cfg.channel !== undefined && typeof cfg.channel !== 'string') {
       errors.push({ path: 'context.config.channel', message: 'Context config channel must be a string' })
+    }
+    if (cfg.documentDir !== undefined && typeof cfg.documentDir !== 'string') {
+      errors.push({ path: 'context.config.documentDir', message: 'Context config documentDir must be a string' })
     }
     if (cfg.document !== undefined && typeof cfg.document !== 'string') {
       errors.push({ path: 'context.config.document', message: 'Context config document must be a string' })
@@ -293,7 +305,7 @@ export function getKickoffMentions(kickoff: string, validAgents: string[]): stri
 
   while ((match = pattern.exec(kickoff)) !== null) {
     const agent = match[1]
-    if (validAgents.includes(agent) && !mentions.includes(agent)) {
+    if (agent && validAgents.includes(agent) && !mentions.includes(agent)) {
       mentions.push(agent)
     }
   }

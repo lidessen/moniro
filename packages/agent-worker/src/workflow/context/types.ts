@@ -15,16 +15,18 @@ export interface ChannelEntry {
   mentions: string[]
 }
 
-/** @mention notification */
-export interface MentionNotification {
-  /** Who sent the message */
-  from: string
-  /** Who was mentioned */
-  target: string
-  /** The message content */
-  message: string
-  /** Entry timestamp */
-  timestamp: string
+/** Inbox message (unread @mention) */
+export interface InboxMessage {
+  /** Original channel entry */
+  entry: ChannelEntry
+  /** Priority level */
+  priority: 'normal' | 'high'
+}
+
+/** Inbox state (per-agent read cursors) */
+export interface InboxState {
+  /** Per-agent read cursor: agent name → timestamp of last acknowledged message */
+  readCursors: Record<string, string>
 }
 
 /**
@@ -40,12 +42,16 @@ export type ContextConfig = false | FileContextConfig | MemoryContextConfig
 /** File-based context provider configuration */
 export interface FileContextConfig {
   provider: 'file'
+  /** Document owner (single-writer model, optional) */
+  documentOwner?: string
   config?: FileProviderConfig
 }
 
 /** Memory-based context provider configuration (for testing) */
 export interface MemoryContextConfig {
   provider: 'memory'
+  /** Document owner (single-writer model, optional) */
+  documentOwner?: string
 }
 
 /** Configuration for file provider */
@@ -54,7 +60,9 @@ export interface FileProviderConfig {
   dir?: string
   /** Channel file name (default: channel.md) */
   channel?: string
-  /** Document file name (default: notes.md) */
+  /** Document directory (default: documents/) */
+  documentDir?: string
+  /** Default document file name (default: notes.md) */
   document?: string
 }
 
@@ -62,6 +70,8 @@ export interface FileProviderConfig {
 export const CONTEXT_DEFAULTS = {
   dir: '.workflow/${{ instance }}/',
   channel: 'channel.md',
+  stateDir: '_state/',
+  documentDir: 'documents/',
   document: 'notes.md',
 } as const
 
@@ -80,10 +90,26 @@ export function extractMentions(message: string, validAgents: string[]): string[
 
   while ((match = MENTION_PATTERN.exec(message)) !== null) {
     const agent = match[1]
-    if (validAgents.includes(agent) && !mentions.includes(agent)) {
+    if (agent && validAgents.includes(agent) && !mentions.includes(agent)) {
       mentions.push(agent)
     }
   }
 
   return mentions
+}
+
+/** Urgent keyword pattern */
+const URGENT_PATTERN = /\b(urgent|asap|blocked|critical)\b/i
+
+/**
+ * Calculate priority for an inbox message
+ */
+export function calculatePriority(entry: ChannelEntry): 'normal' | 'high' {
+  // Multiple mentions = coordination needed
+  if (entry.mentions.length > 1) return 'high'
+
+  // Urgent keywords
+  if (URGENT_PATTERN.test(entry.message)) return 'high'
+
+  return 'normal'
 }

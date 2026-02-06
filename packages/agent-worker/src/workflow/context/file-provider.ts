@@ -3,52 +3,53 @@
  * File-based storage with markdown format for human readability
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, readdirSync, statSync } from 'node:fs'
+import { dirname, join, relative } from 'node:path'
 import type { ContextProvider } from './provider.js'
-import type { ChannelEntry, MentionNotification } from './types.js'
-import { extractMentions } from './types.js'
+import type { ChannelEntry, InboxMessage, InboxState } from './types.js'
+import { CONTEXT_DEFAULTS, calculatePriority, extractMentions } from './types.js'
 
 /**
  * File-based implementation of ContextProvider
  * Uses markdown format for channel (human-readable)
  */
 export class FileContextProvider implements ContextProvider {
-  private mentionState: Map<string, string> = new Map() // agent -> last ack timestamp
+  private inboxState: InboxState = { readCursors: {} }
+  private readonly inboxStatePath: string
 
   constructor(
     private channelPath: string,
-    private documentPath: string,
-    private mentionStatePath: string,
+    private documentDir: string,
+    private stateDir: string,
     private validAgents: string[]
   ) {
+    this.inboxStatePath = join(stateDir, 'inbox-state.json')
     this.ensureDirectories()
-    this.loadMentionState()
+    this.loadInboxState()
   }
 
   private ensureDirectories(): void {
-    for (const filePath of [this.channelPath, this.documentPath, this.mentionStatePath]) {
-      const dir = dirname(filePath)
+    for (const dir of [dirname(this.channelPath), this.documentDir, this.stateDir]) {
       if (!existsSync(dir)) {
         mkdirSync(dir, { recursive: true })
       }
     }
   }
 
-  private loadMentionState(): void {
+  private loadInboxState(): void {
     try {
-      if (existsSync(this.mentionStatePath)) {
-        const data = JSON.parse(readFileSync(this.mentionStatePath, 'utf-8'))
-        this.mentionState = new Map(Object.entries(data))
+      if (existsSync(this.inboxStatePath)) {
+        const data = JSON.parse(readFileSync(this.inboxStatePath, 'utf-8'))
+        this.inboxState = { readCursors: data.readCursors || data || {} }
       }
     } catch {
       // No state file yet or invalid JSON - start fresh
     }
   }
 
-  private saveMentionState(): void {
-    const data = Object.fromEntries(this.mentionState)
-    writeFileSync(this.mentionStatePath, JSON.stringify(data, null, 2))
+  private saveInboxState(): void {
+    const data = { readCursors: this.inboxState.readCursors }
+    writeFileSync(this.inboxStatePath, JSON.stringify(data, null, 2))
   }
 
   async appendChannel(from: string, message: string): Promise<ChannelEntry> {
@@ -127,15 +128,16 @@ export class FileContextProvider implements ContextProvider {
         let from: string
 
         if (isoMatch) {
-          const [, isoTimestamp, agentName] = isoMatch
-          timestamp = isoTimestamp
-          from = agentName
+          timestamp = isoMatch[1]!
+          from = isoMatch[2]!
         } else {
-          const [, timeStr, agentName] = legacyMatch!
+          // legacyMatch is guaranteed here since we're in isoMatch || legacyMatch block
+          const match = legacyMatch as RegExpMatchArray
+          const timeStr = match[1]!
+          from = match[2]!
           // Legacy format: use today's date
           const today = new Date().toISOString().slice(0, 10)
           timestamp = `${today}T${timeStr}.000Z`
-          from = agentName
         }
 
         currentEntry = { timestamp, from }
@@ -159,42 +161,33 @@ export class FileContextProvider implements ContextProvider {
     return entries
   }
 
-  async getUnreadMentions(agent: string): Promise<MentionNotification[]> {
-    const lastAck = this.mentionState.get(agent) || ''
+  async getInbox(agent: string): Promise<InboxMessage[]> {
+    const lastAck = this.inboxState.readCursors[agent] || ''
     const entries = await this.readChannel(lastAck)
 
     return entries
       .filter((e) => e.mentions.includes(agent))
-      .map((e) => ({
-        from: e.from,
-        target: agent,
-        message: e.message,
-        timestamp: e.timestamp,
+      .map((entry) => ({
+        entry,
+        priority: calculatePriority(entry),
       }))
   }
 
-  async getAllMentions(agent: string): Promise<MentionNotification[]> {
-    const entries = await this.readChannel()
-
-    return entries
-      .filter((e) => e.mentions.includes(agent))
-      .map((e) => ({
-        from: e.from,
-        target: agent,
-        message: e.message,
-        timestamp: e.timestamp,
-      }))
+  async ackInbox(agent: string, until: string): Promise<void> {
+    this.inboxState.readCursors[agent] = until
+    this.saveInboxState()
   }
 
-  async acknowledgeMentions(agent: string, until: string): Promise<void> {
-    this.mentionState.set(agent, until)
-    this.saveMentionState()
+  private getDocumentPath(file?: string): string {
+    const docFile = file || CONTEXT_DEFAULTS.document
+    return join(this.documentDir, docFile)
   }
 
-  async readDocument(): Promise<string> {
+  async readDocument(file?: string): Promise<string> {
+    const docPath = this.getDocumentPath(file)
     try {
-      if (existsSync(this.documentPath)) {
-        return readFileSync(this.documentPath, 'utf-8')
+      if (existsSync(docPath)) {
+        return readFileSync(docPath, 'utf-8')
       }
       return ''
     } catch {
@@ -202,12 +195,56 @@ export class FileContextProvider implements ContextProvider {
     }
   }
 
-  async writeDocument(content: string): Promise<void> {
-    writeFileSync(this.documentPath, content)
+  async writeDocument(content: string, file?: string): Promise<void> {
+    const docPath = this.getDocumentPath(file)
+    const dir = dirname(docPath)
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true })
+    }
+    writeFileSync(docPath, content)
   }
 
-  async appendDocument(content: string): Promise<void> {
-    appendFileSync(this.documentPath, content)
+  async appendDocument(content: string, file?: string): Promise<void> {
+    const docPath = this.getDocumentPath(file)
+    const dir = dirname(docPath)
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true })
+    }
+    appendFileSync(docPath, content)
+  }
+
+  async listDocuments(): Promise<string[]> {
+    if (!existsSync(this.documentDir)) {
+      return []
+    }
+
+    const files: string[] = []
+    const walk = (dir: string): void => {
+      const entries = readdirSync(dir, { withFileTypes: true })
+      for (const entry of entries) {
+        const fullPath = join(dir, entry.name)
+        if (entry.isDirectory()) {
+          walk(fullPath)
+        } else if (entry.isFile() && entry.name.endsWith('.md')) {
+          files.push(relative(this.documentDir, fullPath))
+        }
+      }
+    }
+    walk(this.documentDir)
+
+    return files.sort()
+  }
+
+  async createDocument(file: string, content: string): Promise<void> {
+    const docPath = this.getDocumentPath(file)
+    if (existsSync(docPath)) {
+      throw new Error(`Document already exists: ${file}`)
+    }
+    const dir = dirname(docPath)
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true })
+    }
+    writeFileSync(docPath, content)
   }
 }
 
@@ -219,16 +256,17 @@ export function createFileContextProvider(
   validAgents: string[],
   options?: {
     channelFile?: string
-    documentFile?: string
+    documentDir?: string
   }
 ): FileContextProvider {
-  const channelFile = options?.channelFile ?? 'channel.md'
-  const documentFile = options?.documentFile ?? 'notes.md'
+  const channelFile = options?.channelFile ?? CONTEXT_DEFAULTS.channel
+  const documentDir = options?.documentDir ?? CONTEXT_DEFAULTS.documentDir
+  const stateDir = CONTEXT_DEFAULTS.stateDir
 
   return new FileContextProvider(
-    `${contextDir}/${channelFile}`,
-    `${contextDir}/${documentFile}`,
-    `${contextDir}/.mention-state.json`,
+    join(contextDir, channelFile),
+    join(contextDir, documentDir),
+    join(contextDir, stateDir),
     validAgents
   )
 }

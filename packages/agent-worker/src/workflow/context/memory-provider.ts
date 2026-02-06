@@ -4,8 +4,8 @@
  */
 
 import type { ContextProvider } from './provider.js'
-import type { ChannelEntry, MentionNotification } from './types.js'
-import { extractMentions } from './types.js'
+import type { ChannelEntry, InboxMessage, InboxState } from './types.js'
+import { CONTEXT_DEFAULTS, calculatePriority, extractMentions } from './types.js'
 
 /**
  * In-memory implementation of ContextProvider
@@ -13,8 +13,8 @@ import { extractMentions } from './types.js'
  */
 export class MemoryContextProvider implements ContextProvider {
   private channel: ChannelEntry[] = []
-  private document = ''
-  private mentionState: Map<string, string> = new Map() // agent -> last ack timestamp
+  private documents: Map<string, string> = new Map()
+  private inboxState: InboxState = { readCursors: {} }
   private sequence = 0 // Ensure unique timestamps
 
   constructor(private validAgents: string[]) {}
@@ -50,44 +50,46 @@ export class MemoryContextProvider implements ContextProvider {
     return entries
   }
 
-  async getUnreadMentions(agent: string): Promise<MentionNotification[]> {
-    const lastAck = this.mentionState.get(agent) || ''
+  async getInbox(agent: string): Promise<InboxMessage[]> {
+    const lastAck = this.inboxState.readCursors[agent] || ''
 
     return this.channel
       .filter((e) => e.timestamp > lastAck && e.mentions.includes(agent))
-      .map((e) => ({
-        from: e.from,
-        target: agent,
-        message: e.message,
-        timestamp: e.timestamp,
+      .map((entry) => ({
+        entry,
+        priority: calculatePriority(entry),
       }))
   }
 
-  async getAllMentions(agent: string): Promise<MentionNotification[]> {
-    return this.channel
-      .filter((e) => e.mentions.includes(agent))
-      .map((e) => ({
-        from: e.from,
-        target: agent,
-        message: e.message,
-        timestamp: e.timestamp,
-      }))
+  async ackInbox(agent: string, until: string): Promise<void> {
+    this.inboxState.readCursors[agent] = until
   }
 
-  async acknowledgeMentions(agent: string, until: string): Promise<void> {
-    this.mentionState.set(agent, until)
+  async readDocument(file?: string): Promise<string> {
+    const docFile = file || CONTEXT_DEFAULTS.document
+    return this.documents.get(docFile) || ''
   }
 
-  async readDocument(): Promise<string> {
-    return this.document
+  async writeDocument(content: string, file?: string): Promise<void> {
+    const docFile = file || CONTEXT_DEFAULTS.document
+    this.documents.set(docFile, content)
   }
 
-  async writeDocument(content: string): Promise<void> {
-    this.document = content
+  async appendDocument(content: string, file?: string): Promise<void> {
+    const docFile = file || CONTEXT_DEFAULTS.document
+    const existing = this.documents.get(docFile) || ''
+    this.documents.set(docFile, existing + content)
   }
 
-  async appendDocument(content: string): Promise<void> {
-    this.document += content
+  async listDocuments(): Promise<string[]> {
+    return Array.from(this.documents.keys()).sort()
+  }
+
+  async createDocument(file: string, content: string): Promise<void> {
+    if (this.documents.has(file)) {
+      throw new Error(`Document already exists: ${file}`)
+    }
+    this.documents.set(file, content)
   }
 
   // Test helpers
@@ -100,14 +102,19 @@ export class MemoryContextProvider implements ContextProvider {
   /** Clear all data (for testing) */
   clear(): void {
     this.channel = []
-    this.document = ''
-    this.mentionState.clear()
+    this.documents.clear()
+    this.inboxState = { readCursors: {} }
     this.sequence = 0
   }
 
-  /** Get mention state for an agent (for testing) */
-  getMentionState(agent: string): string | undefined {
-    return this.mentionState.get(agent)
+  /** Get inbox state for an agent (for testing) */
+  getInboxState(agent: string): string | undefined {
+    return this.inboxState.readCursors[agent]
+  }
+
+  /** Get all documents (for testing) */
+  getDocuments(): Map<string, string> {
+    return new Map(this.documents)
   }
 }
 

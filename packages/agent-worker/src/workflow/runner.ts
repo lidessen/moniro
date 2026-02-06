@@ -120,7 +120,7 @@ export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> 
 
     contextProvider = createFileContextProvider(fileContext.dir, agentNames, {
       channelFile: fileContext.channel,
-      documentFile: fileContext.document,
+      documentDir: fileContext.documentDir,
     })
   }
 
@@ -259,7 +259,7 @@ export async function runWorkflow(config: RunConfig): Promise<RunResult> {
     if (verbose) log('\nStarting agents...')
 
     for (const agentName of runtime.agentNames) {
-      const agentDef = workflow.agents[agentName]
+      const agentDef = workflow.agents[agentName]!
       try {
         await config.startAgent(agentName, agentDef, runtime.mcpSocketPath)
         if (verbose) log(`  Started: ${agentName}`)

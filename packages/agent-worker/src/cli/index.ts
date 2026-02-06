@@ -988,7 +988,7 @@ program
         // Check if any agent has unread mentions
         let hasUnread = false
         for (const agent of agentNames) {
-          const mentions = await provider.getUnreadMentions(agent)
+          const mentions = await provider.getInbox(agent)
           if (mentions.length > 0) {
             hasUnread = true
             idleSince = null
@@ -1390,12 +1390,12 @@ channelCmd
     const provider = createFileContextProvider(options.dir, validAgents)
 
     if (options.ack) {
-      await provider.acknowledgeMentions(options.agent, options.ack)
-      console.log(`Acknowledged mentions up to: ${options.ack}`)
+      await provider.ackInbox(options.agent, options.ack)
+      console.log(`Acknowledged inbox up to: ${options.ack}`)
       return
     }
 
-    const mentions = await provider.getUnreadMentions(options.agent)
+    const mentions = await provider.getInbox(options.agent)
 
     if (options.json) {
       console.log(JSON.stringify(mentions, null, 2))
@@ -1407,9 +1407,10 @@ channelCmd
       return
     }
 
-    console.log(`${mentions.length} unread mention(s):`)
+    console.log(`${mentions.length} unread message(s):`)
     for (const m of mentions) {
-      console.log(`  [${m.timestamp}] from ${m.from}: ${m.message.slice(0, 60)}...`)
+      const priority = m.priority === 'high' ? ' [HIGH]' : ''
+      console.log(`  [${m.entry.timestamp}]${priority} from ${m.entry.from}: ${m.entry.message.slice(0, 60)}...`)
     }
   })
 

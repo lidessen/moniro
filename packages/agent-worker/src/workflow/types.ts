@@ -107,13 +107,17 @@ export interface ResolvedFileContext {
   dir: string
   /** Channel file name */
   channel: string
-  /** Document file name */
-  document: string
+  /** Document directory (relative to dir) */
+  documentDir: string
+  /** Document owner (single-writer model, optional) */
+  documentOwner?: string
 }
 
 /** Resolved memory context (for testing) */
 export interface ResolvedMemoryContext {
   provider: 'memory'
+  /** Document owner (single-writer model, optional) */
+  documentOwner?: string
 }
 
 // ==================== Validation ====================

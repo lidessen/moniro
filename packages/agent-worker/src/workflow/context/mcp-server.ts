@@ -6,6 +6,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import type { ContextProvider } from './provider.js'
+import type { InboxMessage } from './types.js'
 
 /**
  * MCP Server options
@@ -22,17 +23,39 @@ export interface ContextMCPServerOptions {
 }
 
 /**
+ * Format inbox messages for display
+ */
+function formatInbox(messages: InboxMessage[]): string {
+  if (messages.length === 0) {
+    return JSON.stringify({ messages: [], count: 0 })
+  }
+
+  return JSON.stringify({
+    messages: messages.map((m) => ({
+      from: m.entry.from,
+      message: m.entry.message,
+      timestamp: m.entry.timestamp,
+      priority: m.priority,
+    })),
+    count: messages.length,
+    latestTimestamp: messages[messages.length - 1]!.entry.timestamp,
+  })
+}
+
+/**
  * Create an MCP server that exposes context tools
  *
  * Tools provided:
  * - channel_send: Send message to channel (with @mention support)
- * - channel_read: Read and acknowledge mentions
- * - channel_peek: Read without acknowledging
- * - channel_mentions: Get unread mentions
- * - document_read: Read shared document
- * - document_write: Write shared document
- * - document_append: Append to shared document
- * - workflow_agents: List all agents in the workflow (for @mention discovery)
+ * - channel_read: Read channel messages (does NOT acknowledge)
+ * - inbox_check: Get unread inbox messages (does NOT acknowledge)
+ * - inbox_ack: Acknowledge inbox messages up to timestamp
+ * - document_read: Read document (supports multiple files)
+ * - document_write: Write document (supports multiple files)
+ * - document_append: Append to document (supports multiple files)
+ * - document_list: List all document files
+ * - document_create: Create new document file
+ * - workflow_agents: List all agents in the workflow
  */
 export function createContextMCPServer(options: ContextMCPServerOptions) {
   const { provider, validAgents, name = 'workflow-context', version = '1.0.0' } = options
@@ -91,21 +114,14 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
 
   server.tool(
     'channel_read',
-    'Read channel messages and acknowledge any mentions for you.',
+    'Read channel messages. Does NOT acknowledge inbox - use inbox_ack after processing.',
     {
       since: z.string().optional().describe('Read entries after this timestamp (ISO format)'),
       limit: z.number().optional().describe('Maximum entries to return'),
     },
-    async ({ since, limit }, extra) => {
-      const agent = getAgentId(extra) || 'anonymous'
+    async ({ since, limit }) => {
       const entries = await provider.readChannel(since, limit)
 
-      // Acknowledge mentions for this agent up to latest entry
-      if (entries.length > 0) {
-        const latest = entries[entries.length - 1].timestamp
-        await provider.acknowledgeMentions(agent, latest)
-      }
-
       return {
         content: [
           {
@@ -117,45 +133,42 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
     }
   )
 
-  server.tool(
-    'channel_peek',
-    'Read channel messages without acknowledging mentions (for preview).',
-    {
-      limit: z.number().optional().describe('Maximum entries to return'),
-    },
-    async ({ limit }) => {
-      // Peek doesn't acknowledge mentions
-      const entries = await provider.readChannel(undefined, limit)
-
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify(entries),
-          },
-        ],
-      }
-    }
-  )
+  // ==================== Inbox Tools ====================
 
   server.tool(
-    'channel_mentions',
-    'Get mentions for you.',
-    {
-      unread_only: z.boolean().optional().describe('Only return unread mentions (default: true)'),
-    },
-    async ({ unread_only = true }, extra) => {
+    'inbox_check',
+    'Get your unread inbox messages. Does NOT acknowledge - use inbox_ack after processing.',
+    {},
+    async (_args, extra) => {
       const agent = getAgentId(extra) || 'anonymous'
-
-      const mentions = unread_only
-        ? await provider.getUnreadMentions(agent)
-        : await provider.getAllMentions(agent)
+      const messages = await provider.getInbox(agent)
 
       return {
         content: [
           {
             type: 'text' as const,
-            text: JSON.stringify(mentions),
+            text: formatInbox(messages),
+          },
+        ],
+      }
+    }
+  )
+
+  server.tool(
+    'inbox_ack',
+    'Acknowledge inbox messages up to a timestamp. Call after successfully processing messages.',
+    {
+      until: z.string().describe('Acknowledge messages up to this timestamp (inclusive)'),
+    },
+    async ({ until }, extra) => {
+      const agent = getAgentId(extra) || 'anonymous'
+      await provider.ackInbox(agent, until)
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ status: 'acknowledged', until }),
           },
         ],
       }
@@ -164,33 +177,41 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
 
   // ==================== Document Tools ====================
 
-  server.tool('document_read', 'Read the shared document.', {}, async () => {
-    const content = await provider.readDocument()
-
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: content || '(empty document)',
-        },
-      ],
-    }
-  })
-
   server.tool(
-    'document_write',
-    'Write/replace the shared document content.',
+    'document_read',
+    'Read a document file.',
     {
-      content: z.string().describe('New document content (replaces existing)'),
+      file: z.string().optional().describe('Document file path (default: notes.md)'),
     },
-    async ({ content }) => {
-      await provider.writeDocument(content)
+    async ({ file }) => {
+      const content = await provider.readDocument(file)
 
       return {
         content: [
           {
             type: 'text' as const,
-            text: 'Document written successfully',
+            text: content || '(empty document)',
+          },
+        ],
+      }
+    }
+  )
+
+  server.tool(
+    'document_write',
+    'Write/replace a document file.',
+    {
+      content: z.string().describe('New document content (replaces existing)'),
+      file: z.string().optional().describe('Document file path (default: notes.md)'),
+    },
+    async ({ content, file }) => {
+      await provider.writeDocument(content, file)
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Document ${file || 'notes.md'} written successfully`,
           },
         ],
       }
@@ -199,18 +220,53 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
 
   server.tool(
     'document_append',
-    'Append content to the shared document.',
+    'Append content to a document file.',
     {
       content: z.string().describe('Content to append to the document'),
+      file: z.string().optional().describe('Document file path (default: notes.md)'),
     },
-    async ({ content }) => {
-      await provider.appendDocument(content)
+    async ({ content, file }) => {
+      await provider.appendDocument(content, file)
 
       return {
         content: [
           {
             type: 'text' as const,
-            text: 'Content appended successfully',
+            text: `Content appended to ${file || 'notes.md'}`,
+          },
+        ],
+      }
+    }
+  )
+
+  server.tool('document_list', 'List all document files.', {}, async () => {
+    const files = await provider.listDocuments()
+
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: JSON.stringify({ files, count: files.length }),
+        },
+      ],
+    }
+  })
+
+  server.tool(
+    'document_create',
+    'Create a new document file.',
+    {
+      file: z.string().describe('Document file path (e.g., "findings/auth.md")'),
+      content: z.string().describe('Initial document content'),
+    },
+    async ({ file, content }) => {
+      await provider.createDocument(file, content)
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Document ${file} created successfully`,
           },
         ],
       }

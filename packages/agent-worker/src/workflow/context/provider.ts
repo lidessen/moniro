@@ -1,9 +1,9 @@
 /**
  * Context Provider interface
- * Abstract storage layer for channel and document operations
+ * Abstract storage layer for channel, inbox, and document operations
  */
 
-import type { ChannelEntry, MentionNotification } from './types.js'
+import type { ChannelEntry, InboxMessage } from './types.js'
 
 /**
  * Context Provider interface - storage abstraction for workflow context
@@ -30,41 +30,52 @@ export interface ContextProvider {
   readChannel(since?: string, limit?: number): Promise<ChannelEntry[]>
 
   /**
-   * Get unread mentions for an agent
-   * @param agent - Agent name to get mentions for
-   * @returns Array of unread mention notifications
+   * Get unread inbox messages for an agent
+   * Does NOT acknowledge - use ackInbox() after processing
+   * @param agent - Agent name to get inbox for
+   * @returns Array of unread inbox messages with priority
    */
-  getUnreadMentions(agent: string): Promise<MentionNotification[]>
+  getInbox(agent: string): Promise<InboxMessage[]>
 
   /**
-   * Get all mentions for an agent (including acknowledged)
-   * @param agent - Agent name to get mentions for
-   * @returns Array of all mention notifications
-   */
-  getAllMentions(agent: string): Promise<MentionNotification[]>
-
-  /**
-   * Acknowledge mentions up to a timestamp
+   * Acknowledge inbox messages up to a timestamp
    * @param agent - Agent name acknowledging
-   * @param until - Timestamp to acknowledge up to
+   * @param until - Timestamp to acknowledge up to (inclusive)
    */
-  acknowledgeMentions(agent: string, until: string): Promise<void>
+  ackInbox(agent: string, until: string): Promise<void>
 
   /**
-   * Read the shared document
+   * Read a document
+   * @param file - Document file path (default: notes.md)
    * @returns Document content (empty string if not exists)
    */
-  readDocument(): Promise<string>
+  readDocument(file?: string): Promise<string>
 
   /**
-   * Write/replace the shared document
+   * Write/replace a document
    * @param content - New document content
+   * @param file - Document file path (default: notes.md)
    */
-  writeDocument(content: string): Promise<void>
+  writeDocument(content: string, file?: string): Promise<void>
 
   /**
-   * Append to the shared document
+   * Append to a document
    * @param content - Content to append
+   * @param file - Document file path (default: notes.md)
    */
-  appendDocument(content: string): Promise<void>
+  appendDocument(content: string, file?: string): Promise<void>
+
+  /**
+   * List all document files
+   * @returns Array of document file paths (relative to document directory)
+   */
+  listDocuments(): Promise<string[]>
+
+  /**
+   * Create a new document
+   * @param file - Document file path
+   * @param content - Initial content
+   * @throws Error if document already exists
+   */
+  createDocument(file: string, content: string): Promise<void>
 }
