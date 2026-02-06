@@ -1,4 +1,4 @@
-export { AgentSession, type SendOptions, type StepInfo } from './core/session.ts'
+export { AgentSession, type AgentSessionConfig, type SendOptions, type StepInfo } from './core/session.ts'
 export { createModel, createModelAsync, FRONTIER_MODELS, SUPPORTED_PROVIDERS } from './core/models.ts'
 export { createTools } from './core/tools.ts'
 export {

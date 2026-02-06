@@ -4,7 +4,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { AgentSession } from '../core/session.ts'
 import type { ToolDefinition } from '../core/types.ts'
-import type { Backend, BackendType } from '../backends/types.ts'
+import type { BackendType } from '../backends/types.ts'
 import { createBackend } from '../backends/index.ts'
 import { SkillsProvider, createSkillsTool, SkillImporter } from '../skills/index.ts'
 import {
@@ -183,7 +183,6 @@ export async function startDaemon(config: {
 
   const backendType = config.backend || 'sdk'
   const sessionId = crypto.randomUUID()
-  const createdAt = new Date().toISOString()
 
   // Setup skills (both local and imported)
   const { tools, importer } = await setupSkills(
@@ -193,24 +192,22 @@ export async function startDaemon(config: {
     config.importSkills
   )
 
-  // Create session or backend based on type
-  let session: AgentSession | null = null
-  let backend: Backend | null = null
+  // Create unified AgentSession (with CLI backend for non-SDK types)
+  const cliBackend = backendType !== 'sdk'
+    ? createBackend({
+        type: backendType,
+        model: config.model,
+      } as Parameters<typeof createBackend>[0])
+    : undefined
 
-  if (backendType === 'sdk') {
-    session = new AgentSession({
-      model: config.model,
-      system: config.system,
-      tools,
-    })
-  } else {
-    backend = createBackend({
-      type: backendType,
-      model: config.model,
-    } as Parameters<typeof createBackend>[0])
-  }
+  const session = new AgentSession({
+    model: config.model,
+    system: config.system,
+    tools,
+    backend: cliBackend,
+  })
 
-  const effectiveId = session?.id || sessionId
+  const effectiveId = session.id
 
   // Generate paths
   const socketPath = join(SESSIONS_DIR, `${effectiveId}.sock`)
@@ -232,7 +229,7 @@ export async function startDaemon(config: {
     pidFile,
     readyFile,
     pid: process.pid,
-    createdAt: session?.createdAt || createdAt,
+    createdAt: session.createdAt,
     idleTimeout: config.idleTimeout,
   }
 
@@ -279,13 +276,11 @@ export async function startDaemon(config: {
     // Initialize state
     state = {
       session,
-      backend,
       server,
       info,
       lastActivity: Date.now(),
       pendingRequests: 0,
       importer,
-      cliHistory: [],
     }
 
     // Write ready file (signals CLI that server is ready)
