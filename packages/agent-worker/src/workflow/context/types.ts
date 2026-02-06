@@ -9,11 +9,19 @@ export interface ChannelEntry {
   timestamp: string
   /** Author agent name or 'system' */
   from: string
-  /** Message content */
+  /** Message content (preview if attachment exists) */
   message: string
   /** Extracted @mentions */
   mentions: string[]
+  /** Path to attachment file (relative to context dir) if message was too long */
+  attachment?: string
 }
+
+/** Attachment threshold in characters - messages longer than this are stored as attachments */
+export const ATTACHMENT_THRESHOLD = 500
+
+/** Attachments directory name */
+export const ATTACHMENTS_DIR = 'attachments'
 
 /** Inbox message (unread @mention) */
 export interface InboxMessage {

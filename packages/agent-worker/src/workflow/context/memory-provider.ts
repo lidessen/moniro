@@ -5,7 +5,7 @@
 
 import type { ContextProvider } from './provider.js'
 import type { ChannelEntry, InboxMessage, InboxState } from './types.js'
-import { CONTEXT_DEFAULTS, calculatePriority, extractMentions } from './types.js'
+import { CONTEXT_DEFAULTS, ATTACHMENT_THRESHOLD, ATTACHMENTS_DIR, calculatePriority, extractMentions } from './types.js'
 
 /**
  * In-memory implementation of ContextProvider
@@ -14,6 +14,7 @@ import { CONTEXT_DEFAULTS, calculatePriority, extractMentions } from './types.js
 export class MemoryContextProvider implements ContextProvider {
   private channel: ChannelEntry[] = []
   private documents: Map<string, string> = new Map()
+  private attachments: Map<string, string> = new Map()
   private inboxState: InboxState = { readCursors: {} }
   private sequence = 0 // Ensure unique timestamps
 
@@ -26,6 +27,30 @@ export class MemoryContextProvider implements ContextProvider {
     // Add sequence as microseconds to ensure uniqueness
     const timestamp = `${now.toISOString().slice(0, -1)}${seq.toString().padStart(3, '0')}Z`
 
+    // Check if message exceeds threshold
+    if (message.length > ATTACHMENT_THRESHOLD) {
+      // Create attachment
+      const safeTimestamp = timestamp.replace(/:/g, '-')
+      const attachmentName = `${safeTimestamp}-${from}.md`
+      const attachmentRef = `${ATTACHMENTS_DIR}/${attachmentName}`
+
+      this.attachments.set(attachmentRef, message)
+
+      // Create preview
+      const firstLine = message.split('\n')[0] || ''
+      const preview = firstLine.length > 100 ? firstLine.slice(0, 100) + '...' : firstLine
+
+      const entry: ChannelEntry = {
+        timestamp,
+        from,
+        message: preview,
+        mentions: extractMentions(message, this.validAgents),
+        attachment: attachmentRef,
+      }
+      this.channel.push(entry)
+      return entry
+    }
+
     const entry: ChannelEntry = {
       timestamp,
       from,
@@ -34,6 +59,10 @@ export class MemoryContextProvider implements ContextProvider {
     }
     this.channel.push(entry)
     return entry
+  }
+
+  async readAttachment(attachmentPath: string): Promise<string | null> {
+    return this.attachments.get(attachmentPath) ?? null
   }
 
   async readChannel(since?: string, limit?: number): Promise<ChannelEntry[]> {
@@ -103,8 +132,14 @@ export class MemoryContextProvider implements ContextProvider {
   clear(): void {
     this.channel = []
     this.documents.clear()
+    this.attachments.clear()
     this.inboxState = { readCursors: {} }
     this.sequence = 0
+  }
+
+  /** Get all attachments (for testing) */
+  getAttachments(): Map<string, string> {
+    return new Map(this.attachments)
   }
 
   /** Get inbox state for an agent (for testing) */

@@ -78,4 +78,11 @@ export interface ContextProvider {
    * @throws Error if document already exists
    */
   createDocument(file: string, content: string): Promise<void>
+
+  /**
+   * Read attachment content
+   * @param attachmentPath - Path to attachment (relative to context dir)
+   * @returns Attachment content or null if not found
+   */
+  readAttachment?(attachmentPath: string): Promise<string | null>
 }

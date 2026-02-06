@@ -157,6 +157,48 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
     }
   )
 
+  server.tool(
+    'attachment_read',
+    'Read full content of a channel attachment. Use when a channel message has an attachment field.',
+    {
+      path: z.string().describe('Attachment path (from channel entry attachment field)'),
+    },
+    async ({ path }) => {
+      if (!provider.readAttachment) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({ error: 'Attachment reading not supported by this provider' }),
+            },
+          ],
+        }
+      }
+
+      const content = await provider.readAttachment(path)
+
+      if (content === null) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({ error: `Attachment not found: ${path}` }),
+            },
+          ],
+        }
+      }
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: content,
+          },
+        ],
+      }
+    }
+  )
+
   // ==================== Inbox Tools ====================
 
   server.tool(
