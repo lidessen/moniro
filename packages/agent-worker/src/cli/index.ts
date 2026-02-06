@@ -898,10 +898,13 @@ program
   .command('run <file>')
   .description('Execute workflow and exit when complete')
   .option('--instance <name>', 'Instance name', 'default')
-  .option('--verbose', 'Show detailed progress')
+  .option('-v, --verbose', 'Show detailed progress')
+  .option('-d, --debug', 'Show debug information (alias for --verbose)')
   .option('--json', 'Output results as JSON')
   .option('--idle-timeout <ms>', 'Exit after agents idle for this duration', '5000')
   .action(async (file, options) => {
+    // --debug is an alias for --verbose
+    if (options.debug) options.verbose = true
     const { parseWorkflowFile, runWorkflow, generateMCPConfig } = await import('../workflow/index.ts')
     type ResolvedAgent = Awaited<ReturnType<typeof parseWorkflowFile>>['agents'][string]
 
@@ -1098,9 +1101,12 @@ program
   .command('start <file>')
   .description('Start workflow and keep agents running')
   .option('--instance <name>', 'Instance name', 'default')
-  .option('--verbose', 'Show detailed progress')
+  .option('-v, --verbose', 'Show detailed progress')
+  .option('-d, --debug', 'Show debug information (alias for --verbose)')
   .option('--background', 'Run in background (daemonize)')
   .action(async (file, options) => {
+    // --debug is an alias for --verbose
+    if (options.debug) options.verbose = true
     const { parseWorkflowFile, runWorkflow, generateMCPConfig } = await import('../workflow/index.ts')
     type ResolvedAgent = Awaited<ReturnType<typeof parseWorkflowFile>>['agents'][string]
 
