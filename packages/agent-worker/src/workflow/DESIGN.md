@@ -2545,12 +2545,62 @@ helper@pr-456        review.yaml     idle
 
 #### `agent-worker send <message>`
 
-Send message to agent.
+Send message to agent or channel. Three target patterns:
 
 ```bash
-agent-worker send "hello"                    # To default/active agent
-agent-worker send "hello" --to reviewer      # To standalone
-agent-worker send "hello" --to coder@pr-123  # To workflow agent
+# Pattern 1: Standalone agent inbox
+agent-worker send "hello"                    # To default/active standalone agent
+agent-worker send "hello" --to reviewer      # To standalone agent "reviewer"
+
+# Pattern 2: Workflow agent (via channel @mention)
+agent-worker send "hello" --to coder@pr-123  # Posts to pr-123 channel: "[user] @coder hello"
+
+# Pattern 3: Workflow channel (broadcast)
+agent-worker send "@reviewer @coder please sync" --to @pr-123  # Posts to pr-123 channel
+```
+
+**Message Format in Channel:**
+
+```markdown
+### 10:05:00 [user]
+@coder hello
+```
+
+User messages are marked with `[user]` as the sender, distinguishing from agent and system messages.
+
+**Target Resolution:**
+
+| Pattern | Target | Effect |
+|---------|--------|--------|
+| `--to agent` | Standalone agent | Direct to agent's inbox |
+| `--to agent@instance` | Workflow agent | Channel post with @mention |
+| `--to @instance` | Workflow channel | Channel post (parse @mentions from message) |
+
+**Implementation:**
+
+```typescript
+async function handleSend(message: string, to?: string) {
+  if (!to) {
+    // Default standalone agent
+    return sendToStandalone(getDefaultAgent(), message)
+  }
+
+  if (to.startsWith('@')) {
+    // @instance → broadcast to channel
+    const instance = to.slice(1)
+    return sendToChannel(instance, 'user', message)
+  }
+
+  if (to.includes('@')) {
+    // agent@instance → channel with @mention
+    const [agent, instance] = to.split('@')
+    const mentionMessage = `@${agent} ${message}`
+    return sendToChannel(instance, 'user', mentionMessage)
+  }
+
+  // Standalone agent
+  return sendToStandalone(to, message)
+}
 ```
 
 ### Options Reference
@@ -2558,7 +2608,7 @@ agent-worker send "hello" --to coder@pr-123  # To workflow agent
 | Option | Commands | Description |
 |--------|----------|-------------|
 | `--instance <name>` | run, start, new | Instance name (default: `default`) |
-| `--to <target>` | send, peek | Target agent |
+| `--to <target>` | send, peek | Target: `agent`, `agent@instance`, or `@instance` |
 | `--background` | start | Run in background |
 | `--verbose` | run, start | Show detailed progress |
 | `--json` | run, list, send | JSON output |

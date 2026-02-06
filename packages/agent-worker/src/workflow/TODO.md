@@ -122,6 +122,13 @@ Implementation tasks for the workflow design. See [DESIGN.md](./DESIGN.md) for f
 - [ ] Implement `checkWorkflowIdle()` with debounce
 - [ ] Exit conditions: all idle + no unread inbox + no active proposals
 
+### CLI Send Command
+- [ ] Implement target pattern parsing: `agent`, `agent@instance`, `@instance`
+- [ ] Standalone agent: direct to inbox
+- [ ] Workflow agent (`agent@instance`): channel post with @mention
+- [ ] Workflow channel (`@instance`): channel broadcast
+- [ ] Mark user messages with `[user]` sender in channel
+
 ### Integration
 - [ ] Update `runWorkflow()` to use controllers
 - [ ] Add graceful shutdown for controllers
