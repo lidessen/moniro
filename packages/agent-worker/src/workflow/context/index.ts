@@ -4,6 +4,7 @@
  */
 
 export * from './types.js'
+export * from './storage.js'
 export * from './provider.js'
 export * from './memory-provider.js'
 export * from './file-provider.js'

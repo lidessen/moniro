@@ -1,156 +1,148 @@
 /**
  * Memory Context Provider
- * In-memory storage for testing and development
+ * Thin wrapper around ContextProviderImpl + MemoryStorage for testing.
  */
 
 import type { ContextProvider } from './provider.js'
-import type { ChannelEntry, InboxMessage, InboxState, ResourceResult, ResourceType } from './types.js'
-import { CONTEXT_DEFAULTS, calculatePriority, extractMentions, generateResourceId, createResourceRef } from './types.js'
+import type { ChannelEntry, InboxMessage, ResourceResult, ResourceType } from './types.js'
+import { ContextProviderImpl } from './provider.js'
+import { MemoryStorage } from './storage.js'
 
 /**
- * In-memory implementation of ContextProvider
- * Useful for testing and ephemeral workflows
+ * In-memory ContextProvider for testing.
+ * Delegates all domain logic to ContextProviderImpl;
+ * adds test helpers for inspection and cleanup.
  */
 export class MemoryContextProvider implements ContextProvider {
-  private channel: ChannelEntry[] = []
-  private documents: Map<string, string> = new Map()
-  private resources: Map<string, string> = new Map()
-  private inboxState: InboxState = { readCursors: {} }
-  private sequence = 0 // Ensure unique timestamps
+  private impl: ContextProviderImpl
+  private storage: MemoryStorage
 
-  constructor(private validAgents: string[]) {}
-
-  async appendChannel(from: string, message: string): Promise<ChannelEntry> {
-    // Use sequence to ensure unique timestamps even in rapid succession
-    const now = new Date()
-    const seq = this.sequence++
-    // Add sequence as microseconds to ensure uniqueness
-    const timestamp = `${now.toISOString().slice(0, -1)}${seq.toString().padStart(3, '0')}Z`
-
-    const entry: ChannelEntry = {
-      timestamp,
-      from,
-      message,
-      mentions: extractMentions(message, this.validAgents),
-    }
-    this.channel.push(entry)
-    return entry
+  constructor(private validAgents: string[]) {
+    this.storage = new MemoryStorage()
+    this.impl = new ContextProviderImpl(this.storage, validAgents)
   }
 
-  async createResource(
-    content: string,
-    createdBy: string,
-    _type: ResourceType = 'text'
-  ): Promise<ResourceResult> {
-    const id = generateResourceId()
-    this.resources.set(id, content)
-    return { id, ref: createResourceRef(id) }
+  // ==================== Delegate to impl ====================
+
+  appendChannel(from: string, message: string): Promise<ChannelEntry> {
+    return this.impl.appendChannel(from, message)
   }
 
-  async readResource(id: string): Promise<string | null> {
-    return this.resources.get(id) ?? null
+  readChannel(since?: string, limit?: number): Promise<ChannelEntry[]> {
+    return this.impl.readChannel(since, limit)
   }
 
-  async readChannel(since?: string, limit?: number): Promise<ChannelEntry[]> {
-    let entries = this.channel
-
-    if (since) {
-      entries = entries.filter((e) => e.timestamp > since)
-    }
-
-    if (limit && limit > 0) {
-      entries = entries.slice(-limit)
-    }
-
-    return entries
+  getInbox(agent: string): Promise<InboxMessage[]> {
+    return this.impl.getInbox(agent)
   }
 
-  async getInbox(agent: string): Promise<InboxMessage[]> {
-    const lastAck = this.inboxState.readCursors[agent] || ''
-
-    return this.channel
-      .filter((e) => e.timestamp > lastAck && e.mentions.includes(agent))
-      .map((entry) => ({
-        entry,
-        priority: calculatePriority(entry),
-      }))
+  ackInbox(agent: string, until: string): Promise<void> {
+    return this.impl.ackInbox(agent, until)
   }
 
-  async ackInbox(agent: string, until: string): Promise<void> {
-    this.inboxState.readCursors[agent] = until
+  readDocument(file?: string): Promise<string> {
+    return this.impl.readDocument(file)
   }
 
-  async readDocument(file?: string): Promise<string> {
-    const docFile = file || CONTEXT_DEFAULTS.document
-    return this.documents.get(docFile) || ''
+  writeDocument(content: string, file?: string): Promise<void> {
+    return this.impl.writeDocument(content, file)
   }
 
-  async writeDocument(content: string, file?: string): Promise<void> {
-    const docFile = file || CONTEXT_DEFAULTS.document
-    this.documents.set(docFile, content)
+  appendDocument(content: string, file?: string): Promise<void> {
+    return this.impl.appendDocument(content, file)
   }
 
-  async appendDocument(content: string, file?: string): Promise<void> {
-    const docFile = file || CONTEXT_DEFAULTS.document
-    const existing = this.documents.get(docFile) || ''
-    this.documents.set(docFile, existing + content)
+  listDocuments(): Promise<string[]> {
+    return this.impl.listDocuments()
   }
 
-  async listDocuments(): Promise<string[]> {
-    return Array.from(this.documents.keys()).sort()
+  createDocument(file: string, content: string): Promise<void> {
+    return this.impl.createDocument(file, content)
   }
 
-  async createDocument(file: string, content: string): Promise<void> {
-    if (this.documents.has(file)) {
-      throw new Error(`Document already exists: ${file}`)
-    }
-    this.documents.set(file, content)
+  createResource(content: string, createdBy: string, type?: ResourceType): Promise<ResourceResult> {
+    return this.impl.createResource(content, createdBy, type)
   }
 
-  // Legacy aliases for tests that still use attachment naming
-  /** @deprecated Use createResource */
-  async createAttachment(content: string, createdBy: string, type?: ResourceType): Promise<ResourceResult> {
-    return this.createResource(content, createdBy, type)
-  }
-  /** @deprecated Use readResource */
-  async readAttachment(id: string): Promise<string | null> {
-    return this.readResource(id)
+  readResource(id: string): Promise<string | null> {
+    return this.impl.readResource(id)
   }
 
-  // Test helpers
+  // ==================== Test Helpers ====================
+
+  /** Get underlying storage (for testing) */
+  getStorage(): MemoryStorage {
+    return this.storage
+  }
+
+  /** Get underlying impl (for testing) */
+  getImpl(): ContextProviderImpl {
+    return this.impl
+  }
 
   /** Get all channel entries (for testing) */
-  getChannelEntries(): ChannelEntry[] {
-    return [...this.channel]
+  async getChannelEntries(): Promise<ChannelEntry[]> {
+    return this.readChannel()
   }
 
   /** Clear all data (for testing) */
   clear(): void {
-    this.channel = []
-    this.documents.clear()
-    this.resources.clear()
-    this.inboxState = { readCursors: {} }
-    this.sequence = 0
+    this.storage.clear()
   }
 
   /** Get all resources (for testing) */
-  getResources(): Map<string, string> {
-    return new Map(this.resources)
+  async getResources(): Promise<Map<string, string>> {
+    const keys = await this.storage.list('resources/')
+    const map = new Map<string, string>()
+    for (const key of keys) {
+      const content = await this.storage.read(`resources/${key}`)
+      if (content !== null) {
+        // Extract ID from filename (strip extension)
+        const id = key.replace(/\.[^.]+$/, '')
+        map.set(id, content)
+      }
+    }
+    return map
   }
 
   /** @deprecated Use getResources */
-  getAttachments(): Map<string, string> {
+  async getAttachments(): Promise<Map<string, string>> {
     return this.getResources()
   }
 
   /** Get inbox state for an agent (for testing) */
-  getInboxState(agent: string): string | undefined {
-    return this.inboxState.readCursors[agent]
+  async getInboxState(agent: string): Promise<string | undefined> {
+    const raw = await this.storage.read('_state/inbox.json')
+    if (!raw) return undefined
+    try {
+      const data = JSON.parse(raw)
+      return data.readCursors?.[agent]
+    } catch {
+      return undefined
+    }
   }
 
   /** Get all documents (for testing) */
-  getDocuments(): Map<string, string> {
-    return new Map(this.documents)
+  async getDocuments(): Promise<Map<string, string>> {
+    const files = await this.storage.list('documents/')
+    const map = new Map<string, string>()
+    for (const file of files) {
+      const content = await this.storage.read(`documents/${file}`)
+      if (content !== null) {
+        map.set(file, content)
+      }
+    }
+    return map
+  }
+
+  // Legacy aliases
+  /** @deprecated Use createResource */
+  createAttachment(content: string, createdBy: string, type?: ResourceType): Promise<ResourceResult> {
+    return this.createResource(content, createdBy, type)
+  }
+  /** @deprecated Use readResource */
+  readAttachment(id: string): Promise<string | null> {
+    return this.readResource(id)
   }
 }
 

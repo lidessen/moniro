@@ -128,18 +128,17 @@ describe('Alice-Bob workflow with mock backends', () => {
       'mock-claude',
       async (ctx, p) => {
         bobRuns.push(ctx)
-        const inboxMsg = ctx.inbox[0]?.entry.message || ''
+        // Check ALL inbox messages — multiple may arrive in one batch due to async timing
+        const hasQuestion = ctx.inbox.some((m) => m.entry.message.includes('What is an AI agent'))
 
-        if (inboxMsg.includes('What is an AI agent')) {
+        if (hasQuestion) {
           // Bob answers Alice's question (simulates channel_send MCP tool call)
           await p.appendChannel(
             'bob',
             '@alice An AI agent is a system that can perceive its environment and take actions to achieve goals autonomously.'
           )
-        } else if (inboxMsg.includes('answer it briefly')) {
-          // Bob receives kickoff but waits for Alice's question
-          // (kickoff mentions @bob too, but no question yet)
         }
+        // Otherwise: Bob receives kickoff but no question yet — do nothing
       },
       provider
     )

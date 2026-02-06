@@ -331,7 +331,7 @@ describe('MemoryContextProvider', () => {
       await provider.createResource('Content 1', 'agent1')
       await provider.createResource('Content 2', 'agent2')
 
-      const resources = provider.getResources()
+      const resources = await provider.getResources()
       expect(resources.size).toBe(2)
     })
 
@@ -354,12 +354,12 @@ describe('MemoryContextProvider', () => {
 
       expect(await provider.readChannel()).toEqual([])
       expect(await provider.readDocument()).toBe('')
-      expect(provider.getInboxState('agent2')).toBeUndefined()
+      expect(await provider.getInboxState('agent2')).toBeUndefined()
     })
 
-    test('getChannelEntries returns copy', async () => {
+    test('getChannelEntries returns entries', async () => {
       await provider.appendChannel('agent1', 'Test')
-      const entries = provider.getChannelEntries()
+      const entries = await provider.getChannelEntries()
       expect(entries).toHaveLength(1)
     })
 
@@ -367,7 +367,7 @@ describe('MemoryContextProvider', () => {
       await provider.writeDocument('Notes', 'notes.md')
       await provider.writeDocument('Findings', 'findings.md')
 
-      const docs = provider.getDocuments()
+      const docs = await provider.getDocuments()
       expect(docs.get('notes.md')).toBe('Notes')
       expect(docs.get('findings.md')).toBe('Findings')
     })
@@ -391,17 +391,18 @@ describe('FileContextProvider', () => {
   })
 
   describe('channel operations', () => {
-    test('appends to channel file with ISO timestamp format', async () => {
+    test('appends to channel file in JSONL format', async () => {
       await provider.appendChannel('agent1', 'Hello world')
 
-      const channelPath = join(testDir, 'channel.md')
+      const channelPath = join(testDir, 'channel.jsonl')
       expect(existsSync(channelPath)).toBe(true)
 
       const content = readFileSync(channelPath, 'utf-8')
-      expect(content).toContain('[agent1]')
-      expect(content).toContain('Hello world')
-      // Verify format: ### 2026-02-05T14:30:22.123Z [agent]
-      expect(content).toMatch(/### \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[agent1\]/)
+      const entry = JSON.parse(content.trim())
+      expect(entry.from).toBe('agent1')
+      expect(entry.message).toBe('Hello world')
+      expect(entry.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+      expect(entry.mentions).toEqual([])
     })
 
     test('reads channel entries from file', async () => {
@@ -472,7 +473,7 @@ describe('FileContextProvider', () => {
       const entry = await provider.appendChannel('agent1', '@agent2 check this')
       await provider.ackInbox('agent2', entry.timestamp)
 
-      const statePath = join(testDir, '_state', 'inbox-state.json')
+      const statePath = join(testDir, '_state', 'inbox.json')
       expect(existsSync(statePath)).toBe(true)
 
       const state = JSON.parse(readFileSync(statePath, 'utf-8'))
@@ -613,28 +614,27 @@ describe('createFileContextProvider', () => {
     await provider.appendChannel('agent1', 'Test')
     await provider.writeDocument('Notes')
 
-    expect(existsSync(join(testDir, 'channel.md'))).toBe(true)
+    // Channel is JSONL, documents are under documents/
+    expect(existsSync(join(testDir, 'channel.jsonl'))).toBe(true)
     expect(existsSync(join(testDir, 'documents', 'notes.md'))).toBe(true)
   })
 
-  test('creates provider with custom channel file', async () => {
-    const provider = createFileContextProvider(testDir, ['agent1'], {
-      channelFile: 'custom-channel.md',
-    })
+  test('creates resources directory on demand', async () => {
+    const provider = createFileContextProvider(testDir, ['agent1'])
 
-    await provider.appendChannel('agent1', 'Test')
+    const result = await provider.createResource('Long content', 'agent1', 'markdown')
 
-    expect(existsSync(join(testDir, 'custom-channel.md'))).toBe(true)
+    expect(result.id).toMatch(/^res_/)
+    expect(existsSync(join(testDir, 'resources'))).toBe(true)
   })
 
-  test('creates provider with custom document directory', async () => {
-    const provider = createFileContextProvider(testDir, ['agent1'], {
-      documentDir: 'custom-docs/',
-    })
+  test('stores inbox state in _state directory', async () => {
+    const provider = createFileContextProvider(testDir, ['agent1', 'agent2'])
 
-    await provider.writeDocument('Notes')
+    const entry = await provider.appendChannel('agent1', '@agent2 hello')
+    await provider.ackInbox('agent2', entry.timestamp)
 
-    expect(existsSync(join(testDir, 'custom-docs', 'notes.md'))).toBe(true)
+    expect(existsSync(join(testDir, '_state', 'inbox.json'))).toBe(true)
   })
 })
 

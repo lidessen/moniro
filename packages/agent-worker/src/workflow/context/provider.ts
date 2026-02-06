@@ -1,111 +1,224 @@
 /**
- * Context Provider interface
- * Abstract storage layer for channel, inbox, document, and resource operations
+ * Context Provider interface + unified implementation
+ * Domain logic for channel, inbox, document, and resource operations.
+ * Storage I/O is delegated to a StorageBackend.
  */
 
-import type { ChannelEntry, InboxMessage, ResourceResult, ResourceType } from './types.js'
+import type { ChannelEntry, InboxMessage, InboxState, ResourceResult, ResourceType } from './types.js'
+import { CONTEXT_DEFAULTS, calculatePriority, extractMentions, generateResourceId, createResourceRef } from './types.js'
+import type { StorageBackend } from './storage.js'
+
+// ==================== Interface ====================
 
 /**
- * Context Provider interface - storage abstraction for workflow context
- *
- * Implementations:
- * - MemoryContextProvider: In-memory storage for testing
- * - FileContextProvider: File-based storage with markdown format
+ * Context Provider interface
+ * Provides domain operations for workflow context (channel, inbox, documents, resources).
  */
 export interface ContextProvider {
+  // Channel
+  appendChannel(from: string, message: string): Promise<ChannelEntry>
+  readChannel(since?: string, limit?: number): Promise<ChannelEntry[]>
+
+  // Inbox
+  getInbox(agent: string): Promise<InboxMessage[]>
+  ackInbox(agent: string, until: string): Promise<void>
+
+  // Team Documents
+  readDocument(file?: string): Promise<string>
+  writeDocument(content: string, file?: string): Promise<void>
+  appendDocument(content: string, file?: string): Promise<void>
+  listDocuments(): Promise<string[]>
+  createDocument(file: string, content: string): Promise<void>
+
+  // Resources
+  createResource(content: string, createdBy: string, type?: ResourceType): Promise<ResourceResult>
+  readResource(id: string): Promise<string | null>
+}
+
+// ==================== Storage Keys ====================
+
+/** Logical storage key layout */
+const KEYS = {
+  channel: 'channel.jsonl',
+  inboxState: '_state/inbox.json',
+  documentPrefix: 'documents/',
+  resourcePrefix: 'resources/',
+} as const
+
+// ==================== Unified Implementation ====================
+
+/**
+ * Unified ContextProvider implementation.
+ * All domain logic lives here; storage I/O goes through StorageBackend.
+ *
+ * Channel format: JSONL (one JSON object per line)
+ * Documents: raw content strings
+ * Resources: content-addressed blobs
+ * Inbox state: JSON cursor file
+ */
+export class ContextProviderImpl implements ContextProvider {
+  private sequence = 0
+
+  constructor(
+    private storage: StorageBackend,
+    private validAgents: string[]
+  ) {}
+
+  /** Expose storage backend (for ProposalManager, testing, etc.) */
+  getStorage(): StorageBackend {
+    return this.storage
+  }
+
   // ==================== Channel ====================
 
-  /**
-   * Append a message to the channel
-   * @param from - Agent name or 'system'
-   * @param message - Message content (may include @mentions)
-   * @returns The created channel entry with extracted mentions
-   */
-  appendChannel(from: string, message: string): Promise<ChannelEntry>
+  async appendChannel(from: string, message: string): Promise<ChannelEntry> {
+    // Use sequence suffix to ensure unique timestamps in rapid succession
+    const now = new Date()
+    const seq = this.sequence++
+    const timestamp = `${now.toISOString().slice(0, -1)}${seq.toString().padStart(3, '0')}Z`
+    const mentions = extractMentions(message, this.validAgents)
+    const entry: ChannelEntry = { timestamp, from, message, mentions }
 
-  /**
-   * Read channel entries
-   * @param since - Optional timestamp to read entries after
-   * @param limit - Optional max entries to return
-   * @returns Array of channel entries
-   */
-  readChannel(since?: string, limit?: number): Promise<ChannelEntry[]>
+    // JSONL: one JSON object per line
+    const line = JSON.stringify(entry) + '\n'
+    await this.storage.append(KEYS.channel, line)
+
+    return entry
+  }
+
+  async readChannel(since?: string, limit?: number): Promise<ChannelEntry[]> {
+    const raw = await this.storage.read(KEYS.channel)
+    if (!raw) return []
+
+    let entries = parseJsonl<ChannelEntry>(raw)
+
+    if (since) {
+      entries = entries.filter((e) => e.timestamp > since)
+    }
+
+    if (limit && limit > 0) {
+      entries = entries.slice(-limit)
+    }
+
+    return entries
+  }
 
   // ==================== Inbox ====================
 
-  /**
-   * Get unread inbox messages for an agent
-   * Does NOT acknowledge - use ackInbox() after processing
-   * @param agent - Agent name to get inbox for
-   * @returns Array of unread inbox messages with priority
-   */
-  getInbox(agent: string): Promise<InboxMessage[]>
+  async getInbox(agent: string): Promise<InboxMessage[]> {
+    const state = await this.loadInboxState()
+    const lastAck = state.readCursors[agent] || ''
+    const entries = await this.readChannel(lastAck)
 
-  /**
-   * Acknowledge inbox messages up to a timestamp
-   * @param agent - Agent name acknowledging
-   * @param until - Timestamp to acknowledge up to (inclusive)
-   */
-  ackInbox(agent: string, until: string): Promise<void>
+    return entries
+      .filter((e) => e.mentions.includes(agent))
+      .map((entry) => ({
+        entry,
+        priority: calculatePriority(entry),
+      }))
+  }
+
+  async ackInbox(agent: string, until: string): Promise<void> {
+    const state = await this.loadInboxState()
+    state.readCursors[agent] = until
+    await this.storage.write(KEYS.inboxState, JSON.stringify(state, null, 2))
+  }
+
+  private async loadInboxState(): Promise<InboxState> {
+    const raw = await this.storage.read(KEYS.inboxState)
+    if (!raw) return { readCursors: {} }
+    try {
+      const data = JSON.parse(raw)
+      return { readCursors: data.readCursors || {} }
+    } catch {
+      return { readCursors: {} }
+    }
+  }
 
   // ==================== Team Documents ====================
 
-  /**
-   * Read a document
-   * @param file - Document file path (default: notes.md)
-   * @returns Document content (empty string if not exists)
-   */
-  readDocument(file?: string): Promise<string>
+  private docKey(file?: string): string {
+    return KEYS.documentPrefix + (file || CONTEXT_DEFAULTS.document)
+  }
 
-  /**
-   * Write/replace a document
-   * @param content - New document content
-   * @param file - Document file path (default: notes.md)
-   */
-  writeDocument(content: string, file?: string): Promise<void>
+  async readDocument(file?: string): Promise<string> {
+    return (await this.storage.read(this.docKey(file))) ?? ''
+  }
 
-  /**
-   * Append to a document
-   * @param content - Content to append
-   * @param file - Document file path (default: notes.md)
-   */
-  appendDocument(content: string, file?: string): Promise<void>
+  async writeDocument(content: string, file?: string): Promise<void> {
+    await this.storage.write(this.docKey(file), content)
+  }
 
-  /**
-   * List all document files
-   * @returns Array of document file paths (relative to document directory)
-   */
-  listDocuments(): Promise<string[]>
+  async appendDocument(content: string, file?: string): Promise<void> {
+    await this.storage.append(this.docKey(file), content)
+  }
 
-  /**
-   * Create a new document
-   * @param file - Document file path
-   * @param content - Initial content
-   * @throws Error if document already exists
-   */
-  createDocument(file: string, content: string): Promise<void>
+  async listDocuments(): Promise<string[]> {
+    const files = await this.storage.list(KEYS.documentPrefix)
+    return files.filter((f) => f.endsWith('.md')).sort()
+  }
+
+  async createDocument(file: string, content: string): Promise<void> {
+    const key = this.docKey(file)
+    if (await this.storage.exists(key)) {
+      throw new Error(`Document already exists: ${file}`)
+    }
+    await this.storage.write(key, content)
+  }
 
   // ==================== Resources ====================
-  // General-purpose resource reference mechanism.
-  // Resources can be referenced from channel messages, documents, or anywhere.
 
-  /**
-   * Create a resource
-   * @param content - Resource content
-   * @param createdBy - Agent creating the resource
-   * @param type - Content type hint (default: 'text')
-   * @returns Resource ID and ready-to-use reference
-   */
-  createResource(
+  async createResource(
     content: string,
     createdBy: string,
-    type?: ResourceType
-  ): Promise<ResourceResult>
+    type: ResourceType = 'text'
+  ): Promise<ResourceResult> {
+    const id = generateResourceId()
+    const ext = type === 'json' ? 'json' : type === 'diff' ? 'diff' : 'md'
+    const key = `${KEYS.resourcePrefix}${id}.${ext}`
 
-  /**
-   * Read resource content by ID
-   * @param id - Resource ID (e.g., res_abc123)
-   * @returns Resource content or null if not found
-   */
-  readResource(id: string): Promise<string | null>
+    await this.storage.write(key, content)
+
+    return { id, ref: createResourceRef(id) }
+  }
+
+  async readResource(id: string): Promise<string | null> {
+    // Try common extensions
+    for (const ext of ['md', 'json', 'diff', 'txt']) {
+      const key = `${KEYS.resourcePrefix}${id}.${ext}`
+      const content = await this.storage.read(key)
+      if (content !== null) return content
+    }
+    return null
+  }
+}
+
+// ==================== Helpers ====================
+
+/**
+ * Parse JSONL content into an array of objects.
+ * Skips empty lines and lines that fail to parse.
+ */
+function parseJsonl<T>(content: string): T[] {
+  const results: T[] = []
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+    try {
+      results.push(JSON.parse(trimmed) as T)
+    } catch {
+      // Skip malformed lines
+    }
+  }
+  return results
+}
+
+/**
+ * Format channel entries as human-readable markdown.
+ * Useful for debugging / export — not used for storage.
+ */
+export function formatChannelAsMarkdown(entries: ChannelEntry[]): string {
+  return entries
+    .map((e) => `### ${e.timestamp} [${e.from}]\n${e.message}\n`)
+    .join('\n')
 }
