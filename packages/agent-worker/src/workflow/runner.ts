@@ -17,6 +17,7 @@ import {
   createAgentController,
   checkWorkflowIdle,
   getBackendForModel,
+  getBackendByType,
   type AgentController,
   type AgentBackend,
 } from './controller/index.ts'
@@ -393,9 +394,17 @@ export async function runWorkflowWithControllers(config: ControllerRunConfig): P
       const agentDef = workflow.agents[agentName]!
 
       // Get backend for this agent
-      const backend = createBackend
-        ? createBackend(agentName, agentDef)
-        : getBackendForModel(agentDef.model)
+      // Priority: 1. Custom createBackend, 2. Explicit backend field, 3. Infer from model
+      let backend: AgentBackend
+      if (createBackend) {
+        backend = createBackend(agentName, agentDef)
+      } else if (agentDef.backend) {
+        backend = getBackendByType(agentDef.backend)
+      } else if (agentDef.model) {
+        backend = getBackendForModel(agentDef.model)
+      } else {
+        throw new Error(`Agent "${agentName}" requires either a backend or model field`)
+      }
 
       const controller = createAgentController({
         name: agentName,

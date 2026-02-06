@@ -32,6 +32,9 @@ export class SDKBackend implements AgentBackend {
 
     try {
       const client = await this.getClient()
+      if (!ctx.agent.model) {
+        throw new Error('SDK backend requires a model to be specified')
+      }
       const { model } = parseModel(ctx.agent.model)
 
       // Build initial messages
@@ -306,15 +309,45 @@ export function createCodexCLIBackend(): CLIBackend {
 
 // ==================== Backend Selection ====================
 
+export interface BackendOptions {
+  getClient?: () => Promise<AnthropicLike>
+  getMCPTools?: (socketPath: string) => Promise<Tool[]>
+}
+
 /**
- * Get appropriate backend for a model
+ * Get backend by explicit backend type
+ */
+export function getBackendByType(
+  backendType: 'sdk' | 'claude' | 'cursor' | 'codex',
+  options?: BackendOptions
+): AgentBackend {
+  switch (backendType) {
+    case 'sdk':
+      if (!options?.getClient) {
+        throw new Error('SDK backend requires getClient function')
+      }
+      return new SDKBackend(options.getClient, options.getMCPTools)
+
+    case 'claude':
+      return createClaudeCLIBackend()
+
+    case 'codex':
+      return createCodexCLIBackend()
+
+    case 'cursor':
+      return createCursorBackend()
+
+    default:
+      throw new Error(`Unknown backend type: ${backendType}`)
+  }
+}
+
+/**
+ * Get appropriate backend for a model (legacy, use getBackendByType when backend field is specified)
  */
 export function getBackendForModel(
   model: string,
-  options?: {
-    getClient?: () => Promise<AnthropicLike>
-    getMCPTools?: (socketPath: string) => Promise<Tool[]>
-  }
+  options?: BackendOptions
 ): AgentBackend {
   const { provider } = parseModel(model)
 
@@ -333,5 +366,21 @@ export function getBackendForModel(
 
     default:
       throw new Error(`Unknown provider: ${provider}`)
+  }
+}
+
+/**
+ * Create a Cursor backend (placeholder - Cursor doesn't have standalone CLI yet)
+ */
+function createCursorBackend(): AgentBackend {
+  // Cursor uses its own extension, not a standalone CLI
+  // For now, return a placeholder that throws
+  return {
+    name: 'cursor',
+    run: async () => ({
+      success: false,
+      error: 'Cursor backend not implemented - use within Cursor IDE',
+      duration: 0,
+    }),
   }
 }

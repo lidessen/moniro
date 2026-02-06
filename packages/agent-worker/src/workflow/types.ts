@@ -49,8 +49,11 @@ export interface WorkflowFile {
 // ==================== Agent Definition ====================
 
 export interface AgentDefinition {
-  /** Model identifier (e.g., 'anthropic/claude-sonnet-4-5') */
-  model: string
+  /** Backend to use: 'sdk' (default), 'claude', 'cursor', 'codex' */
+  backend?: 'sdk' | 'claude' | 'cursor' | 'codex'
+
+  /** Model identifier (e.g., 'anthropic/claude-sonnet-4-5'). Optional for CLI backends that have defaults. */
+  model?: string
 
   /** System prompt - inline string or file path */
   system_prompt: string
