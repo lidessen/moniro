@@ -11,93 +11,10 @@
 import { generateText, tool, stepCountIs } from 'ai'
 import { MockLanguageModelV3, mockValues } from 'ai/test'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { z } from 'zod'
-import { createConnection, type Socket } from 'node:net'
-import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
-import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js'
 import type { AgentBackend, AgentRunContext, AgentRunResult } from '../workflow/controller/types.ts'
 import { buildAgentPrompt } from '../workflow/controller/prompt.ts'
-
-// ==================== Unix Socket MCP Transport ====================
-
-/**
- * MCP client transport over Unix socket
- *
- * Connects to the workflow MCP server's Unix socket,
- * sends agent identity header, then speaks MCP JSON-RPC.
- */
-class UnixSocketMCPTransport implements Transport {
-  private socket: Socket | null = null
-  private readBuffer = ''
-
-  onclose?: () => void
-  onerror?: (error: Error) => void
-  onmessage?: (message: JSONRPCMessage) => void
-  sessionId?: string
-
-  constructor(
-    private socketPath: string,
-    private agentId: string
-  ) {}
-
-  async start(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.socket = createConnection(this.socketPath)
-
-      this.socket.on('connect', () => {
-        // Send agent identity header (protocol required by transport.ts)
-        this.socket!.write(`X-Agent-Id: ${this.agentId}\n\n`)
-        resolve()
-      })
-
-      this.socket.on('data', (chunk: Buffer) => {
-        this.readBuffer += chunk.toString()
-        this.processBuffer()
-      })
-
-      this.socket.on('close', () => {
-        this.socket = null
-        this.onclose?.()
-      })
-
-      this.socket.on('error', (err: Error) => {
-        reject(err)
-        this.onerror?.(err)
-      })
-    })
-  }
-
-  private processBuffer() {
-    while (true) {
-      const idx = this.readBuffer.indexOf('\n')
-      if (idx === -1) break
-
-      const line = this.readBuffer.slice(0, idx).replace(/\r$/, '')
-      this.readBuffer = this.readBuffer.slice(idx + 1)
-
-      if (line.trim()) {
-        try {
-          const message = JSON.parse(line) as JSONRPCMessage
-          this.onmessage?.(message)
-        } catch {
-          // Skip malformed lines
-        }
-      }
-    }
-  }
-
-  async send(message: JSONRPCMessage): Promise<void> {
-    if (!this.socket) throw new Error('Transport not connected')
-    this.socket.write(JSON.stringify(message) + '\n')
-  }
-
-  async close(): Promise<void> {
-    if (this.socket) {
-      this.socket.end()
-      this.socket = null
-    }
-  }
-}
 
 // ==================== MCP Tool Bridge ====================
 
@@ -107,13 +24,14 @@ interface MCPToolBridge {
 }
 
 /**
- * Connect to workflow MCP server and create AI SDK tool wrappers
+ * Connect to workflow MCP server via HTTP and create AI SDK tool wrappers
  */
 async function createMCPToolBridge(
-  socketPath: string,
+  mcpUrl: string,
   agentName: string
 ): Promise<MCPToolBridge> {
-  const transport = new UnixSocketMCPTransport(socketPath, agentName)
+  const url = new URL(`${mcpUrl}?agent=${encodeURIComponent(agentName)}`)
+  const transport = new StreamableHTTPClientTransport(url)
   const client = new Client({ name: agentName, version: '1.0.0' })
   await client.connect(transport)
 
@@ -164,8 +82,11 @@ export class MockAIBackend implements AgentBackend {
     const log = this.debugLog || (() => {})
 
     try {
-      // Connect to MCP server and create AI SDK tool wrappers
-      const mcp = await createMCPToolBridge(ctx.mcpSocketPath, ctx.name)
+      // Connect to MCP server via HTTP and create AI SDK tool wrappers
+      if (!ctx.mcpUrl) {
+        return { success: false, error: 'Mock backend requires mcpUrl (HTTP MCP server)', duration: 0 }
+      }
+      const mcp = await createMCPToolBridge(ctx.mcpUrl, ctx.name)
       log(`[${ctx.name}] MCP connected, ${Object.keys(mcp.tools).length} tools`)
 
       // Summarize inbox for the mock response (strip @mentions to avoid re-triggering)

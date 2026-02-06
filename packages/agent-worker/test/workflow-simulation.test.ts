@@ -111,7 +111,7 @@ describe('Workflow Simulation', () => {
       name: 'reviewer',
       agent: mockAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: reviewerBackend,
       pollInterval: 30,
     })
@@ -120,7 +120,7 @@ describe('Workflow Simulation', () => {
       name: 'coder',
       agent: mockAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: coderBackend,
       pollInterval: 30,
     })
@@ -212,7 +212,7 @@ describe('Workflow Simulation', () => {
       name: 'alice',
       agent: mockAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: aliceBackend,
       pollInterval: 30,
     })
@@ -221,7 +221,7 @@ describe('Workflow Simulation', () => {
       name: 'bob',
       agent: mockAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: bobBackend,
       pollInterval: 30,
     })
@@ -230,7 +230,7 @@ describe('Workflow Simulation', () => {
       name: 'charlie',
       agent: mockAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: charlieBackend,
       pollInterval: 30,
     })
@@ -277,7 +277,7 @@ describe('Workflow Simulation', () => {
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       backend,
       pollInterval: 30,
     })
@@ -286,7 +286,7 @@ describe('Workflow Simulation', () => {
       name: 'agent2',
       agent: mockAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       backend,
       pollInterval: 30,
     })
@@ -335,7 +335,7 @@ describe('Workflow Simulation', () => {
       name: 'worker',
       agent: mockAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       backend,
       pollInterval: 30,
       retry: { maxAttempts: 3, backoffMs: 10, backoffMultiplier: 1 },

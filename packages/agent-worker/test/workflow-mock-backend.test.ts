@@ -148,7 +148,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       name: 'alice',
       agent: aliceAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       workspaceDir: '/tmp/test-workspace/alice',
       projectDir: '/tmp/test-project',
       backend: aliceBackend,
@@ -159,7 +159,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       name: 'bob',
       agent: bobAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       workspaceDir: '/tmp/test-workspace/bob',
       projectDir: '/tmp/test-project',
       backend: bobBackend,
@@ -252,7 +252,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       name: 'alice',
       agent: aliceAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/workflow.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       workspaceDir: '/tmp/ws/alice',
       projectDir: '/home/user/my-project',
       backend: aliceBackend,
@@ -263,7 +263,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       name: 'bob',
       agent: bobAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/workflow.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       workspaceDir: '/tmp/ws/bob',
       projectDir: '/home/user/my-project',
       backend: bobBackend,
@@ -285,7 +285,7 @@ describe('Alice-Bob workflow with mock backends', () => {
     expect(capturedAliceCtx!.name).toBe('alice')
     expect(capturedAliceCtx!.agent.resolvedSystemPrompt).toContain('Alice')
     expect(capturedAliceCtx!.agent.resolvedSystemPrompt).toContain('curious')
-    expect(capturedAliceCtx!.mcpSocketPath).toBe('/tmp/workflow.sock')
+    expect(capturedAliceCtx!.mcpUrl).toBe('http://127.0.0.1:0/mcp')
     expect(capturedAliceCtx!.workspaceDir).toBe('/tmp/ws/alice')
     expect(capturedAliceCtx!.projectDir).toBe('/home/user/my-project')
     expect(capturedAliceCtx!.retryAttempt).toBe(1)
@@ -296,7 +296,7 @@ describe('Alice-Bob workflow with mock backends', () => {
     expect(capturedBobCtx!.name).toBe('bob')
     expect(capturedBobCtx!.agent.resolvedSystemPrompt).toContain('Bob')
     expect(capturedBobCtx!.agent.resolvedSystemPrompt).toContain('knowledgeable')
-    expect(capturedBobCtx!.mcpSocketPath).toBe('/tmp/workflow.sock')
+    expect(capturedBobCtx!.mcpUrl).toBe('http://127.0.0.1:0/mcp')
     expect(capturedBobCtx!.workspaceDir).toBe('/tmp/ws/bob')
     expect(capturedBobCtx!.projectDir).toBe('/home/user/my-project')
     expect(capturedBobCtx!.inbox.length).toBe(1)
@@ -338,7 +338,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       name: 'alice',
       agent: aliceAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       workspaceDir: '/tmp/ws/alice',
       projectDir: '/tmp/project',
       backend: aliceBackend,
@@ -349,7 +349,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       name: 'bob',
       agent: bobAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       workspaceDir: '/tmp/ws/bob',
       projectDir: '/tmp/project',
       backend: bobBackend,
@@ -401,7 +401,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       name: 'alice',
       agent: aliceAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       workspaceDir: '/tmp/ws/alice',
       projectDir: '/tmp/project',
       backend: aliceBackend,
@@ -412,7 +412,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       name: 'bob',
       agent: bobAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       workspaceDir: '/tmp/ws/bob',
       projectDir: '/tmp/project',
       backend: bobBackend,
@@ -451,7 +451,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       name: 'alice',
       agent: aliceAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       workspaceDir: '/tmp/ws/alice',
       projectDir: '/tmp/project',
       backend: aliceBackend,
@@ -462,7 +462,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       name: 'bob',
       agent: bobAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       workspaceDir: '/tmp/ws/bob',
       projectDir: '/tmp/project',
       backend: bobBackend,
@@ -543,7 +543,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       name: 'alice',
       agent: aliceAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       workspaceDir: '/tmp/ws/alice',
       projectDir: '/tmp/project',
       backend: aliceBackend,
@@ -554,7 +554,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       name: 'bob',
       agent: bobAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       workspaceDir: '/tmp/ws/bob',
       projectDir: '/tmp/project',
       backend: bobBackend,

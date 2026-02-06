@@ -677,9 +677,13 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
 function getAgentId(extra: unknown): string | undefined {
   if (!extra || typeof extra !== 'object') return undefined
 
-  // Try sessionId first (set by sessionIdGenerator)
+  // Try sessionId first (set by sessionIdGenerator in HTTP transport)
+  // Session ID format: "agentName-uuid8chars" — extract agent name
   if ('sessionId' in extra && typeof extra.sessionId === 'string') {
-    return extra.sessionId
+    const sid = extra.sessionId
+    // Strip the trailing "-xxxxxxxx" UUID suffix (8 hex chars)
+    const match = sid.match(/^(.+)-[0-9a-f]{8}$/)
+    return match ? match[1] : sid
   }
 
   // Try meta.agentId as fallback

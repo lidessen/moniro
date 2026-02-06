@@ -11,10 +11,9 @@ import { describe, test, expect } from 'bun:test'
 import { validateWorkflow } from '../src/workflow/parser.ts'
 import { createMemoryContextProvider } from '../src/workflow/context/memory-provider.ts'
 import { createContextMCPServer } from '../src/workflow/context/mcp-server.ts'
-import { runWithUnixSocket, getSocketPath } from '../src/workflow/context/transport.ts'
+import { runWithHttp } from '../src/workflow/context/http-transport.ts'
 import { createMockBackend } from '../src/backends/mock.ts'
 import type { AgentRunContext } from '../src/workflow/controller/types.ts'
-import { randomUUID } from 'node:crypto'
 
 // ==================== Parser Validation ====================
 
@@ -77,14 +76,13 @@ describe('agent identity via MCP transport', () => {
   test('channel_send shows correct agent name (not anonymous)', async () => {
     const agentNames = ['alice', 'bob']
     const contextProvider = createMemoryContextProvider(agentNames)
-    const instance = `identity-test-${randomUUID().slice(0, 8)}`
-    const socketPath = getSocketPath('identity-test', instance)
 
     // Track channel entries
     const mentions: { from: string; target: string }[] = []
 
-    const mcpServer = await runWithUnixSocket(
-      () =>
+    // Start HTTP MCP server
+    const httpServer = await runWithHttp({
+      createServerInstance: () =>
         createContextMCPServer({
           provider: contextProvider,
           validAgents: agentNames,
@@ -94,8 +92,8 @@ describe('agent identity via MCP transport', () => {
             mentions.push({ from, target })
           },
         }).server,
-      socketPath
-    )
+      port: 0,
+    })
 
     try {
       // Create mock backend and run as alice
@@ -118,7 +116,7 @@ describe('agent identity via MCP transport', () => {
         inbox,
         recentChannel: await contextProvider.readChannel(),
         documentContent: '',
-        mcpSocketPath: socketPath,
+        mcpUrl: httpServer.url,
         workspaceDir: '/tmp/test-workspace',
         projectDir: '/tmp/test-project',
         retryAttempt: 1,
@@ -140,26 +138,24 @@ describe('agent identity via MCP transport', () => {
       const anonymousMessages = channel.filter((e) => e.from === 'anonymous')
       expect(anonymousMessages).toHaveLength(0)
     } finally {
-      await mcpServer.close()
+      await httpServer.close()
     }
   })
 
   test('different agents get different identities', async () => {
     const agentNames = ['agent1', 'agent2']
     const contextProvider = createMemoryContextProvider(agentNames)
-    const instance = `multi-id-test-${randomUUID().slice(0, 8)}`
-    const socketPath = getSocketPath('multi-id-test', instance)
 
-    const mcpServer = await runWithUnixSocket(
-      () =>
+    const httpServer = await runWithHttp({
+      createServerInstance: () =>
         createContextMCPServer({
           provider: contextProvider,
           validAgents: agentNames,
           name: 'multi-id-test',
           version: '1.0.0',
         }).server,
-      socketPath
-    )
+      port: 0,
+    })
 
     try {
       const backend = createMockBackend()
@@ -176,7 +172,7 @@ describe('agent identity via MCP transport', () => {
         inbox: inbox1,
         recentChannel: [],
         documentContent: '',
-        mcpSocketPath: socketPath,
+        mcpUrl: httpServer.url,
         workspaceDir: '/tmp/test-workspace-1',
         projectDir: '/tmp/test-project',
         retryAttempt: 1,
@@ -191,7 +187,7 @@ describe('agent identity via MCP transport', () => {
         inbox: inbox2,
         recentChannel: [],
         documentContent: '',
-        mcpSocketPath: socketPath,
+        mcpUrl: httpServer.url,
         workspaceDir: '/tmp/test-workspace-2',
         projectDir: '/tmp/test-project',
         retryAttempt: 1,
@@ -212,7 +208,7 @@ describe('agent identity via MCP transport', () => {
       const anonMsgs = channel.filter((e) => e.from === 'anonymous')
       expect(anonMsgs).toHaveLength(0)
     } finally {
-      await mcpServer.close()
+      await httpServer.close()
     }
   })
 })

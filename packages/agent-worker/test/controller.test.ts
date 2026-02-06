@@ -171,7 +171,7 @@ describe('buildAgentPrompt', () => {
         },
       ],
       documentContent: '# Notes\nSome content here',
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       workspaceDir: '/tmp/workspaces/reviewer',
       projectDir: '/home/user/myproject',
       retryAttempt: 1,
@@ -202,7 +202,7 @@ describe('buildAgentPrompt', () => {
       inbox: [],
       recentChannel: [],
       documentContent: '',
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       workspaceDir: '/tmp/workspaces/reviewer',
       projectDir: '/home/user/myproject',
       retryAttempt: 2,
@@ -229,7 +229,7 @@ describe('buildAgentPrompt', () => {
       ],
       recentChannel: [],
       documentContent: '',
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       retryAttempt: 1,
     }
 
@@ -268,26 +268,20 @@ describe('detectCLIError', () => {
 })
 
 describe('generateWorkflowMCPConfig', () => {
-  test('generates valid MCP config with agent identity', () => {
-    const config = generateWorkflowMCPConfig('/tmp/workflow.sock', 'alice')
+  test('generates HTTP MCP config with agent identity in URL', () => {
+    const config = generateWorkflowMCPConfig('http://127.0.0.1:3000/mcp', 'alice')
 
     expect(config).toHaveProperty('mcpServers')
     const server = (config as any).mcpServers['workflow-context']
     expect(server).toBeDefined()
-    expect(server.type).toBe('stdio')
-    expect(server.args).toContain('/tmp/workflow.sock')
-    expect(server.args).toContain('--agent')
-    expect(server.args).toContain('alice')
-    // Should include mcp-stdio subcommand args
-    expect(server.args).toContain('context')
-    expect(server.args).toContain('mcp-stdio')
+    expect(server.type).toBe('http')
+    expect(server.url).toBe('http://127.0.0.1:3000/mcp?agent=alice')
   })
 
-  test('uses process.execPath for command (not hardcoded agent-worker)', () => {
-    const config = generateWorkflowMCPConfig('/tmp/test.sock', 'bob')
+  test('encodes agent name in URL', () => {
+    const config = generateWorkflowMCPConfig('http://127.0.0.1:3000/mcp', 'agent with spaces')
     const server = (config as any).mcpServers['workflow-context']
-    // Command should be the current runtime (node/bun), not 'agent-worker'
-    expect(server.command).toBe(process.execPath)
+    expect(server.url).toContain('agent=agent%20with%20spaces')
   })
 })
 
@@ -311,7 +305,7 @@ describe('createAgentController', () => {
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
     })
 
@@ -330,7 +324,7 @@ describe('createAgentController', () => {
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
       pollInterval: 100,
     })
@@ -363,7 +357,7 @@ describe('createAgentController', () => {
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
       pollInterval: 50,
     })
@@ -401,7 +395,7 @@ describe('createAgentController', () => {
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
       pollInterval: 50,
       retry: { maxAttempts: 2, backoffMs: 10, backoffMultiplier: 1 },
@@ -443,7 +437,7 @@ describe('createAgentController', () => {
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
       pollInterval: 5000, // Long poll interval
     })
@@ -473,7 +467,7 @@ describe('createAgentController', () => {
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
       pollInterval: 100,
     })
@@ -498,7 +492,7 @@ describe('createAgentController', () => {
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
       pollInterval: 50,
       onRunComplete: (result) => {
@@ -537,7 +531,7 @@ describe('checkWorkflowIdle', () => {
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
       pollInterval: 1000,
     })
@@ -546,7 +540,7 @@ describe('checkWorkflowIdle', () => {
       name: 'agent2',
       agent: mockAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
       pollInterval: 1000,
     })
@@ -580,7 +574,7 @@ describe('checkWorkflowIdle', () => {
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
       pollInterval: 10000, // Long poll so it doesn't process
     })
@@ -685,7 +679,7 @@ describe('buildWorkflowIdleState', () => {
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
       pollInterval: 5000,
     })
@@ -715,7 +709,7 @@ describe('buildWorkflowIdleState', () => {
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
-      mcpSocketPath: '/tmp/test.sock',
+      mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
       pollInterval: 10000,
     })

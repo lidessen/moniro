@@ -472,7 +472,7 @@ describe('runWorkflow', () => {
     })
 
     expect(result.success).toBe(true)
-    expect(result.mcpSocketPath).toBeDefined()
+    expect(result.mcpUrl).toBeDefined()
     expect(result.contextProvider).toBeDefined()
     expect(result.agentNames).toEqual(['agent1'])
     expect(startedAgents).toEqual(['agent1'])
@@ -598,7 +598,8 @@ describe('generateMCPConfig', () => {
       expect(existsSync(result.configPath!)).toBe(true)
 
       const content = JSON.parse(readFileSync(result.configPath!, 'utf-8'))
-      expect(content.mcpServers.context.command).toBe('agent-worker')
+      // resolveAgentWorkerCLI() uses process.execPath when process.argv[1] is set
+      expect(content.mcpServers.context.command).toBe(process.execPath)
       expect(content.mcpServers.context.args).toContain('/tmp/test.sock')
     })
   })
@@ -616,7 +617,6 @@ describe('generateMCPConfig', () => {
 
       const content = readFileSync(result.configPath!, 'utf-8')
       expect(content).toContain('[mcp_servers.context]')
-      expect(content).toContain('agent-worker')
       expect(content).toContain('/tmp/test.sock')
     })
 
@@ -658,7 +658,7 @@ describe('generateMCPConfig', () => {
       expect(existsSync(result.configPath!)).toBe(true)
 
       const content = JSON.parse(readFileSync(result.configPath!, 'utf-8'))
-      expect(content.mcpServers.context.command).toBe('agent-worker')
+      expect(content.mcpServers.context.command).toBe(process.execPath)
     })
 
     test('merges with existing config', () => {

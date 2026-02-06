@@ -5,7 +5,7 @@
 
 import { spawn } from 'node:child_process'
 import { writeFileSync, unlinkSync, existsSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import type { AgentBackend, AgentRunContext, AgentRunResult, ParsedModel } from './types.ts'
 import { parseModel } from './types.ts'
@@ -29,7 +29,7 @@ export class SDKBackend implements AgentBackend {
 
   constructor(
     private getClient: () => Promise<AnthropicLike>,
-    private getMCPTools?: (socketPath: string) => Promise<Tool[]>
+    private getMCPTools?: (mcpUrl: string) => Promise<Tool[]>
   ) {}
 
   async run(ctx: AgentRunContext): Promise<AgentRunResult> {
@@ -46,7 +46,7 @@ export class SDKBackend implements AgentBackend {
       const messages: Message[] = [{ role: 'user', content: buildAgentPrompt(ctx) }]
 
       // Get MCP tools if available
-      const tools = this.getMCPTools ? await this.getMCPTools(ctx.mcpSocketPath) : []
+      const tools = this.getMCPTools ? await this.getMCPTools(ctx.mcpUrl) : []
 
       // Agentic loop
       while (true) {
@@ -65,7 +65,7 @@ export class SDKBackend implements AgentBackend {
 
         // Handle tool use
         if (response.stop_reason === 'tool_use') {
-          const toolResults = await this.handleToolCalls(response.content, ctx.mcpSocketPath)
+          const toolResults = await this.handleToolCalls(response.content)
           messages.push({ role: 'assistant', content: response.content })
           messages.push({ role: 'user', content: toolResults })
         } else {
@@ -85,8 +85,7 @@ export class SDKBackend implements AgentBackend {
   }
 
   private async handleToolCalls(
-    content: ContentBlock[],
-    _socketPath: string
+    content: ContentBlock[]
   ): Promise<ContentBlock[]> {
     const results: ContentBlock[] = []
 
@@ -187,39 +186,19 @@ export interface WorkflowMCPConfig {
 /**
  * Generate MCP config for workflow context server.
  *
- * When mcpUrl is provided (HTTP transport), generates URL-based config:
+ * Uses HTTP transport — CLI agents connect directly via URL:
  *   { type: "http", url: "http://127.0.0.1:<port>/mcp?agent=<name>" }
- *
- * Falls back to stdio transport (subprocess bridge) when no URL available.
  */
 export function generateWorkflowMCPConfig(
-  socketPath: string,
-  agentName: string,
-  mcpUrl?: string
+  mcpUrl: string,
+  agentName: string
 ): WorkflowMCPConfig {
-  // Prefer HTTP transport — CLI agents connect directly, no subprocess needed
-  if (mcpUrl) {
-    const url = `${mcpUrl}?agent=${encodeURIComponent(agentName)}`
-    return {
-      mcpServers: {
-        'workflow-context': {
-          type: 'http',
-          url,
-        },
-      },
-    }
-  }
-
-  // Fallback: stdio transport via subprocess bridge
-  const scriptPath = process.argv[1]
-  const command = scriptPath ? process.execPath : 'agent-worker'
-  const prefixArgs = scriptPath ? [...process.execArgv, resolve(scriptPath)] : []
+  const url = `${mcpUrl}?agent=${encodeURIComponent(agentName)}`
   return {
     mcpServers: {
       'workflow-context': {
-        type: 'stdio',
-        command,
-        args: [...prefixArgs, 'context', 'mcp-stdio', '--socket', socketPath, '--agent', agentName],
+        type: 'http',
+        url,
       },
     },
   }
@@ -248,7 +227,7 @@ export class CLIBackend implements AgentBackend {
     const mcpConfigPath = join(tmpdir(), `agent-${ctx.name}-${Date.now()}-mcp.json`)
 
     try {
-      writeFileSync(mcpConfigPath, JSON.stringify(generateWorkflowMCPConfig(ctx.mcpSocketPath, ctx.name), null, 2))
+      writeFileSync(mcpConfigPath, JSON.stringify(generateWorkflowMCPConfig(ctx.mcpUrl, ctx.name), null, 2))
 
       const args = this.buildArgs(ctx, mcpConfigPath)
       const { stdout, stderr, exitCode } = await this.exec(this.command, args)
@@ -350,7 +329,7 @@ export function createCodexCLIBackend(): CLIBackend {
 
 export interface BackendOptions {
   getClient?: () => Promise<AnthropicLike>
-  getMCPTools?: (socketPath: string) => Promise<Tool[]>
+  getMCPTools?: (mcpUrl: string) => Promise<Tool[]>
 }
 
 /**
@@ -442,9 +421,8 @@ class CLIAdapterBackend implements AgentBackend {
     const log = this.debugLog || (() => {})
 
     try {
-      // Set up workspace with MCP config
-      // Prefer HTTP URL (direct connection) over stdio (subprocess bridge)
-      const mcpConfig = generateWorkflowMCPConfig(ctx.mcpSocketPath, ctx.name, ctx.mcpUrl)
+      // Set up workspace with MCP config (HTTP transport)
+      const mcpConfig = generateWorkflowMCPConfig(ctx.mcpUrl, ctx.name)
       this.cli.setWorkspace(ctx.workspaceDir, mcpConfig)
 
       const prompt = buildAgentPrompt(ctx)
