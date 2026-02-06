@@ -36,89 +36,89 @@ Target structure:
 
 ### Types Changes (`context/types.ts`)
 
-- [ ] Rename `MentionNotification` → `InboxMessage`
-- [ ] Add `priority` field to `InboxMessage` (normal | high)
-- [ ] Add `InboxState` interface
-- [ ] Update `CONTEXT_DEFAULTS`:
-  - [ ] Keep `channel: 'channel.md'`
-  - [ ] Change `document: 'notes.md'` → `documentDir: 'documents/'`
-  - [ ] Add `defaultDocument: 'notes.md'`
-  - [ ] Add `stateDir: '_state/'`
+- [x] Rename `MentionNotification` → `InboxMessage`
+- [x] Add `priority` field to `InboxMessage` (normal | high)
+- [x] Add `InboxState` interface
+- [x] Update `CONTEXT_DEFAULTS`:
+  - [x] Keep `channel: 'channel.md'`
+  - [x] Change `document: 'notes.md'` → `documentDir: 'documents/'`
+  - [x] Add `defaultDocument: 'notes.md'`
+  - [x] Add `stateDir: '_state/'`
 
 ### Provider Interface Changes (`context/provider.ts`)
 
-- [ ] Rename method: `getUnreadMentions()` → `getInbox()`
-- [ ] Rename method: `acknowledgeMentions()` → `ackInbox()`
-- [ ] Remove `getAllMentions()` (not needed with new inbox model)
-- [ ] Update `readDocument()` signature: add optional `file?: string` parameter
-- [ ] Update `writeDocument()` signature: add optional `file?: string` parameter
-- [ ] Update `appendDocument()` signature: add optional `file?: string` parameter
-- [ ] Add `listDocuments()` method
-- [ ] Add `createDocument(file: string, content: string)` method
+- [x] Rename method: `getUnreadMentions()` → `getInbox()`
+- [x] Rename method: `acknowledgeMentions()` → `ackInbox()`
+- [x] Remove `getAllMentions()` (not needed with new inbox model)
+- [x] Update `readDocument()` signature: add optional `file?: string` parameter
+- [x] Update `writeDocument()` signature: add optional `file?: string` parameter
+- [x] Update `appendDocument()` signature: add optional `file?: string` parameter
+- [x] Add `listDocuments()` method
+- [x] Add `createDocument(file: string, content: string)` method
 
 ### FileContextProvider Changes (`context/file-provider.ts`)
 
-- [ ] Update constructor: accept `documentDir` instead of `documentPath`
-- [ ] Update `mentionStatePath` → `_state/inbox-state.json`
-- [ ] Rename `mentionState` → `inboxState`
-- [ ] Rename `loadMentionState()` → `loadInboxState()`
-- [ ] Rename `saveMentionState()` → `saveInboxState()`
-- [ ] Rename `getUnreadMentions()` → `getInbox()`
-- [ ] Rename `acknowledgeMentions()` → `ackInbox()`
-- [ ] Remove `getAllMentions()` method
-- [ ] Update document methods for multi-file support:
-  - [ ] `readDocument(file?)` - default to `notes.md`
-  - [ ] `writeDocument(file?, content)` - default to `notes.md`
-  - [ ] `appendDocument(file?, content)` - default to `notes.md`
-- [ ] Add `listDocuments()` implementation
-- [ ] Add `createDocument(file, content)` implementation
-- [ ] Update `createFileContextProvider()` factory function
+- [x] Update constructor: accept `documentDir` instead of `documentPath`
+- [x] Update `mentionStatePath` → `_state/inbox-state.json`
+- [x] Rename `mentionState` → `inboxState`
+- [x] Rename `loadMentionState()` → `loadInboxState()`
+- [x] Rename `saveMentionState()` → `saveInboxState()`
+- [x] Rename `getUnreadMentions()` → `getInbox()`
+- [x] Rename `acknowledgeMentions()` → `ackInbox()`
+- [x] Remove `getAllMentions()` method
+- [x] Update document methods for multi-file support:
+  - [x] `readDocument(file?)` - default to `notes.md`
+  - [x] `writeDocument(file?, content)` - default to `notes.md`
+  - [x] `appendDocument(file?, content)` - default to `notes.md`
+- [x] Add `listDocuments()` implementation
+- [x] Add `createDocument(file, content)` implementation
+- [x] Update `createFileContextProvider()` factory function
 
 ### MemoryContextProvider Changes (`context/memory-provider.ts`)
 
-- [ ] Rename `mentionState` → `inboxState`
-- [ ] Change `document` string → `documents` Map<string, string>
-- [ ] Rename `getUnreadMentions()` → `getInbox()`
-- [ ] Rename `acknowledgeMentions()` → `ackInbox()`
-- [ ] Remove `getAllMentions()` method
-- [ ] Update document methods for multi-file support
-- [ ] Add `listDocuments()` implementation
-- [ ] Add `createDocument(file, content)` implementation
-- [ ] Update `getMentionState()` → `getInboxState()` (test helper)
+- [x] Rename `mentionState` → `inboxState`
+- [x] Change `document` string → `documents` Map<string, string>
+- [x] Rename `getUnreadMentions()` → `getInbox()`
+- [x] Rename `acknowledgeMentions()` → `ackInbox()`
+- [x] Remove `getAllMentions()` method
+- [x] Update document methods for multi-file support
+- [x] Add `listDocuments()` implementation
+- [x] Add `createDocument(file, content)` implementation
+- [x] Update `getMentionState()` → `getInboxState()` (test helper)
 
 ### MCP Server Changes (`context/mcp-server.ts`)
 
 **Breaking Change:**
-- [ ] **Remove auto-acknowledge from `channel_read`** (lines 104-107)
+- [x] **Remove auto-acknowledge from `channel_read`**
 
 Tool updates:
-- [ ] Update `channel_mentions` → `inbox_check` (rename only)
-- [ ] Add `inbox_ack` tool (explicit acknowledgment)
-- [ ] Add `file` parameter to `document_read`
-- [ ] Add `file` parameter to `document_write`
-- [ ] Add `file` parameter to `document_append`
-- [ ] Add `document_list` tool
-- [ ] Add `document_create` tool
+- [x] Update `channel_mentions` → `inbox_check` (rename only)
+- [x] Add `inbox_ack` tool (explicit acknowledgment)
+- [x] Add `file` parameter to `document_read`
+- [x] Add `file` parameter to `document_write`
+- [x] Add `file` parameter to `document_append`
+- [x] Add `document_list` tool
+- [x] Add `document_create` tool
 
 > **Note**: `onMention` callback is added in Phase 8 (Agent Controller).
 
 ### Workflow Types Changes (`workflow/types.ts`)
 
-- [ ] Update `ResolvedFileContext`:
-  - [ ] Rename `document: string` → `documentDir: string`
-- [ ] Add `documentOwner?: string` to context config types
-- [ ] Update `FileContextConfig` for documentOwner at context level
+- [x] Update `ResolvedFileContext`:
+  - [x] Rename `document: string` → `documentDir: string`
+- [x] Add `documentOwner?: string` to context config types
+- [x] Update `FileContextConfig` for documentOwner at context level
 
 ### Runner Changes (`workflow/runner.ts`)
 
-- [ ] Update `createFileContextProvider()` call: pass `documentDir` instead of `documentFile`
-- [ ] Ensure `_state/` directory is created
-- [ ] Ensure `documents/` directory is created
+- [x] Update `createFileContextProvider()` call: pass `documentDir` instead of `documentFile`
+- [x] Ensure `_state/` directory is created (via FileContextProvider)
+- [x] Ensure `documents/` directory is created (via FileContextProvider)
 
 ### Parser Changes (`workflow/parser.ts`)
 
-- [ ] Update context resolution: `document` → `documentDir`
-- [ ] Add `documentOwner` parsing and validation
+- [x] Update context resolution: `document` → `documentDir`
+- [x] Add `documentOwner` parsing and validation
 
 ### Test Updates
 
@@ -127,6 +127,7 @@ Tool updates:
 
 ### Validation (Phase 0)
 
+- [x] **TypeScript**: All workflow files pass type checking
 - [ ] **Unit tests**: MemoryContextProvider passes all tests with new interface
 - [ ] **Unit tests**: FileContextProvider passes all tests with new interface
 - [ ] **Unit tests**: MCP server tools work correctly (inbox_check, inbox_ack, document_*)
@@ -197,9 +198,9 @@ Tool updates:
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| **0. Migration** | 🔄 Pending | Refactor existing code to align with new design |
-| 1. Context Provider | ⚠️ Needs Migration | `context/` module - update for inbox/multi-doc |
-| 2. Context MCP Server | ⚠️ Needs Migration | Remove auto-ack, add inbox/doc tools |
+| **0. Migration** | ✅ Complete | Refactored existing code to align with new design |
+| 1. Context Provider | ✅ Complete | `context/` module - inbox/multi-doc implemented |
+| 2. Context MCP Server | ✅ Complete | inbox_check/inbox_ack, document_* tools |
 | 3. Kickoff Model | ✅ Complete | runner with setup + kickoff execution |
 | 4. CLI Updates | ✅ Complete | start/stop/list commands + context subcommand |
 | 5. Run/Start Modes | ✅ Complete | run idle detection + start --background + graceful shutdown |
