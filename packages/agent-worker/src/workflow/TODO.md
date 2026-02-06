@@ -26,10 +26,12 @@ Target structure:
 ```
 .workflow/instance/
 ├── _state/                # Internal state directory
-│   └── inbox-state.json   # Renamed from .mention-state.json
+│   ├── inbox-state.json   # Renamed from .mention-state.json
+│   └── proposals.json     # Active proposals (Phase 11)
 ├── channel.md
 └── documents/             # Multi-file document directory
-    └── notes.md           # Default entry point
+    ├── notes.md           # Default entry point
+    └── decisions.md       # Archived decisions (Phase 11)
 ```
 
 ### Types Changes (`context/types.ts`)
@@ -97,8 +99,8 @@ Tool updates:
 - [ ] Add `file` parameter to `document_append`
 - [ ] Add `document_list` tool
 - [ ] Add `document_create` tool
-- [ ] Add `onMention` callback option to `ContextMCPServerOptions`
-- [ ] Call `onMention` in `channel_send` for each @mention
+
+> **Note**: `onMention` callback is added in Phase 8 (Agent Controller).
 
 ### Workflow Types Changes (`workflow/types.ts`)
 
@@ -193,11 +195,29 @@ Tool updates:
 | 4. CLI Updates | ✅ Complete | start/stop/list commands + context subcommand |
 | 5. Run/Start Modes | ✅ Complete | run idle detection + start --background + graceful shutdown |
 | 6. Agent MCP Integration | ✅ Complete | mcp-config.ts + mcp-stdio bridge |
-| 7. Inbox Model | 🔄 Pending | Merged into Phase 0 migration |
+| 7. Inbox Model | 🔄 Pending | Priority detection (core merged into Phase 0) |
 | 8. Agent Controller | 🔄 Pending | Controller + backend abstraction |
-| 9. Multi-File Documents | 🔄 Pending | Merged into Phase 0 migration |
-| 10. Document Ownership | 🔄 Pending | Optional single-writer model |
+| 9. Multi-File Documents | 🔄 Pending | Nested dirs (core merged into Phase 0) |
+| 10. Document Ownership | 🔄 Pending | Optional, requires Phase 11 for election |
 | 11. Proposal & Voting | 🔄 Pending | Generic decision-making system |
+
+### Implementation Order
+
+```
+Phase 0 (Migration)
+    │
+    ├── Phase 7 (Inbox: priority detection)
+    │
+    └── Phase 8 (Agent Controller) ──► Phase 9 (Nested dirs)
+                                            │
+                                            ▼
+                                       Phase 11 (Voting)
+                                            │
+                                            ▼
+                                       Phase 10 (Ownership)
+```
+
+**Recommended order**: 0 → 8 → 7 → 9 → 11 → 10
 
 ---
 
@@ -268,12 +288,14 @@ Tool updates:
 
 ## Phase 10: Document Ownership (Optional)
 
-Single-writer model to prevent concurrent document conflicts:
+Single-writer model to prevent concurrent document conflicts.
 
-### Configuration
-- [ ] Move `documentOwner` to context level (cross-provider, not in config.*)
-- [ ] Update `FileContextConfig` and `MemoryContextConfig` interfaces
-- [ ] Default: single agent = disabled, multiple + not specified = election (via Phase 11)
+> **Note**: `documentOwner` config is added in Phase 0 Migration. This phase implements enforcement.
+
+### Default Behavior
+- [ ] Single agent workflow: ownership disabled (no restrictions)
+- [ ] Multiple agents + `documentOwner` specified: use configured owner
+- [ ] Multiple agents + not specified: trigger election (Phase 11)
 
 ### Ownership Enforcement
 - [ ] Add ownership check to `document_write`, `document_create`, `document_append`
@@ -298,10 +320,9 @@ Generic collaborative decision-making for elections, design decisions, task assi
 
 ### Persistence & Archiving
 - [ ] Define `ProposalsState` interface (proposals + version)
-- [ ] Implement `loadProposals()` from proposals.json (active only)
-- [ ] Implement `saveProposals()` to proposals.json (filter active)
-- [ ] Store proposals in `.workflow/instance/proposals.json`
-- [ ] Implement `archiveDecision()` - append to decisions.md
+- [ ] Implement `loadProposals()` from `_state/proposals.json`
+- [ ] Implement `saveProposals()` to `_state/proposals.json`
+- [ ] Implement `archiveDecision()` - append to `documents/decisions.md`
 - [ ] Remove resolved proposals from proposals.json after archiving
 - [ ] Create decisions.md with header on first archive
 
