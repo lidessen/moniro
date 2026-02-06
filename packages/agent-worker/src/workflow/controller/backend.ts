@@ -168,9 +168,10 @@ export function detectCLIError(stdout: string, stderr: string, exitCode: number)
 }
 
 /**
- * Generate MCP config JSON for CLI tools
+ * Generate MCP config JSON for workflow context server
+ * Used internally by CLIBackend to connect agents to the workflow MCP server
  */
-export function generateMCPConfig(socketPath: string): object {
+export function generateWorkflowMCPConfig(socketPath: string): object {
   return {
     mcpServers: {
       'workflow-context': {
@@ -205,7 +206,7 @@ export class CLIBackend implements AgentBackend {
     const mcpConfigPath = join(tmpdir(), `agent-${ctx.name}-${Date.now()}-mcp.json`)
 
     try {
-      writeFileSync(mcpConfigPath, JSON.stringify(generateMCPConfig(ctx.mcpSocketPath), null, 2))
+      writeFileSync(mcpConfigPath, JSON.stringify(generateWorkflowMCPConfig(ctx.mcpSocketPath), null, 2))
 
       const args = this.buildArgs(ctx, mcpConfigPath)
       const { stdout, stderr, exitCode } = await this.exec(this.command, args)

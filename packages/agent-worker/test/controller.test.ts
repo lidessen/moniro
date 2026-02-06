@@ -15,7 +15,7 @@ import {
 } from '../src/workflow/controller/types.ts'
 import { formatInbox, formatChannel, buildAgentPrompt } from '../src/workflow/controller/prompt.ts'
 import { createAgentController, checkWorkflowIdle, isWorkflowComplete, buildWorkflowIdleState } from '../src/workflow/controller/controller.ts'
-import { detectCLIError, generateMCPConfig } from '../src/workflow/controller/backend.ts'
+import { detectCLIError, generateWorkflowMCPConfig } from '../src/workflow/controller/backend.ts'
 import { parseSendTarget, sendToWorkflowChannel, formatUserSender } from '../src/workflow/controller/send.ts'
 import type { WorkflowIdleState } from '../src/workflow/controller/types.ts'
 import { createMemoryContextProvider } from '../src/workflow/context/memory-provider.ts'
@@ -255,9 +255,9 @@ describe('detectCLIError', () => {
   })
 })
 
-describe('generateMCPConfig', () => {
+describe('generateWorkflowMCPConfig', () => {
   test('generates valid MCP config', () => {
-    const config = generateMCPConfig('/tmp/workflow.sock')
+    const config = generateWorkflowMCPConfig('/tmp/workflow.sock')
 
     expect(config).toHaveProperty('mcpServers')
     expect((config as any).mcpServers['workflow-context']).toBeDefined()
