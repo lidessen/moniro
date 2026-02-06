@@ -3,8 +3,8 @@
  * Manages agent lifecycle with polling and retry logic
  */
 
-import type { ContextProvider } from '../context/provider.ts'
-import type { ProposalManager } from '../context/proposals.ts'
+import type { ContextProvider } from '../../context/provider.ts'
+import type { ProposalManager } from '../../context/proposals.ts'
 import type {
   AgentController,
   AgentControllerConfig,

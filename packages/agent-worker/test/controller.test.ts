@@ -17,8 +17,8 @@ import { createAgentController, checkWorkflowIdle, isWorkflowComplete, buildWork
 import { detectCLIError, generateWorkflowMCPConfig } from '../src/workflow/controller/backend.ts'
 import { parseSendTarget, sendToWorkflowChannel, formatUserSender } from '../src/workflow/controller/send.ts'
 import type { WorkflowIdleState } from '../src/workflow/controller/types.ts'
-import { createMemoryContextProvider } from '../src/workflow/context/memory-provider.ts'
-import type { InboxMessage, Message } from '../src/workflow/context/types.ts'
+import { createMemoryContextProvider } from '../src/context/memory-provider.ts'
+import type { InboxMessage, Message } from '../src/context/types.ts'
 import type { ResolvedAgent } from '../src/workflow/types.ts'
 
 // ==================== Model Parsing Tests ====================

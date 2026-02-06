@@ -10,11 +10,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ParsedWorkflow, SetupTask, ResolvedAgent, ResolvedContext, ResolvedFileContext } from './types.ts'
 import { interpolate, createContext, type VariableContext } from './interpolate.ts'
-import { createFileContextProvider } from './context/file-provider.ts'
-import { createMemoryContextProvider } from './context/memory-provider.ts'
-import { createContextMCPServer } from './context/mcp-server.ts'
-import { runWithHttp, type HttpMCPServer } from './context/http-transport.ts'
-import type { ContextProvider } from './context/provider.ts'
+import { createFileContextProvider } from '../context/file-provider.ts'
+import { createMemoryContextProvider } from '../context/memory-provider.ts'
+import { createContextMCPServer } from '../context/mcp-server.ts'
+import { runWithHttp, type HttpMCPServer } from '../context/http-transport.ts'
+import type { ContextProvider } from '../context/provider.ts'
 import {
   createAgentController,
   checkWorkflowIdle,
@@ -23,7 +23,7 @@ import {
   type AgentController,
   type AgentBackend,
 } from './controller/index.ts'
-import type { Message } from './context/types.ts'
+import type { Message } from '../context/types.ts'
 import { createLogger, createSilentLogger, type Logger } from './logger.ts'
 
 const execAsync = promisify(exec)
@@ -142,6 +142,10 @@ export interface RunConfig {
   log?: (message: string) => void
   /** Agent startup function */
   startAgent: (agentName: string, config: ResolvedAgent, mcpUrl: string) => Promise<void>
+  /** Callback when an agent @mentions another agent */
+  onMention?: (from: string, target: string, msg: import('../context/types.ts').Message) => void
+  /** Debug log function for MCP tool calls */
+  debugLog?: (message: string) => void
 }
 
 /**
@@ -204,7 +208,7 @@ export interface WorkflowRuntime {
  * 4. Runs setup commands
  */
 export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> {
-  const { workflow, instance = 'default', verbose = false, log = console.log } = config
+  const { workflow, instance = 'default', verbose = false, log = console.log, onMention, debugLog } = config
   const startTime = Date.now()
 
   const agentNames = Object.keys(workflow.agents)
@@ -250,6 +254,8 @@ export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> 
       validAgents: agentNames,
       name: `${workflow.name}-context`,
       version: '1.0.0',
+      onMention,
+      debugLog,
     }).server
 
   const httpMcpServer = await runWithHttp({
@@ -495,11 +501,12 @@ export async function runWorkflowWithControllers(config: ControllerRunConfig): P
     logger.debug('Initializing workflow runtime...')
 
     // Initialize runtime with onMention callback
-    const runtime = await initWorkflowWithMentions({
+    const runtime = await initWorkflow({
       workflow,
       instance,
       verbose: debug, // Use debug for internal verbose logging
       log,
+      startAgent: async () => {}, // Not used; controllers start agents below
       onMention: (from, target, entry) => {
         const controller = controllers.get(target)
         if (controller) {
@@ -658,142 +665,6 @@ export async function runWorkflowWithControllers(config: ControllerRunConfig): P
       duration: Date.now() - startTime,
     }
   }
-}
-
-/**
- * Initialize workflow with onMention callback
- */
-interface InitWithMentionsConfig {
-  workflow: ParsedWorkflow
-  instance: string
-  verbose: boolean
-  log: (message: string) => void
-  onMention: (from: string, target: string, msg: import('./context/types.ts').Message) => void
-  /** Debug log function for MCP tool calls */
-  debugLog?: (message: string) => void
-}
-
-async function initWorkflowWithMentions(config: InitWithMentionsConfig): Promise<WorkflowRuntime> {
-  const { workflow, instance, verbose, log, onMention, debugLog } = config
-  const startTime = Date.now()
-
-  const agentNames = Object.keys(workflow.agents)
-
-  if (!workflow.context) {
-    throw new Error('Workflow context is disabled. Remove "context: false" to enable agent collaboration.')
-  }
-
-  const resolvedContext = workflow.context as ResolvedContext
-
-  // Create context provider
-  let contextProvider: ContextProvider
-  let contextDir: string
-
-  // Project directory is where the workflow was invoked from
-  const projectDir = process.cwd()
-
-  if (resolvedContext.provider === 'memory') {
-    if (verbose) log('Using memory context provider')
-    contextProvider = createMemoryContextProvider(agentNames)
-    contextDir = join(tmpdir(), `agent-worker-${workflow.name}-${instance}`)
-  } else {
-    const fileContext = resolvedContext as ResolvedFileContext
-    contextDir = fileContext.dir
-
-    if (!existsSync(contextDir)) {
-      mkdirSync(contextDir, { recursive: true })
-    }
-
-    if (verbose) log(`Context directory: ${contextDir}`)
-
-    contextProvider = createFileContextProvider(contextDir, agentNames)
-  }
-
-  // Create MCP server factory
-  const createMCPServerInstance = () =>
-    createContextMCPServer({
-      provider: contextProvider,
-      validAgents: agentNames,
-      name: `${workflow.name}-context`,
-      version: '1.0.0',
-      onMention,
-      debugLog,
-    }).server
-
-  // Start HTTP MCP server — all backends (CLI, mock, SDK) connect via HTTP
-  const httpMcpServer = await runWithHttp({
-    createServerInstance: createMCPServerInstance,
-    port: 0, // Random port
-    onConnect: (agentId, sessionId) => {
-      if (verbose) log(`Agent connected: ${agentId} (${sessionId.slice(0, 8)})`)
-    },
-    onDisconnect: (agentId, sessionId) => {
-      if (verbose) log(`Agent disconnected: ${agentId} (${sessionId.slice(0, 8)})`)
-    },
-  })
-
-  if (verbose) log(`MCP server: ${httpMcpServer.url}`)
-
-  // Run setup commands
-  const setupResults: Record<string, string> = {}
-  const context = createContext(workflow.name, instance, setupResults)
-
-  if (workflow.setup && workflow.setup.length > 0) {
-    if (verbose) log('\nRunning setup...')
-    for (const task of workflow.setup) {
-      try {
-        const result = await runSetupTask(task, context, verbose, log)
-        if (task.as) {
-          setupResults[task.as] = result
-          context[task.as] = result
-        }
-      } catch (error) {
-        await httpMcpServer.close()
-        throw new Error(
-          `Setup failed: ${error instanceof Error ? error.message : String(error)}`
-        )
-      }
-    }
-  }
-
-  // Interpolate kickoff
-  const interpolatedKickoff = workflow.kickoff
-    ? interpolate(workflow.kickoff, context)
-    : undefined
-
-  const runtime: WorkflowRuntime = {
-    name: workflow.name,
-    instance,
-    contextDir,
-    projectDir,
-    contextProvider,
-    httpMcpServer,
-    mcpUrl: httpMcpServer.url,
-    agentNames,
-    setupResults,
-
-    async sendKickoff() {
-      if (!interpolatedKickoff) {
-        if (verbose) log('No kickoff message configured')
-        return
-      }
-
-      if (verbose) log(`\nKickoff: ${interpolatedKickoff.slice(0, 100)}...`)
-      await contextProvider.appendChannel('system', interpolatedKickoff)
-    },
-
-    async shutdown() {
-      if (verbose) log('\nShutting down workflow...')
-      await httpMcpServer.close()
-    },
-  }
-
-  if (verbose) {
-    log(`\nWorkflow initialized in ${Date.now() - startTime}ms`)
-    log(`Agents: ${agentNames.join(', ')}`)
-  }
-
-  return runtime
 }
 
 /**

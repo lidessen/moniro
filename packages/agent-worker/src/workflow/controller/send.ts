@@ -3,7 +3,7 @@
  * Target pattern parsing and message routing
  */
 
-import type { ContextProvider } from '../context/provider.ts'
+import type { ContextProvider } from '../../context/provider.ts'
 
 /**
  * Send target types

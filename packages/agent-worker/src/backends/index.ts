@@ -74,6 +74,7 @@ export async function checkBackends(): Promise<Record<BackendType, boolean>> {
     claude: claudeAvailable,
     codex: codexAvailable,
     cursor: cursorAvailable,
+    mock: true, // Always available (in-memory)
   }
 }
 

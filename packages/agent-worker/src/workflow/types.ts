@@ -2,14 +2,14 @@
  * Workflow file type definitions
  */
 
-import type { ContextConfig } from './context/types.js'
+import type { ContextConfig } from '../context/types.js'
 
 // Re-export context types for convenience
 export type {
   ContextConfig,
   FileContextConfig,
   MemoryContextConfig,
-} from './context/types.js'
+} from '../context/types.js'
 
 // ==================== Workflow File ====================
 
