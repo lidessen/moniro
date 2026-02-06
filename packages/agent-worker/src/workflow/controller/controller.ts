@@ -10,6 +10,7 @@ import type {
   AgentState,
   AgentRunContext,
   AgentRunResult,
+  WorkflowIdleState,
 } from './types.ts'
 import { CONTROLLER_DEFAULTS } from './types.ts'
 
@@ -222,4 +223,48 @@ export async function checkWorkflowIdle(
 
   // Verify still idle after debounce
   return [...controllers.values()].every((c) => c.state === 'idle')
+}
+
+/**
+ * Check if workflow is complete (synchronous state check)
+ * All conditions must be true for workflow to be considered complete
+ */
+export function isWorkflowComplete(state: WorkflowIdleState): boolean {
+  return (
+    state.allControllersIdle &&
+    state.noUnreadMessages &&
+    state.noActiveProposals &&
+    state.idleDebounceElapsed
+  )
+}
+
+/**
+ * Build workflow idle state from current state
+ * Used for run mode exit detection
+ */
+export async function buildWorkflowIdleState(
+  controllers: Map<string, AgentController>,
+  provider: ContextProvider
+): Promise<Omit<WorkflowIdleState, 'idleDebounceElapsed'>> {
+  // Check all controllers are idle
+  const allControllersIdle = [...controllers.values()].every((c) => c.state === 'idle')
+
+  // Check no unread messages for any agent
+  let noUnreadMessages = true
+  for (const [name] of controllers) {
+    const inbox = await provider.getInbox(name)
+    if (inbox.length > 0) {
+      noUnreadMessages = false
+      break
+    }
+  }
+
+  // Proposals not implemented yet, always true
+  const noActiveProposals = true
+
+  return {
+    allControllersIdle,
+    noUnreadMessages,
+    noActiveProposals,
+  }
 }

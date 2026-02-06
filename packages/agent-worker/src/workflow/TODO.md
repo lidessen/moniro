@@ -279,16 +279,17 @@ Phase 0 (Migration)
 
 ### Idle Detection (Run Mode)
 - [x] Define `WorkflowIdleState` interface
-- [ ] Implement `isWorkflowComplete()` - check all idle conditions
+- [x] Implement `isWorkflowComplete()` - check all idle conditions
 - [x] Implement `checkWorkflowIdle()` with debounce
-- [ ] Exit conditions: all idle + no unread inbox + no active proposals
+- [x] Implement `buildWorkflowIdleState()` helper
+- [x] Exit conditions: all idle + no unread inbox + no active proposals
 
 ### CLI Send Command
-- [ ] Implement target pattern parsing: `agent`, `agent@instance`, `@instance`
-- [ ] Standalone agent: direct to inbox
-- [ ] Workflow agent (`agent@instance`): channel post with @mention
-- [ ] Workflow channel (`@instance`): channel broadcast
-- [ ] Mark user messages with `[user]` sender in channel
+- [x] Implement target pattern parsing: `agent`, `agent@instance`, `@instance`
+- [ ] Standalone agent: direct to inbox (requires standalone agent support)
+- [x] Workflow agent (`agent@instance`): channel post with @mention
+- [x] Workflow channel (`@instance`): channel broadcast
+- [x] Mark user messages with `[user]` sender in channel
 
 ### Integration
 - [ ] Update `runWorkflow()` to use controllers
@@ -304,6 +305,10 @@ Phase 0 (Migration)
 - [ ] **Unit test**: SDKBackend runs agent with MCP tools
 - [x] **Unit test**: CLIBackend detects success/failure
 - [x] **Unit test**: Idle detection with debounce
+- [x] **Unit test**: isWorkflowComplete() checks all conditions
+- [x] **Unit test**: buildWorkflowIdleState() reports correct state
+- [x] **Unit test**: parseSendTarget() parses all patterns
+- [x] **Unit test**: sendToWorkflowChannel() with and without mention
 - [ ] **Integration test**: Two-agent workflow with @mention handoff
 - [x] **Integration test**: Agent retry on failure, then success
 - [ ] **Integration test**: Run mode exits when all idle

@@ -14,8 +14,10 @@ import {
   type AgentRunResult,
 } from '../src/workflow/controller/types.ts'
 import { formatInbox, formatChannel, buildAgentPrompt } from '../src/workflow/controller/prompt.ts'
-import { createAgentController, checkWorkflowIdle } from '../src/workflow/controller/controller.ts'
+import { createAgentController, checkWorkflowIdle, isWorkflowComplete, buildWorkflowIdleState } from '../src/workflow/controller/controller.ts'
 import { detectCLIError, generateMCPConfig } from '../src/workflow/controller/backend.ts'
+import { parseSendTarget, sendToWorkflowChannel, formatUserSender } from '../src/workflow/controller/send.ts'
+import type { WorkflowIdleState } from '../src/workflow/controller/types.ts'
 import { createMemoryContextProvider } from '../src/workflow/context/memory-provider.ts'
 import type { InboxMessage, ChannelEntry } from '../src/workflow/context/types.ts'
 import type { ResolvedAgent } from '../src/workflow/types.ts'
@@ -583,5 +585,214 @@ describe('CONTROLLER_DEFAULTS', () => {
     expect(CONTROLLER_DEFAULTS.retry.backoffMultiplier).toBe(2)
     expect(CONTROLLER_DEFAULTS.recentChannelLimit).toBe(50)
     expect(CONTROLLER_DEFAULTS.idleDebounceMs).toBe(2000)
+  })
+})
+
+// ==================== Idle State Tests ====================
+
+describe('isWorkflowComplete', () => {
+  test('returns true when all conditions met', () => {
+    const state: WorkflowIdleState = {
+      allControllersIdle: true,
+      noUnreadMessages: true,
+      noActiveProposals: true,
+      idleDebounceElapsed: true,
+    }
+    expect(isWorkflowComplete(state)).toBe(true)
+  })
+
+  test('returns false when controllers not idle', () => {
+    const state: WorkflowIdleState = {
+      allControllersIdle: false,
+      noUnreadMessages: true,
+      noActiveProposals: true,
+      idleDebounceElapsed: true,
+    }
+    expect(isWorkflowComplete(state)).toBe(false)
+  })
+
+  test('returns false when unread messages exist', () => {
+    const state: WorkflowIdleState = {
+      allControllersIdle: true,
+      noUnreadMessages: false,
+      noActiveProposals: true,
+      idleDebounceElapsed: true,
+    }
+    expect(isWorkflowComplete(state)).toBe(false)
+  })
+
+  test('returns false when proposals active', () => {
+    const state: WorkflowIdleState = {
+      allControllersIdle: true,
+      noUnreadMessages: true,
+      noActiveProposals: false,
+      idleDebounceElapsed: true,
+    }
+    expect(isWorkflowComplete(state)).toBe(false)
+  })
+
+  test('returns false when debounce not elapsed', () => {
+    const state: WorkflowIdleState = {
+      allControllersIdle: true,
+      noUnreadMessages: true,
+      noActiveProposals: true,
+      idleDebounceElapsed: false,
+    }
+    expect(isWorkflowComplete(state)).toBe(false)
+  })
+})
+
+describe('buildWorkflowIdleState', () => {
+  const mockAgent: ResolvedAgent = {
+    model: 'claude-sonnet-4-5',
+    system_prompt: 'Test agent',
+    resolvedSystemPrompt: 'Test agent',
+  }
+
+  test('reports idle when all controllers idle and no messages', async () => {
+    const provider = createMemoryContextProvider(['agent1', 'agent2'])
+    const mockBackend: AgentBackend = {
+      name: 'mock',
+      run: async () => ({ success: true, duration: 100 }),
+    }
+
+    const controller1 = createAgentController({
+      name: 'agent1',
+      agent: mockAgent,
+      contextProvider: provider,
+      mcpSocketPath: '/tmp/test.sock',
+      backend: mockBackend,
+      pollInterval: 5000,
+    })
+
+    await controller1.start()
+    await new Promise((r) => setTimeout(r, 50))
+
+    const controllers = new Map([['agent1', controller1]])
+
+    const state = await buildWorkflowIdleState(controllers, provider)
+
+    expect(state.allControllersIdle).toBe(true)
+    expect(state.noUnreadMessages).toBe(true)
+    expect(state.noActiveProposals).toBe(true)
+
+    await controller1.stop()
+  })
+
+  test('reports not idle when messages pending', async () => {
+    const provider = createMemoryContextProvider(['agent1', 'agent2'])
+    const mockBackend: AgentBackend = {
+      name: 'mock',
+      run: async () => ({ success: true, duration: 100 }),
+    }
+
+    const controller1 = createAgentController({
+      name: 'agent1',
+      agent: mockAgent,
+      contextProvider: provider,
+      mcpSocketPath: '/tmp/test.sock',
+      backend: mockBackend,
+      pollInterval: 10000,
+    })
+
+    await controller1.start()
+    await new Promise((r) => setTimeout(r, 50))
+
+    // Add message but don't wake
+    await provider.appendChannel('agent2', 'Hello @agent1')
+
+    const controllers = new Map([['agent1', controller1]])
+
+    const state = await buildWorkflowIdleState(controllers, provider)
+
+    expect(state.allControllersIdle).toBe(true)
+    expect(state.noUnreadMessages).toBe(false)
+
+    await controller1.stop()
+  })
+})
+
+// ==================== Send Target Parsing Tests ====================
+
+describe('parseSendTarget', () => {
+  test('parses standalone agent', () => {
+    const result = parseSendTarget('reviewer')
+    expect(result.type).toBe('standalone')
+    expect(result.agent).toBe('reviewer')
+    expect(result.instance).toBeUndefined()
+  })
+
+  test('parses workflow agent (agent@instance)', () => {
+    const result = parseSendTarget('reviewer@default')
+    expect(result.type).toBe('workflow-agent')
+    expect(result.agent).toBe('reviewer')
+    expect(result.instance).toBe('default')
+  })
+
+  test('parses workflow channel (@instance)', () => {
+    const result = parseSendTarget('@production')
+    expect(result.type).toBe('workflow-channel')
+    expect(result.agent).toBeUndefined()
+    expect(result.instance).toBe('production')
+  })
+
+  test('handles complex instance names', () => {
+    const result = parseSendTarget('coder@feature-123')
+    expect(result.type).toBe('workflow-agent')
+    expect(result.agent).toBe('coder')
+    expect(result.instance).toBe('feature-123')
+  })
+})
+
+describe('sendToWorkflowChannel', () => {
+  test('sends message to channel', async () => {
+    const provider = createMemoryContextProvider(['agent1', 'agent2'])
+
+    const result = await sendToWorkflowChannel(provider, 'user', 'Hello everyone')
+
+    expect(result.success).toBe(true)
+    expect(result.type).toBe('workflow-channel')
+    expect(result.timestamp).toBeDefined()
+
+    // Verify message in channel
+    const entries = await provider.readChannel()
+    expect(entries.length).toBe(1)
+    expect(entries[0]!.message).toBe('Hello everyone')
+    expect(entries[0]!.from).toBe('user')
+  })
+
+  test('sends message with @mention', async () => {
+    const provider = createMemoryContextProvider(['agent1', 'agent2'])
+
+    const result = await sendToWorkflowChannel(provider, 'user', 'Please review', 'agent1')
+
+    expect(result.success).toBe(true)
+    expect(result.type).toBe('workflow-agent')
+
+    // Verify message in channel with mention
+    const entries = await provider.readChannel()
+    expect(entries.length).toBe(1)
+    expect(entries[0]!.message).toBe('@agent1 Please review')
+    expect(entries[0]!.mentions).toContain('agent1')
+  })
+
+  test('message appears in agent inbox', async () => {
+    const provider = createMemoryContextProvider(['agent1', 'agent2'])
+
+    await sendToWorkflowChannel(provider, 'user', 'Hello', 'agent1')
+
+    const inbox = await provider.getInbox('agent1')
+    expect(inbox.length).toBe(1)
+    expect(inbox[0]!.entry.message).toBe('@agent1 Hello')
+  })
+})
+
+describe('formatUserSender', () => {
+  test('returns user for no username', () => {
+    expect(formatUserSender()).toBe('user')
+  })
+
+  test('returns user:name for username', () => {
+    expect(formatUserSender('alice')).toBe('user:alice')
   })
 })
