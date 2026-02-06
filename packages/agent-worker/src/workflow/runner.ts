@@ -82,8 +82,8 @@ export interface WorkflowRuntime {
  * Initialize workflow runtime
  *
  * This sets up:
- * 1. Context directory
- * 2. Context provider (file-based)
+ * 1. Context provider (file or memory)
+ * 2. Context directory (for file provider)
  * 3. MCP server (Unix socket)
  * 4. Runs setup commands
  */
@@ -93,9 +93,9 @@ export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> 
 
   const agentNames = Object.keys(workflow.agents)
 
-  // Ensure context is configured
+  // Ensure context is enabled (only false if explicitly disabled with `context: false`)
   if (!workflow.context) {
-    throw new Error('Workflow requires context configuration')
+    throw new Error('Workflow context is disabled. Remove "context: false" to enable agent collaboration.')
   }
 
   const resolvedContext = workflow.context as ResolvedContext

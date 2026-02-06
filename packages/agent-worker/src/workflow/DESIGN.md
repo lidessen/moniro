@@ -21,8 +21,7 @@ This document defines the design for agent-worker workflows, enabling multi-agen
 # review.yaml
 name: code-review
 
-# Shared context (optional, defaults enabled)
-context:
+# Context is enabled by default - no config needed
 
 agents:
   reviewer:

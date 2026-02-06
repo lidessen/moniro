@@ -549,7 +549,7 @@ describe('runWorkflow', () => {
     })
 
     expect(result.success).toBe(false)
-    expect(result.error).toContain('context configuration')
+    expect(result.error).toContain('context is disabled')
   })
 })
 
