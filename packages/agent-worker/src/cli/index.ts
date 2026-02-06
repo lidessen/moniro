@@ -939,7 +939,7 @@ program
         workflow,
         instance: options.instance,
         verbose: options.verbose,
-        log: options.verbose ? console.log : () => {},
+        log: console.log, // Always log channel output
         startAgent: async (agentName: string, config: ResolvedAgent, mcpSocketPath: string) => {
           const fullName = buildAgentId(agentName, options.instance)
 
@@ -982,10 +982,57 @@ program
       const provider = result.contextProvider!
       const agentNames = result.agentNames!
 
+      // Channel watching state
+      let lastChannelTimestamp: string | undefined
+
+      // Color codes for agent output
+      const agentColors = [
+        '\x1b[36m', // cyan
+        '\x1b[33m', // yellow
+        '\x1b[35m', // magenta
+        '\x1b[32m', // green
+        '\x1b[34m', // blue
+        '\x1b[91m', // bright red
+      ]
+      const resetColor = '\x1b[0m'
+      const dimColor = '\x1b[2m'
+      const grayColor = '\x1b[90m'
+
+      const getAgentColor = (name: string) => {
+        if (name === 'system' || name === 'user') return grayColor
+        const idx = agentNames.indexOf(name)
+        return agentColors[idx % agentColors.length]!
+      }
+
+      const formatTime = (ts: string) => new Date(ts).toTimeString().slice(0, 8)
+
       let idleSince: number | null = null
       const startTime = Date.now()
 
       while (true) {
+        // Poll channel for new messages
+        try {
+          const entries = await provider.readChannel(lastChannelTimestamp)
+          for (const entry of entries) {
+            if (lastChannelTimestamp && entry.timestamp <= lastChannelTimestamp) continue
+
+            const time = formatTime(entry.timestamp)
+            const color = getAgentColor(entry.from)
+            const name = entry.from.padEnd(12)
+
+            // Handle multi-line messages
+            const lines = entry.message.split('\n')
+            console.log(`${dimColor}${time}${resetColor} ${color}${name}${resetColor} │ ${lines[0]}`)
+            for (let i = 1; i < lines.length; i++) {
+              console.log(' '.repeat(22) + '│ ' + lines[i])
+            }
+
+            lastChannelTimestamp = entry.timestamp
+          }
+        } catch {
+          // Ignore channel read errors
+        }
+
         // Check if any agent has unread mentions
         let hasUnread = false
         for (const agent of agentNames) {
@@ -1110,7 +1157,7 @@ program
         workflow,
         instance: options.instance,
         verbose: options.verbose,
-        log: options.verbose ? console.log : () => {},
+        log: console.log, // Always log channel output
         startAgent: async (agentName: string, config: ResolvedAgent, mcpSocketPath: string) => {
           const fullName = buildAgentId(agentName, options.instance)
 
@@ -1147,10 +1194,51 @@ program
         console.log(`MCP Socket: ${result.mcpSocketPath}`)
       }
       console.log(`\nAgents running: ${startedAgents.join(', ')}`)
-      console.log('\nPress Ctrl+C to stop workflow.')
+      console.log('\nPress Ctrl+C to stop workflow.\n')
 
-      // Keep process alive
-      await new Promise(() => {})
+      // Start channel watching
+      const agentNames = result.agentNames!
+      const provider = result.contextProvider!
+      let lastChannelTimestamp: string | undefined
+
+      const agentColors = [
+        '\x1b[36m', '\x1b[33m', '\x1b[35m', '\x1b[32m', '\x1b[34m', '\x1b[91m',
+      ]
+      const resetColor = '\x1b[0m'
+      const dimColor = '\x1b[2m'
+      const grayColor = '\x1b[90m'
+
+      const getAgentColor = (name: string) => {
+        if (name === 'system' || name === 'user') return grayColor
+        const idx = agentNames.indexOf(name)
+        return agentColors[idx % agentColors.length]!
+      }
+      const formatTime = (ts: string) => new Date(ts).toTimeString().slice(0, 8)
+
+      // Poll channel forever
+      while (true) {
+        try {
+          const entries = await provider.readChannel(lastChannelTimestamp)
+          for (const entry of entries) {
+            if (lastChannelTimestamp && entry.timestamp <= lastChannelTimestamp) continue
+
+            const time = formatTime(entry.timestamp)
+            const color = getAgentColor(entry.from)
+            const name = entry.from.padEnd(12)
+
+            const lines = entry.message.split('\n')
+            console.log(`${dimColor}${time}${resetColor} ${color}${name}${resetColor} │ ${lines[0]}`)
+            for (let i = 1; i < lines.length; i++) {
+              console.log(' '.repeat(22) + '│ ' + lines[i])
+            }
+
+            lastChannelTimestamp = entry.timestamp
+          }
+        } catch {
+          // Ignore errors
+        }
+        await new Promise(resolve => setTimeout(resolve, 500))
+      }
 
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : String(error))
