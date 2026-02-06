@@ -434,14 +434,234 @@ server.tool('channel_send', { message: z.string() }, async ({ message }, extra) 
 })
 ```
 
-**Backend-specific runAgent implementations:**
+### Context Management
 
-| Backend | Implementation |
-|---------|----------------|
-| SDK | Call Anthropic API directly, inject MCP tools |
-| Claude CLI | `claude -p --mcp-config <path> "<prompt>"` |
-| Codex | `codex --mcp-config <path> "<prompt>"` |
-| Cursor | TBD |
+**Key insight: Channel IS the conversation history.**
+
+Agents don't need traditional message history because:
+- Channel = collaborative history (who said what)
+- Document = current state (goals, progress)
+- Inbox = what needs attention
+
+Each agent run gets fresh context built from these sources:
+
+```typescript
+interface AgentRunContext {
+  /** Agent name */
+  name: string
+
+  /** Agent config */
+  agent: ResolvedAgent
+
+  /** Unread inbox messages */
+  inbox: InboxMessage[]
+
+  /** Recent channel entries (last N for context) */
+  recentChannel: ChannelEntry[]
+
+  /** Current document content */
+  documentContent: string
+
+  /** MCP socket path for tools */
+  mcpSocketPath: string
+}
+
+/** Build unified prompt from context */
+function buildAgentPrompt(ctx: AgentRunContext): string {
+  return `
+## Inbox (${ctx.inbox.length} messages for you)
+${formatInbox(ctx.inbox)}
+
+## Recent Activity
+${formatChannel(ctx.recentChannel)}
+
+## Current Workspace
+${ctx.documentContent}
+
+## Instructions
+Process your inbox messages. Use MCP tools to collaborate.
+When done handling all messages, exit.
+`
+}
+
+function formatInbox(inbox: InboxMessage[]): string {
+  if (inbox.length === 0) return '(no messages)'
+
+  return inbox.map(m => {
+    const priority = m.priority === 'high' ? ' [HIGH]' : ''
+    return `- From @${m.entry.from}${priority}: ${m.entry.message}`
+  }).join('\n')
+}
+
+function formatChannel(entries: ChannelEntry[]): string {
+  return entries.map(e =>
+    `[${e.timestamp.slice(11, 19)}] @${e.from}: ${e.message}`
+  ).join('\n')
+}
+```
+
+### Backend Abstraction
+
+Unified interface for all backends:
+
+```typescript
+interface AgentBackend {
+  /** Backend name */
+  name: string
+
+  /** Run agent with context */
+  run(ctx: AgentRunContext): Promise<AgentRunResult>
+}
+
+interface AgentRunResult {
+  success: boolean
+  error?: string
+  duration: number
+}
+```
+
+**SDK Backend** (full control):
+
+```typescript
+class SDKBackend implements AgentBackend {
+  name = 'sdk'
+
+  constructor(private client: Anthropic) {}
+
+  async run(ctx: AgentRunContext): Promise<AgentRunResult> {
+    const startTime = Date.now()
+    const messages: Message[] = [
+      { role: 'user', content: buildAgentPrompt(ctx) }
+    ]
+
+    try {
+      // Get MCP tools
+      const tools = await getMCPTools(ctx.mcpSocketPath)
+
+      // Agent loop
+      while (true) {
+        const response = await this.client.messages.create({
+          model: parseModel(ctx.agent.model),  // 'anthropic/claude-sonnet-4-5' → 'claude-sonnet-4-5-20250514'
+          system: ctx.agent.resolvedSystemPrompt,
+          messages,
+          tools,
+          max_tokens: 4096,
+        })
+
+        // Check for completion
+        if (response.stop_reason === 'end_turn') break
+
+        // Handle tool calls
+        const toolResults = await handleToolCalls(response, ctx.mcpSocketPath)
+        messages.push({ role: 'assistant', content: response.content })
+        messages.push({ role: 'user', content: toolResults })
+      }
+
+      return { success: true, duration: Date.now() - startTime }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        duration: Date.now() - startTime
+      }
+    }
+  }
+}
+```
+
+**CLI Backend** (Claude CLI, Codex):
+
+```typescript
+class CLIBackend implements AgentBackend {
+  constructor(
+    public name: string,
+    private command: string,
+    private buildArgs: (ctx: AgentRunContext, mcpConfigPath: string) => string[]
+  ) {}
+
+  async run(ctx: AgentRunContext): Promise<AgentRunResult> {
+    const startTime = Date.now()
+
+    try {
+      // Generate MCP config file
+      const mcpConfigPath = `/tmp/agent-${ctx.name}-mcp.json`
+      const mcpConfig = generateMCPConfig(ctx.mcpSocketPath, ctx.name)
+      writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig))
+
+      // Write system prompt to file
+      const systemPromptPath = `/tmp/agent-${ctx.name}-system.md`
+      writeFileSync(systemPromptPath, ctx.agent.resolvedSystemPrompt)
+
+      // Build and run command
+      const prompt = buildAgentPrompt(ctx)
+      const args = this.buildArgs(ctx, mcpConfigPath)
+
+      await exec(`${this.command} ${args.join(' ')} "${escapePrompt(prompt)}"`)
+
+      return { success: true, duration: Date.now() - startTime }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        duration: Date.now() - startTime
+      }
+    }
+  }
+}
+
+// Claude CLI backend
+const claudeBackend = new CLIBackend(
+  'claude',
+  'claude',
+  (ctx, mcpConfigPath) => [
+    '-p',
+    '--mcp-config', mcpConfigPath,
+    '--system-prompt', `/tmp/agent-${ctx.name}-system.md`,
+  ]
+)
+
+// Codex CLI backend
+const codexBackend = new CLIBackend(
+  'codex',
+  'codex',
+  (ctx, mcpConfigPath) => {
+    // Codex uses project-level config, need to set up .codex/config.toml
+    setupCodexConfig(mcpConfigPath)
+    return []  // Codex auto-discovers config
+  }
+)
+```
+
+**Backend Selection by Model:**
+
+```typescript
+function getBackendForModel(model: string): AgentBackend {
+  // Parse provider from model string: 'anthropic/claude-sonnet-4-5'
+  const [provider] = model.split('/')
+
+  switch (provider) {
+    case 'anthropic':
+      return new SDKBackend(anthropicClient)
+    case 'openai':
+      // OpenAI models might use Codex CLI or SDK
+      return codexBackend
+    default:
+      // Default to Claude CLI for unknown
+      return claudeBackend
+  }
+}
+```
+
+**Backend Comparison:**
+
+| Aspect | SDK | Claude CLI | Codex |
+|--------|-----|------------|-------|
+| Context | messages[] | Prompt only | Prompt only |
+| History | Maintained in-process | Rebuilt each run | Rebuilt each run |
+| System prompt | API param | --system-prompt | Config file |
+| MCP tools | SDK injection | --mcp-config | .codex/config.toml |
+| Multi-turn | Natural | Within single run | Within single run |
+| Control | Full | Limited | Limited |
 
 Key design principle: **Agents are stateless processes**. Each run starts fresh with inbox + channel context. The controller manages lifecycle.
 

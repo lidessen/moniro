@@ -83,18 +83,35 @@ Implementation tasks for the workflow design. See [DESIGN.md](./DESIGN.md) for f
 - [ ] Add MCP tools: `inbox_check`, `inbox_ack`, `inbox_peek`
 - [ ] Update agent system prompts with work loop guidance
 
-## Phase 8: Agent Controller
+## Phase 8: Agent Controller & Backend Abstraction
 
-- [ ] Define `AgentController` interface
-- [ ] Define `AgentControllerConfig` and `AgentRunContext` types
+### Agent Controller
+- [ ] Define `AgentController` interface (state: idle/running/stopped)
+- [ ] Define `AgentControllerConfig` types
 - [ ] Implement `createAgentController()` factory
-- [ ] Implement polling loop with wake() interrupt
-- [ ] Integrate with MCP server (wake on @mention)
-- [ ] Implement SDK backend runner
-- [ ] Implement Claude CLI backend runner
-- [ ] Implement Codex CLI backend runner
+- [ ] Implement polling loop with `wake()` interrupt
+- [ ] Integrate with MCP server (wake on @mention in `channel_send`)
+
+### Context Management
+- [ ] Define `AgentRunContext` interface
+- [ ] Implement `buildAgentPrompt()` - unified prompt from inbox/channel/document
+- [ ] Implement `formatInbox()` and `formatChannel()` helpers
+- [ ] Configure recent channel limit (last N entries)
+
+### Backend Abstraction
+- [ ] Define `AgentBackend` interface
+- [ ] Define `AgentRunResult` type
+- [ ] Implement `SDKBackend` (Anthropic SDK with MCP tools)
+- [ ] Implement `CLIBackend` base class
+- [ ] Implement Claude CLI backend (`claude -p --mcp-config`)
+- [ ] Implement Codex CLI backend (project-level config)
+- [ ] Implement `getBackendForModel()` selector
+- [ ] Handle model string parsing (`anthropic/claude-sonnet-4-5` → API model ID)
+
+### Integration
 - [ ] Update `runWorkflow()` to use controllers
 - [ ] Add graceful shutdown for controllers
+- [ ] Add backend configuration to workflow YAML (optional override)
 
 ## Phase 9: Multi-File Documents
 
