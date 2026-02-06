@@ -34,9 +34,12 @@ export class CursorCliBackend implements Backend {
     const { command, args } = this.buildCommand(message)
 
     return new Promise((resolve, reject) => {
+      // IMPORTANT: stdin must be 'ignore' to prevent cursor-agent from hanging
+      // See: https://forum.cursor.com/t/node-js-spawn-with-cursor-agent-hangs-and-exits-with-code-143-after-timeout/133709
       const proc = spawn(command, args, {
         cwd: this.options.cwd,
         env: process.env,
+        stdio: ['ignore', 'pipe', 'pipe'],
       })
 
       let stdout = ''

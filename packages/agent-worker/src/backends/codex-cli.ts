@@ -38,6 +38,7 @@ export class CodexCliBackend implements Backend {
       const proc = spawn('codex', args, {
         cwd: this.options.cwd,
         env: process.env,
+        stdio: ['ignore', 'pipe', 'pipe'], // Ignore stdin to prevent hanging
       })
 
       let stdout = ''
