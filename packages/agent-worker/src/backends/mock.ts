@@ -91,7 +91,7 @@ export class MockAIBackend implements AgentBackend {
 
       // Summarize inbox for the mock response (strip @mentions to avoid re-triggering)
       const inboxSummary = ctx.inbox
-        .map((m) => `${m.entry.from}: ${m.entry.message.slice(0, 80).replace(/@/g, '')}`)
+        .map((m) => `${m.entry.from}: ${m.entry.content.slice(0, 80).replace(/@/g, '')}`)
         .join('; ')
 
       // Create mock model with scripted responses:

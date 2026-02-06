@@ -3,7 +3,7 @@
  * Extends ContextProviderImpl with MemoryStorage for testing.
  */
 
-import type { ChannelEntry } from './types.js'
+import type { Message } from './types.js'
 import { ContextProviderImpl } from './provider.js'
 import { MemoryStorage } from './storage.js'
 
@@ -28,8 +28,8 @@ export class MemoryContextProvider extends ContextProviderImpl {
     return this.memoryStorage
   }
 
-  /** Get all channel entries (for testing) */
-  async getChannelEntries(): Promise<ChannelEntry[]> {
+  /** Get all channel messages (for testing, unfiltered) */
+  async getMessages(): Promise<Message[]> {
     return this.readChannel()
   }
 

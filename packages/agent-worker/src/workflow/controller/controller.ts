@@ -89,9 +89,9 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
       const senders = inbox.map((m) => m.entry.from)
       log(`[${name}] Inbox: ${inbox.length} message(s) from [${senders.join(', ')}]`)
       for (const msg of inbox) {
-        const preview = msg.entry.message.length > 120
-          ? msg.entry.message.slice(0, 120) + '...'
-          : msg.entry.message
+        const preview = msg.entry.content.length > 120
+          ? msg.entry.content.slice(0, 120) + '...'
+          : msg.entry.content
         log(`[${name}]   <- @${msg.entry.from}: ${preview}`)
       }
 
@@ -113,7 +113,7 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
           name,
           agent,
           inbox,
-          recentChannel: await contextProvider.readChannel(undefined, CONTROLLER_DEFAULTS.recentChannelLimit),
+          recentChannel: await contextProvider.readChannel({ limit: CONTROLLER_DEFAULTS.recentChannelLimit, agent: name }),
           documentContent: await contextProvider.readDocument(),
           mcpUrl,
           workspaceDir,

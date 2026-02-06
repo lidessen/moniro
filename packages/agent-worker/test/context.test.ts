@@ -11,7 +11,7 @@ import {
   createFileContextProvider,
   createContextMCPServer,
 } from '../src/workflow/context/index.ts'
-import type { ChannelEntry } from '../src/workflow/context/index.ts'
+import type { Message } from '../src/workflow/context/index.ts'
 
 // ==================== extractMentions Tests ====================
 
@@ -59,70 +59,70 @@ describe('extractMentions', () => {
 
 describe('calculatePriority', () => {
   test('returns high for multiple mentions', () => {
-    const entry: ChannelEntry = {
+    const entry: Message = {
       timestamp: new Date().toISOString(),
       from: 'agent1',
-      message: '@agent2 and @agent3 please help',
+      content: '@agent2 and @agent3 please help',
       mentions: ['agent2', 'agent3'],
     }
     expect(calculatePriority(entry)).toBe('high')
   })
 
   test('returns high for urgent keyword', () => {
-    const entry: ChannelEntry = {
+    const entry: Message = {
       timestamp: new Date().toISOString(),
       from: 'agent1',
-      message: '@agent2 this is urgent',
+      content: '@agent2 this is urgent',
       mentions: ['agent2'],
     }
     expect(calculatePriority(entry)).toBe('high')
   })
 
   test('returns high for asap keyword', () => {
-    const entry: ChannelEntry = {
+    const entry: Message = {
       timestamp: new Date().toISOString(),
       from: 'agent1',
-      message: '@agent2 please do this ASAP',
+      content: '@agent2 please do this ASAP',
       mentions: ['agent2'],
     }
     expect(calculatePriority(entry)).toBe('high')
   })
 
   test('returns high for blocked keyword', () => {
-    const entry: ChannelEntry = {
+    const entry: Message = {
       timestamp: new Date().toISOString(),
       from: 'agent1',
-      message: '@agent2 I am blocked on this',
+      content: '@agent2 I am blocked on this',
       mentions: ['agent2'],
     }
     expect(calculatePriority(entry)).toBe('high')
   })
 
   test('returns high for critical keyword', () => {
-    const entry: ChannelEntry = {
+    const entry: Message = {
       timestamp: new Date().toISOString(),
       from: 'agent1',
-      message: '@agent2 critical issue found',
+      content: '@agent2 critical issue found',
       mentions: ['agent2'],
     }
     expect(calculatePriority(entry)).toBe('high')
   })
 
   test('returns normal for single mention without urgent keywords', () => {
-    const entry: ChannelEntry = {
+    const entry: Message = {
       timestamp: new Date().toISOString(),
       from: 'agent1',
-      message: '@agent2 please review when you can',
+      content: '@agent2 please review when you can',
       mentions: ['agent2'],
     }
     expect(calculatePriority(entry)).toBe('normal')
   })
 
   test('returns normal for no mentions', () => {
-    const entry: ChannelEntry = {
+    const entry: Message = {
       timestamp: new Date().toISOString(),
       from: 'agent1',
-      message: 'Just a regular message',
+      content: 'Just a regular message',
       mentions: [],
     }
     expect(calculatePriority(entry)).toBe('normal')
@@ -143,7 +143,7 @@ describe('MemoryContextProvider', () => {
       const entry = await provider.appendChannel('agent1', 'Hello world')
 
       expect(entry.from).toBe('agent1')
-      expect(entry.message).toBe('Hello world')
+      expect(entry.content).toBe('Hello world')
       expect(entry.timestamp).toBeDefined()
       expect(entry.mentions).toEqual([])
     })
@@ -160,8 +160,8 @@ describe('MemoryContextProvider', () => {
 
       const entries = await provider.readChannel()
       expect(entries).toHaveLength(2)
-      expect(entries[0].message).toBe('First')
-      expect(entries[1].message).toBe('Second')
+      expect(entries[0].content).toBe('First')
+      expect(entries[1].content).toBe('Second')
     })
 
     test('reads channel entries since timestamp', async () => {
@@ -169,9 +169,9 @@ describe('MemoryContextProvider', () => {
       const second = await provider.appendChannel('agent2', 'Second')
       await provider.appendChannel('agent3', 'Third')
 
-      const entries = await provider.readChannel(second.timestamp)
+      const entries = await provider.readChannel({ since: second.timestamp })
       expect(entries).toHaveLength(1)
-      expect(entries[0].message).toBe('Third')
+      expect(entries[0].content).toBe('Third')
     })
 
     test('limits channel entries', async () => {
@@ -179,10 +179,10 @@ describe('MemoryContextProvider', () => {
       await provider.appendChannel('agent2', 'Second')
       await provider.appendChannel('agent3', 'Third')
 
-      const entries = await provider.readChannel(undefined, 2)
+      const entries = await provider.readChannel({ limit: 2 })
       expect(entries).toHaveLength(2)
-      expect(entries[0].message).toBe('Second')
-      expect(entries[1].message).toBe('Third')
+      expect(entries[0].content).toBe('Second')
+      expect(entries[1].content).toBe('Third')
     })
   })
 
@@ -340,7 +340,7 @@ describe('MemoryContextProvider', () => {
       await provider.appendChannel('agent1', `Analysis complete. See [full report](${ref})`)
 
       const entries = await provider.readChannel()
-      expect(entries[0].message).toContain('resource:res_')
+      expect(entries[0].content).toContain('resource:res_')
     })
   })
 
@@ -357,9 +357,9 @@ describe('MemoryContextProvider', () => {
       expect(await provider.getInboxState('agent2')).toBeUndefined()
     })
 
-    test('getChannelEntries returns entries', async () => {
+    test('getMessages returns entries', async () => {
       await provider.appendChannel('agent1', 'Test')
-      const entries = await provider.getChannelEntries()
+      const entries = await provider.getMessages()
       expect(entries).toHaveLength(1)
     })
 
@@ -400,7 +400,7 @@ describe('FileContextProvider', () => {
       const content = readFileSync(channelPath, 'utf-8')
       const entry = JSON.parse(content.trim())
       expect(entry.from).toBe('agent1')
-      expect(entry.message).toBe('Hello world')
+      expect(entry.content).toBe('Hello world')
       expect(entry.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/)
       expect(entry.mentions).toEqual([])
     })
@@ -412,7 +412,7 @@ describe('FileContextProvider', () => {
       const entries = await provider.readChannel()
       expect(entries).toHaveLength(2)
       expect(entries[0].from).toBe('agent1')
-      expect(entries[0].message).toBe('First message')
+      expect(entries[0].content).toBe('First message')
       expect(entries[1].from).toBe('agent2')
     })
 
@@ -427,7 +427,7 @@ describe('FileContextProvider', () => {
       await provider.appendChannel('agent1', 'Line 1\nLine 2\nLine 3')
 
       const entries = await provider.readChannel()
-      expect(entries[0].message).toBe('Line 1\nLine 2\nLine 3')
+      expect(entries[0].content).toBe('Line 1\nLine 2\nLine 3')
     })
 
     test('returns empty for non-existent channel', async () => {
@@ -588,7 +588,7 @@ describe('FileContextProvider', () => {
       await provider.appendChannel('agent1', `Analysis complete. See [full report](${ref})`)
 
       const entries = await provider.readChannel()
-      expect(entries[0].message).toContain('resource:res_')
+      expect(entries[0].content).toContain('resource:res_')
     })
   })
 })
@@ -748,7 +748,7 @@ describe('MCP Server Tools', () => {
       const entries = await provider.readChannel()
       expect(entries).toHaveLength(1)
       expect(entries[0].from).toBe('agent1')
-      expect(entries[0].message).toBe('Hello world')
+      expect(entries[0].content).toBe('Hello world')
     })
 
     test('extracts mentions from message', async () => {
@@ -776,12 +776,12 @@ describe('MCP Server Tools', () => {
 
       const result = (await callTool('channel_read', {})) as Array<{
         from: string
-        message: string
+        content: string
       }>
 
       expect(result).toHaveLength(2)
-      expect(result[0].message).toBe('First')
-      expect(result[1].message).toBe('Second')
+      expect(result[0].content).toBe('First')
+      expect(result[1].content).toBe('Second')
     })
 
     test('reads entries since timestamp', async () => {
@@ -791,10 +791,10 @@ describe('MCP Server Tools', () => {
 
       const result = (await callTool('channel_read', {
         since: second.timestamp,
-      })) as Array<{ message: string }>
+      })) as Array<{ content: string }>
 
       expect(result).toHaveLength(1)
-      expect(result[0].message).toBe('Third')
+      expect(result[0].content).toBe('Third')
     })
 
     test('limits entries', async () => {
@@ -803,7 +803,7 @@ describe('MCP Server Tools', () => {
       await provider.appendChannel('agent3', 'Third')
 
       const result = (await callTool('channel_read', { limit: 2 })) as Array<{
-        message: string
+        content: string
       }>
 
       expect(result).toHaveLength(2)

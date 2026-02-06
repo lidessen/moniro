@@ -7,7 +7,6 @@ import { describe, test, expect, beforeEach, mock } from 'bun:test'
 import {
   parseModel,
   resolveModelAlias,
-  MODEL_ALIASES,
   CONTROLLER_DEFAULTS,
   type AgentRunContext,
   type AgentBackend,
@@ -19,7 +18,7 @@ import { detectCLIError, generateWorkflowMCPConfig } from '../src/workflow/contr
 import { parseSendTarget, sendToWorkflowChannel, formatUserSender } from '../src/workflow/controller/send.ts'
 import type { WorkflowIdleState } from '../src/workflow/controller/types.ts'
 import { createMemoryContextProvider } from '../src/workflow/context/memory-provider.ts'
-import type { InboxMessage, ChannelEntry } from '../src/workflow/context/types.ts'
+import type { InboxMessage, Message } from '../src/workflow/context/types.ts'
 import type { ResolvedAgent } from '../src/workflow/types.ts'
 
 // ==================== Model Parsing Tests ====================
@@ -83,7 +82,7 @@ describe('formatInbox', () => {
         entry: {
           timestamp: '2024-01-15T10:30:45.123Z',
           from: 'alice',
-          message: 'Hello @bob',
+          content: 'Hello @bob',
           mentions: ['bob'],
         },
         priority: 'normal',
@@ -102,7 +101,7 @@ describe('formatInbox', () => {
         entry: {
           timestamp: '2024-01-15T10:30:45.123Z',
           from: 'alice',
-          message: 'URGENT: @bob @charlie please review',
+          content: 'URGENT: @bob @charlie please review',
           mentions: ['bob', 'charlie'],
         },
         priority: 'high',
@@ -120,17 +119,17 @@ describe('formatChannel', () => {
   })
 
   test('formats channel entries', () => {
-    const entries: ChannelEntry[] = [
+    const entries: Message[] = [
       {
         timestamp: '2024-01-15T10:30:45.123Z',
         from: 'alice',
-        message: 'Starting review',
+        content: 'Starting review',
         mentions: [],
       },
       {
         timestamp: '2024-01-15T10:31:00.000Z',
         from: 'bob',
-        message: 'On it!',
+        content: 'On it!',
         mentions: [],
       },
     ]
@@ -156,7 +155,7 @@ describe('buildAgentPrompt', () => {
           entry: {
             timestamp: '2024-01-15T10:30:45.123Z',
             from: 'alice',
-            message: 'Please review this',
+            content: 'Please review this',
             mentions: ['reviewer'],
           },
           priority: 'normal',
@@ -166,7 +165,7 @@ describe('buildAgentPrompt', () => {
         {
           timestamp: '2024-01-15T10:30:45.123Z',
           from: 'alice',
-          message: 'Please review this',
+          content: 'Please review this',
           mentions: ['reviewer'],
         },
       ],
@@ -219,17 +218,19 @@ describe('buildAgentPrompt', () => {
       agent: mockAgent,
       inbox: [
         {
-          entry: { timestamp: '2024-01-15T10:30:45.123Z', from: 'a', message: 'm1', mentions: [] },
+          entry: { timestamp: '2024-01-15T10:30:45.123Z', from: 'a', content: 'm1', mentions: [] },
           priority: 'normal',
         },
         {
-          entry: { timestamp: '2024-01-15T10:31:00.000Z', from: 'b', message: 'm2', mentions: [] },
+          entry: { timestamp: '2024-01-15T10:31:00.000Z', from: 'b', content: 'm2', mentions: [] },
           priority: 'normal',
         },
       ],
       recentChannel: [],
       documentContent: '',
       mcpUrl: 'http://127.0.0.1:0/mcp',
+      workspaceDir: '/tmp/workspaces/reviewer',
+      projectDir: '/home/user/myproject',
       retryAttempt: 1,
     }
 
@@ -776,7 +777,7 @@ describe('sendToWorkflowChannel', () => {
     // Verify message in channel
     const entries = await provider.readChannel()
     expect(entries.length).toBe(1)
-    expect(entries[0]!.message).toBe('Hello everyone')
+    expect(entries[0]!.content).toBe('Hello everyone')
     expect(entries[0]!.from).toBe('user')
   })
 
@@ -791,7 +792,7 @@ describe('sendToWorkflowChannel', () => {
     // Verify message in channel with mention
     const entries = await provider.readChannel()
     expect(entries.length).toBe(1)
-    expect(entries[0]!.message).toBe('@agent1 Please review')
+    expect(entries[0]!.content).toBe('@agent1 Please review')
     expect(entries[0]!.mentions).toContain('agent1')
   })
 
@@ -802,7 +803,7 @@ describe('sendToWorkflowChannel', () => {
 
     const inbox = await provider.getInbox('agent1')
     expect(inbox.length).toBe(1)
-    expect(inbox[0]!.entry.message).toBe('@agent1 Hello')
+    expect(inbox[0]!.entry.content).toBe('@agent1 Hello')
   })
 })
 

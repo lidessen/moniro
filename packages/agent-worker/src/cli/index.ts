@@ -1204,7 +1204,7 @@ channelCmd
     const { createFileContextProvider } = await import('../workflow/context/index.ts')
 
     const provider = createFileContextProvider(options.dir, [])
-    const entries = await provider.readChannel(options.since, options.limit)
+    const entries = await provider.readChannel({ since: options.since, limit: options.limit })
 
     if (options.json) {
       console.log(JSON.stringify(entries, null, 2))
@@ -1219,7 +1219,7 @@ channelCmd
     for (const entry of entries) {
       const mentions = entry.mentions.length > 0 ? ` → @${entry.mentions.join(' @')}` : ''
       console.log(`[${entry.timestamp}] ${entry.from}${mentions}`)
-      console.log(`  ${entry.message.split('\n').join('\n  ')}`)
+      console.log(`  ${entry.content.split('\n').join('\n  ')}`)
     }
   })
 
@@ -1234,7 +1234,7 @@ channelCmd
 
     const provider = createFileContextProvider(options.dir, [])
     const count = parseInt(options.count, 10)
-    const entries = await provider.readChannel(undefined, count)
+    const entries = await provider.readChannel({ limit: count })
 
     if (options.json) {
       console.log(JSON.stringify(entries, null, 2))
@@ -1248,7 +1248,7 @@ channelCmd
 
     for (const entry of entries) {
       const mentions = entry.mentions.length > 0 ? ` → @${entry.mentions.join(' @')}` : ''
-      console.log(`[${entry.from}]${mentions} ${entry.message.length > 80 ? entry.message.slice(0, 80) + '...' : entry.message}`)
+      console.log(`[${entry.from}]${mentions} ${entry.content.length > 80 ? entry.content.slice(0, 80) + '...' : entry.content}`)
     }
   })
 
@@ -1287,7 +1287,7 @@ channelCmd
     console.log(`${mentions.length} unread message(s):`)
     for (const m of mentions) {
       const priority = m.priority === 'high' ? ' [HIGH]' : ''
-      console.log(`  [${m.entry.timestamp}]${priority} from ${m.entry.from}: ${m.entry.message.slice(0, 60)}...`)
+      console.log(`  [${m.entry.timestamp}]${priority} from ${m.entry.from}: ${m.entry.content.slice(0, 60)}...`)
     }
   })
 

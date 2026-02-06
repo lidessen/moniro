@@ -3,16 +3,20 @@
  * Shared context for agent collaboration via channel + document
  */
 
-/** A single channel entry */
-export interface ChannelEntry {
+/** A single message in the channel (public, DM, or log) */
+export interface Message {
   /** ISO timestamp */
   timestamp: string
   /** Author agent name or 'system' */
   from: string
   /** Message content */
-  message: string
+  content: string
   /** Extracted @mentions */
   mentions: string[]
+  /** DM recipient — if set, only visible to sender and recipient */
+  to?: string
+  /** Entry kind — undefined = normal message, 'log' = system log (hidden from agents) */
+  kind?: 'log'
 }
 
 // ==================== Resource System ====================
@@ -90,10 +94,10 @@ export function isResourceId(str: string): boolean {
   return str.startsWith(RESOURCE_PREFIX)
 }
 
-/** Inbox message (unread @mention) */
+/** Inbox message (unread @mention or DM) */
 export interface InboxMessage {
-  /** Original channel entry */
-  entry: ChannelEntry
+  /** The message */
+  entry: Message
   /** Priority level */
   priority: 'normal' | 'high'
 }
@@ -149,14 +153,14 @@ export const MENTION_PATTERN = /@([a-zA-Z][a-zA-Z0-9_-]*)/g
 /**
  * Extract @mentions from a message
  */
-export function extractMentions(message: string, validAgents: string[]): string[] {
+export function extractMentions(content: string, validAgents: string[]): string[] {
   const mentions: string[] = []
   let match: RegExpExecArray | null
 
   // Reset regex state
   MENTION_PATTERN.lastIndex = 0
 
-  while ((match = MENTION_PATTERN.exec(message)) !== null) {
+  while ((match = MENTION_PATTERN.exec(content)) !== null) {
     const agent = match[1]
     if (agent && validAgents.includes(agent) && !mentions.includes(agent)) {
       mentions.push(agent)
@@ -172,12 +176,12 @@ const URGENT_PATTERN = /\b(urgent|asap|blocked|critical)\b/i
 /**
  * Calculate priority for an inbox message
  */
-export function calculatePriority(entry: ChannelEntry): 'normal' | 'high' {
+export function calculatePriority(msg: Message): 'normal' | 'high' {
   // Multiple mentions = coordination needed
-  if (entry.mentions.length > 1) return 'high'
+  if (msg.mentions.length > 1) return 'high'
 
   // Urgent keywords
-  if (URGENT_PATTERN.test(entry.message)) return 'high'
+  if (URGENT_PATTERN.test(msg.content)) return 'high'
 
   return 'normal'
 }

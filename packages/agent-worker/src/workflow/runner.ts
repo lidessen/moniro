@@ -23,7 +23,7 @@ import {
   type AgentController,
   type AgentBackend,
 } from './controller/index.ts'
-import type { ChannelEntry } from './context/types.ts'
+import type { Message } from './context/types.ts'
 import { createLogger, createSilentLogger, type Logger } from './logger.ts'
 
 const execAsync = promisify(exec)
@@ -63,14 +63,14 @@ function formatTime(timestamp: string): string {
 }
 
 /** Format a channel entry for display */
-function formatChannelEntry(entry: ChannelEntry, agentNames: string[]): string {
+function formatChannelEntry(entry: Message, agentNames: string[]): string {
   const time = formatTime(entry.timestamp)
   const color = getAgentColor(entry.from, agentNames)
   const name = entry.from.padEnd(12)
 
   // Truncate very long messages, show first part
   const maxLen = 500
-  let message = entry.message
+  let message = entry.content
   if (message.length > maxLen) {
     message = message.slice(0, maxLen) + '...'
   }
@@ -105,7 +105,7 @@ function startChannelWatcher(
   const poll = async () => {
     while (running) {
       try {
-        const entries = await contextProvider.readChannel(lastTimestamp)
+        const entries = await contextProvider.readChannel({ since: lastTimestamp })
         for (const entry of entries) {
           // Skip if we've already seen this (readChannel is "since", not "after")
           if (lastTimestamp && entry.timestamp <= lastTimestamp) continue
@@ -503,7 +503,7 @@ export async function runWorkflowWithControllers(config: ControllerRunConfig): P
       onMention: (from, target, entry) => {
         const controller = controllers.get(target)
         if (controller) {
-          const preview = entry.message.length > 80 ? entry.message.slice(0, 80) + '...' : entry.message
+          const preview = entry.content.length > 80 ? entry.content.slice(0, 80) + '...' : entry.content
           logger.debug(`@mention: ${from} → @${target} (state=${controller.state}): ${preview}`)
           controller.wake()
         } else {
@@ -668,7 +668,7 @@ interface InitWithMentionsConfig {
   instance: string
   verbose: boolean
   log: (message: string) => void
-  onMention: (from: string, target: string, entry: import('./context/types.ts').ChannelEntry) => void
+  onMention: (from: string, target: string, msg: import('./context/types.ts').Message) => void
   /** Debug log function for MCP tool calls */
   debugLog?: (message: string) => void
 }

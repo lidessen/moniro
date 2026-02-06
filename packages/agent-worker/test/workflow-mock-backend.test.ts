@@ -113,7 +113,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       'mock-cursor',
       async (ctx, p) => {
         aliceRuns.push(ctx)
-        const inboxMsg = ctx.inbox[0]?.entry.message || ''
+        const inboxMsg = ctx.inbox[0]?.entry.content || ''
 
         if (inboxMsg.includes('Please ask @bob')) {
           // Alice asks Bob a question (simulates channel_send MCP tool call)
@@ -129,7 +129,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       async (ctx, p) => {
         bobRuns.push(ctx)
         // Check ALL inbox messages — multiple may arrive in one batch due to async timing
-        const hasQuestion = ctx.inbox.some((m) => m.entry.message.includes('What is an AI agent'))
+        const hasQuestion = ctx.inbox.some((m) => m.entry.content.includes('What is an AI agent'))
 
         if (hasQuestion) {
           // Bob answers Alice's question (simulates channel_send MCP tool call)
@@ -183,31 +183,31 @@ describe('Alice-Bob workflow with mock backends', () => {
     // Wait for Bob's answer to appear
     await waitFor(async () => {
       const entries = await provider.readChannel()
-      return entries.some((e) => e.from === 'bob' && e.message.includes('AI agent is a system'))
+      return entries.some((e) => e.from === 'bob' && e.content.includes('AI agent is a system'))
     })
 
     // Verify the full conversation flow
     const entries = await provider.readChannel()
-    const messages = entries.map((e) => ({ from: e.from, message: e.message }))
+    const messages = entries.map((e) => ({ from: e.from, content: e.content }))
 
     // 1. Orchestrator kickoff
     expect(messages[0]!.from).toBe('system')
-    expect(messages[0]!.message).toContain('@alice')
-    expect(messages[0]!.message).toContain('@bob')
+    expect(messages[0]!.content).toContain('@alice')
+    expect(messages[0]!.content).toContain('@bob')
 
     // 2. Alice asks a question mentioning @bob
     expect(messages[1]!.from).toBe('alice')
-    expect(messages[1]!.message).toContain('@bob')
-    expect(messages[1]!.message).toContain('AI agent')
+    expect(messages[1]!.content).toContain('@bob')
+    expect(messages[1]!.content).toContain('AI agent')
 
     // 3. Bob answers mentioning @alice
     expect(messages[2]!.from).toBe('bob')
-    expect(messages[2]!.message).toContain('@alice')
-    expect(messages[2]!.message).toContain('perceive its environment')
+    expect(messages[2]!.content).toContain('@alice')
+    expect(messages[2]!.content).toContain('perceive its environment')
 
     // Verify alice received the kickoff in her inbox
     expect(aliceRuns.length).toBeGreaterThanOrEqual(1)
-    expect(aliceRuns[0]!.inbox.some((m) => m.entry.message.includes('Please ask @bob'))).toBe(true)
+    expect(aliceRuns[0]!.inbox.some((m) => m.entry.content.includes('Please ask @bob'))).toBe(true)
     expect(aliceRuns[0]!.agent.resolvedSystemPrompt).toContain('Alice')
 
     // Verify bob was invoked
@@ -308,7 +308,7 @@ describe('Alice-Bob workflow with mock backends', () => {
     const aliceBackend = createMockBackend(
       'mock-cursor',
       async (ctx, p) => {
-        const inboxMsg = ctx.inbox[0]?.entry.message || ''
+        const inboxMsg = ctx.inbox[0]?.entry.content || ''
         if (inboxMsg.includes('start')) {
           // Alice sends a message mentioning @bob
           await p.appendChannel('alice', '@bob Can you help me?')
@@ -324,7 +324,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       async (ctx, p) => {
         bobInvokeCount++
         const fromAlice = ctx.inbox.some(
-          (m) => m.entry.from === 'alice' && m.entry.message.includes('Can you help')
+          (m) => m.entry.from === 'alice' && m.entry.content.includes('Can you help')
         )
         if (fromAlice) {
           await p.appendChannel('bob', '@alice Sure, I can help!')
@@ -366,17 +366,17 @@ describe('Alice-Bob workflow with mock backends', () => {
     // Bob should be woken by alice's @mention, not by kickoff
     await waitFor(async () => {
       const entries = await provider.readChannel()
-      return entries.some((e) => e.from === 'bob' && e.message.includes('Sure'))
+      return entries.some((e) => e.from === 'bob' && e.content.includes('Sure'))
     })
 
     const entries = await provider.readChannel()
     expect(entries).toHaveLength(3)
     expect(entries[0]!.from).toBe('system')
     expect(entries[1]!.from).toBe('alice')
-    expect(entries[1]!.message).toContain('@bob')
+    expect(entries[1]!.content).toContain('@bob')
     expect(entries[2]!.from).toBe('bob')
-    expect(entries[2]!.message).toContain('@alice')
-    expect(entries[2]!.message).toContain('Sure')
+    expect(entries[2]!.content).toContain('@alice')
+    expect(entries[2]!.content).toContain('Sure')
 
     // Bob should have been invoked at least once (for alice's mention)
     expect(bobInvokeCount).toBeGreaterThanOrEqual(1)
@@ -512,7 +512,7 @@ describe('Alice-Bob workflow with mock backends', () => {
         if (lastMsg?.from === 'system') {
           await p.appendChannel('alice', '@bob What is machine learning?')
           bob.wake()
-        } else if (lastMsg?.from === 'bob' && lastMsg.message.includes('subset of AI')) {
+        } else if (lastMsg?.from === 'bob' && lastMsg.content.includes('subset of AI')) {
           await p.appendChannel('alice', '@bob Thank you! That makes sense.')
           bob.wake()
         }
@@ -525,13 +525,13 @@ describe('Alice-Bob workflow with mock backends', () => {
       async (ctx, p) => {
         const lastMsg = ctx.inbox[ctx.inbox.length - 1]?.entry
 
-        if (lastMsg?.from === 'alice' && lastMsg.message.includes('machine learning')) {
+        if (lastMsg?.from === 'alice' && lastMsg.content.includes('machine learning')) {
           await p.appendChannel(
             'bob',
             '@alice Machine learning is a subset of AI that enables systems to learn from data.'
           )
           alice.wake()
-        } else if (lastMsg?.from === 'alice' && lastMsg.message.includes('Thank you')) {
+        } else if (lastMsg?.from === 'alice' && lastMsg.content.includes('Thank you')) {
           await p.appendChannel('bob', "You're welcome!")
         }
       },
@@ -571,23 +571,23 @@ describe('Alice-Bob workflow with mock backends', () => {
     // Wait for full conversation to complete
     await waitFor(async () => {
       const entries = await provider.readChannel()
-      return entries.some((e) => e.from === 'bob' && e.message.includes("welcome"))
+      return entries.some((e) => e.from === 'bob' && e.content.includes("welcome"))
     })
 
     const entries = await provider.readChannel()
-    const flow = entries.map((e) => `${e.from}: ${e.message.slice(0, 50)}`)
+    const flow = entries.map((e) => `${e.from}: ${e.content.slice(0, 50)}`)
 
     // Verify 5-message flow
     expect(entries).toHaveLength(5)
     expect(entries[0]!.from).toBe('system')
     expect(entries[1]!.from).toBe('alice')
-    expect(entries[1]!.message).toContain('machine learning')
+    expect(entries[1]!.content).toContain('machine learning')
     expect(entries[2]!.from).toBe('bob')
-    expect(entries[2]!.message).toContain('subset of AI')
+    expect(entries[2]!.content).toContain('subset of AI')
     expect(entries[3]!.from).toBe('alice')
-    expect(entries[3]!.message).toContain('Thank you')
+    expect(entries[3]!.content).toContain('Thank you')
     expect(entries[4]!.from).toBe('bob')
-    expect(entries[4]!.message).toContain('welcome')
+    expect(entries[4]!.content).toContain('welcome')
 
     // Alice should have been invoked twice (kickoff + bob's response)
     expect(aliceTurns).toBe(2)

@@ -11,8 +11,8 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
-import type { ContextProvider } from './provider.js'
-import type { ChannelEntry, InboxMessage, ResourceType } from './types.js'
+import type { ContextProvider, SendOptions } from './provider.js'
+import type { Message, InboxMessage, ResourceType } from './types.js'
 import { formatProposal, formatProposalList, type ProposalManager } from './proposals.js'
 
 /**
@@ -31,7 +31,7 @@ export interface ContextMCPServerOptions {
    * Callback when an agent is @mentioned in channel_send
    * Used by controller to wake agents on mention
    */
-  onMention?: (from: string, target: string, entry: ChannelEntry) => void
+  onMention?: (from: string, target: string, msg: Message) => void
   /**
    * Proposal manager for voting tools (optional)
    * If not provided, proposal tools will not be registered
@@ -55,7 +55,7 @@ function formatInbox(messages: InboxMessage[]): string {
   return JSON.stringify({
     messages: messages.map((m) => ({
       from: m.entry.from,
-      message: m.entry.message,
+      content: m.entry.content,
       timestamp: m.entry.timestamp,
       priority: m.priority,
     })),
@@ -113,20 +113,27 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
 
   server.tool(
     'channel_send',
-    'Send a message to the shared channel. Use @agent to mention/notify other agents.',
+    'Send a message to the shared channel. Use @agent to mention/notify. Use "to" for private DMs.',
     {
-      message: z.string().describe('Message to send, can include @mentions like @reviewer or @coder'),
+      message: z.string().describe('Message content, can include @mentions like @reviewer or @coder'),
+      to: z.string().optional().describe('Send as DM to a specific agent (private, only you and recipient see it)'),
     },
-    async ({ message }, extra) => {
+    async ({ message, to }, extra) => {
       const from = getAgentId(extra) || 'anonymous'
-      logTool('channel_send', from, { message })
-      const entry = await provider.appendChannel(from, message)
+      logTool('channel_send', from, { message, to })
+      const sendOpts: SendOptions | undefined = to ? { to } : undefined
+      const msg = await provider.appendChannel(from, message, sendOpts)
 
       // Notify mentioned agents
-      for (const target of entry.mentions) {
+      for (const target of msg.mentions) {
         if (onMention) {
-          onMention(from, target, entry)
+          onMention(from, target, msg)
         }
+      }
+
+      // Also notify DM recipient (even if not @mentioned)
+      if (to && !msg.mentions.includes(to) && onMention) {
+        onMention(from, to, msg)
       }
 
       return {
@@ -135,8 +142,9 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
             type: 'text' as const,
             text: JSON.stringify({
               status: 'sent',
-              timestamp: entry.timestamp,
-              mentions: entry.mentions,
+              timestamp: msg.timestamp,
+              mentions: msg.mentions,
+              to: msg.to,
             }),
           },
         ],
@@ -146,7 +154,7 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
 
   server.tool(
     'channel_read',
-    'Read messages from the shared channel.',
+    'Read messages from the shared channel. DMs and logs are automatically filtered based on your identity.',
     {
       since: z.string().optional().describe('Read entries after this timestamp (ISO format)'),
       limit: z.number().optional().describe('Maximum entries to return'),
@@ -154,7 +162,7 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
     async ({ since, limit }, extra) => {
       const agent = getAgentId(extra)
       logTool('channel_read', agent, { since, limit })
-      const entries = await provider.readChannel(since, limit)
+      const entries = await provider.readChannel({ since, limit, agent })
 
       return {
         content: [

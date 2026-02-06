@@ -5,7 +5,7 @@
 
 import type { ResolvedAgent } from '../types.ts'
 import type { ContextProvider } from '../context/provider.ts'
-import type { ChannelEntry, InboxMessage } from '../context/types.ts'
+import type { Message, InboxMessage } from '../context/types.ts'
 
 // ==================== Controller ====================
 
@@ -76,8 +76,8 @@ export interface AgentRunContext {
   agent: ResolvedAgent
   /** Unread inbox messages */
   inbox: InboxMessage[]
-  /** Recent channel entries (for context) */
-  recentChannel: ChannelEntry[]
+  /** Recent channel messages (for context) */
+  recentChannel: Message[]
   /** Current document content (entry point) */
   documentContent: string
   /** MCP HTTP URL */

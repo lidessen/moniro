@@ -3,7 +3,7 @@
  * Helpers for building agent prompts from context
  */
 
-import type { ChannelEntry, InboxMessage } from '../context/types.ts'
+import type { Message, InboxMessage } from '../context/types.ts'
 import type { AgentRunContext } from './types.ts'
 
 /**
@@ -16,19 +16,23 @@ export function formatInbox(inbox: InboxMessage[]): string {
     .map((m) => {
       const priority = m.priority === 'high' ? ' [HIGH]' : ''
       const time = m.entry.timestamp.slice(11, 19)
-      return `- [${time}] From @${m.entry.from}${priority}: ${m.entry.message}`
+      const dm = m.entry.to ? ' [DM]' : ''
+      return `- [${time}] From @${m.entry.from}${priority}${dm}: ${m.entry.content}`
     })
     .join('\n')
 }
 
 /**
- * Format channel entries for display
+ * Format channel messages for display
  */
-export function formatChannel(entries: ChannelEntry[]): string {
+export function formatChannel(entries: Message[]): string {
   if (entries.length === 0) return '(no messages)'
 
   return entries
-    .map((e) => `[${e.timestamp.slice(11, 19)}] @${e.from}: ${e.message}`)
+    .map((e) => {
+      const dm = e.to ? ` [DM→@${e.to}]` : ''
+      return `[${e.timestamp.slice(11, 19)}] @${e.from}${dm}: ${e.content}`
+    })
     .join('\n')
 }
 
@@ -74,8 +78,8 @@ export function buildAgentPrompt(ctx: AgentRunContext): string {
   sections.push('')
   sections.push('### Channel Tools')
   sections.push('- **channel_send**: Send a message to the shared channel. Use @agentname to mention/notify.')
-  sections.push('  Example: channel_send({ message: "Hey @bob, what is an AI agent?" })')
-  sections.push('- **channel_read**: Read recent channel messages.')
+  sections.push('  Use the "to" parameter for private DMs: channel_send({ message: "...", to: "bob" })')
+  sections.push('- **channel_read**: Read recent channel messages (DMs and logs are auto-filtered).')
   sections.push('')
   sections.push('### Team Tools')
   sections.push('- **team_members**: List all agents you can @mention.')

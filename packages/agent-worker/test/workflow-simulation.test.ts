@@ -85,7 +85,7 @@ describe('Workflow Simulation', () => {
     const reviewerBackend = createMockBackend(
       'reviewer',
       async (ctx, p) => {
-        const msg = ctx.inbox[0]?.entry.message || ''
+        const msg = ctx.inbox[0]?.entry.content || ''
         if (msg.includes('review this')) {
           await p.appendChannel('reviewer', 'Starting review... @coder looks good!')
         } else if (msg.includes('fixed')) {
@@ -99,7 +99,7 @@ describe('Workflow Simulation', () => {
     const coderBackend = createMockBackend(
       'coder',
       async (ctx, p) => {
-        const msg = ctx.inbox[0]?.entry.message || ''
+        const msg = ctx.inbox[0]?.entry.content || ''
         if (msg.includes('looks good')) {
           await p.appendChannel('coder', '@reviewer fixed the issues')
         }
@@ -138,12 +138,12 @@ describe('Workflow Simulation', () => {
     // Wait for conversation to complete
     await waitFor(async () => {
       const entries = await provider.readChannel()
-      return entries.some((e) => e.message.includes('approved'))
+      return entries.some((e) => e.content.includes('approved'))
     })
 
     // Verify conversation flow
     const entries = await provider.readChannel()
-    const messages = entries.map((e) => `${e.from}: ${e.message}`)
+    const messages = entries.map((e) => `${e.from}: ${e.content}`)
 
     expect(messages).toContainEqual(expect.stringContaining('user: @reviewer'))
     expect(messages).toContainEqual(expect.stringContaining('reviewer: Starting review'))
@@ -168,7 +168,7 @@ describe('Workflow Simulation', () => {
     const aliceBackend = createMockBackend(
       'alice',
       async (ctx, p) => {
-        const msg = ctx.inbox[0]?.entry.message || ''
+        const msg = ctx.inbox[0]?.entry.content || ''
         if (msg.includes('decide')) {
           proposal = proposalManager.create({
             type: 'decision',
@@ -190,7 +190,7 @@ describe('Workflow Simulation', () => {
     const bobBackend = createMockBackend(
       'bob',
       async (ctx, _p) => {
-        if (proposal && ctx.inbox.some((m) => m.entry.message.includes('please vote'))) {
+        if (proposal && ctx.inbox.some((m) => m.entry.content.includes('please vote'))) {
           proposalManager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'postgres' })
         }
       },
@@ -201,7 +201,7 @@ describe('Workflow Simulation', () => {
     const charlieBackend = createMockBackend(
       'charlie',
       async (ctx, _p) => {
-        if (proposal && ctx.inbox.some((m) => m.entry.message.includes('please vote'))) {
+        if (proposal && ctx.inbox.some((m) => m.entry.content.includes('please vote'))) {
           proposalManager.vote({ proposalId: proposal.id, voter: 'charlie', choice: 'mysql' })
         }
       },
@@ -350,7 +350,7 @@ describe('Workflow Simulation', () => {
     // Wait for success after retries
     await waitFor(async () => {
       const entries = await provider.readChannel()
-      return entries.some((e) => e.message.includes('completed after retries'))
+      return entries.some((e) => e.content.includes('completed after retries'))
     })
 
     expect(attempts).toBe(3)
