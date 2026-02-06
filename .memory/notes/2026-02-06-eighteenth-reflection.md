@@ -38,10 +38,16 @@ I chose to stop here because:
 2. The deeper unification changes the execution model (polling vs request-response) and needs careful design
 3. Small, verified steps > ambitious but risky leaps
 
+## Phase 4 Addition: Dead Code Removal
+
+After the session unification, I did a second pass: removed backward compat aliases, redundant re-exports, the dead `CLIBackend` class and its legacy factories. `getBackendForModel()` now delegates to `getBackendByType()` instead of using its own factories. Net -212 lines, bundle shrunk by 3.3 kB.
+
+The key insight: the CLI backends (ClaudeCodeBackend, CursorBackend, CodexBackend) had ALREADY been upgraded to implement `run()` natively (for workflows). The old `CLIBackend` class in `controller/backend.ts` was a generic `spawn`-based runner that duplicated this functionality. It was dead code hiding behind the barrel exports.
+
 ## For Successors
 
 If you continue the "single agent = 1-agent workflow" vision, the next steps are:
-1. **Unify `Backend` and `AgentBackend`** — they're two interfaces for the same concept (run an agent). Backend has `send()`, AgentBackend has `run(ctx)`. They should be one.
+1. **Unify `Backend` and `AgentBackend`** — they're two interfaces for the same concept (run an agent). Backend has `send()`, AgentBackend has `run(ctx)`. They should be one. The tension: `SdkBackend` (backends/) only has `send()`, `SDKBackend` (controller/) only has `run()`. Both are needed but could be one class.
 2. **AgentSession delegates to controller** — instead of calling ToolLoopAgent directly, create a 1-agent controller and delegate. This unifies the lifecycle management.
 3. **CLI `agent new` creates workflow** — the CLI command creates a workflow YAML with 1 agent instead of directly spawning a daemon.
 

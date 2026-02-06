@@ -39,11 +39,22 @@ The fundamental insight from the user: single-agent and multi-agent should be TH
 
 **How it works**: `AgentSessionConfig` extends `SessionConfig` with optional `Backend`. When a backend is provided, `send()` delegates to `backend.send()` instead of ToolLoopAgent. History, stats, export, clear all work uniformly. Tool management throws clear errors for non-SDK backends.
 
+**Phase 4 (DONE)**: Dead code removal and architecture cleanup.
+
+| Before | Problem | After |
+|--------|---------|-------|
+| Backward compat aliases (ClaudeCliBackend etc.) | 7 re-export lines, unused | Removed. Export canonical names. |
+| Model-map re-exports in controller/types.ts | Redundant with core/model-maps.ts | Removed. Import from canonical source. |
+| CLIBackend class + detectCLIError + legacy factories (~160 lines) | Dead code, superseded by backends/ implementations | Deleted. |
+| `getBackendForModel()` used legacy factories | Created CLIBackend instances (old pattern) | Delegates to `getBackendByType()`. |
+
+`controller/backend.ts`: 380 → 220 lines (-42%). Bundle: 208.50 → 205.19 kB.
+
 **What remains** (for full "1-agent workflow" vision):
-1. AgentSession internally creates 1-agent workflow runtime (lazy)
-2. CLI `agent new` creates 1-agent workflow
-3. Delete AgentSession's own agentic loop, delegate to controller
-4. Unify the `Backend` and `AgentBackend` interfaces
+1. Unify `Backend` and `AgentBackend` interfaces into one
+2. AgentSession internally creates 1-agent workflow runtime (lazy)
+3. CLI `agent new` creates 1-agent workflow
+4. Delete AgentSession's own agentic loop, delegate to controller
 
 ### 2. Skills always via tools
 
@@ -56,5 +67,5 @@ One process manages all agents, MCP servers, lifecycle. CLI is stateless.
 ## Verification
 
 - Build: passes (tsdown)
-- Tests: 481 pass, 20 fail (all pre-existing — identical to main baseline)
-- No regressions from Phase 3 changes
+- Tests: 476 pass, 20 fail (5 fewer tests from deleted detectCLIError tests, 20 pre-existing fails unchanged)
+- No regressions from Phase 3 or Phase 4 changes
