@@ -133,11 +133,25 @@ Implementation tasks for the workflow design. See [DESIGN.md](./DESIGN.md) for f
 
 Single-writer model to prevent concurrent document conflicts:
 
-- [ ] Add `documentOwner` to `FileContextConfig`
+### Configuration
+- [ ] Move `documentOwner` to context level (cross-provider, not in config.*)
+- [ ] Update `FileContextConfig` and `MemoryContextConfig` interfaces
+- [ ] Default: single agent = disabled, multiple + not specified = election
+
+### Ownership Enforcement
 - [ ] Add ownership check to `document_write`, `document_create`, `document_append`
 - [ ] Add `document_suggest` MCP tool for non-owners
 - [ ] Non-owner write attempts return error with guidance to use `document_suggest`
 - [ ] `document_suggest` posts @mention to owner in channel
+
+### Election Mechanism
+- [ ] Add `ElectionState` interface (pending/active/resolved, votes, winner)
+- [ ] Add `document_vote_owner` MCP tool
+- [ ] Add `document_election_status` MCP tool
+- [ ] Post [ELECTION] message to channel when election needed
+- [ ] Resolve election when all agents voted OR timeout (30s)
+- [ ] Tie-breaker: first nominated wins
+- [ ] Post [ELECTION] result to channel
 
 > **When to use**: Workflows with 3+ agents, when document consistency matters.
 > **When NOT to use**: Simple workflows, speed over consistency.

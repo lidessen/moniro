@@ -261,13 +261,23 @@ To prevent concurrent write conflicts, documents have an optional **owner** who 
 
 **Configuration:**
 
+`documentOwner` is a context-level config (cross-provider):
+
 ```yaml
 context:
   provider: file
+  documentOwner: scribe  # Only @scribe can write to documents
   config:
     document: workspace.md
-    documentOwner: scribe  # Only @scribe can write to documents
 ```
+
+**Default Behavior:**
+
+| Scenario | Default Owner |
+|----------|---------------|
+| Single agent | Self (ownership disabled - no need) |
+| Multiple agents, owner specified | Specified agent |
+| Multiple agents, no owner | Agents vote via `document_vote_owner` |
 
 **How It Works:**
 
@@ -377,6 +387,168 @@ agents:
 - Simple 2-agent workflows
 - When speed matters more than consistency
 - When agents rarely update documents
+
+### Document Owner Election
+
+When multiple agents exist and no `documentOwner` is specified, agents elect one via voting.
+
+**Election Flow:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Document Owner Election                       │
+│                                                                  │
+│  1. Workflow starts with multiple agents, no documentOwner      │
+│                                                                  │
+│  2. System posts to channel:                                    │
+│     "[ELECTION] Document owner needed. Use document_vote_owner  │
+│      to nominate. Election closes after all agents vote or      │
+│      30 seconds of inactivity."                                 │
+│                                                                  │
+│  3. Agents vote (can vote for self or others):                  │
+│     @reviewer: document_vote_owner({ nominee: 'scribe' })       │
+│     @coder: document_vote_owner({ nominee: 'scribe' })          │
+│     @scribe: document_vote_owner({ nominee: 'scribe' })         │
+│                                                                  │
+│  4. Election resolves:                                          │
+│     - All agents voted → winner announced                       │
+│     - Timeout → most votes wins (tie: first nominated)          │
+│                                                                  │
+│  5. System posts result:                                        │
+│     "[ELECTION] @scribe elected as document owner (3 votes)"    │
+│                                                                  │
+│  6. Document write tools now enforce ownership                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**MCP Tools for Election:**
+
+```typescript
+// Election state
+interface ElectionState {
+  status: 'pending' | 'active' | 'resolved'
+  votes: Map<string, string>  // voter → nominee
+  winner?: string
+  startedAt?: string
+}
+
+server.tool('document_vote_owner', {
+  nominee: z.string().describe('Agent name to nominate as document owner'),
+  reason: z.string().optional().describe('Why this agent should own documents'),
+}, async ({ nominee, reason }, extra) => {
+  const voter = extra.sessionId
+
+  // Validate nominee is a valid agent
+  if (!validAgents.includes(nominee)) {
+    return {
+      content: [{
+        type: 'text',
+        text: `Error: @${nominee} is not a valid agent. Valid: ${validAgents.join(', ')}`
+      }]
+    }
+  }
+
+  // Record vote
+  electionState.votes.set(voter, nominee)
+
+  // Post to channel
+  const reasonInfo = reason ? ` (${reason})` : ''
+  await provider.appendChannel(voter, `[VOTE] I nominate @${nominee} as document owner${reasonInfo}`)
+
+  // Check if election should resolve
+  if (electionState.votes.size === validAgents.length) {
+    await resolveElection()
+  }
+
+  return {
+    content: [{
+      type: 'text',
+      text: `Vote recorded for @${nominee}. ${electionState.votes.size}/${validAgents.length} agents voted.`
+    }]
+  }
+})
+
+server.tool('document_election_status', {}, async () => {
+  const votes = Array.from(electionState.votes.entries())
+  const voteCounts = countVotes(electionState.votes)
+
+  return {
+    content: [{
+      type: 'text',
+      text: JSON.stringify({
+        status: electionState.status,
+        votes: votes.map(([voter, nominee]) => ({ voter, nominee })),
+        counts: Object.fromEntries(voteCounts),
+        winner: electionState.winner,
+      })
+    }]
+  }
+})
+
+async function resolveElection() {
+  const voteCounts = countVotes(electionState.votes)
+
+  // Find winner (most votes, tie goes to first nominated)
+  let winner = ''
+  let maxVotes = 0
+  for (const [nominee, count] of voteCounts) {
+    if (count > maxVotes) {
+      maxVotes = count
+      winner = nominee
+    }
+  }
+
+  electionState.status = 'resolved'
+  electionState.winner = winner
+  config.documentOwner = winner  // Set the owner
+
+  await provider.appendChannel('system',
+    `[ELECTION] @${winner} elected as document owner (${maxVotes} vote${maxVotes > 1 ? 's' : ''})`
+  )
+}
+
+function countVotes(votes: Map<string, string>): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const nominee of votes.values()) {
+    counts.set(nominee, (counts.get(nominee) || 0) + 1)
+  }
+  return counts
+}
+```
+
+**Election Timeout:**
+
+```typescript
+// Start election timeout when first vote received
+function startElectionTimeout() {
+  setTimeout(async () => {
+    if (electionState.status === 'active' && electionState.votes.size > 0) {
+      await resolveElection()
+    }
+  }, 30_000)  // 30 seconds
+}
+```
+
+**System Prompt Guidance for Election:**
+
+```markdown
+## Document Ownership
+
+If you see an [ELECTION] message, you need to vote for a document owner:
+
+1. Consider who should maintain documentation:
+   - Agent with documentation focus
+   - Agent who writes most content
+   - Agent available throughout workflow
+
+2. Vote using: `document_vote_owner({ nominee: 'agent-name' })`
+   - You can nominate yourself if appropriate
+   - Add a reason to help others decide
+
+3. After election resolves:
+   - Winner: use `document_write`, `document_create`
+   - Others: use `document_suggest` to request changes
+```
 
 ### Inbox Design
 
@@ -1069,17 +1241,25 @@ type ContextConfig = false | FileContextConfig | MemoryContextConfig
 
 interface FileContextConfig {
   provider: 'file'
+  /** Document owner (cross-provider config) */
+  documentOwner?: string
   config?: {
     dir?: string           // default: .workflow/${{ instance }}/
     channel?: string       // default: channel.md
     document?: string      // default: notes.md
-    documentOwner?: string // optional: agent with exclusive write permission
   }
 }
 
 interface MemoryContextConfig {
   provider: 'memory'
+  /** Document owner (cross-provider config) */
+  documentOwner?: string
 }
+
+// Note: documentOwner defaults:
+// - Single agent: disabled (no ownership needed)
+// - Multiple agents, not specified: trigger election
+// - Specified: use that agent
 
 interface AgentDefinition {
   /** Model identifier */
@@ -2158,9 +2338,12 @@ interface RetryConfig {
 4. Support nested directories
 
 **Phase 10: Document Ownership** (optional)
-1. Add `documentOwner` to context config
-2. Add ownership check to write/create/append tools
-3. Add `document_suggest` tool for non-owners
+1. Move `documentOwner` to context level (cross-provider)
+2. Default behavior: single agent = disabled, multiple + unspecified = election
+3. Add ownership check to write/create/append tools
+4. Add `document_suggest` tool for non-owners
+5. Add election tools: `document_vote_owner`, `document_election_status`
+6. Implement election flow with timeout (30s)
 
 ---
 
