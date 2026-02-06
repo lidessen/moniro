@@ -1,6 +1,6 @@
 import type { Server } from 'node:net'
-import type { AgentSession } from '../session.ts'
-import type { ToolDefinition } from '../types.ts'
+import type { AgentSession } from '../core/session.ts'
+import type { ToolDefinition } from '../core/types.ts'
 import type { Backend } from '../backends/types.ts'
 import type { SkillImporter } from '../skills/index.ts'
 import type { SessionInfo } from './registry.ts'

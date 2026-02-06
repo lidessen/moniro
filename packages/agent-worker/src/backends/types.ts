@@ -14,6 +14,7 @@ export {
 } from '../core/model-maps.ts'
 
 import type { BackendType } from '../core/model-maps.ts'
+import type { AgentRunContext, AgentRunResult } from '../workflow/controller/types.ts'
 
 export interface BackendConfig {
   type: BackendType
@@ -47,4 +48,8 @@ export interface Backend {
   isAvailable(): Promise<boolean>
   /** Get backend info for display */
   getInfo(): { name: string; version?: string; model?: string }
+  /** Run with full workflow context (for multi-agent mode). Optional — defaults to building prompt from context and calling send(). */
+  run?(ctx: AgentRunContext): Promise<AgentRunResult>
+  /** Set up workspace directory with MCP config for workflow isolation */
+  setWorkspace?(workspaceDir: string, mcpConfig: { mcpServers: Record<string, unknown> }): void
 }

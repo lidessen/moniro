@@ -1,6 +1,6 @@
-export { AgentSession, type SendOptions, type StepInfo } from './session.ts'
-export { createModel, createModelAsync, FRONTIER_MODELS, SUPPORTED_PROVIDERS } from './models.ts'
-export { createTools } from './tools.ts'
+export { AgentSession, type SendOptions, type StepInfo } from './core/session.ts'
+export { createModel, createModelAsync, FRONTIER_MODELS, SUPPORTED_PROVIDERS } from './core/models.ts'
+export { createTools } from './core/tools.ts'
 export {
   createBashTool,
   createBashTools,
@@ -28,7 +28,7 @@ export {
   type ImportSpec,
   type GitProvider,
 } from './skills/index.ts'
-export type { SupportedProvider } from './models.ts'
+export type { SupportedProvider } from './core/models.ts'
 export type { BashToolkit, BashToolsOptions, CreateBashToolOptions } from './tools/bash.ts'
 export type {
   Backend,
@@ -52,4 +52,4 @@ export type {
   ToolDefinition,
   TokenUsage,
   Transcript,
-} from './types.ts'
+} from './core/types.ts'

@@ -1,9 +1,9 @@
 import { describe, test, expect } from 'bun:test'
 import { MockLanguageModelV3 } from 'ai/test'
 import { generateText } from 'ai'
-import { AgentSession } from '../src/session.ts'
-import { createTools } from '../src/tools.ts'
-import type { ToolDefinition } from '../src/types.ts'
+import { AgentSession } from '../src/core/session.ts'
+import { createTools } from '../src/core/tools.ts'
+import type { ToolDefinition } from '../src/core/types.ts'
 
 // Helper to create V3 format response
 function mockResponse(text: string, inputTokens = 10, outputTokens = 5) {

@@ -1,7 +1,7 @@
 import { Command, Option } from 'commander'
 import { readFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
-import { getDefaultModel } from '../../models.ts'
+import { getDefaultModel } from '../../core/models.ts'
 import type { BackendType } from '../../backends/types.ts'
 import { sendRequest } from '../client.ts'
 import {

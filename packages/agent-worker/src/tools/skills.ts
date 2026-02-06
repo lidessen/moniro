@@ -1,5 +1,5 @@
 import type { SkillsProvider } from '../skills/provider.ts'
-import type { ToolDefinition } from '../types.ts'
+import type { ToolDefinition } from '../core/types.ts'
 
 /**
  * Create a Skills tool that provides access to agent skills

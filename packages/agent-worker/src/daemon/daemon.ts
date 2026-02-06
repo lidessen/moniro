@@ -2,15 +2,11 @@ import { createServer } from 'node:net'
 import { existsSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { AgentSession } from '../session.ts'
-import type { ToolDefinition } from '../types.ts'
+import { AgentSession } from '../core/session.ts'
+import type { ToolDefinition } from '../core/types.ts'
 import type { Backend, BackendType } from '../backends/types.ts'
 import { createBackend } from '../backends/index.ts'
 import { SkillsProvider, createSkillsTool, SkillImporter } from '../skills/index.ts'
-import {
-  checkSkillsAvailability,
-  getImportSkillWarning,
-} from '../cli/skills-compatibility.ts'
 import {
   SESSIONS_DIR,
   ensureDirs,
@@ -32,64 +28,26 @@ const DEFAULT_SKILL_DIRS = [
 /**
  * Setup skills provider and return Skills tool
  * Supports both local and imported skills
- * For SDK backend, skills work via Skills tool
- * For CLI backends, provides compatibility warnings
+ * Skills are always loaded and provided as tools, regardless of backend
  */
 async function setupSkills(
   sessionId: string,
-  backendType: BackendType,
   skillPaths?: string[],
   skillDirs?: string[],
   importSkills?: string[]
 ): Promise<{ tools: ToolDefinition[]; importer?: SkillImporter }> {
   const provider = new SkillsProvider()
 
-  // Check --import-skill compatibility
-  if (importSkills && importSkills.length > 0) {
-    const warning = getImportSkillWarning(backendType)
-    if (warning) {
-      console.warn(warning)
-      if (backendType !== 'sdk') {
-        // Skip import for non-SDK backends
-        return { tools: [] }
-      }
+  // Scan default directories
+  for (const dir of DEFAULT_SKILL_DIRS) {
+    try {
+      provider.scanDirectorySync(dir)
+    } catch {
+      // Ignore errors from default paths
     }
   }
 
-  // For SDK backend, scan and load skills as usual
-  if (backendType === 'sdk') {
-    // Scan default directories (sync)
-    for (const dir of DEFAULT_SKILL_DIRS) {
-      try {
-        provider.scanDirectorySync(dir)
-      } catch {
-        // Ignore errors from default paths
-      }
-    }
-  } else {
-    // For CLI backends, check filesystem availability
-    const { available, foundIn, suggestions } = checkSkillsAvailability(
-      backendType,
-      process.cwd()
-    )
-
-    if (!available && (skillPaths || skillDirs || importSkills)) {
-      console.warn(
-        `\n⚠️  Skills requested but not available for ${backendType} backend.\n`
-      )
-      for (const suggestion of suggestions) {
-        console.warn(suggestion)
-      }
-      console.warn('') // empty line
-    } else if (foundIn) {
-      console.log(`ℹ️  ${backendType} CLI will load skills from: ${foundIn}`)
-    }
-
-    // Don't scan for CLI backends - they handle it themselves
-    return { tools: [] }
-  }
-
-  // Scan additional directories (sync)
+  // Scan additional directories
   if (skillDirs) {
     for (const dir of skillDirs) {
       try {
@@ -100,7 +58,7 @@ async function setupSkills(
     }
   }
 
-  // Add individual skills (sync)
+  // Add individual skills
   if (skillPaths) {
     for (const skillPath of skillPaths) {
       try {
@@ -111,7 +69,7 @@ async function setupSkills(
     }
   }
 
-  // Import remote skills (async)
+  // Import remote skills
   let importer: SkillImporter | undefined
   if (importSkills && importSkills.length > 0) {
     importer = new SkillImporter(sessionId)
@@ -133,7 +91,7 @@ async function setupSkills(
   }
 
   return {
-    tools: [createSkillsTool(provider)],
+    tools: skills.length > 0 ? [createSkillsTool(provider)] : [],
     importer,
   }
 }
@@ -230,7 +188,6 @@ export async function startDaemon(config: {
   // Setup skills (both local and imported)
   const { tools, importer } = await setupSkills(
     sessionId,
-    backendType,
     config.skills,
     config.skillDirs,
     config.importSkills
