@@ -11,6 +11,8 @@ Implementation tasks for the workflow design. See [DESIGN.md](./DESIGN.md) for f
 - [x] Implement `MemoryContextProvider` (testing)
 - [x] Channel: append-only with @mention extraction
 - [x] Document: read/write workspace
+- [x] Provider pattern in config: `{ provider: 'file' | 'memory', config?: {...} }`
+- [x] Context enabled by default (no config = file provider)
 
 ## Phase 2: Context MCP Server
 
@@ -28,7 +30,7 @@ Implementation tasks for the workflow design. See [DESIGN.md](./DESIGN.md) for f
 
 - [x] Update workflow schema: `setup` + `kickoff` (replace `tasks`)
 - [x] Parse and validate new schema
-- [x] Send kickoff to channel on workflow start (via runner-v2)
+- [x] Send kickoff to channel on workflow start
 - [ ] Trigger agents on @mention via MCP notification (requires polling or notification)
 
 ## Phase 4: CLI Updates
