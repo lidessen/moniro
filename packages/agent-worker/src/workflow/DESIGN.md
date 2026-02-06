@@ -319,7 +319,7 @@ context:
 |----------|---------------|
 | Single agent | Self (ownership disabled - no need) |
 | Multiple agents, owner specified | Specified agent |
-| Multiple agents, no owner | Agents vote via `document_vote_owner` |
+| Multiple agents, no owner | Agents vote via proposal system |
 
 **How It Works:**
 
@@ -390,8 +390,7 @@ name: code-review
 
 context:
   provider: file
-  config:
-    documentOwner: scribe  # Dedicated document maintainer
+  documentOwner: scribe  # Dedicated document maintainer (context-level, not in config)
 
 agents:
   reviewer:
@@ -1030,6 +1029,7 @@ server.tool('document_write', { ... }, async ({ content, file }, extra) => {
 
   // Normal ownership check...
 })
+```
 
 ### Inbox Design
 
@@ -1211,6 +1211,8 @@ The controller handles lifecycle concerns that agents shouldn't manage:
 ```typescript
 // Simplified controller loop
 async function controllerLoop(config: AgentControllerConfig) {
+  const provider = config.contextProvider
+
   while (state !== 'stopped') {
     // Wait for wake() or poll interval
     await waitForWakeOrPoll()
@@ -1231,8 +1233,10 @@ async function controllerLoop(config: AgentControllerConfig) {
 
       const result = await config.runAgent({
         name: config.name,
+        agent: config.agent,
         inbox,
         recentChannel: await provider.readChannel(undefined, 50),
+        documentContent: await provider.readDocument(),
         mcpSocketPath: config.mcpSocketPath,
         retryAttempt: attempt,  // Let agent know if this is a retry
       })
@@ -1260,11 +1264,17 @@ interface AgentRunContext {
   /** Agent name */
   name: string
 
+  /** Agent config */
+  agent: ResolvedAgent
+
   /** Unread inbox messages */
   inbox: InboxMessage[]
 
   /** Recent channel entries (for context) */
   recentChannel: ChannelEntry[]
+
+  /** Current document content (entry point) */
+  documentContent: string
 
   /** MCP socket path */
   mcpSocketPath: string
@@ -1306,28 +1316,7 @@ Agents don't need traditional message history because:
 - Document = current state (goals, progress)
 - Inbox = what needs attention
 
-Each agent run gets fresh context built from these sources:
-
-```typescript
-interface AgentRunContext {
-  /** Agent name */
-  name: string
-
-  /** Agent config */
-  agent: ResolvedAgent
-
-  /** Unread inbox messages */
-  inbox: InboxMessage[]
-
-  /** Recent channel entries (last N for context) */
-  recentChannel: ChannelEntry[]
-
-  /** Current document content */
-  documentContent: string
-
-  /** MCP socket path for tools */
-  mcpSocketPath: string
-}
+Each agent run gets fresh context built from these sources (see `AgentRunContext` above).
 
 /** Build unified prompt from context */
 function buildAgentPrompt(ctx: AgentRunContext): string {
@@ -2118,20 +2107,19 @@ class FileContextProvider implements ContextProvider {
     return parseChannelMarkdown(content, this.validAgents, since, limit)
   }
 
-  async getUnreadMentions(agent: string): Promise<MentionNotification[]> {
+  async getInbox(agent: string): Promise<InboxMessage[]> {
     const lastAck = this.mentionState.get(agent) || ''
     const entries = await this.readChannel(lastAck)
     return entries
       .filter(e => e.mentions.includes(agent))
       .map(e => ({
-        from: e.from,
-        target: agent,
-        message: e.message,
-        timestamp: e.timestamp,
+        entry: e,
+        unread: true,
+        priority: calculatePriority(e),
       }))
   }
 
-  async acknowledgeMentions(agent: string, until: string): Promise<void> {
+  async ackInbox(agent: string, until: string): Promise<void> {
     this.mentionState.set(agent, until)
     await this.saveMentionState()
   }
@@ -2193,14 +2181,14 @@ class MemoryContextProvider implements ContextProvider {
     return entries
   }
 
-  async getUnreadMentions(agent: string): Promise<MentionNotification[]> {
+  async getInbox(agent: string): Promise<InboxMessage[]> {
     const lastAck = this.mentionState.get(agent) || ''
     return this.channel
       .filter(e => e.timestamp > lastAck && e.mentions.includes(agent))
-      .map(e => ({ from: e.from, target: agent, message: e.message, timestamp: e.timestamp }))
+      .map(e => ({ entry: e, unread: true, priority: calculatePriority(e) }))
   }
 
-  async acknowledgeMentions(agent: string, until: string): Promise<void> {
+  async ackInbox(agent: string, until: string): Promise<void> {
     this.mentionState.set(agent, until)
   }
 
