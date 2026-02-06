@@ -5,11 +5,13 @@ import { tmpdir } from 'node:os'
 
 import {
   extractMentions,
+  calculatePriority,
   MemoryContextProvider,
   FileContextProvider,
   createFileContextProvider,
   createContextMCPServer,
 } from '../src/workflow/context/index.ts'
+import type { ChannelEntry } from '../src/workflow/context/index.ts'
 
 // ==================== extractMentions Tests ====================
 
@@ -50,6 +52,80 @@ describe('extractMentions', () => {
   test('handles mentions at different positions', () => {
     const mentions = extractMentions('@reviewer at start, middle @coder, and end @assistant', validAgents)
     expect(mentions).toEqual(['reviewer', 'coder', 'assistant'])
+  })
+})
+
+// ==================== calculatePriority Tests ====================
+
+describe('calculatePriority', () => {
+  test('returns high for multiple mentions', () => {
+    const entry: ChannelEntry = {
+      timestamp: new Date().toISOString(),
+      from: 'agent1',
+      message: '@agent2 and @agent3 please help',
+      mentions: ['agent2', 'agent3'],
+    }
+    expect(calculatePriority(entry)).toBe('high')
+  })
+
+  test('returns high for urgent keyword', () => {
+    const entry: ChannelEntry = {
+      timestamp: new Date().toISOString(),
+      from: 'agent1',
+      message: '@agent2 this is urgent',
+      mentions: ['agent2'],
+    }
+    expect(calculatePriority(entry)).toBe('high')
+  })
+
+  test('returns high for asap keyword', () => {
+    const entry: ChannelEntry = {
+      timestamp: new Date().toISOString(),
+      from: 'agent1',
+      message: '@agent2 please do this ASAP',
+      mentions: ['agent2'],
+    }
+    expect(calculatePriority(entry)).toBe('high')
+  })
+
+  test('returns high for blocked keyword', () => {
+    const entry: ChannelEntry = {
+      timestamp: new Date().toISOString(),
+      from: 'agent1',
+      message: '@agent2 I am blocked on this',
+      mentions: ['agent2'],
+    }
+    expect(calculatePriority(entry)).toBe('high')
+  })
+
+  test('returns high for critical keyword', () => {
+    const entry: ChannelEntry = {
+      timestamp: new Date().toISOString(),
+      from: 'agent1',
+      message: '@agent2 critical issue found',
+      mentions: ['agent2'],
+    }
+    expect(calculatePriority(entry)).toBe('high')
+  })
+
+  test('returns normal for single mention without urgent keywords', () => {
+    const entry: ChannelEntry = {
+      timestamp: new Date().toISOString(),
+      from: 'agent1',
+      message: '@agent2 please review when you can',
+      mentions: ['agent2'],
+    }
+    expect(calculatePriority(entry)).toBe('normal')
+  })
+
+  test('returns normal for no mentions', () => {
+    const entry: ChannelEntry = {
+      timestamp: new Date().toISOString(),
+      from: 'agent1',
+      message: 'Just a regular message',
+      mentions: [],
+    }
+    expect(calculatePriority(entry)).toBe('normal')
   })
 })
 
@@ -110,46 +186,54 @@ describe('MemoryContextProvider', () => {
     })
   })
 
-  describe('mention operations', () => {
-    test('gets unread mentions', async () => {
+  describe('inbox operations', () => {
+    test('gets unread inbox messages', async () => {
       await provider.appendChannel('agent1', '@agent2 please review')
       await provider.appendChannel('agent3', '@agent2 also check this')
 
-      const mentions = await provider.getUnreadMentions('agent2')
-      expect(mentions).toHaveLength(2)
-      expect(mentions[0].from).toBe('agent1')
-      expect(mentions[1].from).toBe('agent3')
+      const inbox = await provider.getInbox('agent2')
+      expect(inbox).toHaveLength(2)
+      expect(inbox[0].entry.from).toBe('agent1')
+      expect(inbox[1].entry.from).toBe('agent3')
     })
 
-    test('acknowledges mentions', async () => {
+    test('inbox messages have priority', async () => {
+      await provider.appendChannel('agent1', '@agent2 please review')
+      await provider.appendChannel('agent3', '@agent2 urgent: check this')
+
+      const inbox = await provider.getInbox('agent2')
+      expect(inbox[0].priority).toBe('normal')
+      expect(inbox[1].priority).toBe('high')
+    })
+
+    test('acknowledges inbox', async () => {
       const entry = await provider.appendChannel('agent1', '@agent2 please review')
       await provider.appendChannel('agent3', '@agent2 also check this')
 
-      await provider.acknowledgeMentions('agent2', entry.timestamp)
+      await provider.ackInbox('agent2', entry.timestamp)
 
-      const mentions = await provider.getUnreadMentions('agent2')
-      expect(mentions).toHaveLength(1)
-      expect(mentions[0].from).toBe('agent3')
+      const inbox = await provider.getInbox('agent2')
+      expect(inbox).toHaveLength(1)
+      expect(inbox[0].entry.from).toBe('agent3')
     })
 
     test('returns empty for no mentions', async () => {
       await provider.appendChannel('agent1', 'No mentions')
 
-      const mentions = await provider.getUnreadMentions('agent2')
-      expect(mentions).toEqual([])
+      const inbox = await provider.getInbox('agent2')
+      expect(inbox).toEqual([])
     })
 
-    test('gets all mentions including acknowledged', async () => {
-      const entry = await provider.appendChannel('agent1', '@agent2 first')
-      await provider.appendChannel('agent3', '@agent2 second')
+    test('getInbox does NOT acknowledge (explicit ackInbox required)', async () => {
+      await provider.appendChannel('agent1', '@agent2 first')
 
-      await provider.acknowledgeMentions('agent2', entry.timestamp)
+      // First getInbox
+      const inbox1 = await provider.getInbox('agent2')
+      expect(inbox1).toHaveLength(1)
 
-      const allMentions = await provider.getAllMentions('agent2')
-      const unreadMentions = await provider.getUnreadMentions('agent2')
-
-      expect(allMentions).toHaveLength(2)
-      expect(unreadMentions).toHaveLength(1)
+      // Second getInbox - should still have the same message
+      const inbox2 = await provider.getInbox('agent2')
+      expect(inbox2).toHaveLength(1)
     })
   })
 
@@ -178,25 +262,66 @@ describe('MemoryContextProvider', () => {
       const content = await provider.readDocument()
       expect(content).toBe('First\nSecond')
     })
+
+    test('reads specific document file', async () => {
+      await provider.writeDocument('Main notes', 'notes.md')
+      await provider.writeDocument('Auth findings', 'findings/auth.md')
+
+      expect(await provider.readDocument('notes.md')).toBe('Main notes')
+      expect(await provider.readDocument('findings/auth.md')).toBe('Auth findings')
+    })
+
+    test('lists documents', async () => {
+      await provider.writeDocument('Notes', 'notes.md')
+      await provider.writeDocument('Findings', 'findings.md')
+
+      const files = await provider.listDocuments()
+      expect(files).toContain('notes.md')
+      expect(files).toContain('findings.md')
+    })
+
+    test('creates new document', async () => {
+      await provider.createDocument('new-doc.md', '# New Document')
+
+      const content = await provider.readDocument('new-doc.md')
+      expect(content).toBe('# New Document')
+    })
+
+    test('createDocument throws if document exists', async () => {
+      await provider.writeDocument('Existing', 'existing.md')
+
+      await expect(provider.createDocument('existing.md', 'New content')).rejects.toThrow(
+        'Document already exists'
+      )
+    })
   })
 
   describe('test helpers', () => {
     test('clear removes all data', async () => {
       await provider.appendChannel('agent1', 'Message')
       await provider.writeDocument('Content')
-      await provider.acknowledgeMentions('agent2', new Date().toISOString())
+      await provider.ackInbox('agent2', new Date().toISOString())
 
       provider.clear()
 
       expect(await provider.readChannel()).toEqual([])
       expect(await provider.readDocument()).toBe('')
-      expect(provider.getMentionState('agent2')).toBeUndefined()
+      expect(provider.getInboxState('agent2')).toBeUndefined()
     })
 
     test('getChannelEntries returns copy', async () => {
       await provider.appendChannel('agent1', 'Test')
       const entries = provider.getChannelEntries()
       expect(entries).toHaveLength(1)
+    })
+
+    test('getDocuments returns all documents', async () => {
+      await provider.writeDocument('Notes', 'notes.md')
+      await provider.writeDocument('Findings', 'findings.md')
+
+      const docs = provider.getDocuments()
+      expect(docs.get('notes.md')).toBe('Notes')
+      expect(docs.get('findings.md')).toBe('Findings')
     })
   })
 })
@@ -210,12 +335,7 @@ describe('FileContextProvider', () => {
   beforeEach(() => {
     testDir = join(tmpdir(), `context-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
     mkdirSync(testDir, { recursive: true })
-    provider = new FileContextProvider(
-      join(testDir, 'channel.md'),
-      join(testDir, 'notes.md'),
-      join(testDir, '.mention-state.json'),
-      ['agent1', 'agent2', 'agent3']
-    )
+    provider = createFileContextProvider(testDir, ['agent1', 'agent2', 'agent3'])
   })
 
   afterEach(() => {
@@ -265,59 +385,50 @@ describe('FileContextProvider', () => {
       rmSync(testDir, { recursive: true, force: true })
       mkdirSync(testDir, { recursive: true })
 
-      const newProvider = new FileContextProvider(
-        join(testDir, 'new-channel.md'),
-        join(testDir, 'notes.md'),
-        join(testDir, '.mention-state.json'),
-        ['agent1']
-      )
+      const newProvider = createFileContextProvider(testDir, ['agent1'])
 
       const entries = await newProvider.readChannel()
       expect(entries).toEqual([])
     })
   })
 
-  describe('mention operations', () => {
-    test('gets unread mentions', async () => {
+  describe('inbox operations', () => {
+    test('gets unread inbox messages', async () => {
       await provider.appendChannel('agent1', '@agent2 check this')
 
-      const mentions = await provider.getUnreadMentions('agent2')
-      expect(mentions).toHaveLength(1)
-      expect(mentions[0].from).toBe('agent1')
-      expect(mentions[0].target).toBe('agent2')
+      const inbox = await provider.getInbox('agent2')
+      expect(inbox).toHaveLength(1)
+      expect(inbox[0].entry.from).toBe('agent1')
+      expect(inbox[0].priority).toBe('normal')
     })
 
-    test('persists mention state to file', async () => {
+    test('inbox messages have priority for urgent keywords', async () => {
+      await provider.appendChannel('agent1', '@agent2 urgent: check this')
+
+      const inbox = await provider.getInbox('agent2')
+      expect(inbox[0].priority).toBe('high')
+    })
+
+    test('persists inbox state to file', async () => {
       const entry = await provider.appendChannel('agent1', '@agent2 check this')
-      await provider.acknowledgeMentions('agent2', entry.timestamp)
+      await provider.ackInbox('agent2', entry.timestamp)
 
       // Create new provider to verify persistence
-      const newProvider = new FileContextProvider(
-        join(testDir, 'channel.md'),
-        join(testDir, 'notes.md'),
-        join(testDir, '.mention-state.json'),
-        ['agent1', 'agent2']
-      )
+      const newProvider = createFileContextProvider(testDir, ['agent1', 'agent2'])
 
-      const mentions = await newProvider.getUnreadMentions('agent2')
-      expect(mentions).toEqual([])
+      const inbox = await newProvider.getInbox('agent2')
+      expect(inbox).toEqual([])
     })
 
-    test('gets all mentions including acknowledged', async () => {
-      const entry = await provider.appendChannel('agent1', '@agent2 first mention')
-      // Small delay to ensure different timestamps
-      await new Promise((resolve) => setTimeout(resolve, 10))
-      await provider.appendChannel('agent3', '@agent2 second mention')
+    test('inbox state is stored in _state directory', async () => {
+      const entry = await provider.appendChannel('agent1', '@agent2 check this')
+      await provider.ackInbox('agent2', entry.timestamp)
 
-      // Acknowledge first mention
-      await provider.acknowledgeMentions('agent2', entry.timestamp)
+      const statePath = join(testDir, '_state', 'inbox-state.json')
+      expect(existsSync(statePath)).toBe(true)
 
-      // getAllMentions returns all, getUnreadMentions returns only unread
-      const allMentions = await provider.getAllMentions('agent2')
-      const unreadMentions = await provider.getUnreadMentions('agent2')
-
-      expect(allMentions).toHaveLength(2)
-      expect(unreadMentions).toHaveLength(1)
+      const state = JSON.parse(readFileSync(statePath, 'utf-8'))
+      expect(state.readCursors.agent2).toBe(entry.timestamp)
     })
   })
 
@@ -340,6 +451,45 @@ describe('FileContextProvider', () => {
     test('returns empty for non-existent document', async () => {
       const content = await provider.readDocument()
       expect(content).toBe('')
+    })
+
+    test('documents are stored in documents directory', async () => {
+      await provider.writeDocument('Content', 'notes.md')
+
+      const docPath = join(testDir, 'documents', 'notes.md')
+      expect(existsSync(docPath)).toBe(true)
+      expect(readFileSync(docPath, 'utf-8')).toBe('Content')
+    })
+
+    test('supports multiple document files', async () => {
+      await provider.writeDocument('Main notes', 'notes.md')
+      await provider.writeDocument('Auth findings', 'findings/auth.md')
+
+      expect(await provider.readDocument('notes.md')).toBe('Main notes')
+      expect(await provider.readDocument('findings/auth.md')).toBe('Auth findings')
+    })
+
+    test('lists all document files', async () => {
+      await provider.writeDocument('Notes', 'notes.md')
+      await provider.writeDocument('Auth', 'findings/auth.md')
+      await provider.writeDocument('API', 'findings/api.md')
+
+      const files = await provider.listDocuments()
+      expect(files).toContain('notes.md')
+      expect(files).toContain('findings/auth.md')
+      expect(files).toContain('findings/api.md')
+    })
+
+    test('creates new document', async () => {
+      await provider.createDocument('new-doc.md', '# New')
+
+      expect(await provider.readDocument('new-doc.md')).toBe('# New')
+    })
+
+    test('createDocument throws if document exists', async () => {
+      await provider.writeDocument('Existing', 'existing.md')
+
+      await expect(provider.createDocument('existing.md', 'New')).rejects.toThrow('Document already exists')
     })
   })
 })
@@ -366,20 +516,27 @@ describe('createFileContextProvider', () => {
     await provider.writeDocument('Notes')
 
     expect(existsSync(join(testDir, 'channel.md'))).toBe(true)
-    expect(existsSync(join(testDir, 'notes.md'))).toBe(true)
+    expect(existsSync(join(testDir, 'documents', 'notes.md'))).toBe(true)
   })
 
-  test('creates provider with custom paths', async () => {
+  test('creates provider with custom channel file', async () => {
     const provider = createFileContextProvider(testDir, ['agent1'], {
       channelFile: 'custom-channel.md',
-      documentFile: 'custom-notes.md',
     })
 
     await provider.appendChannel('agent1', 'Test')
-    await provider.writeDocument('Notes')
 
     expect(existsSync(join(testDir, 'custom-channel.md'))).toBe(true)
-    expect(existsSync(join(testDir, 'custom-notes.md'))).toBe(true)
+  })
+
+  test('creates provider with custom document directory', async () => {
+    const provider = createFileContextProvider(testDir, ['agent1'], {
+      documentDir: 'custom-docs/',
+    })
+
+    await provider.writeDocument('Notes')
+
+    expect(existsSync(join(testDir, 'custom-docs', 'notes.md'))).toBe(true)
   })
 })
 
@@ -554,97 +711,103 @@ describe('MCP Server Tools', () => {
       expect(result).toHaveLength(2)
     })
 
-    test('acknowledges mentions when reading', async () => {
+    test('does NOT auto-acknowledge mentions', async () => {
       await provider.appendChannel('agent1', '@agent2 check this')
 
-      // Read as agent2 (should acknowledge)
+      // Read as agent2
       await callTool('channel_read', {}, { sessionId: 'agent2' })
 
-      // Verify mentions acknowledged
-      const unread = await provider.getUnreadMentions('agent2')
-      expect(unread).toEqual([])
+      // Verify mentions NOT acknowledged (new behavior)
+      const inbox = await provider.getInbox('agent2')
+      expect(inbox).toHaveLength(1)
     })
   })
 
-  describe('channel_peek', () => {
-    test('reads without acknowledging mentions', async () => {
-      await provider.appendChannel('agent1', '@agent2 check this')
-
-      // Peek (should NOT acknowledge)
-      const result = (await callTool('channel_peek', {})) as Array<{
-        message: string
-      }>
-      expect(result).toHaveLength(1)
-
-      // Verify mentions still unread
-      const unread = await provider.getUnreadMentions('agent2')
-      expect(unread).toHaveLength(1)
-    })
-
-    test('limits entries', async () => {
-      await provider.appendChannel('agent1', 'First')
-      await provider.appendChannel('agent2', 'Second')
-      await provider.appendChannel('agent3', 'Third')
-
-      const result = (await callTool('channel_peek', { limit: 1 })) as Array<{
-        message: string
-      }>
-
-      expect(result).toHaveLength(1)
-    })
-  })
-
-  describe('channel_mentions', () => {
-    test('gets unread mentions for agent', async () => {
+  describe('inbox_check', () => {
+    test('gets unread inbox messages for agent', async () => {
       await provider.appendChannel('agent1', '@agent2 first mention')
       await provider.appendChannel('agent3', '@agent2 second mention')
 
-      const result = (await callTool(
-        'channel_mentions',
-        { unread_only: true },
-        { sessionId: 'agent2' }
-      )) as Array<{ from: string }>
+      const result = (await callTool('inbox_check', {}, { sessionId: 'agent2' })) as {
+        messages: Array<{ from: string; priority: string }>
+        count: number
+        latestTimestamp: string
+      }
 
-      expect(result).toHaveLength(2)
-      expect(result[0].from).toBe('agent1')
-      expect(result[1].from).toBe('agent3')
+      expect(result.count).toBe(2)
+      expect(result.messages).toHaveLength(2)
+      expect(result.messages[0].from).toBe('agent1')
+      expect(result.messages[1].from).toBe('agent3')
     })
 
-    test('returns empty for no unread mentions', async () => {
+    test('includes priority in inbox messages', async () => {
+      await provider.appendChannel('agent1', '@agent2 normal request')
+      await provider.appendChannel('agent3', '@agent2 urgent: critical issue')
+
+      const result = (await callTool('inbox_check', {}, { sessionId: 'agent2' })) as {
+        messages: Array<{ priority: string }>
+      }
+
+      expect(result.messages[0].priority).toBe('normal')
+      expect(result.messages[1].priority).toBe('high')
+    })
+
+    test('returns empty for no unread messages', async () => {
       await provider.appendChannel('agent1', 'No mentions here')
 
-      const result = (await callTool(
-        'channel_mentions',
-        {},
-        { sessionId: 'agent2' }
-      )) as Array<unknown>
+      const result = (await callTool('inbox_check', {}, { sessionId: 'agent2' })) as {
+        messages: Array<unknown>
+        count: number
+      }
 
-      expect(result).toEqual([])
+      expect(result.messages).toEqual([])
+      expect(result.count).toBe(0)
     })
 
-    test('gets all mentions when unread_only is false', async () => {
-      const entry = await provider.appendChannel('agent1', '@agent2 first mention')
-      await provider.appendChannel('agent3', '@agent2 second mention')
+    test('does NOT acknowledge (explicit inbox_ack required)', async () => {
+      await provider.appendChannel('agent1', '@agent2 check this')
 
-      // Acknowledge first mention
-      await provider.acknowledgeMentions('agent2', entry.timestamp)
+      // Check inbox twice
+      await callTool('inbox_check', {}, { sessionId: 'agent2' })
+      const result = (await callTool('inbox_check', {}, { sessionId: 'agent2' })) as {
+        count: number
+      }
 
-      // Get all mentions (including acknowledged)
-      const allResult = (await callTool(
-        'channel_mentions',
-        { unread_only: false },
+      // Still has the message
+      expect(result.count).toBe(1)
+    })
+  })
+
+  describe('inbox_ack', () => {
+    test('acknowledges inbox up to timestamp', async () => {
+      const entry = await provider.appendChannel('agent1', '@agent2 first')
+      await provider.appendChannel('agent3', '@agent2 second')
+
+      // Acknowledge first message
+      const ackResult = (await callTool(
+        'inbox_ack',
+        { until: entry.timestamp },
         { sessionId: 'agent2' }
-      )) as Array<{ from: string }>
+      )) as { status: string; until: string }
 
-      // Get only unread mentions
-      const unreadResult = (await callTool(
-        'channel_mentions',
-        { unread_only: true },
-        { sessionId: 'agent2' }
-      )) as Array<{ from: string }>
+      expect(ackResult.status).toBe('acknowledged')
+      expect(ackResult.until).toBe(entry.timestamp)
 
-      expect(allResult).toHaveLength(2)
-      expect(unreadResult).toHaveLength(1)
+      // Check inbox - should only have second message
+      const inbox = await provider.getInbox('agent2')
+      expect(inbox).toHaveLength(1)
+      expect(inbox[0].entry.from).toBe('agent3')
+    })
+
+    test('acknowledges all messages when using latest timestamp', async () => {
+      await provider.appendChannel('agent1', '@agent2 first')
+      const second = await provider.appendChannel('agent3', '@agent2 second')
+
+      // Acknowledge all
+      await callTool('inbox_ack', { until: second.timestamp }, { sessionId: 'agent2' })
+
+      const inbox = await provider.getInbox('agent2')
+      expect(inbox).toEqual([])
     })
   })
 
@@ -662,6 +825,17 @@ describe('MCP Server Tools', () => {
 
       expect(result).toBe('(empty document)')
     })
+
+    test('reads specific document file', async () => {
+      await provider.writeDocument('Main notes', 'notes.md')
+      await provider.writeDocument('Auth findings', 'findings/auth.md')
+
+      const notesResult = await callTool('document_read', { file: 'notes.md' })
+      const findingsResult = await callTool('document_read', { file: 'findings/auth.md' })
+
+      expect(notesResult).toBe('Main notes')
+      expect(findingsResult).toBe('Auth findings')
+    })
   })
 
   describe('document_write', () => {
@@ -670,10 +844,20 @@ describe('MCP Server Tools', () => {
         content: '# New Content',
       })
 
-      expect(result).toBe('Document written successfully')
+      expect(result).toContain('written successfully')
 
       const content = await provider.readDocument()
       expect(content).toBe('# New Content')
+    })
+
+    test('writes to specific file', async () => {
+      await callTool('document_write', {
+        content: 'Findings content',
+        file: 'findings.md',
+      })
+
+      const content = await provider.readDocument('findings.md')
+      expect(content).toBe('Findings content')
     })
 
     test('overwrites existing content', async () => {
@@ -692,10 +876,19 @@ describe('MCP Server Tools', () => {
 
       const result = await callTool('document_append', { content: '\nSecond' })
 
-      expect(result).toBe('Content appended successfully')
+      expect(result).toContain('appended')
 
       const content = await provider.readDocument()
       expect(content).toBe('First\nSecond')
+    })
+
+    test('appends to specific file', async () => {
+      await provider.writeDocument('Start', 'notes.md')
+
+      await callTool('document_append', { content: '\nMore', file: 'notes.md' })
+
+      const content = await provider.readDocument('notes.md')
+      expect(content).toBe('Start\nMore')
     })
 
     test('appends to empty document', async () => {
@@ -703,6 +896,57 @@ describe('MCP Server Tools', () => {
 
       const content = await provider.readDocument()
       expect(content).toBe('First content')
+    })
+  })
+
+  describe('document_list', () => {
+    test('lists all document files', async () => {
+      await provider.writeDocument('Notes', 'notes.md')
+      await provider.writeDocument('Findings', 'findings.md')
+
+      const result = (await callTool('document_list', {})) as {
+        files: string[]
+        count: number
+      }
+
+      expect(result.count).toBe(2)
+      expect(result.files).toContain('notes.md')
+      expect(result.files).toContain('findings.md')
+    })
+
+    test('returns empty for no documents', async () => {
+      const result = (await callTool('document_list', {})) as {
+        files: string[]
+        count: number
+      }
+
+      expect(result.files).toEqual([])
+      expect(result.count).toBe(0)
+    })
+  })
+
+  describe('document_create', () => {
+    test('creates new document', async () => {
+      const result = await callTool('document_create', {
+        file: 'new-doc.md',
+        content: '# New Document',
+      })
+
+      expect(result).toContain('created successfully')
+
+      const content = await provider.readDocument('new-doc.md')
+      expect(content).toBe('# New Document')
+    })
+
+    test('fails if document exists', async () => {
+      await provider.writeDocument('Existing', 'existing.md')
+
+      await expect(
+        callTool('document_create', {
+          file: 'existing.md',
+          content: 'New content',
+        })
+      ).rejects.toThrow()
     })
   })
 

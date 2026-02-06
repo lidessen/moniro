@@ -122,17 +122,17 @@ Tool updates:
 
 ### Test Updates
 
-- [ ] Update any tests using old method names
-- [ ] Update any tests using old storage paths
+- [x] Update any tests using old method names
+- [x] Update any tests using old storage paths
 
 ### Validation (Phase 0)
 
 - [x] **TypeScript**: All workflow files pass type checking
-- [ ] **Unit tests**: MemoryContextProvider passes all tests with new interface
-- [ ] **Unit tests**: FileContextProvider passes all tests with new interface
-- [ ] **Unit tests**: MCP server tools work correctly (inbox_check, inbox_ack, document_*)
-- [ ] **Integration test**: Create workflow, send messages, verify inbox/ack flow
-- [ ] **Integration test**: Multi-file document operations (create, list, read, write)
+- [x] **Unit tests**: MemoryContextProvider passes all tests with new interface
+- [x] **Unit tests**: FileContextProvider passes all tests with new interface
+- [x] **Unit tests**: MCP server tools work correctly (inbox_check, inbox_ack, document_*)
+- [x] **Integration test**: Create workflow, send messages, verify inbox/ack flow
+- [x] **Integration test**: Multi-file document operations (create, list, read, write)
 - [ ] **Manual test**: `agent-worker run` with sample workflow, verify storage structure
 
 > **Note**: No backward compatibility with old storage structure. Clean break - new design only.
@@ -205,7 +205,7 @@ Tool updates:
 | 4. CLI Updates | ✅ Complete | start/stop/list commands + context subcommand |
 | 5. Run/Start Modes | ✅ Complete | run idle detection + start --background + graceful shutdown |
 | 6. Agent MCP Integration | ✅ Complete | mcp-config.ts + mcp-stdio bridge |
-| 7. Inbox Model | 🔄 Pending | Priority detection (core merged into Phase 0) |
+| 7. Inbox Model | ✅ Complete | Priority detection implemented and tested |
 | 8. Agent Controller | 🔄 Pending | Controller + backend abstraction |
 | 9. Multi-File Documents | 🔄 Pending | Nested dirs (core merged into Phase 0) |
 | 10. Document Ownership | 🔄 Pending | Optional, requires Phase 11 for election |
@@ -235,13 +235,13 @@ Phase 0 (Migration)
 
 > **Note**: Core inbox changes are in Phase 0 Migration. This phase covers remaining work.
 
-- [ ] Add priority detection (multiple mentions, urgent keywords)
+- [x] Add priority detection (multiple mentions, urgent keywords)
 - [ ] Update agent system prompts with work loop guidance
 
 ### Validation (Phase 7)
 
-- [ ] **Unit test**: Priority detection for multiple mentions
-- [ ] **Unit test**: Priority detection for urgent keywords
+- [x] **Unit test**: Priority detection for multiple mentions
+- [x] **Unit test**: Priority detection for urgent keywords
 - [ ] **Manual test**: Agent receives correct priority in inbox
 
 > **Design Decision**: `inbox_check` and `channel_read` do NOT acknowledge messages.
