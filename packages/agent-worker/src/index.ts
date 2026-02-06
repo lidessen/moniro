@@ -11,9 +11,9 @@ export {
   createBackend,
   checkBackends,
   listBackends,
-  ClaudeCliBackend,
-  CodexCliBackend,
-  CursorCliBackend,
+  ClaudeCodeBackend,
+  CodexBackend,
+  CursorBackend,
   SdkBackend,
 } from './backends/index.ts'
 export {
@@ -36,9 +36,9 @@ export type {
   BackendConfig,
   BackendResponse,
   BackendOptions,
-  ClaudeCliOptions,
-  CodexCliOptions,
-  CursorCliOptions,
+  ClaudeCodeOptions,
+  CodexOptions,
+  CursorOptions,
   SdkBackendOptions,
 } from './backends/index.ts'
 export type {
