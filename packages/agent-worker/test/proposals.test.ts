@@ -187,6 +187,18 @@ describe('ProposalManager', () => {
       expect(result.error).toContain('Invalid choice')
     })
 
+    test('fails for unknown voter', () => {
+      const result = manager.vote({
+        proposalId: proposal.id,
+        voter: 'unknown-agent',
+        choice: 'red',
+      })
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('Unknown voter')
+      expect(result.error).toContain('unknown-agent')
+    })
+
     test('fails for non-active proposal', () => {
       manager.cancel(proposal.id, 'alice')
 

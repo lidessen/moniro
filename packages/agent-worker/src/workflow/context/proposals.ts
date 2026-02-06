@@ -248,6 +248,11 @@ export class ProposalManager {
       return { success: false, error: `Proposal is ${proposal.status}, cannot vote` }
     }
 
+    // Validate voter is a known agent
+    if (!this.options.validAgents.includes(params.voter)) {
+      return { success: false, error: `Unknown voter: ${params.voter}. Valid agents: ${this.options.validAgents.join(', ')}` }
+    }
+
     // Check if option exists
     const optionExists = proposal.options.some((o) => o.id === params.choice)
     if (!optionExists) {
@@ -300,6 +305,7 @@ export class ProposalManager {
    */
   list(status?: ProposalStatus): Proposal[] {
     // Check and expire any outdated proposals
+    let mutated = false
     for (const proposal of this.proposals.values()) {
       if (
         proposal.status === 'active' &&
@@ -307,9 +313,12 @@ export class ProposalManager {
         new Date(proposal.expiresAt) < new Date()
       ) {
         this.expireProposal(proposal)
+        mutated = true
       }
     }
-    this.save()
+    if (mutated) {
+      this.save()
+    }
 
     const proposals = [...this.proposals.values()]
     if (status) {
@@ -349,17 +358,23 @@ export class ProposalManager {
    * Check if there are any active proposals
    */
   hasActiveProposals(): boolean {
+    let mutated = false
     for (const proposal of this.proposals.values()) {
       if (proposal.status === 'active') {
         // Check expiration
         if (proposal.expiresAt && new Date(proposal.expiresAt) < new Date()) {
           this.expireProposal(proposal)
+          mutated = true
         } else {
+          // Found an active, non-expired proposal
+          if (mutated) this.save()
           return true
         }
       }
     }
-    this.save()
+    if (mutated) {
+      this.save()
+    }
     return false
   }
 
