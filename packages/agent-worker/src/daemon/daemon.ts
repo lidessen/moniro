@@ -291,6 +291,10 @@ function startInboxPolling(): void {
       resetIdleTimer();
       resetScheduleTimers();
 
+      // Log: agent received messages
+      const senders = [...new Set(inbox.map((m) => m.entry.from))];
+      await provider.appendChannel(agentName, `read ${inbox.length} message(s) from ${senders.join(", ")}`, { kind: "log" });
+
       try {
         const response = await state.session.send(prompt);
         // Post response back to channel

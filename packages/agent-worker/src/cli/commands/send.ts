@@ -81,8 +81,13 @@ export function registerSendCommands(program: Command) {
       }
 
       for (const msg of messages) {
-        const mentions = msg.mentions.length > 0 ? ` → @${msg.mentions.join(" @")}` : "";
-        console.log(`[${msg.from}]${mentions} ${msg.content}`);
+        if (msg.kind === "log" || msg.kind === "debug") {
+          // System messages: dimmed format
+          console.log(`  ~ ${msg.from}: ${msg.content}`);
+        } else {
+          const mentions = msg.mentions.length > 0 ? ` → @${msg.mentions.join(" @")}` : "";
+          console.log(`[${msg.from}]${mentions} ${msg.content}`);
+        }
       }
     });
 
