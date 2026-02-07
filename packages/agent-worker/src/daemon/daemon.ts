@@ -1,5 +1,5 @@
 import { createServer } from "node:net";
-import { existsSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { AgentSession } from "../agent/session.ts";
@@ -14,7 +14,6 @@ import {
   registerSession,
   unregisterSession,
   resolveSchedule,
-  ensureInstanceContext,
   getInstanceAgentNames,
   getAgentDisplayName,
 } from "./registry.ts";
@@ -22,7 +21,7 @@ import type { SessionInfo, ScheduleConfig } from "./registry.ts";
 import { handleRequest } from "./handler.ts";
 import type { ServerState, Request } from "./handler.ts";
 import { msUntilNextCron } from "./cron.ts";
-import { createFileContextProvider } from "../workflow/context/file-provider.ts";
+import { createFileContextProvider, getDefaultContextDir } from "../workflow/context/file-provider.ts";
 import type { ContextProvider } from "../workflow/context/provider.ts";
 
 const DEFAULT_SKILL_DIRS = [
@@ -432,7 +431,8 @@ export async function startDaemon(config: {
   }
 
   // Setup instance context (shared channel + documents)
-  const contextDir = ensureInstanceContext(instance);
+  const contextDir = getDefaultContextDir(instance);
+  mkdirSync(contextDir, { recursive: true });
   const agentDisplayName = config.name ? getAgentDisplayName(config.name) : effectiveId.slice(0, 8);
   const existingAgentNames = getInstanceAgentNames(instance);
   const allAgentNames = [...new Set([...existingAgentNames, agentDisplayName, "user"])];

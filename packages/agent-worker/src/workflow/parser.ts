@@ -3,8 +3,7 @@
  */
 
 import { readFileSync, existsSync } from "node:fs";
-import { homedir } from "node:os";
-import { basename, dirname, join, resolve, isAbsolute } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import type {
   WorkflowFile,
@@ -16,6 +15,7 @@ import type {
   AgentDefinition,
 } from "./types.ts";
 import { CONTEXT_DEFAULTS } from "./context/types.ts";
+import { resolveContextDir } from "./context/file-provider.ts";
 
 /**
  * Parse options
@@ -81,40 +81,6 @@ export async function parseWorkflowFile(
 }
 
 /**
- * Resolve context directory path with template substitution
- *
- * Handles:
- * - ~ expansion to home directory
- * - ${{ workflow.name }} substitution
- * - ${{ instance }} substitution
- * - Relative paths (resolved relative to workflowDir)
- * - Absolute paths (used as-is)
- */
-function resolveContextDir(
-  dirTemplate: string,
-  workflowDir: string,
-  workflowName: string,
-  instance: string,
-): string {
-  // Substitute templates
-  let dir = dirTemplate
-    .replace("${{ workflow.name }}", workflowName)
-    .replace("${{ instance }}", instance);
-
-  // Expand tilde to home directory
-  if (dir.startsWith("~/")) {
-    dir = join(homedir(), dir.slice(2));
-  } else if (dir === "~") {
-    dir = homedir();
-  } else if (!isAbsolute(dir)) {
-    // Relative path - resolve relative to workflow directory
-    dir = join(workflowDir, dir);
-  }
-
-  return dir;
-}
-
-/**
  * Resolve context configuration
  *
  * - undefined (not set): default file provider enabled
@@ -129,6 +95,9 @@ function resolveContext(
   workflowName: string,
   instance: string,
 ): ResolvedContext | undefined {
+  const resolve = (template: string) =>
+    resolveContextDir(template, { workflowName, instance, baseDir: workflowDir });
+
   // false = explicitly disabled
   if (config === false) {
     return undefined;
@@ -136,8 +105,7 @@ function resolveContext(
 
   // undefined or null = default file provider enabled
   if (config === undefined || config === null) {
-    const dir = resolveContextDir(CONTEXT_DEFAULTS.dir, workflowDir, workflowName, instance);
-    return { provider: "file", dir };
+    return { provider: "file", dir: resolve(CONTEXT_DEFAULTS.dir) };
   }
 
   // Memory provider
@@ -151,17 +119,16 @@ function resolveContext(
   // File provider — check for bind (persistent) vs dir (ephemeral)
   const bindPath = config.config?.bind;
   if (bindPath) {
-    const dir = resolveContextDir(bindPath, workflowDir, workflowName, instance);
     return {
       provider: "file",
-      dir,
+      dir: resolve(bindPath),
       persistent: true,
       documentOwner: config.documentOwner,
     };
   }
 
   const dirTemplate = config.config?.dir || CONTEXT_DEFAULTS.dir;
-  const dir = resolveContextDir(dirTemplate, workflowDir, workflowName, instance);
+  const dir = resolve(dirTemplate);
 
   return {
     provider: "file",

@@ -22,7 +22,7 @@ import type { BackendType } from "../backends/types.ts";
 
 export const CONFIG_DIR = join(homedir(), ".agent-worker");
 export const SESSIONS_DIR = join(CONFIG_DIR, "sessions");
-export const CONTEXTS_DIR = join(CONFIG_DIR, "contexts");
+
 const DEFAULT_FILE = join(CONFIG_DIR, "default");
 
 /**
@@ -282,28 +282,7 @@ export async function waitForReady(
   return null;
 }
 
-// ==================== Instance Context ====================
-
-/**
- * Get the context directory for an instance.
- * Looks up from running agents first, falls back to default path.
- */
-export function getInstanceContextDir(instance: string): string {
-  const agents = getInstanceAgents(instance);
-  if (agents.length > 0 && agents[0]!.contextDir) {
-    return agents[0]!.contextDir;
-  }
-  return join(CONTEXTS_DIR, instance);
-}
-
-/**
- * Ensure instance context directory exists. Returns the absolute path.
- */
-export function ensureInstanceContext(instance: string): string {
-  const dir = getInstanceContextDir(instance);
-  mkdirSync(dir, { recursive: true });
-  return dir;
-}
+// ==================== Instance Agents ====================
 
 /**
  * Get all sessions belonging to an instance.

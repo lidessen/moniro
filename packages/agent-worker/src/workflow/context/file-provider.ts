@@ -5,9 +5,11 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
-import { join } from "node:path";
+import { join, isAbsolute } from "node:path";
+import { homedir } from "node:os";
 import { ContextProviderImpl } from "./provider.ts";
 import { FileStorage } from "./storage.ts";
+import { CONTEXT_DEFAULTS } from "./types.ts";
 
 /** Lock file name within context directory */
 const LOCK_FILE = "_state/instance.lock";
@@ -106,6 +108,44 @@ export class FileContextProvider extends ContextProviderImpl {
     await super.destroy();
     this.releaseLock();
   }
+}
+
+/**
+ * Resolve a context directory template to an absolute path.
+ *
+ * Supports:
+ * - ${{ workflow.name }} — substituted with workflowName
+ * - ${{ instance }} — substituted with instance
+ * - ~ expansion to home directory
+ * - Relative paths resolved against baseDir (or cwd if not provided)
+ * - Absolute paths used as-is
+ */
+export function resolveContextDir(
+  dirTemplate: string,
+  opts: { workflowName?: string; instance: string; baseDir?: string },
+): string {
+  const workflowName = opts.workflowName ?? opts.instance;
+  let dir = dirTemplate
+    .replace("${{ workflow.name }}", workflowName)
+    .replace("${{ instance }}", opts.instance);
+
+  if (dir.startsWith("~/")) {
+    dir = join(homedir(), dir.slice(2));
+  } else if (dir === "~") {
+    dir = homedir();
+  } else if (!isAbsolute(dir)) {
+    dir = join(opts.baseDir ?? process.cwd(), dir);
+  }
+
+  return dir;
+}
+
+/**
+ * Resolve context dir for a workflow/instance using default template.
+ * Shorthand for the common case.
+ */
+export function getDefaultContextDir(instance: string, workflowName?: string): string {
+  return resolveContextDir(CONTEXT_DEFAULTS.dir, { instance, workflowName });
 }
 
 /**

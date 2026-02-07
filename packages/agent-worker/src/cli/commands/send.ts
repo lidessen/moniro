@@ -1,13 +1,13 @@
 import type { Command } from "commander";
+import { mkdirSync } from "node:fs";
 import { sendRequest, isSessionActive } from "../client.ts";
 import { outputJson } from "../output.ts";
 import {
-  ensureInstanceContext,
   getInstanceAgentNames,
   getSessionInfo,
   isSessionRunning,
 } from "@/daemon/index.ts";
-import { createFileContextProvider } from "@/workflow/context/file-provider.ts";
+import { createFileContextProvider, getDefaultContextDir } from "@/workflow/context/file-provider.ts";
 import { DEFAULT_INSTANCE } from "../instance.ts";
 
 /**
@@ -15,7 +15,8 @@ import { DEFAULT_INSTANCE } from "../instance.ts";
  * Auto-provisions the context directory if it doesn't exist.
  */
 function getContextProvider(instance: string) {
-  const dir = ensureInstanceContext(instance);
+  const dir = getDefaultContextDir(instance);
+  mkdirSync(dir, { recursive: true });
   const agentNames = [...getInstanceAgentNames(instance), "user"];
   return createFileContextProvider(dir, agentNames);
 }
