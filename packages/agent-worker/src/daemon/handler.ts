@@ -3,7 +3,7 @@ import { tool, jsonSchema } from "ai";
 import type { AgentSession } from "../agent/session.ts";
 import type { SkillImporter } from "../agent/skills/index.ts";
 import type { FeedbackEntry } from "../agent/tools/feedback.ts";
-import type { SessionInfo } from "./registry.ts";
+import type { SessionInfo, ScheduleConfig } from "./registry.ts";
 
 export interface ServerState {
   session: AgentSession; // Always non-null: unified session for all backends
@@ -12,6 +12,8 @@ export interface ServerState {
   lastActivity: number;
   pendingRequests: number;
   idleTimer?: ReturnType<typeof setTimeout>;
+  scheduleTimer?: ReturnType<typeof setTimeout>; // Interval-based wakeup timer
+  cronTimer?: ReturnType<typeof setTimeout>; // Cron-based wakeup timer
   importer?: SkillImporter; // For cleaning up imported skills
   getFeedback?: () => FeedbackEntry[]; // Populated when --feedback is enabled
 }
@@ -32,6 +34,7 @@ export async function handleRequest(
   req: Request,
   resetIdleTimer: () => void,
   gracefulShutdown: () => Promise<void>,
+  resetAllTimers?: () => void,
 ): Promise<Response> {
   const state = getState();
   if (!state) {
@@ -216,6 +219,33 @@ export async function handleRequest(
         }
         return { success: true, data: state.getFeedback() };
       }
+
+      case "schedule_get":
+        return {
+          success: true,
+          data: info.schedule ?? null,
+        };
+
+      case "schedule_set": {
+        const payload = req.payload as { wakeup?: string | number; prompt?: string };
+        if (!payload?.wakeup) {
+          return { success: false, error: "Invalid schedule: provide wakeup (number ms, duration string, or cron expression)" };
+        }
+        const schedule: ScheduleConfig = {
+          wakeup: payload.wakeup,
+          prompt: payload.prompt,
+        };
+        info.schedule = schedule;
+        // Reset all timers so the new schedule takes effect immediately
+        if (resetAllTimers) resetAllTimers();
+        return { success: true, data: info.schedule };
+      }
+
+      case "schedule_clear":
+        info.schedule = undefined;
+        // Reset all timers to clear schedules
+        if (resetAllTimers) resetAllTimers();
+        return { success: true };
 
       case "shutdown":
         state.pendingRequests--;

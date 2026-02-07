@@ -7,7 +7,11 @@ export {
   registerSession,
   unregisterSession,
   getSessionInfo,
+  parseDuration,
+  resolveSchedule,
   type SessionInfo,
+  type ScheduleConfig,
+  type ResolvedSchedule,
 } from "./registry.ts";
 
 // Re-export daemon entry point
@@ -15,3 +19,6 @@ export { startDaemon } from "./daemon.ts";
 
 // Re-export handler types
 export type { ServerState, Request, Response } from "./handler.ts";
+
+// Re-export cron utilities
+export { parseCron, nextCronTime, msUntilNextCron } from "./cron.ts";

@@ -30,6 +30,8 @@ async function createAgentAction(
     instance?: string;
     json?: boolean;
     feedback?: boolean;
+    wakeup?: string;
+    wakeupPrompt?: string;
   },
 ) {
   let system = options.system ?? "You are a helpful assistant.";
@@ -55,6 +57,14 @@ async function createAgentAction(
     agentName = buildAgentId(name, DEFAULT_INSTANCE);
   }
 
+  // Build schedule config if provided
+  const schedule = options.wakeup
+    ? {
+        wakeup: /^\d+$/.test(options.wakeup) ? parseInt(options.wakeup, 10) : options.wakeup,
+        prompt: options.wakeupPrompt,
+      }
+    : undefined;
+
   if (options.foreground) {
     startDaemon({
       model,
@@ -66,6 +76,7 @@ async function createAgentAction(
       skillDirs: options.skillDir,
       importSkills: options.importSkill,
       feedback: options.feedback,
+      schedule,
     });
   } else {
     const scriptPath = process.argv[1] ?? "";
@@ -91,6 +102,12 @@ async function createAgentAction(
       for (const spec of options.importSkill) {
         args.push("--import-skill", spec);
       }
+    }
+    if (options.wakeup) {
+      args.push("--wakeup", options.wakeup);
+    }
+    if (options.wakeupPrompt) {
+      args.push("--wakeup-prompt", options.wakeupPrompt);
     }
 
     const child = spawn(process.execPath, args, {
@@ -176,6 +193,8 @@ function addNewCommandOptions(cmd: Command): Command {
     .option("--skill-dir <path...>", "Scan directories for skills")
     .option("--import-skill <spec...>", "Import skills from Git (owner/repo:{skill1,skill2})")
     .option("--feedback", "Enable feedback tool (agent can report tool/workflow observations)")
+    .option("--wakeup <value>", "Scheduled wakeup: ms number, duration (30s/5m/2h), or cron expr")
+    .option("--wakeup-prompt <prompt>", "Custom prompt for scheduled wakeup")
     .option("--instance <name>", "Instance name")
     .option("--foreground", "Run in foreground")
     .option("--json", "Output as JSON");
@@ -262,6 +281,76 @@ export function registerAgentCommands(program: Command) {
         console.log("Agent ended");
       } else {
         console.error("Error:", res.error);
+      }
+    });
+
+  // ============================================================================
+  // Schedule commands
+  // ============================================================================
+  const scheduleCmd = agentCmd.command("schedule").description("Manage scheduled wakeup");
+
+  scheduleCmd
+    .command("get [target]")
+    .description("Show current wakeup schedule")
+    .option("--json", "Output as JSON")
+    .action(async (target, options) => {
+      const res = await sendRequest({ action: "schedule_get" }, target);
+      if (!res.success) {
+        console.error("Error:", res.error);
+        process.exit(1);
+      }
+      if (options.json) {
+        outputJson(res.data);
+      } else if (res.data) {
+        const s = res.data as { wakeup: string | number; prompt?: string };
+        console.log(`Wakeup: ${s.wakeup}`);
+        if (s.prompt) {
+          console.log(`Prompt: ${s.prompt}`);
+        } else {
+          console.log("Prompt: (default)");
+        }
+      } else {
+        console.log("No wakeup schedule configured");
+      }
+    });
+
+  scheduleCmd
+    .command("set <wakeup>")
+    .description("Set wakeup schedule (ms number, duration 30s/5m/2h, or cron expression)")
+    .option("-p, --prompt <prompt>", "Custom wakeup prompt")
+    .option("--to <target>", "Target agent")
+    .action(async (wakeup, options) => {
+      // Parse as number if it looks like one
+      const wakeupValue = /^\d+$/.test(wakeup) ? parseInt(wakeup, 10) : wakeup;
+      const payload: Record<string, unknown> = { wakeup: wakeupValue };
+      if (options.prompt) {
+        payload.prompt = options.prompt;
+      }
+      const res = await sendRequest(
+        { action: "schedule_set", payload },
+        options.to,
+      );
+      if (res.success) {
+        console.log(`Wakeup set: ${wakeup}`);
+        if (options.prompt) {
+          console.log(`Prompt: ${options.prompt}`);
+        }
+      } else {
+        console.error("Error:", res.error);
+        process.exit(1);
+      }
+    });
+
+  scheduleCmd
+    .command("clear [target]")
+    .description("Remove scheduled wakeup")
+    .action(async (target) => {
+      const res = await sendRequest({ action: "schedule_clear" }, target);
+      if (res.success) {
+        console.log("Schedule cleared");
+      } else {
+        console.error("Error:", res.error);
+        process.exit(1);
       }
     });
 

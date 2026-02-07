@@ -8,10 +8,17 @@ import { createBackend } from "../backends/index.ts";
 import { SkillsProvider, createSkillsTool, SkillImporter } from "../agent/skills/index.ts";
 import { createFeedbackTool, FEEDBACK_PROMPT } from "../agent/tools/feedback.ts";
 import type { FeedbackEntry } from "../agent/tools/feedback.ts";
-import { SESSIONS_DIR, ensureDirs, registerSession, unregisterSession } from "./registry.ts";
-import type { SessionInfo } from "./registry.ts";
+import {
+  SESSIONS_DIR,
+  ensureDirs,
+  registerSession,
+  unregisterSession,
+  resolveSchedule,
+} from "./registry.ts";
+import type { SessionInfo, ScheduleConfig } from "./registry.ts";
 import { handleRequest } from "./handler.ts";
 import type { ServerState, Request } from "./handler.ts";
+import { msUntilNextCron } from "./cron.ts";
 
 const DEFAULT_SKILL_DIRS = [
   ".agents/skills",
@@ -97,6 +104,8 @@ async function setupSkills(
 let state: ServerState | null = null;
 
 const DEFAULT_IDLE_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+const DEFAULT_SCHEDULE_PROMPT =
+  "[Scheduled wakeup] You have been idle. Check if there are any pending tasks or updates to process.";
 
 function resetIdleTimer(): void {
   if (!state) return;
@@ -122,6 +131,129 @@ function resetIdleTimer(): void {
       }
     }, timeout);
   }
+}
+
+/**
+ * Interval-based wakeup: fires when agent has been idle for resolved.ms.
+ * Resets on any activity (external send, @mention, etc).
+ * After the wakeup send completes, the timer restarts.
+ */
+function resetIntervalSchedule(): void {
+  if (!state) return;
+
+  // Clear existing interval schedule timer
+  if (state.scheduleTimer) {
+    clearTimeout(state.scheduleTimer);
+    state.scheduleTimer = undefined;
+  }
+
+  const schedule = state.info.schedule;
+  if (!schedule) return;
+
+  let resolved;
+  try {
+    resolved = resolveSchedule(schedule);
+  } catch {
+    return;
+  }
+  if (resolved.type !== "interval" || !resolved.ms) return;
+
+  const ms = resolved.ms;
+  const prompt = resolved.prompt || DEFAULT_SCHEDULE_PROMPT;
+
+  state.scheduleTimer = setTimeout(async () => {
+    if (!state || state.pendingRequests > 0) {
+      resetIntervalSchedule();
+      return;
+    }
+
+    console.log(`\n[wakeup:interval] Waking agent after ${ms / 1000}s idle`);
+
+    try {
+      state.pendingRequests++;
+      resetIdleTimer();
+      await state.session.send(prompt);
+    } catch (error) {
+      console.error("[wakeup:interval] Send error:", error);
+    } finally {
+      if (state) {
+        state.pendingRequests--;
+        resetIdleTimer();
+        resetIntervalSchedule();
+      }
+    }
+  }, ms);
+}
+
+/**
+ * Cron-based wakeup: fires at fixed cron times, regardless of activity.
+ * NOT reset by external activity — the agent is woken at the scheduled time.
+ * After the wakeup completes, schedules the next occurrence.
+ */
+function startCronSchedule(): void {
+  if (!state) return;
+
+  // Clear existing cron timer
+  if (state.cronTimer) {
+    clearTimeout(state.cronTimer);
+    state.cronTimer = undefined;
+  }
+
+  const schedule = state.info.schedule;
+  if (!schedule) return;
+
+  let resolved;
+  try {
+    resolved = resolveSchedule(schedule);
+  } catch {
+    return;
+  }
+  if (resolved.type !== "cron" || !resolved.expr) return;
+
+  const expr = resolved.expr;
+  const prompt = resolved.prompt || DEFAULT_SCHEDULE_PROMPT;
+
+  let delay: number;
+  try {
+    delay = msUntilNextCron(expr);
+  } catch (error) {
+    console.error("[wakeup:cron] Invalid cron expression:", error);
+    return;
+  }
+
+  const nextTime = new Date(Date.now() + delay);
+  console.log(`[wakeup:cron] Next at ${nextTime.toISOString()} (in ${Math.round(delay / 1000)}s)`);
+
+  state.cronTimer = setTimeout(async () => {
+    if (!state) return;
+
+    console.log(`\n[wakeup:cron] Waking agent (${expr})`);
+
+    try {
+      state.pendingRequests++;
+      resetIdleTimer();
+      await state.session.send(prompt);
+    } catch (error) {
+      console.error("[wakeup:cron] Send error:", error);
+    } finally {
+      if (state) {
+        state.pendingRequests--;
+        resetIdleTimer();
+        // Schedule next cron occurrence
+        startCronSchedule();
+      }
+    }
+  }, delay);
+}
+
+/**
+ * Reset schedule timers on external activity.
+ * - Interval: resets (idle-based)
+ * - Cron: NOT reset (fixed schedule)
+ */
+function resetScheduleTimers(): void {
+  resetIntervalSchedule();
+  // Cron intentionally not reset — fires at fixed times
 }
 
 async function gracefulShutdown(): Promise<void> {
@@ -154,6 +286,12 @@ function cleanup(): void {
     if (state.idleTimer) {
       clearTimeout(state.idleTimer);
     }
+    if (state.scheduleTimer) {
+      clearTimeout(state.scheduleTimer);
+    }
+    if (state.cronTimer) {
+      clearTimeout(state.cronTimer);
+    }
     if (existsSync(state.info.socketPath)) {
       unlinkSync(state.info.socketPath);
     }
@@ -177,6 +315,7 @@ export async function startDaemon(config: {
   skillDirs?: string[];
   importSkills?: string[];
   feedback?: boolean;
+  schedule?: ScheduleConfig;
 }): Promise<void> {
   ensureDirs();
 
@@ -242,6 +381,7 @@ export async function startDaemon(config: {
     pid: process.pid,
     createdAt: session.createdAt,
     idleTimeout: config.idleTimeout,
+    schedule: config.schedule,
   };
 
   // Create Unix socket server
@@ -259,7 +399,9 @@ export async function startDaemon(config: {
 
         try {
           const req: Request = JSON.parse(line);
-          const res = await handleRequest(() => state, req, resetIdleTimer, gracefulShutdown);
+          const resetActivity = () => { resetIdleTimer(); resetScheduleTimers(); };
+          const resetAll = () => { resetIdleTimer(); resetIntervalSchedule(); startCronSchedule(); };
+          const res = await handleRequest(() => state, req, resetActivity, gracefulShutdown, resetAll);
           socket.write(JSON.stringify(res) + "\n");
         } catch (error) {
           socket.write(
@@ -301,10 +443,26 @@ export async function startDaemon(config: {
     // Start idle timer
     resetIdleTimer();
 
+    // Start schedule timers if configured
+    resetIntervalSchedule();
+    startCronSchedule();
+
     const nameStr = config.name ? ` (${config.name})` : "";
     console.log(`Session started: ${effectiveId}${nameStr}`);
     console.log(`Model: ${config.model}`);
     console.log(`Backend: ${backendType}`);
+    if (config.schedule) {
+      try {
+        const resolved = resolveSchedule(config.schedule);
+        if (resolved.type === "interval") {
+          console.log(`Wakeup: every ${resolved.ms! / 1000}s when idle`);
+        } else {
+          console.log(`Wakeup: cron ${resolved.expr}`);
+        }
+      } catch (error) {
+        console.error("Invalid wakeup schedule:", error);
+      }
+    }
   });
 
   server.on("error", (error) => {
