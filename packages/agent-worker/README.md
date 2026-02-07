@@ -80,11 +80,12 @@ Two agents collaborating — Alice asks questions, Bob answers:
 # chat.yaml
 agents:
   alice:
-    model: anthropic/claude-sonnet-4-5
+    backend: cursor
+    model: sonnet-4.5
     system_prompt: You are Alice. Curious and always asking questions.
 
   bob:
-    model: anthropic/claude-sonnet-4-5
+    backend: claude
     system_prompt: You are Bob. Knowledgeable and patient.
 
 kickoff: |

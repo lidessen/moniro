@@ -1,14 +1,16 @@
 # Quick-try example: two agents having a conversation
+# Alice uses Cursor (sonnet-4.5), Bob uses Claude CLI (default model)
 # Run: agent-worker run examples/chat.yaml
 name: chat
 
 agents:
   alice:
-    model: anthropic/claude-sonnet-4-5
+    backend: cursor
+    model: sonnet-4.5
     system_prompt: You are Alice. Curious and always asking questions.
 
   bob:
-    model: anthropic/claude-sonnet-4-5
+    backend: claude
     system_prompt: You are Bob. Knowledgeable and patient.
 
 kickoff: |
