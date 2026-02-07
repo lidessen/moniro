@@ -115,25 +115,12 @@ function resolveContextDir(
 }
 
 /**
- * Check if context config uses the `bind` shorthand
- */
-function isBindConfig(config: unknown): config is { bind: string; documentOwner?: string } {
-  return (
-    typeof config === "object" &&
-    config !== null &&
-    "bind" in config &&
-    typeof (config as Record<string, unknown>).bind === "string"
-  );
-}
-
-/**
  * Resolve context configuration
  *
  * - undefined (not set): default file provider enabled
  * - null: default file provider enabled (YAML `context:` syntax)
  * - false: explicitly disabled
- * - { bind: './path' }: persistent file provider (like Docker Compose volumes)
- * - { provider: 'file', config?: {...} }: file provider with config
+ * - { provider: 'file', config?: { dir | bind } }: file provider (ephemeral or persistent)
  * - { provider: 'memory' }: memory provider (for testing)
  */
 function resolveContext(
@@ -153,17 +140,6 @@ function resolveContext(
     return { provider: "file", dir };
   }
 
-  // Bind shorthand — persistent file provider
-  if (isBindConfig(config)) {
-    const dir = resolveContextDir(config.bind, workflowDir, workflowName, instance);
-    return {
-      provider: "file",
-      dir,
-      persistent: true,
-      documentOwner: config.documentOwner,
-    };
-  }
-
   // Memory provider
   if (config.provider === "memory") {
     return {
@@ -172,7 +148,18 @@ function resolveContext(
     };
   }
 
-  // File provider with custom config
+  // File provider — check for bind (persistent) vs dir (ephemeral)
+  const bindPath = config.config?.bind;
+  if (bindPath) {
+    const dir = resolveContextDir(bindPath, workflowDir, workflowName, instance);
+    return {
+      provider: "file",
+      dir,
+      persistent: true,
+      documentOwner: config.documentOwner,
+    };
+  }
+
   const dirTemplate = config.config?.dir || CONTEXT_DEFAULTS.dir;
   const dir = resolveContextDir(dirTemplate, workflowDir, workflowName, instance);
 
@@ -264,26 +251,11 @@ function validateContext(context: unknown, errors: ValidationError[]): void {
 
   const c = context as Record<string, unknown>;
 
-  // Bind shorthand: { bind: './path' }
-  if ("bind" in c) {
-    if (typeof c.bind !== "string") {
-      errors.push({ path: "context.bind", message: 'Context "bind" must be a string path' });
-    }
-    // Validate documentOwner (optional)
-    if (c.documentOwner !== undefined && typeof c.documentOwner !== "string") {
-      errors.push({
-        path: "context.documentOwner",
-        message: "Context documentOwner must be a string",
-      });
-    }
-    return;
-  }
-
   // Validate provider field
   if (!c.provider || typeof c.provider !== "string") {
     errors.push({
       path: "context.provider",
-      message: 'Context requires "provider" field (file or memory), or use "bind" shorthand',
+      message: 'Context requires "provider" field (file or memory)',
     });
     return;
   }
@@ -312,8 +284,25 @@ function validateContext(context: unknown, errors: ValidationError[]): void {
     }
 
     const cfg = c.config as Record<string, unknown>;
+
+    // dir and bind are mutually exclusive
+    if (cfg.dir !== undefined && cfg.bind !== undefined) {
+      errors.push({
+        path: "context.config",
+        message: '"dir" and "bind" are mutually exclusive — use one or the other',
+      });
+      return;
+    }
+
     if (cfg.dir !== undefined && typeof cfg.dir !== "string") {
       errors.push({ path: "context.config.dir", message: "Context config dir must be a string" });
+    }
+
+    if (cfg.bind !== undefined && typeof cfg.bind !== "string") {
+      errors.push({
+        path: "context.config.bind",
+        message: "Context config bind must be a string path",
+      });
     }
   }
 }

@@ -115,9 +115,8 @@ export interface InboxState {
  * - false: explicitly disabled
  * - { provider: 'file', config?: {...} }: file provider with optional config
  * - { provider: 'memory' }: memory provider (for testing)
- * - { bind: './path' }: shorthand for persistent file provider (like docker compose volumes)
  */
-export type ContextConfig = false | FileContextConfig | MemoryContextConfig | BindContextConfig;
+export type ContextConfig = false | FileContextConfig | MemoryContextConfig;
 
 /** File-based context provider configuration */
 export interface FileContextConfig {
@@ -135,27 +134,21 @@ export interface MemoryContextConfig {
 }
 
 /**
- * Bind context configuration — persistent file provider.
- * Like Docker Compose volumes: binds a directory for cross-run persistence.
+ * Configuration for file provider.
  *
- * Key difference from `provider: 'file'`:
- * - Shutdown preserves ALL state (inbox cursors, channel, documents)
- * - Next run resumes where the previous left off
- * - Path is relative to the workflow file (like docker-compose.yml)
- *
- * Supports ${{ instance }} template for per-instance directories.
+ * Use `dir` for ephemeral context (transient state cleaned on shutdown).
+ * Use `bind` for persistent context (all state preserved across runs, like Docker Compose volumes).
+ * `dir` and `bind` are mutually exclusive — specify one or the other (not both).
  */
-export interface BindContextConfig {
-  /** Directory path to bind (relative to workflow file, or absolute) */
-  bind: string;
-  /** Document owner (single-writer model, optional) */
-  documentOwner?: string;
-}
-
-/** Configuration for file provider */
 export interface FileProviderConfig {
-  /** Context directory (default: ~/.agent-worker/workflows/${{ workflow.name }}/${{ instance }}/) */
+  /** Context directory — ephemeral (default: ~/.agent-worker/workflows/${{ workflow.name }}/${{ instance }}/) */
   dir?: string;
+  /**
+   * Bind directory — persistent across runs.
+   * Shutdown preserves ALL state (inbox cursors, channel, documents).
+   * Path is relative to workflow file, supports ${{ instance }} template.
+   */
+  bind?: string;
 }
 
 /** Default context configuration values */

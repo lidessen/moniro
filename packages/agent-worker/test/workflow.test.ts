@@ -295,27 +295,39 @@ describe('validateWorkflow', () => {
     expect(result.valid).toBe(false)
   })
 
-  test('validates context bind shorthand', () => {
+  test('validates context config.bind', () => {
     const workflow = {
       agents: {
         a: { model: 'm', system_prompt: 's' },
       },
-      context: { bind: '.agent-context/' },
+      context: { provider: 'file', config: { bind: '.agent-context/' } },
     }
     const result = validateWorkflow(workflow)
     expect(result.valid).toBe(true)
   })
 
-  test('rejects non-string bind value', () => {
+  test('rejects non-string config.bind value', () => {
     const workflow = {
       agents: {
         a: { model: 'm', system_prompt: 's' },
       },
-      context: { bind: 123 },
+      context: { provider: 'file', config: { bind: 123 } },
     }
     const result = validateWorkflow(workflow)
     expect(result.valid).toBe(false)
-    expect(result.errors.some(e => e.path === 'context.bind')).toBe(true)
+    expect(result.errors.some(e => e.path === 'context.config.bind')).toBe(true)
+  })
+
+  test('rejects config with both dir and bind', () => {
+    const workflow = {
+      agents: {
+        a: { model: 'm', system_prompt: 's' },
+      },
+      context: { provider: 'file', config: { dir: './a/', bind: './b/' } },
+    }
+    const result = validateWorkflow(workflow)
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => e.path === 'context.config')).toBe(true)
   })
 
   test('validates bind with documentOwner', () => {
@@ -323,7 +335,7 @@ describe('validateWorkflow', () => {
       agents: {
         a: { model: 'm', system_prompt: 's' },
       },
-      context: { bind: './ctx/', documentOwner: 'a' },
+      context: { provider: 'file', config: { bind: './ctx/' }, documentOwner: 'a' },
     }
     const result = validateWorkflow(workflow)
     expect(result.valid).toBe(true)
@@ -462,7 +474,7 @@ kickoff: "@assistant start working"
     expect(workflow.setup).toEqual([])
   })
 
-  test('parses bind context as persistent file provider', async () => {
+  test('parses config.bind as persistent file provider', async () => {
     const workflowPath = join(testDir, 'bind-workflow.yml')
     writeFileSync(
       workflowPath,
@@ -471,7 +483,9 @@ kickoff: "@assistant start working"
     model: test
     system_prompt: test
 context:
-  bind: .agent-context/
+  provider: file
+  config:
+    bind: .agent-context/
 `
     )
 
@@ -482,7 +496,7 @@ context:
     expect((workflow.context as any).dir).toBe(join(testDir, '.agent-context/'))
   })
 
-  test('parses bind context with instance template', async () => {
+  test('parses config.bind with instance template', async () => {
     const workflowPath = join(testDir, 'bind-instance.yml')
     writeFileSync(
       workflowPath,
@@ -491,7 +505,9 @@ context:
     model: test
     system_prompt: test
 context:
-  bind: .ctx/${'${{ instance }}'}/
+  provider: file
+  config:
+    bind: .ctx/${'${{ instance }}'}/
 `
     )
 
@@ -500,7 +516,7 @@ context:
     expect((workflow.context as any).persistent).toBe(true)
   })
 
-  test('parses bind context with documentOwner', async () => {
+  test('parses config.bind with documentOwner', async () => {
     const workflowPath = join(testDir, 'bind-owner.yml')
     writeFileSync(
       workflowPath,
@@ -509,7 +525,9 @@ context:
     model: test
     system_prompt: test
 context:
-  bind: ./shared-ctx/
+  provider: file
+  config:
+    bind: ./shared-ctx/
   documentOwner: lead
 `
     )
@@ -519,7 +537,7 @@ context:
     expect((workflow.context as any).documentOwner).toBe('lead')
   })
 
-  test('regular file provider does not have persistent flag', async () => {
+  test('config.dir does not have persistent flag', async () => {
     const workflowPath = join(testDir, 'non-bind.yml')
     writeFileSync(
       workflowPath,

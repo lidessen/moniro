@@ -5,12 +5,7 @@
 import type { ContextConfig } from "./context/types.ts";
 
 // Re-export context types for convenience
-export type {
-  ContextConfig,
-  FileContextConfig,
-  MemoryContextConfig,
-  BindContextConfig,
-} from "./context/types.ts";
+export type { ContextConfig, FileContextConfig, MemoryContextConfig } from "./context/types.ts";
 
 // ==================== Workflow File ====================
 
@@ -28,8 +23,7 @@ export interface WorkflowFile {
    * Shared context configuration
    * - undefined (not set): default file provider enabled
    * - false: explicitly disabled
-   * - { bind: './path' }: persistent file provider (like Docker Compose volumes)
-   * - { provider: 'file', config?: {...} }: file provider with config
+   * - { provider: 'file', config?: { dir | bind } }: file provider (ephemeral or persistent)
    * - { provider: 'memory' }: memory provider (for testing)
    */
   context?: ContextConfig;
