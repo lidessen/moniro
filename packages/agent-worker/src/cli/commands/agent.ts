@@ -194,20 +194,11 @@ function listAgentsAction(options?: { json?: boolean; workflow?: string }) {
 
 // Common action for stopping agents
 async function stopAgentAction(target?: string, options?: { all?: boolean; workflow?: string }) {
-  if (options?.all) {
-    const sessions = listSessions();
-    for (const s of sessions) {
-      if (isSessionRunning(s.id)) {
-        await sendRequest({ action: "shutdown" }, s.id);
-        const displayName = s.name ? getAgentDisplayName(s.name) : s.id.slice(0, 8);
-        console.log(`Stopped: ${displayName}`);
-      }
+  if (options?.all || options?.workflow) {
+    let sessions = listSessions();
+    if (options.workflow) {
+      sessions = sessions.filter((s) => s.instance === options.workflow);
     }
-    return;
-  }
-
-  if (options?.workflow) {
-    const sessions = listSessions().filter((s) => s.instance === options.workflow);
     for (const s of sessions) {
       if (isSessionRunning(s.id)) {
         await sendRequest({ action: "shutdown" }, s.id);
