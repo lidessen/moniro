@@ -77,6 +77,12 @@ export class MemoryContextProvider extends ContextProviderImpl {
     }
     return map;
   }
+
+  /** Override destroy to also clear all in-memory data */
+  override async destroy(): Promise<void> {
+    await super.destroy();
+    this.memoryStorage.clear();
+  }
 }
 
 /**

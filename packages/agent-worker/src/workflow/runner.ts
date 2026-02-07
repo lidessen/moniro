@@ -159,7 +159,9 @@ export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> 
 
     if (verbose) log(`Context directory: ${contextDir}`);
 
-    contextProvider = createFileContextProvider(contextDir, agentNames);
+    const fileProvider = createFileContextProvider(contextDir, agentNames);
+    fileProvider.acquireLock();
+    contextProvider = fileProvider;
   }
 
   // Create MCP server (HTTP)
@@ -235,6 +237,7 @@ export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> 
 
     async shutdown() {
       if (verbose) log("\nShutting down workflow...");
+      await contextProvider.destroy();
       await httpMcpServer.close();
     },
   };

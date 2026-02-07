@@ -57,6 +57,10 @@ export interface ContextProvider {
   // Resources
   createResource(content: string, createdBy: string, type?: ResourceType): Promise<ResourceResult>;
   readResource(id: string): Promise<string | null>;
+
+  // Lifecycle
+  /** Clean up transient state (inbox cursors). Channel log and documents are preserved. */
+  destroy(): Promise<void>;
 }
 
 // ==================== Storage Keys ====================
@@ -245,6 +249,15 @@ export class ContextProviderImpl implements ContextProvider {
       if (content !== null) return content;
     }
     return null;
+  }
+
+  // ==================== Lifecycle ====================
+
+  async destroy(): Promise<void> {
+    // Reset in-memory sequence counter
+    this.sequence = 0;
+    // Clean up inbox read cursors (transient state)
+    await this.storage.delete(KEYS.inboxState);
   }
 }
 
