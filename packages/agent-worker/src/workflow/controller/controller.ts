@@ -122,6 +122,9 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
         }
 
         // Run the agent
+        if (!backend.run) {
+          throw new Error(`Backend ${backend.type} does not support run()`)
+        }
         lastResult = await backend.run(runContext)
 
         if (lastResult.success) {

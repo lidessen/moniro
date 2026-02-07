@@ -15,6 +15,8 @@ export {
   CodexBackend,
   CursorBackend,
   SdkBackend,
+  MockAIBackend,
+  createMockBackend,
 } from './backends/index.ts'
 export {
   SkillsProvider,

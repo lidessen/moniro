@@ -21,8 +21,8 @@ import {
   getBackendForModel,
   getBackendByType,
   type AgentController,
-  type AgentBackend,
 } from './controller/index.ts'
+import type { Backend } from '../backends/types.ts'
 import type { Message } from '../context/types.ts'
 import { startChannelWatcher, type ChannelWatcher } from './display.ts'
 import { createLogger, createSilentLogger, type Logger } from './logger.ts'
@@ -345,7 +345,7 @@ export interface ControllerRunConfig {
   /** Poll interval for controllers (ms) */
   pollInterval?: number
   /** Custom backend factory (optional, defaults to getBackendForModel) */
-  createBackend?: (agentName: string, agent: ResolvedAgent) => AgentBackend
+  createBackend?: (agentName: string, agent: ResolvedAgent) => Backend
 }
 
 /**
@@ -442,7 +442,7 @@ export async function runWorkflowWithControllers(config: ControllerRunConfig): P
       // Get backend for this agent
       // Priority: 1. Custom createBackend, 2. Explicit backend field, 3. Infer from model
       const backendDebugLog = debug ? (msg: string) => logger.debug(msg) : undefined
-      let backend: AgentBackend
+      let backend: Backend
       if (createBackend) {
         backend = createBackend(agentName, agentDef)
       } else if (agentDef.backend) {
@@ -453,7 +453,7 @@ export async function runWorkflowWithControllers(config: ControllerRunConfig): P
         throw new Error(`Agent "${agentName}" requires either a backend or model field`)
       }
 
-      logger.debug(`Using backend: ${backend.name} for ${agentName}`)
+      logger.debug(`Using backend: ${backend.type} for ${agentName}`)
 
       // Each agent gets an isolated workspace directory
       const workspaceDir = join(runtime.contextDir, 'workspaces', agentName)

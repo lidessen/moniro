@@ -12,7 +12,8 @@
 import { describe, test, expect, afterEach } from 'bun:test'
 import { createMemoryContextProvider } from '../src/context/memory-provider.ts'
 import { createAgentController, checkWorkflowIdle } from '../src/workflow/controller/controller.ts'
-import type { AgentBackend, AgentRunContext, AgentController } from '../src/workflow/controller/types.ts'
+import type { AgentRunContext, AgentController } from '../src/workflow/controller/types.ts'
+import type { Backend } from '../src/backends/types.ts'
 import type { ResolvedAgent } from '../src/workflow/types.ts'
 import type { ContextProvider } from '../src/context/provider.ts'
 
@@ -41,9 +42,9 @@ function createMockBackend(
   name: string,
   behavior: (ctx: AgentRunContext, provider: ContextProvider) => Promise<void>,
   provider: ContextProvider
-): AgentBackend {
+): Backend {
   return {
-    name,
+    type: name as Backend['type'],
     async run(ctx) {
       const start = Date.now()
       try {

@@ -122,7 +122,7 @@ describe('agent identity via MCP transport', () => {
         retryAttempt: 1,
       }
 
-      const result = await backend.run(ctx)
+      const result = await backend.run!(ctx)
       expect(result.success).toBe(true)
 
       // Wait for channel to be written
@@ -166,7 +166,7 @@ describe('agent identity via MCP transport', () => {
 
       // Run agent1
       const inbox1 = await contextProvider.getInbox('agent1')
-      const result1 = await backend.run({
+      const result1 = await backend.run!({
         name: 'agent1',
         agent: { system_prompt: 'You are agent1.', resolvedSystemPrompt: 'You are agent1.' },
         inbox: inbox1,
@@ -181,7 +181,7 @@ describe('agent identity via MCP transport', () => {
 
       // Run agent2
       const inbox2 = await contextProvider.getInbox('agent2')
-      const result2 = await backend.run({
+      const result2 = await backend.run!({
         name: 'agent2',
         agent: { system_prompt: 'You are agent2.', resolvedSystemPrompt: 'You are agent2.' },
         inbox: inbox2,

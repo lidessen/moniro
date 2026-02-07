@@ -14,8 +14,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Backend, BackendResponse } from './types.ts'
 import type { AgentRunContext, AgentRunResult } from '../workflow/controller/types.ts'
-import { buildAgentPrompt } from '../workflow/controller/prompt.ts'
-import { generateWorkflowMCPConfig } from '../workflow/controller/mcp-config.ts'
+import { runCLIBackend } from './cli-run.ts'
 
 export interface ClaudeCodeOptions {
   /** Model to use (e.g., 'opus', 'sonnet') */
@@ -76,37 +75,7 @@ export class ClaudeCodeBackend implements Backend {
    * Sets up workspace, builds prompt, and calls send().
    */
   async run(ctx: AgentRunContext): Promise<AgentRunResult> {
-    const startTime = Date.now()
-    const log = this.options.debugLog || (() => {})
-
-    try {
-      // Set up workspace with MCP config (HTTP transport)
-      const mcpConfig = generateWorkflowMCPConfig(ctx.mcpUrl, ctx.name)
-      this.setWorkspace(ctx.workspaceDir, mcpConfig)
-
-      const prompt = buildAgentPrompt(ctx)
-
-      log(`[${ctx.name}] Sending prompt to claude backend (${prompt.length} chars)`)
-      log(`[${ctx.name}] System prompt: ${(ctx.agent.resolvedSystemPrompt || '(none)').slice(0, 100)}`)
-      log(`[${ctx.name}] Workspace: ${ctx.workspaceDir}`)
-
-      const response = await this.send(prompt, { system: ctx.agent.resolvedSystemPrompt })
-
-      const responsePreview = response.content.length > 200
-        ? response.content.slice(0, 200) + '...'
-        : response.content
-      log(`[${ctx.name}] Response (${response.content.length} chars): ${responsePreview}`)
-
-      return { success: true, duration: Date.now() - startTime }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error)
-      log(`[${ctx.name}] Backend error: ${errorMsg}`)
-      return {
-        success: false,
-        error: errorMsg,
-        duration: Date.now() - startTime,
-      }
-    }
+    return runCLIBackend(this, ctx, 'claude', this.options.debugLog)
   }
 
   async send(message: string, options?: { system?: string }): Promise<BackendResponse> {

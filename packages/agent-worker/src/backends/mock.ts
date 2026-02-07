@@ -13,7 +13,8 @@ import { MockLanguageModelV3, mockValues } from 'ai/test'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { z } from 'zod'
-import type { AgentBackend, AgentRunContext, AgentRunResult } from '../workflow/controller/types.ts'
+import type { Backend } from './types.ts'
+import type { AgentRunContext, AgentRunResult } from '../workflow/controller/types.ts'
 import { buildAgentPrompt } from '../workflow/controller/prompt.ts'
 
 // ==================== MCP Tool Bridge ====================
@@ -72,8 +73,8 @@ async function createMCPToolBridge(
  *     system_prompt: You are Alice.
  * ```
  */
-export class MockAIBackend implements AgentBackend {
-  readonly name = 'mock'
+export class MockAIBackend implements Backend {
+  readonly type = 'mock' as const
 
   constructor(private debugLog?: (message: string) => void) {}
 
@@ -160,6 +161,6 @@ export class MockAIBackend implements AgentBackend {
 /**
  * Create a mock AI backend
  */
-export function createMockBackend(debugLog?: (msg: string) => void): AgentBackend {
+export function createMockBackend(debugLog?: (msg: string) => void): Backend {
   return new MockAIBackend(debugLog)
 }

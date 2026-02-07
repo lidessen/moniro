@@ -6,6 +6,7 @@
 import type { ResolvedAgent } from '../types.ts'
 import type { ContextProvider } from '../../context/provider.ts'
 import type { Message, InboxMessage } from '../../context/types.ts'
+import type { Backend } from '../../backends/types.ts'
 
 // ==================== Controller ====================
 
@@ -59,7 +60,7 @@ export interface AgentControllerConfig {
   /** Retry configuration */
   retry?: RetryConfig
   /** Backend to use for running the agent */
-  backend: AgentBackend
+  backend: Backend
   /** Callback when agent run completes */
   onRunComplete?: (result: AgentRunResult) => void
   /** Log function */
@@ -98,16 +99,6 @@ export interface AgentRunResult {
   error?: string
   /** Duration in ms */
   duration: number
-}
-
-// ==================== Backend ====================
-
-/** Agent backend interface */
-export interface AgentBackend {
-  /** Backend name for identification */
-  readonly name: string
-  /** Run the agent with the given context */
-  run(ctx: AgentRunContext): Promise<AgentRunResult>
 }
 
 // ==================== Idle Detection ====================

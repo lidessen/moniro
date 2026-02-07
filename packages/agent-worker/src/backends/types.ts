@@ -42,14 +42,14 @@ export interface BackendResponse {
 
 export interface Backend {
   readonly type: BackendType
-  /** Send a message and get a response */
-  send(message: string, options?: { system?: string }): Promise<BackendResponse>
-  /** Check if the backend is available (CLI installed, API key set, etc.) */
-  isAvailable(): Promise<boolean>
-  /** Get backend info for display */
-  getInfo(): { name: string; version?: string; model?: string }
-  /** Run with full workflow context (for multi-agent mode). Optional — defaults to building prompt from context and calling send(). */
+  /** Send a message and get a response (optional — not all backends support single-turn) */
+  send?(message: string, options?: { system?: string }): Promise<BackendResponse>
+  /** Run with full workflow context (for multi-agent mode) */
   run?(ctx: AgentRunContext): Promise<AgentRunResult>
+  /** Check if the backend is available (CLI installed, API key set, etc.) */
+  isAvailable?(): Promise<boolean>
+  /** Get backend info for display */
+  getInfo?(): { name: string; version?: string; model?: string }
   /** Set up workspace directory with MCP config for workflow isolation */
   setWorkspace?(workspaceDir: string, mcpConfig: { mcpServers: Record<string, unknown> }): void
 }

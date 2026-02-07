@@ -10,7 +10,8 @@ import { tmpdir } from 'node:os'
 import { createMemoryContextProvider } from '../src/context/memory-provider.js'
 import { createAgentController, checkWorkflowIdle } from '../src/workflow/controller/controller.js'
 import { createProposalManager, type ProposalManager } from '../src/context/proposals.js'
-import type { AgentBackend, AgentRunContext, AgentController } from '../src/workflow/controller/types.js'
+import type { AgentRunContext, AgentController } from '../src/workflow/controller/types.js'
+import type { Backend } from '../src/backends/types.js'
 import type { ResolvedAgent } from '../src/workflow/types.js'
 import type { ContextProvider } from '../src/context/provider.js'
 
@@ -27,9 +28,9 @@ function createMockBackend(
   name: string,
   behavior: (ctx: AgentRunContext, provider: ContextProvider) => Promise<void>,
   provider: ContextProvider
-): AgentBackend {
+): Backend {
   return {
-    name,
+    type: name as Backend['type'],
     async run(ctx) {
       const start = Date.now()
       try {
@@ -266,8 +267,8 @@ describe('Workflow Simulation', () => {
     const provider = createMemoryContextProvider(['agent1', 'agent2'])
     const controllers = new Map<string, AgentController>()
 
-    const backend: AgentBackend = {
-      name: 'mock',
+    const backend: Backend = {
+      type: 'mock' as const,
       async run() {
         return { success: true, duration: 10 }
       },
@@ -319,8 +320,8 @@ describe('Workflow Simulation', () => {
     const provider = createMemoryContextProvider(['worker'])
     let attempts = 0
 
-    const backend: AgentBackend = {
-      name: 'mock',
+    const backend: Backend = {
+      type: 'mock' as const,
       async run(ctx) {
         attempts++
         if (attempts < 3) {

@@ -7,13 +7,13 @@ import { describe, test, expect, beforeEach, mock } from 'bun:test'
 import {
   CONTROLLER_DEFAULTS,
   type AgentRunContext,
-  type AgentBackend,
   type AgentRunResult,
 } from '../src/workflow/controller/types.ts'
+import type { Backend } from '../src/backends/types.ts'
 import { parseModel, resolveModelAlias } from '../src/core/model-maps.ts'
 import { formatInbox, formatChannel, buildAgentPrompt } from '../src/workflow/controller/prompt.ts'
 import { createAgentController, checkWorkflowIdle, isWorkflowComplete, buildWorkflowIdleState } from '../src/workflow/controller/controller.ts'
-import { generateWorkflowMCPConfig } from '../src/workflow/controller/backend.ts'
+import { generateWorkflowMCPConfig } from '../src/workflow/controller/mcp-config.ts'
 import { parseSendTarget, sendToWorkflowChannel, formatUserSender } from '../src/workflow/controller/send.ts'
 import type { WorkflowIdleState } from '../src/workflow/controller/types.ts'
 import { createMemoryContextProvider } from '../src/context/memory-provider.ts'
@@ -267,8 +267,8 @@ describe('createAgentController', () => {
 
   test('starts in stopped state', () => {
     const provider = createMemoryContextProvider(['agent1'])
-    const mockBackend: AgentBackend = {
-      name: 'mock',
+    const mockBackend: Backend = {
+      type: 'mock' as const,
       run: async () => ({ success: true, duration: 100 }),
     }
 
@@ -286,8 +286,8 @@ describe('createAgentController', () => {
 
   test('transitions to idle after start', async () => {
     const provider = createMemoryContextProvider(['agent1'])
-    const mockBackend: AgentBackend = {
-      name: 'mock',
+    const mockBackend: Backend = {
+      type: 'mock' as const,
       run: async () => ({ success: true, duration: 100 }),
     }
 
@@ -314,8 +314,8 @@ describe('createAgentController', () => {
     const provider = createMemoryContextProvider(['agent1', 'agent2'])
     let runCalled = false
 
-    const mockBackend: AgentBackend = {
-      name: 'mock',
+    const mockBackend: Backend = {
+      type: 'mock' as const,
       run: async (ctx) => {
         runCalled = true
         expect(ctx.name).toBe('agent1')
@@ -350,8 +350,8 @@ describe('createAgentController', () => {
     const provider = createMemoryContextProvider(['agent1', 'agent2'])
     let runCount = 0
 
-    const mockBackend: AgentBackend = {
-      name: 'mock',
+    const mockBackend: Backend = {
+      type: 'mock' as const,
       run: async () => {
         runCount++
         // Fail first time, succeed second time
@@ -396,8 +396,8 @@ describe('createAgentController', () => {
     const provider = createMemoryContextProvider(['agent1', 'agent2'])
     let runCalled = false
 
-    const mockBackend: AgentBackend = {
-      name: 'mock',
+    const mockBackend: Backend = {
+      type: 'mock' as const,
       run: async () => {
         runCalled = true
         return { success: true, duration: 100 }
@@ -429,8 +429,8 @@ describe('createAgentController', () => {
 
   test('stops cleanly', async () => {
     const provider = createMemoryContextProvider(['agent1'])
-    const mockBackend: AgentBackend = {
-      name: 'mock',
+    const mockBackend: Backend = {
+      type: 'mock' as const,
       run: async () => ({ success: true, duration: 100 }),
     }
 
@@ -454,8 +454,8 @@ describe('createAgentController', () => {
     const provider = createMemoryContextProvider(['agent1', 'agent2'])
     let completedResult: AgentRunResult | null = null
 
-    const mockBackend: AgentBackend = {
-      name: 'mock',
+    const mockBackend: Backend = {
+      type: 'mock' as const,
       run: async () => ({ success: true, duration: 42 }),
     }
 
@@ -493,8 +493,8 @@ describe('checkWorkflowIdle', () => {
 
   test('returns true when all idle and no messages', async () => {
     const provider = createMemoryContextProvider(['agent1', 'agent2'])
-    const mockBackend: AgentBackend = {
-      name: 'mock',
+    const mockBackend: Backend = {
+      type: 'mock' as const,
       run: async () => ({ success: true, duration: 100 }),
     }
 
@@ -536,8 +536,8 @@ describe('checkWorkflowIdle', () => {
 
   test('returns false when messages pending', async () => {
     const provider = createMemoryContextProvider(['agent1', 'agent2'])
-    const mockBackend: AgentBackend = {
-      name: 'mock',
+    const mockBackend: Backend = {
+      type: 'mock' as const,
       run: async () => ({ success: true, duration: 100 }),
     }
 
@@ -641,8 +641,8 @@ describe('buildWorkflowIdleState', () => {
 
   test('reports idle when all controllers idle and no messages', async () => {
     const provider = createMemoryContextProvider(['agent1', 'agent2'])
-    const mockBackend: AgentBackend = {
-      name: 'mock',
+    const mockBackend: Backend = {
+      type: 'mock' as const,
       run: async () => ({ success: true, duration: 100 }),
     }
 
@@ -671,8 +671,8 @@ describe('buildWorkflowIdleState', () => {
 
   test('reports not idle when messages pending', async () => {
     const provider = createMemoryContextProvider(['agent1', 'agent2'])
-    const mockBackend: AgentBackend = {
-      name: 'mock',
+    const mockBackend: Backend = {
+      type: 'mock' as const,
       run: async () => ({ success: true, duration: 100 }),
     }
 
@@ -793,14 +793,14 @@ describe('getBackendByType mock', () => {
   test('returns mock backend with name "mock"', async () => {
     const { getBackendByType } = await import('../src/workflow/controller/backend.ts')
     const backend = getBackendByType('mock')
-    expect(backend.name).toBe('mock')
+    expect(backend.type).toBe('mock')
   })
 
   test('passes debugLog to mock backend', async () => {
     const { getBackendByType } = await import('../src/workflow/controller/backend.ts')
     const logs: string[] = []
     const backend = getBackendByType('mock', { debugLog: (msg) => logs.push(msg) })
-    expect(backend.name).toBe('mock')
+    expect(backend.type).toBe('mock')
   })
 
   test('throws for unknown backend type', async () => {
