@@ -105,6 +105,8 @@ export interface SessionInfo {
   name?: string;
   /** Instance namespace (agents in the same instance share context) */
   instance: string;
+  /** Absolute path to instance context directory (channel + documents) */
+  contextDir: string;
   model: string;
   system: string;
   backend: BackendType;
@@ -116,6 +118,9 @@ export interface SessionInfo {
   idleTimeout?: number; // ms, 0 = no timeout
   schedule?: ScheduleConfig; // periodic wakeup when idle
 }
+
+/** Default context directory relative to cwd */
+export const DEFAULT_CONTEXT_BASE = ".agent-worker";
 
 export function ensureDirs(): void {
   mkdirSync(SESSIONS_DIR, { recursive: true });
@@ -282,20 +287,43 @@ export async function waitForReady(
 // ==================== Instance Context ====================
 
 /**
- * Get the context directory path for an instance.
- * All agents in the same instance share this directory for channel + documents.
+ * Resolve context directory for an instance.
+ * Priority: explicit contextDir > lookup from existing agents > project-local default.
+ *
+ * Default: `.agent-worker/{instance}/` relative to cwd (project-local).
  */
-export function getInstanceContextDir(instance: string): string {
-  return join(CONTEXTS_DIR, instance);
+export function resolveContextDir(instance: string, contextDir?: string): string {
+  // 1. Explicit path
+  if (contextDir) {
+    const { resolve } = require("node:path") as typeof import("node:path");
+    return resolve(contextDir);
+  }
+
+  // 2. Lookup from existing agents in this instance
+  const existing = getInstanceAgents(instance);
+  if (existing.length > 0 && existing[0]!.contextDir) {
+    return existing[0]!.contextDir;
+  }
+
+  // 3. Project-local default
+  const { resolve } = require("node:path") as typeof import("node:path");
+  return resolve(join(DEFAULT_CONTEXT_BASE, instance));
 }
 
 /**
- * Ensure instance context directory exists. Returns the path.
+ * Ensure instance context directory exists. Returns the absolute path.
  */
-export function ensureInstanceContext(instance: string): string {
-  const dir = getInstanceContextDir(instance);
+export function ensureInstanceContext(instance: string, contextDir?: string): string {
+  const dir = resolveContextDir(instance, contextDir);
   mkdirSync(dir, { recursive: true });
   return dir;
+}
+
+/**
+ * @deprecated Use resolveContextDir instead
+ */
+export function getInstanceContextDir(instance: string): string {
+  return resolveContextDir(instance);
 }
 
 /**
