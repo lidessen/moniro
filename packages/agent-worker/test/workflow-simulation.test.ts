@@ -10,12 +10,24 @@ import { tmpdir } from 'node:os'
 import { createMemoryContextProvider } from '../src/context/memory-provider.js'
 import { createAgentController, checkWorkflowIdle } from '../src/workflow/controller/controller.js'
 import { createProposalManager, type ProposalManager } from '../src/context/proposals.js'
-import type { AgentRunContext, AgentController } from '../src/workflow/controller/types.js'
+import type { AgentController } from '../src/workflow/controller/types.js'
 import type { Backend } from '../src/backends/types.js'
 import type { ResolvedAgent } from '../src/workflow/types.js'
 import type { ContextProvider } from '../src/context/provider.js'
 
 // ==================== Test Helpers ====================
+
+/**
+ * Extract the inbox section from a prompt built by buildAgentPrompt().
+ * The prompt mixes inbox + recent channel; behaviors must match on inbox only
+ * to avoid reacting to historical channel messages.
+ */
+function getInboxSection(prompt: string): string {
+  const start = prompt.indexOf('## Inbox')
+  const end = prompt.indexOf('## Recent Activity')
+  if (start === -1) return ''
+  return end === -1 ? prompt.slice(start) : prompt.slice(start, end)
+}
 
 const mockAgent: ResolvedAgent = {
   model: 'mock',
@@ -23,26 +35,20 @@ const mockAgent: ResolvedAgent = {
   resolvedSystemPrompt: 'Test agent',
 }
 
-/** Create a mock backend with custom behavior */
+/** Create a mock backend with custom behavior.
+ * Uses type 'claude' so the controller routes through the normal
+ * build-prompt → send() path (not the mock MCP tool bridge).
+ */
 function createMockBackend(
-  name: string,
-  behavior: (ctx: AgentRunContext, provider: ContextProvider) => Promise<void>,
+  _name: string,
+  behavior: (prompt: string, provider: ContextProvider) => Promise<void>,
   provider: ContextProvider
 ): Backend {
   return {
-    type: name as Backend['type'],
-    async run(ctx) {
-      const start = Date.now()
-      try {
-        await behavior(ctx, provider)
-        return { success: true, duration: Date.now() - start }
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-          duration: Date.now() - start,
-        }
-      }
+    type: 'claude' as const,
+    async send(message: string) {
+      await behavior(message, provider)
+      return { content: 'ok' }
     },
   }
 }
@@ -85,11 +91,11 @@ describe('Workflow Simulation', () => {
     // Reviewer behavior: request code review, then acknowledge
     const reviewerBackend = createMockBackend(
       'reviewer',
-      async (ctx, p) => {
-        const msg = ctx.inbox[0]?.entry.content || ''
-        if (msg.includes('review this')) {
+      async (prompt, p) => {
+        const inbox = getInboxSection(prompt)
+        if (inbox.includes('review this')) {
           await p.appendChannel('reviewer', 'Starting review... @coder looks good!')
-        } else if (msg.includes('fixed')) {
+        } else if (inbox.includes('fixed')) {
           await p.appendChannel('reviewer', 'LGTM, approved!')
         }
       },
@@ -99,9 +105,9 @@ describe('Workflow Simulation', () => {
     // Coder behavior: respond to reviewer feedback
     const coderBackend = createMockBackend(
       'coder',
-      async (ctx, p) => {
-        const msg = ctx.inbox[0]?.entry.content || ''
-        if (msg.includes('looks good')) {
+      async (prompt, p) => {
+        const inbox = getInboxSection(prompt)
+        if (inbox.includes('looks good')) {
           await p.appendChannel('coder', '@reviewer fixed the issues')
         }
       },
@@ -168,9 +174,9 @@ describe('Workflow Simulation', () => {
     // Alice creates proposal and votes
     const aliceBackend = createMockBackend(
       'alice',
-      async (ctx, p) => {
-        const msg = ctx.inbox[0]?.entry.content || ''
-        if (msg.includes('decide')) {
+      async (prompt, p) => {
+        const inbox = getInboxSection(prompt)
+        if (inbox.includes('decide')) {
           proposal = proposalManager.create({
             type: 'decision',
             title: 'Choose database',
@@ -190,8 +196,9 @@ describe('Workflow Simulation', () => {
     // Bob votes
     const bobBackend = createMockBackend(
       'bob',
-      async (ctx, _p) => {
-        if (proposal && ctx.inbox.some((m) => m.entry.content.includes('please vote'))) {
+      async (prompt, _p) => {
+        const inbox = getInboxSection(prompt)
+        if (proposal && inbox.includes('please vote')) {
           proposalManager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'postgres' })
         }
       },
@@ -201,8 +208,9 @@ describe('Workflow Simulation', () => {
     // Charlie votes
     const charlieBackend = createMockBackend(
       'charlie',
-      async (ctx, _p) => {
-        if (proposal && ctx.inbox.some((m) => m.entry.content.includes('please vote'))) {
+      async (prompt, _p) => {
+        const inbox = getInboxSection(prompt)
+        if (proposal && inbox.includes('please vote')) {
           proposalManager.vote({ proposalId: proposal.id, voter: 'charlie', choice: 'mysql' })
         }
       },
@@ -268,9 +276,9 @@ describe('Workflow Simulation', () => {
     const controllers = new Map<string, AgentController>()
 
     const backend: Backend = {
-      type: 'mock' as const,
-      async run() {
-        return { success: true, duration: 10 }
+      type: 'claude' as const,
+      async send() {
+        return { content: 'ok' }
       },
     }
 
@@ -321,14 +329,14 @@ describe('Workflow Simulation', () => {
     let attempts = 0
 
     const backend: Backend = {
-      type: 'mock' as const,
-      async run(ctx) {
+      type: 'claude' as const,
+      async send() {
         attempts++
         if (attempts < 3) {
-          return { success: false, error: 'Temporary failure', duration: 10 }
+          throw new Error('Temporary failure')
         }
         await provider.appendChannel('worker', 'Task completed after retries')
-        return { success: true, duration: 10 }
+        return { content: 'ok' }
       },
     }
 

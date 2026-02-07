@@ -14,7 +14,6 @@ export {
 } from '../core/model-maps.ts'
 
 import type { BackendType } from '../core/model-maps.ts'
-import type { AgentRunContext, AgentRunResult } from '../workflow/controller/types.ts'
 
 export interface BackendConfig {
   type: BackendType
@@ -42,10 +41,8 @@ export interface BackendResponse {
 
 export interface Backend {
   readonly type: BackendType
-  /** Send a message and get a response (optional — not all backends support single-turn) */
-  send?(message: string, options?: { system?: string }): Promise<BackendResponse>
-  /** Run with full workflow context (for multi-agent mode) */
-  run?(ctx: AgentRunContext): Promise<AgentRunResult>
+  /** Send a message and get a response */
+  send(message: string, options?: { system?: string }): Promise<BackendResponse>
   /** Check if the backend is available (CLI installed, API key set, etc.) */
   isAvailable?(): Promise<boolean>
   /** Get backend info for display */

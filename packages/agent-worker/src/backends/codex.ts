@@ -14,8 +14,6 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { stringify as yamlStringify } from 'yaml'
 import type { Backend, BackendResponse } from './types.ts'
-import type { AgentRunContext, AgentRunResult } from '../workflow/controller/types.ts'
-import { runCLIBackend } from './cli-run.ts'
 
 export interface CodexOptions {
   /** Model to use (e.g., 'gpt-5.2-codex') */
@@ -69,14 +67,6 @@ export class CodexBackend implements Backend {
     }
     const configPath = join(codexDir, 'config.yaml')
     writeFileSync(configPath, yamlStringify(codexConfig))
-  }
-
-  /**
-   * Run with full workflow context (for multi-agent mode).
-   * Sets up workspace, builds prompt, and calls send().
-   */
-  async run(ctx: AgentRunContext): Promise<AgentRunResult> {
-    return runCLIBackend(this, ctx, 'codex', this.options.debugLog)
   }
 
   async send(message: string, _options?: { system?: string }): Promise<BackendResponse> {

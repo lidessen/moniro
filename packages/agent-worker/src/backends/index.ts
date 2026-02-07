@@ -8,7 +8,6 @@ export { CodexBackend, type CodexOptions } from './codex.ts'
 export { CursorBackend, type CursorOptions } from './cursor.ts'
 export { SdkBackend, type SdkBackendOptions } from './sdk.ts'
 export { MockAIBackend, createMockBackend } from './mock.ts'
-export { runCLIBackend, type CLIRunnable } from './cli-run.ts'
 
 import type { Backend, BackendType } from './types.ts'
 import { getModelForBackend } from './types.ts'

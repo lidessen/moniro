@@ -188,9 +188,6 @@ export class AgentSession {
     // Add user message to history
     this.messages.push({ role: 'user', content, status: 'complete', timestamp })
 
-    if (!this.backend!.send) {
-      throw new Error(`Backend ${this.backend!.type} does not support send()`)
-    }
     const result = await this.backend!.send(content, { system: this.system })
     const latency = Math.round(performance.now() - startTime)
 

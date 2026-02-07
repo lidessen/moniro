@@ -13,8 +13,6 @@ import { execa, ExecaError } from 'execa'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Backend, BackendResponse } from './types.ts'
-import type { AgentRunContext, AgentRunResult } from '../workflow/controller/types.ts'
-import { runCLIBackend } from './cli-run.ts'
 
 export interface CursorOptions {
   /** Model to use */
@@ -56,14 +54,6 @@ export class CursorBackend implements Backend {
     // Write MCP config
     const mcpConfigPath = join(cursorDir, 'mcp.json')
     writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2))
-  }
-
-  /**
-   * Run with full workflow context (for multi-agent mode).
-   * Sets up workspace, builds prompt, and calls send().
-   */
-  async run(ctx: AgentRunContext): Promise<AgentRunResult> {
-    return runCLIBackend(this, ctx, 'cursor', this.options.debugLog)
   }
 
   async send(message: string, _options?: { system?: string }): Promise<BackendResponse> {

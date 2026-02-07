@@ -269,7 +269,7 @@ describe('createAgentController', () => {
     const provider = createMemoryContextProvider(['agent1'])
     const mockBackend: Backend = {
       type: 'mock' as const,
-      run: async () => ({ success: true, duration: 100 }),
+      send: async () => ({ content: 'ok' }),
     }
 
     const controller = createAgentController({
@@ -288,7 +288,7 @@ describe('createAgentController', () => {
     const provider = createMemoryContextProvider(['agent1'])
     const mockBackend: Backend = {
       type: 'mock' as const,
-      run: async () => ({ success: true, duration: 100 }),
+      send: async () => ({ content: 'ok' }),
     }
 
     const controller = createAgentController({
@@ -315,12 +315,13 @@ describe('createAgentController', () => {
     let runCalled = false
 
     const mockBackend: Backend = {
-      type: 'mock' as const,
-      run: async (ctx) => {
+      type: 'claude' as const,
+      send: async (message) => {
         runCalled = true
-        expect(ctx.name).toBe('agent1')
-        expect(ctx.inbox.length).toBe(1)
-        return { success: true, duration: 100 }
+        // Controller builds prompt from context — verify inbox content is included
+        expect(message).toContain('1 message')
+        expect(message).toContain('From @agent2')
+        return { content: 'ok' }
       },
     }
 
@@ -351,14 +352,14 @@ describe('createAgentController', () => {
     let runCount = 0
 
     const mockBackend: Backend = {
-      type: 'mock' as const,
-      run: async () => {
+      type: 'claude' as const,
+      send: async () => {
         runCount++
         // Fail first time, succeed second time
         if (runCount === 1) {
-          return { success: false, error: 'Test error', duration: 100 }
+          throw new Error('Test error')
         }
-        return { success: true, duration: 100 }
+        return { content: 'ok' }
       },
     }
 
@@ -397,10 +398,10 @@ describe('createAgentController', () => {
     let runCalled = false
 
     const mockBackend: Backend = {
-      type: 'mock' as const,
-      run: async () => {
+      type: 'claude' as const,
+      send: async () => {
         runCalled = true
-        return { success: true, duration: 100 }
+        return { content: 'ok' }
       },
     }
 
@@ -431,7 +432,7 @@ describe('createAgentController', () => {
     const provider = createMemoryContextProvider(['agent1'])
     const mockBackend: Backend = {
       type: 'mock' as const,
-      run: async () => ({ success: true, duration: 100 }),
+      send: async () => ({ content: 'ok' }),
     }
 
     const controller = createAgentController({
@@ -455,8 +456,8 @@ describe('createAgentController', () => {
     let completedResult: AgentRunResult | null = null
 
     const mockBackend: Backend = {
-      type: 'mock' as const,
-      run: async () => ({ success: true, duration: 42 }),
+      type: 'claude' as const,
+      send: async () => ({ content: 'ok' }),
     }
 
     const controller = createAgentController({
@@ -478,7 +479,7 @@ describe('createAgentController', () => {
 
     expect(completedResult).not.toBeNull()
     expect(completedResult!.success).toBe(true)
-    expect(completedResult!.duration).toBe(42)
+    expect(completedResult!.duration).toBeGreaterThanOrEqual(0)
 
     await controller.stop()
   })
@@ -495,7 +496,7 @@ describe('checkWorkflowIdle', () => {
     const provider = createMemoryContextProvider(['agent1', 'agent2'])
     const mockBackend: Backend = {
       type: 'mock' as const,
-      run: async () => ({ success: true, duration: 100 }),
+      send: async () => ({ content: 'ok' }),
     }
 
     const controller1 = createAgentController({
@@ -538,7 +539,7 @@ describe('checkWorkflowIdle', () => {
     const provider = createMemoryContextProvider(['agent1', 'agent2'])
     const mockBackend: Backend = {
       type: 'mock' as const,
-      run: async () => ({ success: true, duration: 100 }),
+      send: async () => ({ content: 'ok' }),
     }
 
     const controller1 = createAgentController({
@@ -643,7 +644,7 @@ describe('buildWorkflowIdleState', () => {
     const provider = createMemoryContextProvider(['agent1', 'agent2'])
     const mockBackend: Backend = {
       type: 'mock' as const,
-      run: async () => ({ success: true, duration: 100 }),
+      send: async () => ({ content: 'ok' }),
     }
 
     const controller1 = createAgentController({
@@ -673,7 +674,7 @@ describe('buildWorkflowIdleState', () => {
     const provider = createMemoryContextProvider(['agent1', 'agent2'])
     const mockBackend: Backend = {
       type: 'mock' as const,
-      run: async () => ({ success: true, duration: 100 }),
+      send: async () => ({ content: 'ok' }),
     }
 
     const controller1 = createAgentController({

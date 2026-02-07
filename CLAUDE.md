@@ -48,6 +48,7 @@ These principles elaborate on the WHY. Reference them when you need deeper under
 | Principle | Core Idea |
 |-----------|-----------|
 | Understanding Over Rules | Teach WHY, not just what. Rules fail in novel situations; understanding adapts. |
+| Narrative Line | Each layer tells its own complete story. Reading high-level logic never forces you into low-level details. One entry point → one clear line → branches go deeper, not sideways. If following a flow requires jumping between layers, the abstraction boundary is wrong. |
 | Adaptive Workflows | No universal workflow. The skill is knowing when to deviate from the pipeline. |
 | Divide and Conquer | Large problems → unsolvable. Small problems → trivial. Decompose, order, compose. |
 | Memory as Evolution | Recording isn't storage—it's how patterns emerge and mistakes stop repeating. |

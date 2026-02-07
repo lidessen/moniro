@@ -12,12 +12,24 @@
 import { describe, test, expect, afterEach } from 'bun:test'
 import { createMemoryContextProvider } from '../src/context/memory-provider.ts'
 import { createAgentController, checkWorkflowIdle } from '../src/workflow/controller/controller.ts'
-import type { AgentRunContext, AgentController } from '../src/workflow/controller/types.ts'
+import type { AgentController } from '../src/workflow/controller/types.ts'
 import type { Backend } from '../src/backends/types.ts'
 import type { ResolvedAgent } from '../src/workflow/types.ts'
 import type { ContextProvider } from '../src/context/provider.ts'
 
 // ==================== Helpers ====================
+
+/**
+ * Extract the inbox section from a prompt built by buildAgentPrompt().
+ * The prompt mixes inbox + recent channel; behaviors must match on inbox only
+ * to avoid reacting to historical channel messages.
+ */
+function getInboxSection(prompt: string): string {
+  const start = prompt.indexOf('## Inbox')
+  const end = prompt.indexOf('## Recent Activity')
+  if (start === -1) return ''
+  return end === -1 ? prompt.slice(start) : prompt.slice(start, end)
+}
 
 /** Wait for a condition, throw on timeout */
 async function waitFor(
@@ -35,28 +47,23 @@ async function waitFor(
 
 /**
  * Create a mock backend that simulates agent behavior.
- * The behavior function receives the run context and the shared provider,
- * allowing it to read inbox and write to channel (simulating MCP tool calls).
+ * The behavior function receives the prompt text (built by the controller from
+ * the run context) and the shared provider, allowing it to match on inbox
+ * content and write to channel (simulating MCP tool calls).
+ *
+ * Uses type 'claude' so the controller routes through the normal
+ * build-prompt → send() path (not the mock MCP tool bridge).
  */
 function createMockBackend(
-  name: string,
-  behavior: (ctx: AgentRunContext, provider: ContextProvider) => Promise<void>,
+  _name: string,
+  behavior: (prompt: string, provider: ContextProvider, options?: { system?: string }) => Promise<void>,
   provider: ContextProvider
 ): Backend {
   return {
-    type: name as Backend['type'],
-    async run(ctx) {
-      const start = Date.now()
-      try {
-        await behavior(ctx, provider)
-        return { success: true, duration: Date.now() - start }
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-          duration: Date.now() - start,
-        }
-      }
+    type: 'claude' as const,
+    async send(message: string, options?: { system?: string }) {
+      await behavior(message, provider, options)
+      return { content: 'ok' }
     },
   }
 }
@@ -106,17 +113,18 @@ describe('Alice-Bob workflow with mock backends', () => {
     const provider = createMemoryContextProvider(['alice', 'bob'])
 
     // Track what each agent received (for assertions)
-    const aliceRuns: AgentRunContext[] = []
-    const bobRuns: AgentRunContext[] = []
+    const aliceRuns: { prompt: string; system?: string }[] = []
+    const bobRuns: { prompt: string; system?: string }[] = []
 
     // Alice behavior: reads kickoff, asks Bob a question
+    // Uses getInboxSection() to match only on new inbox messages, not recent channel history
     const aliceBackend = createMockBackend(
       'mock-cursor',
-      async (ctx, p) => {
-        aliceRuns.push(ctx)
-        const inboxMsg = ctx.inbox[0]?.entry.content || ''
+      async (prompt, p, options) => {
+        aliceRuns.push({ prompt, system: options?.system })
+        const inbox = getInboxSection(prompt)
 
-        if (inboxMsg.includes('Please ask @bob')) {
+        if (inbox.includes('Please ask @bob')) {
           // Alice asks Bob a question (simulates channel_send MCP tool call)
           await p.appendChannel('alice', '@bob What is an AI agent and how does it work?')
         }
@@ -127,12 +135,11 @@ describe('Alice-Bob workflow with mock backends', () => {
     // Bob behavior: reads Alice's question, answers
     const bobBackend = createMockBackend(
       'mock-claude',
-      async (ctx, p) => {
-        bobRuns.push(ctx)
-        // Check ALL inbox messages — multiple may arrive in one batch due to async timing
-        const hasQuestion = ctx.inbox.some((m) => m.entry.content.includes('What is an AI agent'))
+      async (prompt, p, options) => {
+        bobRuns.push({ prompt, system: options?.system })
+        const inbox = getInboxSection(prompt)
 
-        if (hasQuestion) {
+        if (inbox.includes('What is an AI agent')) {
           // Bob answers Alice's question (simulates channel_send MCP tool call)
           await p.appendChannel(
             'bob',
@@ -206,10 +213,10 @@ describe('Alice-Bob workflow with mock backends', () => {
     expect(messages[2]!.content).toContain('@alice')
     expect(messages[2]!.content).toContain('perceive its environment')
 
-    // Verify alice received the kickoff in her inbox
+    // Verify alice received the kickoff (prompt includes inbox content)
     expect(aliceRuns.length).toBeGreaterThanOrEqual(1)
-    expect(aliceRuns[0]!.inbox.some((m) => m.entry.content.includes('Please ask @bob'))).toBe(true)
-    expect(aliceRuns[0]!.agent.resolvedSystemPrompt).toContain('Alice')
+    expect(aliceRuns[0]!.prompt).toContain('Please ask @bob')
+    expect(aliceRuns[0]!.system).toContain('Alice')
 
     // Verify bob was invoked
     expect(bobRuns.length).toBeGreaterThanOrEqual(1)
@@ -229,24 +236,30 @@ describe('Alice-Bob workflow with mock backends', () => {
 
   test('agents receive correct run context (system prompt, workspace, project)', async () => {
     const provider = createMemoryContextProvider(['alice', 'bob'])
-    let capturedAliceCtx: AgentRunContext | null = null
-    let capturedBobCtx: AgentRunContext | null = null
+    let capturedAlice: { prompt: string; system?: string; workspace?: string } | null = null
+    let capturedBob: { prompt: string; system?: string; workspace?: string } | null = null
 
-    const aliceBackend = createMockBackend(
-      'mock-cursor',
-      async (ctx, _p) => {
-        capturedAliceCtx = ctx
+    const aliceBackend: Backend = {
+      type: 'claude' as const,
+      setWorkspace(workspaceDir: string) {
+        capturedAlice = { ...capturedAlice!, workspace: workspaceDir }
       },
-      provider
-    )
+      async send(message: string, options?: { system?: string }) {
+        capturedAlice = { ...capturedAlice, prompt: message, system: options?.system }
+        return { content: 'ok' }
+      },
+    }
 
-    const bobBackend = createMockBackend(
-      'mock-claude',
-      async (ctx, _p) => {
-        capturedBobCtx = ctx
+    const bobBackend: Backend = {
+      type: 'claude' as const,
+      setWorkspace(workspaceDir: string) {
+        capturedBob = { ...capturedBob!, workspace: workspaceDir }
       },
-      provider
-    )
+      async send(message: string, options?: { system?: string }) {
+        capturedBob = { ...capturedBob, prompt: message, system: options?.system }
+        return { content: 'ok' }
+      },
+    }
 
     const alice = createAgentController({
       name: 'alice',
@@ -279,27 +292,24 @@ describe('Alice-Bob workflow with mock backends', () => {
     alice.wake()
     bob.wake()
 
-    await waitFor(() => capturedAliceCtx !== null && capturedBobCtx !== null)
+    await waitFor(() => capturedAlice !== null && capturedAlice.prompt !== undefined && capturedBob !== null && capturedBob.prompt !== undefined)
 
-    // Alice context
-    expect(capturedAliceCtx!.name).toBe('alice')
-    expect(capturedAliceCtx!.agent.resolvedSystemPrompt).toContain('Alice')
-    expect(capturedAliceCtx!.agent.resolvedSystemPrompt).toContain('curious')
-    expect(capturedAliceCtx!.mcpUrl).toBe('http://127.0.0.1:0/mcp')
-    expect(capturedAliceCtx!.workspaceDir).toBe('/tmp/ws/alice')
-    expect(capturedAliceCtx!.projectDir).toBe('/home/user/my-project')
-    expect(capturedAliceCtx!.retryAttempt).toBe(1)
-    expect(capturedAliceCtx!.inbox.length).toBe(1)
-    expect(capturedAliceCtx!.inbox[0]!.entry.from).toBe('system')
+    // Alice context — verified through prompt text, system option, and setWorkspace
+    expect(capturedAlice!.system).toContain('Alice')
+    expect(capturedAlice!.system).toContain('curious')
+    expect(capturedAlice!.workspace).toBe('/tmp/ws/alice')
+    expect(capturedAlice!.prompt).toContain('Working on: /home/user/my-project')
+    expect(capturedAlice!.prompt).toContain('1 message')
+    expect(capturedAlice!.prompt).toContain('From @system')
+    // No retry notice on first attempt
+    expect(capturedAlice!.prompt).not.toContain('retry attempt')
 
     // Bob context
-    expect(capturedBobCtx!.name).toBe('bob')
-    expect(capturedBobCtx!.agent.resolvedSystemPrompt).toContain('Bob')
-    expect(capturedBobCtx!.agent.resolvedSystemPrompt).toContain('knowledgeable')
-    expect(capturedBobCtx!.mcpUrl).toBe('http://127.0.0.1:0/mcp')
-    expect(capturedBobCtx!.workspaceDir).toBe('/tmp/ws/bob')
-    expect(capturedBobCtx!.projectDir).toBe('/home/user/my-project')
-    expect(capturedBobCtx!.inbox.length).toBe(1)
+    expect(capturedBob!.system).toContain('Bob')
+    expect(capturedBob!.system).toContain('knowledgeable')
+    expect(capturedBob!.workspace).toBe('/tmp/ws/bob')
+    expect(capturedBob!.prompt).toContain('Working on: /home/user/my-project')
+    expect(capturedBob!.prompt).toContain('1 message')
   })
 
   test('mention-triggered wake: alice mentions bob, bob wakes up', async () => {
@@ -308,9 +318,9 @@ describe('Alice-Bob workflow with mock backends', () => {
 
     const aliceBackend = createMockBackend(
       'mock-cursor',
-      async (ctx, p) => {
-        const inboxMsg = ctx.inbox[0]?.entry.content || ''
-        if (inboxMsg.includes('start')) {
+      async (prompt, p) => {
+        const inbox = getInboxSection(prompt)
+        if (inbox.includes('start')) {
           // Alice sends a message mentioning @bob
           await p.appendChannel('alice', '@bob Can you help me?')
           // Simulate the mention callback (in real workflow, MCP server does this)
@@ -322,12 +332,10 @@ describe('Alice-Bob workflow with mock backends', () => {
 
     const bobBackend = createMockBackend(
       'mock-claude',
-      async (ctx, p) => {
+      async (prompt, p) => {
         bobInvokeCount++
-        const fromAlice = ctx.inbox.some(
-          (m) => m.entry.from === 'alice' && m.entry.content.includes('Can you help')
-        )
-        if (fromAlice) {
+        const inbox = getInboxSection(prompt)
+        if (inbox.includes('Can you help')) {
           await p.appendChannel('bob', '@alice Sure, I can help!')
         }
       },
@@ -389,7 +397,7 @@ describe('Alice-Bob workflow with mock backends', () => {
 
     const aliceBackend = createMockBackend(
       'mock-cursor',
-      async (_ctx, _p) => {
+      async () => {
         aliceInvokeCount++
       },
       provider
@@ -506,14 +514,14 @@ describe('Alice-Bob workflow with mock backends', () => {
 
     const aliceBackend = createMockBackend(
       'mock-cursor',
-      async (ctx, p) => {
+      async (prompt, p) => {
         aliceTurns++
-        const lastMsg = ctx.inbox[ctx.inbox.length - 1]?.entry
+        const inbox = getInboxSection(prompt)
 
-        if (lastMsg?.from === 'system') {
+        if (inbox.includes('From @system') && inbox.includes('machine learning')) {
           await p.appendChannel('alice', '@bob What is machine learning?')
           bob.wake()
-        } else if (lastMsg?.from === 'bob' && lastMsg.content.includes('subset of AI')) {
+        } else if (inbox.includes('subset of AI')) {
           await p.appendChannel('alice', '@bob Thank you! That makes sense.')
           bob.wake()
         }
@@ -523,16 +531,16 @@ describe('Alice-Bob workflow with mock backends', () => {
 
     const bobBackend = createMockBackend(
       'mock-claude',
-      async (ctx, p) => {
-        const lastMsg = ctx.inbox[ctx.inbox.length - 1]?.entry
+      async (prompt, p) => {
+        const inbox = getInboxSection(prompt)
 
-        if (lastMsg?.from === 'alice' && lastMsg.content.includes('machine learning')) {
+        if (inbox.includes('From @alice') && inbox.includes('machine learning')) {
           await p.appendChannel(
             'bob',
             '@alice Machine learning is a subset of AI that enables systems to learn from data.'
           )
           alice.wake()
-        } else if (lastMsg?.from === 'alice' && lastMsg.content.includes('Thank you')) {
+        } else if (inbox.includes('Thank you')) {
           await p.appendChannel('bob', "You're welcome!")
         }
       },

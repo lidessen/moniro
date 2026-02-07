@@ -13,8 +13,6 @@ import { execa, ExecaError } from 'execa'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Backend, BackendResponse } from './types.ts'
-import type { AgentRunContext, AgentRunResult } from '../workflow/controller/types.ts'
-import { runCLIBackend } from './cli-run.ts'
 
 export interface ClaudeCodeOptions {
   /** Model to use (e.g., 'opus', 'sonnet') */
@@ -68,14 +66,6 @@ export class ClaudeCodeBackend implements Backend {
     const mcpConfigPath = join(workspaceDir, 'mcp-config.json')
     writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2))
     this.options.mcpConfigPath = mcpConfigPath
-  }
-
-  /**
-   * Run with full workflow context (for multi-agent mode).
-   * Sets up workspace, builds prompt, and calls send().
-   */
-  async run(ctx: AgentRunContext): Promise<AgentRunResult> {
-    return runCLIBackend(this, ctx, 'claude', this.options.debugLog)
   }
 
   async send(message: string, options?: { system?: string }): Promise<BackendResponse> {

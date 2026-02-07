@@ -1,6 +1,10 @@
 /**
  * Agent Controller Implementation
  * Manages agent lifecycle with polling and retry logic
+ *
+ * The controller owns the full orchestration line:
+ *   inbox → build prompt → configure workspace → backend.send() → result
+ * Backends are pure communication adapters — they only know how to send().
  */
 
 import type { ContextProvider } from '../../context/provider.ts'
@@ -14,6 +18,8 @@ import type {
   WorkflowIdleState,
 } from './types.ts'
 import { CONTROLLER_DEFAULTS } from './types.ts'
+import { buildAgentPrompt } from './prompt.ts'
+import { generateWorkflowMCPConfig } from './mcp-config.ts'
 
 /** Check if controller should continue running */
 function shouldContinue(state: AgentState): boolean {
@@ -121,11 +127,8 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
           retryAttempt: attempt,
         }
 
-        // Run the agent
-        if (!backend.run) {
-          throw new Error(`Backend ${backend.type} does not support run()`)
-        }
-        lastResult = await backend.run(runContext)
+        // Orchestrate: build prompt → configure workspace → send
+        lastResult = await runAgent(backend, runContext, log)
 
         if (lastResult.success) {
           log(`[${name}] Success (${lastResult.duration}ms)`)
@@ -212,6 +215,54 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
         wakeResolver = null
       }
     },
+  }
+}
+
+// ==================== Agent Run Orchestration ====================
+
+import type { Backend } from '../../backends/types.ts'
+import { runMockAgent } from './mock-runner.ts'
+
+/**
+ * Run an agent: build prompt, configure workspace, call backend.send()
+ *
+ * This is the single orchestration function that the controller calls.
+ * All the "how to run an agent" logic lives here — backends just send().
+ *
+ * Mock backend is special: it needs MCP tool bridge + AI SDK for integration
+ * testing, so it gets its own orchestration path in mock-runner.ts.
+ */
+async function runAgent(
+  backend: Backend,
+  ctx: AgentRunContext,
+  log: (msg: string) => void
+): Promise<AgentRunResult> {
+  // Mock backend: use dedicated mock runner with MCP tool bridge
+  if (backend.type === 'mock') {
+    return runMockAgent(ctx, (msg) => log(msg))
+  }
+
+  const startTime = Date.now()
+
+  try {
+    // 1. Configure workspace with MCP
+    if (backend.setWorkspace) {
+      const mcpConfig = generateWorkflowMCPConfig(ctx.mcpUrl, ctx.name)
+      backend.setWorkspace(ctx.workspaceDir, mcpConfig)
+    }
+
+    // 2. Build prompt from context
+    const prompt = buildAgentPrompt(ctx)
+    log(`[${ctx.name}] Prompt (${prompt.length} chars) → ${backend.type} backend`)
+
+    // 3. Send via backend
+    await backend.send(prompt, { system: ctx.agent.resolvedSystemPrompt })
+
+    return { success: true, duration: Date.now() - startTime }
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error)
+    log(`[${ctx.name}] Error: ${errorMsg}`)
+    return { success: false, error: errorMsg, duration: Date.now() - startTime }
   }
 }
 

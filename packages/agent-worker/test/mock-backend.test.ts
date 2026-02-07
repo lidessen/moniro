@@ -4,7 +4,7 @@
  * Tests:
  * 1. Parser validation for `backend: mock` (no model required)
  * 2. Agent identity propagation through MCP transport
- * 3. Mock backend with AI SDK generateText + MCP tools
+ * 3. Mock runner with AI SDK generateText + MCP tools
  */
 
 import { describe, test, expect } from 'bun:test'
@@ -12,7 +12,7 @@ import { validateWorkflow } from '../src/workflow/parser.ts'
 import { createMemoryContextProvider } from '../src/context/memory-provider.ts'
 import { createContextMCPServer } from '../src/context/mcp-server.ts'
 import { runWithHttp } from '../src/context/http-transport.ts'
-import { createMockBackend } from '../src/backends/mock.ts'
+import { runMockAgent } from '../src/workflow/controller/mock-runner.ts'
 import type { AgentRunContext } from '../src/workflow/controller/types.ts'
 
 // ==================== Parser Validation ====================
@@ -96,9 +96,6 @@ describe('agent identity via MCP transport', () => {
     })
 
     try {
-      // Create mock backend and run as alice
-      const backend = createMockBackend()
-
       // Seed inbox with a kickoff message
       await contextProvider.appendChannel('system', 'Hello @alice, please respond.')
 
@@ -122,7 +119,7 @@ describe('agent identity via MCP transport', () => {
         retryAttempt: 1,
       }
 
-      const result = await backend.run!(ctx)
+      const result = await runMockAgent(ctx)
       expect(result.success).toBe(true)
 
       // Wait for channel to be written
@@ -158,15 +155,13 @@ describe('agent identity via MCP transport', () => {
     })
 
     try {
-      const backend = createMockBackend()
-
       // Seed inbox for both agents
       await contextProvider.appendChannel('system', 'Hello @agent1 and @agent2.')
       await new Promise((r) => setTimeout(r, 50))
 
       // Run agent1
       const inbox1 = await contextProvider.getInbox('agent1')
-      const result1 = await backend.run!({
+      const result1 = await runMockAgent({
         name: 'agent1',
         agent: { system_prompt: 'You are agent1.', resolvedSystemPrompt: 'You are agent1.' },
         inbox: inbox1,
@@ -181,7 +176,7 @@ describe('agent identity via MCP transport', () => {
 
       // Run agent2
       const inbox2 = await contextProvider.getInbox('agent2')
-      const result2 = await backend.run!({
+      const result2 = await runMockAgent({
         name: 'agent2',
         agent: { system_prompt: 'You are agent2.', resolvedSystemPrompt: 'You are agent2.' },
         inbox: inbox2,
