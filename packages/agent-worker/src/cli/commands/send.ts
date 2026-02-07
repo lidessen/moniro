@@ -14,8 +14,8 @@ import { DEFAULT_INSTANCE } from "../instance.ts";
  * Get a context provider for the given instance.
  * Auto-provisions the context directory if it doesn't exist.
  */
-function getContextProvider(instance: string, contextDir?: string) {
-  const dir = ensureInstanceContext(instance, contextDir);
+function getContextProvider(instance: string) {
+  const dir = ensureInstanceContext(instance);
   const agentNames = [...getInstanceAgentNames(instance), "user"];
   return createFileContextProvider(dir, agentNames);
 }
@@ -26,11 +26,10 @@ export function registerSendCommands(program: Command) {
     .command("send <message>")
     .description("Send message to channel (use @agent to route)")
     .option("--instance <name>", "Target instance", DEFAULT_INSTANCE)
-    .option("--context-dir <path>", "Context directory path")
     .option("--json", "Output as JSON")
     .action(async (message, options) => {
       const instance = options.instance;
-      const provider = getContextProvider(instance, options.contextDir);
+      const provider = getContextProvider(instance);
 
       const entry = await provider.appendChannel("user", message);
 
@@ -52,14 +51,13 @@ export function registerSendCommands(program: Command) {
     .command("peek")
     .description("View channel messages (default: last 10)")
     .option("--instance <name>", "Target instance", DEFAULT_INSTANCE)
-    .option("--context-dir <path>", "Context directory path")
     .option("--json", "Output as JSON")
     .option("--all", "Show all messages")
     .option("-n, --last <count>", "Show last N messages", parseInt)
     .option("--find <text>", "Filter messages containing text (case-insensitive)")
     .action(async (options) => {
       const instance = options.instance;
-      const provider = getContextProvider(instance, options.contextDir);
+      const provider = getContextProvider(instance);
 
       const limit = options.all ? undefined : (options.last ?? 10);
       let messages = await provider.readChannel({ limit });

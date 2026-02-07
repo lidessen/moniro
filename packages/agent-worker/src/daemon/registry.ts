@@ -105,8 +105,6 @@ export interface SessionInfo {
   name?: string;
   /** Instance namespace (agents in the same instance share context) */
   instance: string;
-  /** Absolute path to instance context directory (channel + documents) */
-  contextDir: string;
   model: string;
   system: string;
   backend: BackendType;
@@ -285,33 +283,18 @@ export async function waitForReady(
 // ==================== Instance Context ====================
 
 /**
- * Resolve context directory for an instance.
- * Priority: explicit contextDir > lookup from existing agents > global default.
- *
- * Default: `~/.agent-worker/contexts/{instance}/`
+ * Get the context directory for an instance.
+ * Always: `~/.agent-worker/contexts/{instance}/`
  */
-export function resolveContextDir(instance: string, contextDir?: string): string {
-  // 1. Explicit path
-  if (contextDir) {
-    const { resolve } = require("node:path") as typeof import("node:path");
-    return resolve(contextDir);
-  }
-
-  // 2. Lookup from existing agents in this instance
-  const existing = getInstanceAgents(instance);
-  if (existing.length > 0 && existing[0]!.contextDir) {
-    return existing[0]!.contextDir;
-  }
-
-  // 3. Global default (~/.agent-worker/contexts/{instance}/)
+export function getInstanceContextDir(instance: string): string {
   return join(CONTEXTS_DIR, instance);
 }
 
 /**
  * Ensure instance context directory exists. Returns the absolute path.
  */
-export function ensureInstanceContext(instance: string, contextDir?: string): string {
-  const dir = resolveContextDir(instance, contextDir);
+export function ensureInstanceContext(instance: string): string {
+  const dir = getInstanceContextDir(instance);
   mkdirSync(dir, { recursive: true });
   return dir;
 }

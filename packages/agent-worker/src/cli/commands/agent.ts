@@ -30,7 +30,6 @@ async function createAgentAction(
     importSkill?: string[];
     foreground?: boolean;
     instance?: string;
-    contextDir?: string;
     json?: boolean;
     feedback?: boolean;
     wakeup?: string;
@@ -79,7 +78,6 @@ async function createAgentAction(
       system,
       name: fullName,
       instance,
-      contextDir: options.contextDir,
       idleTimeout,
       backend,
       skills: options.skill,
@@ -93,9 +91,6 @@ async function createAgentAction(
     const args = [scriptPath, "new", agentName, "-m", model, "-b", backend, "-s", system, "--foreground"];
     args.push("--instance", instance);
     args.push("--idle-timeout", String(idleTimeout));
-    if (options.contextDir) {
-      args.push("--context-dir", options.contextDir);
-    }
     if (options.feedback) {
       args.push("--feedback");
     }
@@ -259,7 +254,6 @@ function addNewCommandOptions(cmd: Command): Command {
     .option("--wakeup <value>", "Scheduled wakeup: ms number, duration (30s/5m/2h), or cron expr")
     .option("--wakeup-prompt <prompt>", "Custom prompt for scheduled wakeup")
     .option("--instance <name>", "Instance namespace (agents in same instance share context)")
-    .option("--context-dir <path>", "Context directory path")
     .option("--foreground", "Run in foreground")
     .option("--json", "Output as JSON");
 }

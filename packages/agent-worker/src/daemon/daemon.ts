@@ -370,7 +370,6 @@ export async function startDaemon(config: {
   system: string;
   name?: string;
   instance?: string;
-  contextDir?: string;
   idleTimeout?: number;
   backend?: BackendType;
   skills?: string[];
@@ -433,7 +432,7 @@ export async function startDaemon(config: {
   }
 
   // Setup instance context (shared channel + documents)
-  const contextDir = ensureInstanceContext(instance, config.contextDir);
+  const contextDir = ensureInstanceContext(instance);
   const agentDisplayName = config.name ? getAgentDisplayName(config.name) : effectiveId.slice(0, 8);
   const existingAgentNames = getInstanceAgentNames(instance);
   const allAgentNames = [...new Set([...existingAgentNames, agentDisplayName, "user"])];
@@ -443,7 +442,6 @@ export async function startDaemon(config: {
     id: effectiveId,
     name: config.name,
     instance,
-    contextDir,
     model: config.model,
     system: config.system,
     backend: backendType,
