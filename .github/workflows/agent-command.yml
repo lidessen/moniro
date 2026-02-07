@@ -1,0 +1,105 @@
+name: Agent Command
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  dispatch:
+    # Only run on PR comments from repo owner that start with /agent-
+    if: |
+      github.event.issue.pull_request &&
+      github.event.comment.user.id == github.event.repository.owner.id &&
+      startsWith(github.event.comment.body, '/agent-')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      # Use env var to avoid script injection from comment body
+      - name: Parse command
+        id: parse
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          COMMAND=$(echo "$COMMENT_BODY" | head -1 | grep -oP '^/agent-[a-z0-9-]+' | sed 's|^/||')
+          if [ -z "$COMMAND" ]; then
+            echo "No valid command found"
+            exit 0
+          fi
+          echo "command=$COMMAND" >> "$GITHUB_OUTPUT"
+          echo "workflow_file=.workflows/${COMMAND}.yaml" >> "$GITHUB_OUTPUT"
+          echo "Parsed command: $COMMAND"
+
+      - name: Get PR head SHA
+        if: steps.parse.outputs.command != ''
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHA=$(gh pr view ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --json headRefOid --jq '.headRefOid')
+          echo "head_sha=$SHA" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        if: steps.parse.outputs.command != ''
+        with:
+          ref: ${{ steps.pr.outputs.head_sha }}
+
+      - name: Check workflow file
+        if: steps.parse.outputs.command != ''
+        id: check
+        run: |
+          if [ -f "${{ steps.parse.outputs.workflow_file }}" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: React to comment
+        if: steps.check.outputs.exists == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions \
+            -f content='eyes'
+
+      - uses: oven-sh/setup-bun@v2
+        if: steps.check.outputs.exists == 'true'
+        with:
+          bun-version: latest
+
+      - name: Install Claude CLI
+        if: steps.check.outputs.exists == 'true'
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Install dependencies
+        if: steps.check.outputs.exists == 'true'
+        run: bun install
+
+      - name: Build agent-worker
+        if: steps.check.outputs.exists == 'true'
+        working-directory: packages/agent-worker
+        run: bun run build
+
+      - name: Run agent workflow
+        if: steps.check.outputs.exists == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          bun packages/agent-worker/src/cli/index.ts run ${{ steps.parse.outputs.workflow_file }}
+
+      - name: Report unknown command
+        if: steps.parse.outputs.command != '' && steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMAND: ${{ steps.parse.outputs.command }}
+        run: |
+          gh pr comment ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --body "Unknown command: \`/$COMMAND\`. No workflow found at \`.workflows/${COMMAND}.yaml\`."
