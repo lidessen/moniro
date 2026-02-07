@@ -61,20 +61,3 @@ export function buildAgentId(agent: string, instance?: string): string {
 export function isValidInstanceName(name: string): boolean {
   return /^[a-zA-Z0-9_-]+$/.test(name);
 }
-
-/**
- * Normalize agent target for lookup
- * Handles both old-style names and new agent@instance format
- */
-export function normalizeTarget(target?: string): string | undefined {
-  if (!target) return undefined;
-
-  // If already has @, return as-is
-  if (target.includes("@")) {
-    return target;
-  }
-
-  // Old-style name without instance - don't add @default
-  // to maintain backwards compatibility with existing sessions
-  return target;
-}

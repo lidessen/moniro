@@ -9,11 +9,11 @@ description: Create and manage AI agent sessions with multiple backends (SDK, Cl
 
 You build AI-powered workflows. You want programmatic control over AI conversations—single-agent or multi-agent collaboration.
 
-**One model**: Every agent belongs to an **instance** (namespace). Agents in the same instance share a channel (for communication) and documents (for shared state). The default instance is `default`.
+**One model**: Every agent belongs to a **workflow** (namespace). Agents in the same workflow share a channel (for communication) and documents (for shared state). The default workflow is `default`.
 
-- `agent-worker new` creates an agent in the default instance
-- `agent-worker run workflow.yaml` creates agents from YAML in a named instance
-- Both are the same thing: agents in instances, sharing context
+- `agent-worker new` creates an agent in the default workflow
+- `agent-worker run workflow.yaml` creates agents from YAML in a named workflow
+- Both are the same thing: agents in workflows, sharing context
 
 You're here to create agents, send messages, orchestrate workflows—all from the command line.
 
@@ -45,30 +45,30 @@ agent-worker send "@reviewer review the code, then @coder fix issues"
 agent-worker stop --all
 ```
 
-That's it. Agents share context automatically within an instance.
+That's it. Agents share context automatically within a workflow.
 
 ---
 
 ## Core Concepts
 
-### Instance = Namespace
+### Workflow = Namespace
 
-Every agent belongs to an instance. Agents in the same instance share:
+Every agent belongs to a workflow. Agents in the same workflow share:
 - **Channel**: Communication via @mentions
 - **Documents**: Shared workspace
 
 ```bash
-# Default instance
-agent-worker new reviewer              # → reviewer (in default instance)
-agent-worker new coder                  # → coder (in default instance, shares channel)
+# Default workflow
+agent-worker new reviewer              # → reviewer (in default workflow)
+agent-worker new coder                  # → coder (in default workflow, shares channel)
 
-# Named instance
-agent-worker new reviewer --instance pr-123
-agent-worker new coder --instance pr-123
+# Named workflow
+agent-worker new reviewer -w pr-123
+agent-worker new coder -w pr-123
 
-# List agents (grouped by instance)
+# List agents (grouped by workflow)
 agent-worker ls
-agent-worker ls --instance pr-123
+agent-worker ls -w pr-123
 ```
 
 ### @Mention Routing
@@ -128,8 +128,8 @@ agent-worker new reviewer -s "You are a code reviewer."
 # From file
 agent-worker new reviewer -f ./prompts/reviewer.txt
 
-# In named instance
-agent-worker new reviewer --instance pr-123
+# In named workflow
+agent-worker new reviewer -w pr-123
 
 # Custom idle timeout (ms, 0 = no timeout)
 agent-worker new --idle-timeout 3600000
@@ -153,7 +153,7 @@ agent-worker use reviewer
 
 # Stop
 agent-worker stop reviewer
-agent-worker stop --instance pr-123
+agent-worker stop -w pr-123
 agent-worker stop --all
 ```
 
@@ -173,8 +173,8 @@ agent-worker send "@reviewer @coder collaborate on this fix"
 # Broadcast (no @mention)
 agent-worker send "status update"
 
-# Target different instance
-agent-worker send "@reviewer check this" --instance pr-123
+# Target different workflow
+agent-worker send -w pr-123 "@reviewer check this"
 ```
 
 ### Peek (Read Channel)
@@ -192,8 +192,8 @@ agent-worker peek --all
 # Search
 agent-worker peek --find "error"
 
-# Different instance
-agent-worker peek --instance pr-123
+# Different workflow
+agent-worker peek -w pr-123
 ```
 
 ### Agent-level Operations
@@ -351,8 +351,8 @@ agent-worker run review.yaml
 # Or keep running
 agent-worker start review.yaml
 
-# Parallel instances
-agent-worker run review.yaml --instance pr-123
+# Named workflow
+agent-worker run review.yaml -w pr-123
 ```
 
 ### Shared Context
@@ -423,15 +423,19 @@ const state = session.getState()
 
 ```
 agent-worker new [name]      Create agent (auto-names if omitted: a0, a1, ...)
-agent-worker ls              List all agents (grouped by instance)
+  -w, --workflow <name>      Workflow namespace
+agent-worker ls              List all agents (grouped by workflow)
+  -w, --workflow <name>      Filter by workflow
 agent-worker status [target] Check agent status
 agent-worker use <target>    Set default agent
 agent-worker stop [target]   Stop agent(s)
   --all                      Stop all agents
-  --instance <name>          Stop all in instance
+  -w, --workflow <name>      Stop all in workflow
 
 agent-worker send <message>  Send to channel (@mention to route)
+  -w, --workflow <name>      Target workflow
 agent-worker peek            View channel (default: last 10)
+  -w, --workflow <name>      Target workflow
   --all                      Show all messages
   -n, --last <count>         Show last N messages
   --find <text>              Search messages
@@ -453,7 +457,9 @@ agent-worker schedule get    View current schedule
 agent-worker schedule clear  Remove wakeup schedule
 
 agent-worker run <file>      Run YAML workflow (exit on complete)
+  -w, --workflow <name>      Workflow name
 agent-worker start <file>    Start YAML workflow (keep running)
+  -w, --workflow <name>      Workflow name
 
 agent-worker providers       Check SDK providers
 agent-worker backends        Check available backends
@@ -465,9 +471,7 @@ agent-worker backends        Check available backends
 
 agent-worker is about **programmatic control** over AI conversations.
 
-- **Instance**: Namespace for agents sharing context
+- **Workflow (`-w`)**: Namespace for agents sharing context
 - **Channel**: @mention-based communication
 - **Backends**: SDK, Claude, Codex, Cursor
-- **Workflows**: YAML or manual agent creation — same model
-
-不是手动对话，而是工程化的 AI 交互。
+- **YAML or manual**: Same model — agents in workflows, sharing context
