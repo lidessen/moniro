@@ -2,7 +2,7 @@
  * Proposal & Voting System Tests
  */
 
-import { describe, test, expect, beforeEach } from 'vitest'
+import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { tmpdir } from 'node:os'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
@@ -653,6 +653,3 @@ describe('formatProposalList', () => {
     expect(formatted).toContain('resolved')
   })
 })
-
-// Import afterEach for cleanup
-import { afterEach } from 'vitest'
