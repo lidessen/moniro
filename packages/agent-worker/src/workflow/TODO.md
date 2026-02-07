@@ -3,6 +3,7 @@
 Implementation tasks for the workflow design.
 
 **Related documents:**
+
 - [DESIGN.md](./DESIGN.md) - Design concepts and decisions
 - [REFERENCE.md](./REFERENCE.md) - Implementation details, interfaces, code examples
 
@@ -15,6 +16,7 @@ Refactor existing Phase 1-6 implementation to align with new design.
 ### Storage Structure Migration
 
 Current structure:
+
 ```
 .workflow/instance/
 ├── .mention-state.json    # Flat in context dir
@@ -23,6 +25,7 @@ Current structure:
 ```
 
 Target structure:
+
 ```
 .workflow/instance/
 ├── _state/                # Internal state directory
@@ -89,9 +92,11 @@ Target structure:
 ### MCP Server Changes (`context/mcp-server.ts`)
 
 **Breaking Change:**
+
 - [x] **Remove auto-acknowledge from `channel_read`**
 
 Tool updates:
+
 - [x] Update `channel_mentions` → `inbox_check` (rename only)
 - [x] Add `inbox_ack` tool (explicit acknowledgment)
 - [x] Add `file` parameter to `document_read`
@@ -130,7 +135,7 @@ Tool updates:
 - [x] **TypeScript**: All workflow files pass type checking
 - [x] **Unit tests**: MemoryContextProvider passes all tests with new interface
 - [x] **Unit tests**: FileContextProvider passes all tests with new interface
-- [x] **Unit tests**: MCP server tools work correctly (inbox_check, inbox_ack, document_*)
+- [x] **Unit tests**: MCP server tools work correctly (inbox*check, inbox_ack, document*\*)
 - [x] **Integration test**: Create workflow, send messages, verify inbox/ack flow
 - [x] **Integration test**: Multi-file document operations (create, list, read, write)
 - [ ] **Manual test**: `agent-worker run` with sample workflow, verify storage structure
@@ -196,20 +201,20 @@ Tool updates:
 
 ## Progress
 
-| Phase | Status | Notes |
-|-------|--------|-------|
-| **0. Migration** | ✅ Complete | Refactored existing code to align with new design |
-| 1. Context Provider | ✅ Complete | `context/` module - inbox/multi-doc implemented |
-| 2. Context MCP Server | ✅ Complete | inbox_check/inbox_ack, document_* tools |
-| 3. Kickoff Model | ✅ Complete | runner with setup + kickoff execution |
-| 4. CLI Updates | ✅ Complete | start/stop/list commands + context subcommand |
-| 5. Run/Start Modes | ✅ Complete | run idle detection + start --background + graceful shutdown |
-| 6. Agent MCP Integration | ✅ Complete | mcp-config.ts + mcp-stdio bridge |
-| 7. Inbox Model | ✅ Complete | Priority detection implemented and tested |
-| 8. Agent Controller | ✅ Complete | Controller + backends + runWorkflowWithControllers |
-| 9. Multi-File Documents | ✅ Complete | Nested dirs implemented in Phase 0, all tests passing |
-| 10. Document Ownership | 🔄 Pending | Optional, requires Phase 11 for election |
-| 11. Proposal & Voting | ✅ Complete | ProposalManager, MCP tools, resolution logic |
+| Phase                    | Status      | Notes                                                       |
+| ------------------------ | ----------- | ----------------------------------------------------------- |
+| **0. Migration**         | ✅ Complete | Refactored existing code to align with new design           |
+| 1. Context Provider      | ✅ Complete | `context/` module - inbox/multi-doc implemented             |
+| 2. Context MCP Server    | ✅ Complete | inbox*check/inbox_ack, document*\* tools                    |
+| 3. Kickoff Model         | ✅ Complete | runner with setup + kickoff execution                       |
+| 4. CLI Updates           | ✅ Complete | start/stop/list commands + context subcommand               |
+| 5. Run/Start Modes       | ✅ Complete | run idle detection + start --background + graceful shutdown |
+| 6. Agent MCP Integration | ✅ Complete | mcp-config.ts + mcp-stdio bridge                            |
+| 7. Inbox Model           | ✅ Complete | Priority detection implemented and tested                   |
+| 8. Agent Controller      | ✅ Complete | Controller + backends + runWorkflowWithControllers          |
+| 9. Multi-File Documents  | ✅ Complete | Nested dirs implemented in Phase 0, all tests passing       |
+| 10. Document Ownership   | 🔄 Pending  | Optional, requires Phase 11 for election                    |
+| 11. Proposal & Voting    | ✅ Complete | ProposalManager, MCP tools, resolution logic                |
 
 ### Implementation Order
 
@@ -250,6 +255,7 @@ Phase 0 (Migration)
 ## Phase 8: Agent Controller & Backend Abstraction
 
 ### Agent Controller
+
 - [x] Define `AgentController` interface (state: idle/running/stopped)
 - [x] Define `AgentControllerConfig` types with `RetryConfig`
 - [x] Implement `createAgentController()` factory
@@ -261,12 +267,14 @@ Phase 0 (Migration)
 - [x] **Add `retryAttempt` to `AgentRunContext`** (let agent know if retry)
 
 ### Context Management
+
 - [x] Define `AgentRunContext` interface (with `retryAttempt` field)
 - [x] Implement `buildAgentPrompt()` - unified prompt from inbox/channel/document
 - [x] Implement `formatInbox()` and `formatChannel()` helpers
 - [x] Configure recent channel limit (last N entries)
 
 ### Backend Abstraction
+
 - [x] Define `AgentBackend` interface
 - [x] Define `AgentRunResult` type
 - [x] Implement `SDKBackend` (Anthropic SDK with MCP tools)
@@ -278,6 +286,7 @@ Phase 0 (Migration)
 - [x] **Add `detectCLIError()` for CLI backend success criteria**
 
 ### Idle Detection (Run Mode)
+
 - [x] Define `WorkflowIdleState` interface
 - [x] Implement `isWorkflowComplete()` - check all idle conditions
 - [x] Implement `checkWorkflowIdle()` with debounce
@@ -285,6 +294,7 @@ Phase 0 (Migration)
 - [x] Exit conditions: all idle + no unread inbox + no active proposals
 
 ### CLI Send Command
+
 - [x] Implement target pattern parsing: `agent`, `agent@instance`, `@instance`
 - [ ] Standalone agent: direct to inbox (requires standalone agent support)
 - [x] Workflow agent (`agent@instance`): channel post with @mention
@@ -292,6 +302,7 @@ Phase 0 (Migration)
 - [x] Mark user messages with `[user]` sender in channel
 
 ### Integration
+
 - [x] Add `runWorkflowWithControllers()` - controller-based runner
 - [x] Add graceful shutdown for controllers (`shutdownControllers()`)
 - [x] Support run mode (exit when idle) and start mode (persistent)
@@ -337,11 +348,13 @@ Single-writer model to prevent concurrent document conflicts.
 > **Note**: `documentOwner` config is added in Phase 0 Migration. This phase implements enforcement.
 
 ### Default Behavior
+
 - [ ] Single agent workflow: ownership disabled (no restrictions)
 - [ ] Multiple agents + `documentOwner` specified: use configured owner
 - [ ] Multiple agents + not specified: trigger election (Phase 11)
 
 ### Ownership Enforcement
+
 - [ ] Add ownership check to `document_write`, `document_create`, `document_append`
 - [ ] Add `document_suggest` MCP tool for non-owners
 - [ ] Non-owner write attempts return error with guidance to use `document_suggest`
@@ -363,6 +376,7 @@ Single-writer model to prevent concurrent document conflicts.
 Generic collaborative decision-making for elections, design decisions, task assignment, etc.
 
 ### Core Types
+
 - [x] Define `Proposal` interface (id, type, title, options, resolution, binding, status)
 - [x] Define `ProposalOption` interface (id, label, metadata)
 - [x] Define `ResolutionRule` interface (type, quorum, tieBreaker)
@@ -371,6 +385,7 @@ Generic collaborative decision-making for elections, design decisions, task assi
 - [x] Resolution types: plurality, majority, unanimous
 
 ### Persistence & Archiving
+
 - [x] Define `ProposalsState` interface (proposals + version)
 - [x] Implement `loadProposals()` from `_state/proposals.json`
 - [x] Implement `saveProposals()` to `_state/proposals.json`
@@ -379,12 +394,14 @@ Generic collaborative decision-making for elections, design decisions, task assi
 - [ ] Create decisions.md with header on first archive (deferred)
 
 ### MCP Tools
+
 - [x] Add `proposal_create` tool
 - [x] Add `vote` tool (overwrites previous vote from same voter)
 - [x] Add `proposal_status` tool
 - [x] Add `proposal_cancel` tool (creator only)
 
 ### Resolution Logic
+
 - [x] Implement resolution with plurality/majority/unanimous rules
 - [x] Implement quorum requirement (explicit or all agents)
 - [x] Handle timeout resolution (expiration check on access)
@@ -392,17 +409,20 @@ Generic collaborative decision-making for elections, design decisions, task assi
 - [x] Timeout fallback: partial votes → resolve with winner
 
 ### Idle Detection Integration
+
 - [x] Add `proposalManager` option to `createContextMCPServer()`
 - [x] Update `buildWorkflowIdleState()` to check active proposals
 - [x] `hasActiveProposals()` method on ProposalManager
 
 ### Channel Integration
+
 - [x] Announce proposal creation in channel
 - [x] Announce votes in channel
 - [x] Announce resolution results in channel
 - [x] Announce cancellation in channel
 
 ### Deferred Features
+
 - [ ] Election before kickoff (blocking) for document owner
 - [ ] Block document_write during active election
 - [ ] Auto-create document owner election when needed (binding)
@@ -442,16 +462,18 @@ context:
   config:
     channel: main.md
     subchannels:
-      - security      # security.channel.md
-      - performance   # performance.channel.md
+      - security # security.channel.md
+      - performance # performance.channel.md
 ```
 
 **Potential use cases**:
+
 - Large workflows with many agents (main channel too noisy)
 - Private discussions (security review details)
 - Parallel workstreams (different sub-teams)
 
 **Why deferred**:
+
 - Document multi-file already handles topic separation
 - Instance isolation handles truly separate workflows
 - Wait for real usage patterns before adding complexity
@@ -472,12 +494,14 @@ agent-worker context tool remove <name>
 ```
 
 **Implementation approach**:
+
 1. CLI sends IPC message to running MCP server
 2. MCP server registers tool dynamically: `server.tool(name, desc, schema, handler)`
 3. Call `server.sendToolListChanged()` to notify connected clients
 4. Clients (Claude, etc.) auto-refresh tool list
 
 **Use cases**:
+
 - Project-specific tools (build, deploy, etc.)
 - Integration with external services
 - Workflow-specific actions beyond channel/document

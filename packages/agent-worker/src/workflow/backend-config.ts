@@ -3,9 +3,16 @@
  * Generates MCP configuration files for different backends
  */
 
-import { writeFileSync, readFileSync, existsSync, mkdirSync, renameSync, unlinkSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
-import type { BackendType } from '../backends/types.ts'
+import {
+  writeFileSync,
+  readFileSync,
+  existsSync,
+  mkdirSync,
+  renameSync,
+  unlinkSync,
+} from "node:fs";
+import { join, resolve } from "node:path";
+import type { BackendType } from "../backends/types.ts";
 
 /**
  * Resolve the command and prefix args to invoke agent-worker CLI.
@@ -13,14 +20,14 @@ import type { BackendType } from '../backends/types.ts'
  * so the subprocess runs in the same environment as the parent.
  */
 function resolveAgentWorkerCLI(): { command: string; prefixArgs: string[] } {
-  const scriptPath = process.argv[1]
+  const scriptPath = process.argv[1];
   if (scriptPath) {
     return {
       command: process.execPath,
       prefixArgs: [...process.execArgv, resolve(scriptPath)],
-    }
+    };
   }
-  return { command: 'agent-worker', prefixArgs: [] }
+  return { command: "agent-worker", prefixArgs: [] };
 }
 
 /**
@@ -28,11 +35,11 @@ function resolveAgentWorkerCLI(): { command: string; prefixArgs: string[] } {
  */
 export interface MCPServerConfig {
   /** Path to the Unix socket */
-  socketPath: string
+  socketPath: string;
   /** Agent identity for the MCP connection */
-  agentId: string
+  agentId: string;
   /** Optional server name */
-  name?: string
+  name?: string;
 }
 
 /**
@@ -41,19 +48,19 @@ export interface MCPServerConfig {
 export function generateMCPConfig(
   backend: BackendType,
   config: MCPServerConfig,
-  workingDir: string
+  workingDir: string,
 ): MCPConfigResult {
   switch (backend) {
-    case 'claude':
-      return generateClaudeMCPConfig(config, workingDir)
-    case 'codex':
-      return generateCodexMCPConfig(config, workingDir)
-    case 'cursor':
-      return generateCursorMCPConfig(config, workingDir)
-    case 'sdk':
-      return generateSDKMCPConfig(config)
+    case "claude":
+      return generateClaudeMCPConfig(config, workingDir);
+    case "codex":
+      return generateCodexMCPConfig(config, workingDir);
+    case "cursor":
+      return generateCursorMCPConfig(config, workingDir);
+    case "sdk":
+      return generateSDKMCPConfig(config);
     default:
-      throw new Error(`Unsupported backend for MCP config: ${backend}`)
+      throw new Error(`Unsupported backend for MCP config: ${backend}`);
   }
 }
 
@@ -62,17 +69,17 @@ export function generateMCPConfig(
  */
 export interface MCPConfigResult {
   /** Config type */
-  type: 'file' | 'flags' | 'env'
+  type: "file" | "flags" | "env";
   /** Path to config file (for file type) */
-  configPath?: string
+  configPath?: string;
   /** CLI flags to pass (for flags type) */
-  flags?: string[]
+  flags?: string[];
   /** Environment variables (for env type) */
-  env?: Record<string, string>
+  env?: Record<string, string>;
   /** Backup path if file was modified */
-  backupPath?: string
+  backupPath?: string;
   /** Restore function to revert changes */
-  restore?: () => void
+  restore?: () => void;
 }
 
 /**
@@ -89,31 +96,39 @@ export interface MCPConfigResult {
  * }
  */
 function generateClaudeMCPConfig(config: MCPServerConfig, workingDir: string): MCPConfigResult {
-  const configDir = join(workingDir, '.agent-worker')
+  const configDir = join(workingDir, ".agent-worker");
   if (!existsSync(configDir)) {
-    mkdirSync(configDir, { recursive: true })
+    mkdirSync(configDir, { recursive: true });
   }
 
-  const configPath = join(configDir, `mcp-${config.agentId}.json`)
+  const configPath = join(configDir, `mcp-${config.agentId}.json`);
 
   // Generate MCP config that connects to the Unix socket
-  const { command, prefixArgs } = resolveAgentWorkerCLI()
+  const { command, prefixArgs } = resolveAgentWorkerCLI();
   const mcpConfig = {
     mcpServers: {
       context: {
         command,
-        args: [...prefixArgs, 'context', 'mcp-stdio', '--socket', config.socketPath, '--agent', config.agentId],
+        args: [
+          ...prefixArgs,
+          "context",
+          "mcp-stdio",
+          "--socket",
+          config.socketPath,
+          "--agent",
+          config.agentId,
+        ],
       },
     },
-  }
+  };
 
-  writeFileSync(configPath, JSON.stringify(mcpConfig, null, 2))
+  writeFileSync(configPath, JSON.stringify(mcpConfig, null, 2));
 
   return {
-    type: 'flags',
+    type: "flags",
     configPath,
-    flags: ['--mcp-config', configPath],
-  }
+    flags: ["--mcp-config", configPath],
+  };
 }
 
 /**
@@ -125,60 +140,70 @@ function generateClaudeMCPConfig(config: MCPServerConfig, workingDir: string): M
  * args = ["context", "mcp-stdio", "--socket", "/path/to/socket", "--agent", "agentId"]
  */
 function generateCodexMCPConfig(config: MCPServerConfig, workingDir: string): MCPConfigResult {
-  const codexDir = join(workingDir, '.codex')
-  const configPath = join(codexDir, 'config.toml')
-  let backupPath: string | undefined
-  let originalContent: string | undefined
+  const codexDir = join(workingDir, ".codex");
+  const configPath = join(codexDir, "config.toml");
+  let backupPath: string | undefined;
+  let originalContent: string | undefined;
 
   // Backup existing config
   if (existsSync(configPath)) {
-    backupPath = `${configPath}.bak`
-    originalContent = readFileSync(configPath, 'utf-8')
-    renameSync(configPath, backupPath)
+    backupPath = `${configPath}.bak`;
+    originalContent = readFileSync(configPath, "utf-8");
+    renameSync(configPath, backupPath);
   } else {
-    mkdirSync(codexDir, { recursive: true })
+    mkdirSync(codexDir, { recursive: true });
   }
 
   // Generate TOML config
-  const { command: codexCmd, prefixArgs: codexPrefix } = resolveAgentWorkerCLI()
-  const socketEscaped = config.socketPath.replace(/\\/g, '\\\\')
-  const allArgs = [...codexPrefix, 'context', 'mcp-stdio', '--socket', socketEscaped, '--agent', config.agentId]
-  const argsToml = allArgs.map((a) => `"${a.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`).join(', ')
+  const { command: codexCmd, prefixArgs: codexPrefix } = resolveAgentWorkerCLI();
+  const socketEscaped = config.socketPath.replace(/\\/g, "\\\\");
+  const allArgs = [
+    ...codexPrefix,
+    "context",
+    "mcp-stdio",
+    "--socket",
+    socketEscaped,
+    "--agent",
+    config.agentId,
+  ];
+  const argsToml = allArgs
+    .map((a) => `"${a.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`)
+    .join(", ");
   const tomlContent = `# Auto-generated by agent-worker
 [mcp_servers.context]
-command = "${codexCmd.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"
+command = "${codexCmd.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"
 args = [${argsToml}]
-`
+`;
 
   // If there was existing content, append our config
   if (originalContent) {
     // Check if context server already exists
-    if (!originalContent.includes('[mcp_servers.context]')) {
-      writeFileSync(configPath, originalContent + '\n' + tomlContent)
+    if (!originalContent.includes("[mcp_servers.context]")) {
+      writeFileSync(configPath, originalContent + "\n" + tomlContent);
     } else {
       // Replace existing context config
       const newContent = originalContent.replace(
         /\[mcp_servers\.context\][\s\S]*?(?=\[|$)/,
-        tomlContent
-      )
-      writeFileSync(configPath, newContent)
+        tomlContent,
+      );
+      writeFileSync(configPath, newContent);
     }
   } else {
-    writeFileSync(configPath, tomlContent)
+    writeFileSync(configPath, tomlContent);
   }
 
   return {
-    type: 'file',
+    type: "file",
     configPath,
     backupPath,
     restore: () => {
       if (backupPath && existsSync(backupPath)) {
-        renameSync(backupPath, configPath)
+        renameSync(backupPath, configPath);
       } else if (existsSync(configPath)) {
-        unlinkSync(configPath)
+        unlinkSync(configPath);
       }
     },
-  }
+  };
 }
 
 /**
@@ -195,47 +220,55 @@ args = [${argsToml}]
  * }
  */
 function generateCursorMCPConfig(config: MCPServerConfig, workingDir: string): MCPConfigResult {
-  const cursorDir = join(workingDir, '.cursor')
-  const configPath = join(cursorDir, 'mcp.json')
-  let backupPath: string | undefined
-  let originalContent: Record<string, unknown> = {}
+  const cursorDir = join(workingDir, ".cursor");
+  const configPath = join(cursorDir, "mcp.json");
+  let backupPath: string | undefined;
+  let originalContent: Record<string, unknown> = {};
 
   // Backup existing config
   if (existsSync(configPath)) {
-    backupPath = `${configPath}.bak`
-    originalContent = JSON.parse(readFileSync(configPath, 'utf-8'))
-    renameSync(configPath, backupPath)
+    backupPath = `${configPath}.bak`;
+    originalContent = JSON.parse(readFileSync(configPath, "utf-8"));
+    renameSync(configPath, backupPath);
   } else {
-    mkdirSync(cursorDir, { recursive: true })
+    mkdirSync(cursorDir, { recursive: true });
   }
 
   // Generate JSON config
-  const { command: cursorCmd, prefixArgs: cursorPrefix } = resolveAgentWorkerCLI()
+  const { command: cursorCmd, prefixArgs: cursorPrefix } = resolveAgentWorkerCLI();
   const mcpConfig = {
     ...originalContent,
     mcpServers: {
-      ...(originalContent.mcpServers as Record<string, unknown> || {}),
+      ...(originalContent.mcpServers as Record<string, unknown>),
       context: {
         command: cursorCmd,
-        args: [...cursorPrefix, 'context', 'mcp-stdio', '--socket', config.socketPath, '--agent', config.agentId],
+        args: [
+          ...cursorPrefix,
+          "context",
+          "mcp-stdio",
+          "--socket",
+          config.socketPath,
+          "--agent",
+          config.agentId,
+        ],
       },
     },
-  }
+  };
 
-  writeFileSync(configPath, JSON.stringify(mcpConfig, null, 2))
+  writeFileSync(configPath, JSON.stringify(mcpConfig, null, 2));
 
   return {
-    type: 'file',
+    type: "file",
     configPath,
     backupPath,
     restore: () => {
       if (backupPath && existsSync(backupPath)) {
-        renameSync(backupPath, configPath)
+        renameSync(backupPath, configPath);
       } else if (existsSync(configPath)) {
-        unlinkSync(configPath)
+        unlinkSync(configPath);
       }
     },
-  }
+  };
 }
 
 /**
@@ -244,12 +277,12 @@ function generateCursorMCPConfig(config: MCPServerConfig, workingDir: string): M
  */
 function generateSDKMCPConfig(config: MCPServerConfig): MCPConfigResult {
   return {
-    type: 'env',
+    type: "env",
     env: {
       MCP_SOCKET_PATH: config.socketPath,
       MCP_AGENT_ID: config.agentId,
     },
-  }
+  };
 }
 
 /**
@@ -258,7 +291,7 @@ function generateSDKMCPConfig(config: MCPServerConfig): MCPConfigResult {
 export function cleanupMCPConfigs(results: MCPConfigResult[]): void {
   for (const result of results) {
     if (result.restore) {
-      result.restore()
+      result.restore();
     }
   }
 }

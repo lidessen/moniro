@@ -43,10 +43,10 @@ The workflow orchestrates agents autonomously—`@reviewer` analyzes the PR, men
 
 All agents share two spaces:
 
-| Space | Purpose | Format |
-|-------|---------|--------|
-| **Channel** | Communication | Append-only timeline with @mentions |
-| **Document** | Workspace | Editable shared notes and findings |
+| Space        | Purpose       | Format                              |
+| ------------ | ------------- | ----------------------------------- |
+| **Channel**  | Communication | Append-only timeline with @mentions |
+| **Document** | Workspace     | Editable shared notes and findings  |
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -176,9 +176,9 @@ Each instance has isolated context at `.workflow/{instance}/`.
 
 ### Two Execution Modes
 
-| Mode | Command | Behavior |
-|------|---------|----------|
-| **Run** | `agent-worker run` | Execute and exit when complete |
+| Mode      | Command              | Behavior                            |
+| --------- | -------------------- | ----------------------------------- |
+| **Run**   | `agent-worker run`   | Execute and exit when complete      |
 | **Start** | `agent-worker start` | Keep running until manually stopped |
 
 ### Variable Interpolation
@@ -203,15 +203,15 @@ Reserved variables: `${{ env.VAR }}`, `${{ workflow.name }}`, `${{ workflow.inst
 
 Claude recently released [Agent Teams](https://code.claude.com/docs/en/agent-teams), a similar concept. Here's how they compare:
 
-| Aspect | Agent Worker Workflow | Claude Agent Teams |
-|--------|----------------------|-------------------|
-| **Coordination** | @mention in shared channel | Mailbox messaging system |
-| **Context** | Channel + Document (persistent) | Task list only |
-| **Session resumption** | ✓ File-based context survives | ✗ In-process teammates can't resume |
-| **Backend support** | Any MCP-compatible agent | Claude Code only |
-| **Terminal requirements** | None | tmux/iTerm2 for split panes |
-| **Parallel instances** | ✓ Instance-based isolation | ✗ One team per session |
-| **Configuration** | YAML workflow files | Natural language prompts |
+| Aspect                    | Agent Worker Workflow           | Claude Agent Teams                  |
+| ------------------------- | ------------------------------- | ----------------------------------- |
+| **Coordination**          | @mention in shared channel      | Mailbox messaging system            |
+| **Context**               | Channel + Document (persistent) | Task list only                      |
+| **Session resumption**    | ✓ File-based context survives   | ✗ In-process teammates can't resume |
+| **Backend support**       | Any MCP-compatible agent        | Claude Code only                    |
+| **Terminal requirements** | None                            | tmux/iTerm2 for split panes         |
+| **Parallel instances**    | ✓ Instance-based isolation      | ✗ One team per session              |
+| **Configuration**         | YAML workflow files             | Natural language prompts            |
 
 ### Why We Think Our Design is Better
 
@@ -255,11 +255,11 @@ Mix different providers based on task requirements:
 ```yaml
 agents:
   architect:
-    model: anthropic/claude-opus-4    # Claude for design
+    model: anthropic/claude-opus-4 # Claude for design
     system_prompt: prompts/architect.md
 
   implementer:
-    model: openai/gpt-5.2-codex       # Codex for code
+    model: openai/gpt-5.2-codex # Codex for code
     system_prompt: prompts/implementer.md
 ```
 

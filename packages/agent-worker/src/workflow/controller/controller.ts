@@ -7,8 +7,8 @@
  * Backends are pure communication adapters — they only know how to send().
  */
 
-import type { ContextProvider } from '../context/provider.ts'
-import type { ProposalManager } from '../context/proposals.ts'
+import type { ContextProvider } from "../context/provider.ts";
+import type { ProposalManager } from "../context/proposals.ts";
 import type {
   AgentController,
   AgentControllerConfig,
@@ -16,14 +16,14 @@ import type {
   AgentRunContext,
   AgentRunResult,
   WorkflowIdleState,
-} from './types.ts'
-import { CONTROLLER_DEFAULTS } from './types.ts'
-import { buildAgentPrompt } from './prompt.ts'
-import { generateWorkflowMCPConfig } from './mcp-config.ts'
+} from "./types.ts";
+import { CONTROLLER_DEFAULTS } from "./types.ts";
+import { buildAgentPrompt } from "./prompt.ts";
+import { generateWorkflowMCPConfig } from "./mcp-config.ts";
 
 /** Check if controller should continue running */
 function shouldContinue(state: AgentState): boolean {
-  return state !== 'stopped'
+  return state !== "stopped";
 }
 
 /**
@@ -47,30 +47,31 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
     backend,
     onRunComplete,
     log = () => {},
-  } = config
+  } = config;
 
-  const pollInterval = config.pollInterval ?? CONTROLLER_DEFAULTS.pollInterval
+  const pollInterval = config.pollInterval ?? CONTROLLER_DEFAULTS.pollInterval;
   const retryConfig = {
     maxAttempts: config.retry?.maxAttempts ?? CONTROLLER_DEFAULTS.retry.maxAttempts,
     backoffMs: config.retry?.backoffMs ?? CONTROLLER_DEFAULTS.retry.backoffMs,
-    backoffMultiplier: config.retry?.backoffMultiplier ?? CONTROLLER_DEFAULTS.retry.backoffMultiplier,
-  }
+    backoffMultiplier:
+      config.retry?.backoffMultiplier ?? CONTROLLER_DEFAULTS.retry.backoffMultiplier,
+  };
 
-  let state: AgentState = 'stopped'
-  let wakeResolver: (() => void) | null = null
-  let pollTimeout: ReturnType<typeof setTimeout> | null = null
+  let state: AgentState = "stopped";
+  let wakeResolver: (() => void) | null = null;
+  let pollTimeout: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * Wait for either poll interval or wake() call
    */
   async function waitForWakeOrPoll(): Promise<void> {
     return new Promise((resolve) => {
-      wakeResolver = resolve
+      wakeResolver = resolve;
       pollTimeout = setTimeout(() => {
-        wakeResolver = null
-        resolve()
-      }, pollInterval)
-    })
+        wakeResolver = null;
+        resolve();
+      }, pollInterval);
+    });
   }
 
   /**
@@ -79,149 +80,156 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
   async function runLoop(): Promise<void> {
     while (shouldContinue(state)) {
       // Wait for poll interval or wake
-      await waitForWakeOrPoll()
+      await waitForWakeOrPoll();
 
       // Check if stopped during wait
-      if (!shouldContinue(state)) break
+      if (!shouldContinue(state)) break;
 
       // Check inbox
-      const inbox = await contextProvider.getInbox(name)
+      const inbox = await contextProvider.getInbox(name);
       if (inbox.length === 0) {
-        state = 'idle'
-        continue
+        state = "idle";
+        continue;
       }
 
       // Log inbox contents for debugging
-      const senders = inbox.map((m) => m.entry.from)
-      log(`[${name}] Inbox: ${inbox.length} message(s) from [${senders.join(', ')}]`)
+      const senders = inbox.map((m) => m.entry.from);
+      log(`[${name}] Inbox: ${inbox.length} message(s) from [${senders.join(", ")}]`);
       for (const msg of inbox) {
-        const preview = msg.entry.content.length > 120
-          ? msg.entry.content.slice(0, 120) + '...'
-          : msg.entry.content
-        log(`[${name}]   <- @${msg.entry.from}: ${preview}`)
+        const preview =
+          msg.entry.content.length > 120
+            ? msg.entry.content.slice(0, 120) + "..."
+            : msg.entry.content;
+        log(`[${name}]   <- @${msg.entry.from}: ${preview}`);
       }
 
       // Get latest timestamp for acknowledgment
-      const latestTimestamp = inbox[inbox.length - 1]!.entry.timestamp
+      const latestTimestamp = inbox[inbox.length - 1]!.entry.timestamp;
 
       // Run agent with retry
-      let attempt = 0
-      let lastResult: AgentRunResult | null = null
+      let attempt = 0;
+      let lastResult: AgentRunResult | null = null;
 
       while (attempt < retryConfig.maxAttempts && shouldContinue(state)) {
-        attempt++
-        state = 'running'
+        attempt++;
+        state = "running";
 
-        log(`[${name}] Running (attempt ${attempt}/${retryConfig.maxAttempts})`)
+        log(`[${name}] Running (attempt ${attempt}/${retryConfig.maxAttempts})`);
 
         // Build run context
         const runContext: AgentRunContext = {
           name,
           agent,
           inbox,
-          recentChannel: await contextProvider.readChannel({ limit: CONTROLLER_DEFAULTS.recentChannelLimit, agent: name }),
+          recentChannel: await contextProvider.readChannel({
+            limit: CONTROLLER_DEFAULTS.recentChannelLimit,
+            agent: name,
+          }),
           documentContent: await contextProvider.readDocument(),
           mcpUrl,
           workspaceDir,
           projectDir,
           retryAttempt: attempt,
-        }
+        };
 
         // Orchestrate: build prompt → configure workspace → send
-        lastResult = await runAgent(backend, runContext, log)
+        lastResult = await runAgent(backend, runContext, log);
 
         if (lastResult.success) {
-          log(`[${name}] Success (${lastResult.duration}ms)`)
+          log(`[${name}] Success (${lastResult.duration}ms)`);
 
           // Acknowledge inbox on success
-          await contextProvider.ackInbox(name, latestTimestamp)
-          break
+          await contextProvider.ackInbox(name, latestTimestamp);
+          break;
         }
 
-        log(`[${name}] Failed: ${lastResult.error}`)
+        log(`[${name}] Failed: ${lastResult.error}`);
 
         // Retry with backoff (unless last attempt)
         if (attempt < retryConfig.maxAttempts && shouldContinue(state)) {
-          const delay = retryConfig.backoffMs * Math.pow(retryConfig.backoffMultiplier, attempt - 1)
-          log(`[${name}] Retrying in ${delay}ms...`)
-          await sleep(delay)
+          const delay =
+            retryConfig.backoffMs * Math.pow(retryConfig.backoffMultiplier, attempt - 1);
+          log(`[${name}] Retrying in ${delay}ms...`);
+          await sleep(delay);
         }
       }
 
       // If all retries exhausted, still acknowledge to prevent infinite loop
       if (lastResult && !lastResult.success) {
-        log(`[${name}] Max retries exhausted, acknowledging inbox to prevent retry loop`)
-        await contextProvider.ackInbox(name, latestTimestamp)
+        log(`[${name}] Max retries exhausted, acknowledging inbox to prevent retry loop`);
+        await contextProvider.ackInbox(name, latestTimestamp);
       }
 
       // Notify completion
       if (lastResult && onRunComplete) {
-        onRunComplete(lastResult)
+        onRunComplete(lastResult);
       }
 
-      state = 'idle'
+      state = "idle";
     }
   }
 
   return {
     get name() {
-      return name
+      return name;
     },
 
     get state() {
-      return state
+      return state;
     },
 
     async start() {
-      if (state !== 'stopped') {
-        throw new Error(`Controller ${name} is already running`)
+      if (state !== "stopped") {
+        throw new Error(`Controller ${name} is already running`);
       }
 
-      state = 'idle'
-      log(`[${name}] Starting controller`)
+      state = "idle";
+      log(`[${name}] Starting controller`);
 
       // Start loop (don't await - runs in background)
       runLoop().catch((error) => {
-        log(`[${name}] Controller error: ${error instanceof Error ? error.message : String(error)}`)
-        state = 'stopped'
-      })
+        log(
+          `[${name}] Controller error: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        state = "stopped";
+      });
     },
 
     async stop() {
-      log(`[${name}] Stopping controller`)
-      state = 'stopped'
+      log(`[${name}] Stopping controller`);
+      state = "stopped";
 
       // Clear pending timeout
       if (pollTimeout) {
-        clearTimeout(pollTimeout)
-        pollTimeout = null
+        clearTimeout(pollTimeout);
+        pollTimeout = null;
       }
 
       // Wake if waiting
       if (wakeResolver) {
-        wakeResolver()
-        wakeResolver = null
+        wakeResolver();
+        wakeResolver = null;
       }
     },
 
     wake() {
-      if (state === 'idle' && wakeResolver) {
-        log(`[${name}] Waking controller`)
+      if (state === "idle" && wakeResolver) {
+        log(`[${name}] Waking controller`);
         if (pollTimeout) {
-          clearTimeout(pollTimeout)
-          pollTimeout = null
+          clearTimeout(pollTimeout);
+          pollTimeout = null;
         }
-        wakeResolver()
-        wakeResolver = null
+        wakeResolver();
+        wakeResolver = null;
       }
     },
-  }
+  };
 }
 
 // ==================== Agent Run Orchestration ====================
 
-import type { Backend } from '../../backends/types.ts'
-import { runMockAgent } from './mock-runner.ts'
+import type { Backend } from "../../backends/types.ts";
+import { runMockAgent } from "./mock-runner.ts";
 
 /**
  * Run an agent: build prompt, configure workspace, call backend.send()
@@ -235,34 +243,34 @@ import { runMockAgent } from './mock-runner.ts'
 async function runAgent(
   backend: Backend,
   ctx: AgentRunContext,
-  log: (msg: string) => void
+  log: (msg: string) => void,
 ): Promise<AgentRunResult> {
   // Mock backend: use dedicated mock runner with MCP tool bridge
-  if (backend.type === 'mock') {
-    return runMockAgent(ctx, (msg) => log(msg))
+  if (backend.type === "mock") {
+    return runMockAgent(ctx, (msg) => log(msg));
   }
 
-  const startTime = Date.now()
+  const startTime = Date.now();
 
   try {
     // 1. Configure workspace with MCP
     if (backend.setWorkspace) {
-      const mcpConfig = generateWorkflowMCPConfig(ctx.mcpUrl, ctx.name)
-      backend.setWorkspace(ctx.workspaceDir, mcpConfig)
+      const mcpConfig = generateWorkflowMCPConfig(ctx.mcpUrl, ctx.name);
+      backend.setWorkspace(ctx.workspaceDir, mcpConfig);
     }
 
     // 2. Build prompt from context
-    const prompt = buildAgentPrompt(ctx)
-    log(`[${ctx.name}] Prompt (${prompt.length} chars) → ${backend.type} backend`)
+    const prompt = buildAgentPrompt(ctx);
+    log(`[${ctx.name}] Prompt (${prompt.length} chars) → ${backend.type} backend`);
 
     // 3. Send via backend
-    await backend.send(prompt, { system: ctx.agent.resolvedSystemPrompt })
+    await backend.send(prompt, { system: ctx.agent.resolvedSystemPrompt });
 
-    return { success: true, duration: Date.now() - startTime }
+    return { success: true, duration: Date.now() - startTime };
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error)
-    log(`[${ctx.name}] Error: ${errorMsg}`)
-    return { success: false, error: errorMsg, duration: Date.now() - startTime }
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    log(`[${ctx.name}] Error: ${errorMsg}`);
+    return { success: false, error: errorMsg, duration: Date.now() - startTime };
   }
 }
 
@@ -270,7 +278,7 @@ async function runAgent(
  * Sleep helper
  */
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // ==================== Idle Detection ====================
@@ -281,23 +289,23 @@ function sleep(ms: number): Promise<void> {
 export async function checkWorkflowIdle(
   controllers: Map<string, AgentController>,
   provider: ContextProvider,
-  debounceMs: number = CONTROLLER_DEFAULTS.idleDebounceMs
+  debounceMs: number = CONTROLLER_DEFAULTS.idleDebounceMs,
 ): Promise<boolean> {
   // Check all controllers are idle
-  const allIdle = [...controllers.values()].every((c) => c.state === 'idle')
-  if (!allIdle) return false
+  const allIdle = [...controllers.values()].every((c) => c.state === "idle");
+  if (!allIdle) return false;
 
   // Check no unread messages for any agent
   for (const [name] of controllers) {
-    const inbox = await provider.getInbox(name)
-    if (inbox.length > 0) return false
+    const inbox = await provider.getInbox(name);
+    if (inbox.length > 0) return false;
   }
 
   // Debounce: wait and check again
-  await sleep(debounceMs)
+  await sleep(debounceMs);
 
   // Verify still idle after debounce
-  return [...controllers.values()].every((c) => c.state === 'idle')
+  return [...controllers.values()].every((c) => c.state === "idle");
 }
 
 /**
@@ -310,7 +318,7 @@ export function isWorkflowComplete(state: WorkflowIdleState): boolean {
     state.noUnreadMessages &&
     state.noActiveProposals &&
     state.idleDebounceElapsed
-  )
+  );
 }
 
 /**
@@ -320,27 +328,27 @@ export function isWorkflowComplete(state: WorkflowIdleState): boolean {
 export async function buildWorkflowIdleState(
   controllers: Map<string, AgentController>,
   provider: ContextProvider,
-  proposalManager?: ProposalManager
-): Promise<Omit<WorkflowIdleState, 'idleDebounceElapsed'>> {
+  proposalManager?: ProposalManager,
+): Promise<Omit<WorkflowIdleState, "idleDebounceElapsed">> {
   // Check all controllers are idle
-  const allControllersIdle = [...controllers.values()].every((c) => c.state === 'idle')
+  const allControllersIdle = [...controllers.values()].every((c) => c.state === "idle");
 
   // Check no unread messages for any agent
-  let noUnreadMessages = true
+  let noUnreadMessages = true;
   for (const [name] of controllers) {
-    const inbox = await provider.getInbox(name)
+    const inbox = await provider.getInbox(name);
     if (inbox.length > 0) {
-      noUnreadMessages = false
-      break
+      noUnreadMessages = false;
+      break;
     }
   }
 
   // Check no active proposals
-  const noActiveProposals = proposalManager ? !proposalManager.hasActiveProposals() : true
+  const noActiveProposals = proposalManager ? !proposalManager.hasActiveProposals() : true;
 
   return {
     allControllersIdle,
     noUnreadMessages,
     noActiveProposals,
-  }
+  };
 }

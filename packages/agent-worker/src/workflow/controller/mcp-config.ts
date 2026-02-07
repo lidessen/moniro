@@ -8,7 +8,7 @@
 
 /** MCP config format for workflow context */
 export interface WorkflowMCPConfig {
-  mcpServers: Record<string, unknown>
+  mcpServers: Record<string, unknown>;
 }
 
 /**
@@ -17,17 +17,14 @@ export interface WorkflowMCPConfig {
  * Uses HTTP transport — CLI agents connect directly via URL:
  *   { type: "http", url: "http://127.0.0.1:<port>/mcp?agent=<name>" }
  */
-export function generateWorkflowMCPConfig(
-  mcpUrl: string,
-  agentName: string
-): WorkflowMCPConfig {
-  const url = `${mcpUrl}?agent=${encodeURIComponent(agentName)}`
+export function generateWorkflowMCPConfig(mcpUrl: string, agentName: string): WorkflowMCPConfig {
+  const url = `${mcpUrl}?agent=${encodeURIComponent(agentName)}`;
   return {
     mcpServers: {
-      'workflow-context': {
-        type: 'http',
+      "workflow-context": {
+        type: "http",
         url,
       },
     },
-  }
+  };
 }

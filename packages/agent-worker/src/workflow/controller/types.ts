@@ -3,68 +3,68 @@
  * Types for agent lifecycle management and backend abstraction
  */
 
-import type { ResolvedAgent } from '../types.ts'
-import type { ContextProvider } from '../context/provider.ts'
-import type { Message, InboxMessage } from '../context/types.ts'
-import type { Backend } from '../../backends/types.ts'
+import type { ResolvedAgent } from "../types.ts";
+import type { ContextProvider } from "../context/provider.ts";
+import type { Message, InboxMessage } from "../context/types.ts";
+import type { Backend } from "../../backends/types.ts";
 
 // ==================== Controller ====================
 
 /** Agent controller state */
-export type AgentState = 'idle' | 'running' | 'stopped'
+export type AgentState = "idle" | "running" | "stopped";
 
 /** Agent controller interface */
 export interface AgentController {
   /** Agent name */
-  readonly name: string
+  readonly name: string;
 
   /** Current state */
-  readonly state: AgentState
+  readonly state: AgentState;
 
   /** Start the controller (begin polling loop) */
-  start(): Promise<void>
+  start(): Promise<void>;
 
   /** Stop the controller */
-  stop(): Promise<void>
+  stop(): Promise<void>;
 
   /** Interrupt: immediately check inbox (skip poll wait) */
-  wake(): void
+  wake(): void;
 }
 
 /** Retry configuration */
 export interface RetryConfig {
   /** Maximum number of retry attempts (default: 3) */
-  maxAttempts?: number
+  maxAttempts?: number;
   /** Initial backoff delay in ms (default: 1000) */
-  backoffMs?: number
+  backoffMs?: number;
   /** Backoff multiplier (default: 2) */
-  backoffMultiplier?: number
+  backoffMultiplier?: number;
 }
 
 /** Agent controller configuration */
 export interface AgentControllerConfig {
   /** Agent name */
-  name: string
+  name: string;
   /** Resolved agent definition */
-  agent: ResolvedAgent
+  agent: ResolvedAgent;
   /** Context provider for channel/document access */
-  contextProvider: ContextProvider
+  contextProvider: ContextProvider;
   /** MCP HTTP URL for tool access */
-  mcpUrl: string
+  mcpUrl: string;
   /** Workspace directory for this agent (isolated from project) */
-  workspaceDir: string
+  workspaceDir: string;
   /** Project directory (the actual codebase to work on) */
-  projectDir: string
+  projectDir: string;
   /** Poll interval in ms (default: 5000) */
-  pollInterval?: number
+  pollInterval?: number;
   /** Retry configuration */
-  retry?: RetryConfig
+  retry?: RetryConfig;
   /** Backend to use for running the agent */
-  backend: Backend
+  backend: Backend;
   /** Callback when agent run completes */
-  onRunComplete?: (result: AgentRunResult) => void
+  onRunComplete?: (result: AgentRunResult) => void;
   /** Log function */
-  log?: (message: string) => void
+  log?: (message: string) => void;
 }
 
 // ==================== Agent Run ====================
@@ -72,33 +72,33 @@ export interface AgentControllerConfig {
 /** Context passed to agent for a run */
 export interface AgentRunContext {
   /** Agent name */
-  name: string
+  name: string;
   /** Agent config */
-  agent: ResolvedAgent
+  agent: ResolvedAgent;
   /** Unread inbox messages */
-  inbox: InboxMessage[]
+  inbox: InboxMessage[];
   /** Recent channel messages (for context) */
-  recentChannel: Message[]
+  recentChannel: Message[];
   /** Current document content (entry point) */
-  documentContent: string
+  documentContent: string;
   /** MCP HTTP URL */
-  mcpUrl: string
+  mcpUrl: string;
   /** Workspace directory for this agent (isolated from project) */
-  workspaceDir: string
+  workspaceDir: string;
   /** Project directory (the actual codebase to work on) */
-  projectDir: string
+  projectDir: string;
   /** Retry attempt number (1 = first try, 2+ = retry) */
-  retryAttempt: number
+  retryAttempt: number;
 }
 
 /** Result of an agent run */
 export interface AgentRunResult {
   /** Whether the run succeeded */
-  success: boolean
+  success: boolean;
   /** Error message if failed */
-  error?: string
+  error?: string;
   /** Duration in ms */
-  duration: number
+  duration: number;
 }
 
 // ==================== Idle Detection ====================
@@ -106,13 +106,13 @@ export interface AgentRunResult {
 /** Workflow idle state for run mode exit detection */
 export interface WorkflowIdleState {
   /** All controllers are idle */
-  allControllersIdle: boolean
+  allControllersIdle: boolean;
   /** No unread inbox messages for any agent */
-  noUnreadMessages: boolean
+  noUnreadMessages: boolean;
   /** No active/pending proposals */
-  noActiveProposals: boolean
+  noActiveProposals: boolean;
   /** Idle debounce period has elapsed */
-  idleDebounceElapsed: boolean
+  idleDebounceElapsed: boolean;
 }
 
 // ==================== Defaults ====================
@@ -127,4 +127,4 @@ export const CONTROLLER_DEFAULTS = {
   },
   recentChannelLimit: 50,
   idleDebounceMs: 2000,
-} as const
+} as const;

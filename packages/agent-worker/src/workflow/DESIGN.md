@@ -3,6 +3,7 @@
 Multi-agent orchestration with shared context and @mention-driven collaboration.
 
 **Related documents:**
+
 - [REFERENCE.md](./REFERENCE.md) - Implementation details, interfaces, code examples
 - [TODO.md](./TODO.md) - Implementation plan and progress
 
@@ -14,12 +15,12 @@ Agent Worker enables multiple AI agents to collaborate on tasks through a shared
 
 ### Key Concepts
 
-| Concept | Description |
-|---------|-------------|
+| Concept            | Description                                                   |
+| ------------------ | ------------------------------------------------------------- |
 | **Unified Naming** | `agent-name` (standalone) or `agent-name@instance` (workflow) |
-| **Shared Context** | Channel (communication) + Document (workspace) |
-| **Kickoff Model** | Natural language workflow initiation via @mentions |
-| **Two Modes** | `run` (one-shot) and `start` (persistent) |
+| **Shared Context** | Channel (communication) + Document (workspace)                |
+| **Kickoff Model**  | Natural language workflow initiation via @mentions            |
+| **Two Modes**      | `run` (one-shot) and `start` (persistent)                     |
 
 ---
 
@@ -102,11 +103,11 @@ Agents interact with three complementary context layers:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-| Layer | Purpose | Persistence |
-|-------|---------|-------------|
-| **Inbox** | Unread @mentions for this agent | Transient (read state) |
-| **Channel** | Append-only communication log | Permanent |
-| **Document** | Structured workspace | Editable |
+| Layer        | Purpose                         | Persistence            |
+| ------------ | ------------------------------- | ---------------------- |
+| **Inbox**    | Unread @mentions for this agent | Transient (read state) |
+| **Channel**  | Append-only communication log   | Permanent              |
+| **Document** | Structured workspace            | Editable               |
 
 ### Why Three Layers?
 
@@ -115,6 +116,7 @@ Agents interact with three complementary context layers:
 - **Document alone is static**: Goals don't change often, but work progresses dynamically.
 
 **Together**:
+
 - Inbox → immediate attention
 - Channel → situational awareness
 - Document → strategic context
@@ -145,10 +147,10 @@ Channel and Document are two **independent** systems:
 
 Optional single-writer model for multi-agent workflows.
 
-| Scenario | Owner | Behavior |
-|----------|-------|----------|
-| Single agent | Self | Ownership disabled |
-| Multiple, specified | Configured agent | Only owner can write |
+| Scenario              | Owner            | Behavior                   |
+| --------------------- | ---------------- | -------------------------- |
+| Single agent          | Self             | Ownership disabled         |
+| Multiple, specified   | Configured agent | Only owner can write       |
 | Multiple, unspecified | Elected via vote | Agents vote before kickoff |
 
 Non-owners use `document_suggest` to propose changes; owner reviews and applies.
@@ -178,18 +180,18 @@ Generic collaborative decision-making for elections, design decisions, and task 
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-| Proposal Type | Use Case |
-|---------------|----------|
-| `election` | Document owner, coordinator role |
-| `decision` | Design choices, approach selection |
-| `approval` | Merge approval, release sign-off |
-| `assignment` | Task allocation |
+| Proposal Type | Use Case                           |
+| ------------- | ---------------------------------- |
+| `election`    | Document owner, coordinator role   |
+| `decision`    | Design choices, approach selection |
+| `approval`    | Merge approval, release sign-off   |
+| `assignment`  | Task allocation                    |
 
-| Resolution | Rule |
-|------------|------|
+| Resolution  | Rule            |
+| ----------- | --------------- |
 | `plurality` | Most votes wins |
-| `majority` | >50% required |
-| `unanimous` | All must agree |
+| `majority`  | >50% required   |
+| `unanimous` | All must agree  |
 
 Binding proposals are enforced by the system. Advisory proposals rely on agent cooperation.
 
@@ -245,11 +247,11 @@ agent-worker send "@all sync up" --to @pr-123
 
 ### Send Target Patterns
 
-| Pattern | Target | Effect |
-|---------|--------|--------|
-| `--to agent` | Standalone | Direct to inbox |
-| `--to agent@instance` | Workflow agent | Channel + @mention |
-| `--to @instance` | Workflow channel | Broadcast |
+| Pattern               | Target           | Effect             |
+| --------------------- | ---------------- | ------------------ |
+| `--to agent`          | Standalone       | Direct to inbox    |
+| `--to agent@instance` | Workflow agent   | Channel + @mention |
+| `--to @instance`      | Workflow channel | Broadcast          |
 
 ---
 
@@ -343,6 +345,7 @@ No need for explicit completion config—the command choice determines behavior.
 ### 6. Why Inbox Explicit Acknowledgment?
 
 Controller acknowledges inbox **only on successful agent run**. This enables:
+
 - Retry on failure (messages redelivered)
 - Exactly-once processing guarantee
 
@@ -391,12 +394,12 @@ Prevents concurrent write conflicts in multi-agent workflows. Single-writer mode
 
 ### Backend Support
 
-| Backend | Integration |
-|---------|-------------|
-| SDK (Anthropic) | Direct API, full MCP client |
-| Claude CLI | `--mcp-config` flag |
-| Codex CLI | Project-level `.codex/config.toml` |
-| Cursor Agent | Project-level `.cursor/mcp.json` |
+| Backend         | Integration                        |
+| --------------- | ---------------------------------- |
+| SDK (Anthropic) | Direct API, full MCP client        |
+| Claude CLI      | `--mcp-config` flag                |
+| Codex CLI       | Project-level `.codex/config.toml` |
+| Cursor Agent    | Project-level `.cursor/mcp.json`   |
 
 ---
 
