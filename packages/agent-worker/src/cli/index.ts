@@ -6,7 +6,6 @@ import { registerToolCommands } from "./commands/tool.ts";
 import { registerWorkflowCommands } from "./commands/workflow.ts";
 import { registerApprovalCommands } from "./commands/approval.ts";
 import { registerInfoCommands } from "./commands/info.ts";
-import { registerContextCommands } from "./commands/context.ts";
 import { registerDocCommands } from "./commands/doc.ts";
 
 const program = new Command();
@@ -22,7 +21,6 @@ registerToolCommands(program);
 registerWorkflowCommands(program);
 registerApprovalCommands(program);
 registerInfoCommands(program);
-registerContextCommands(program);
 registerDocCommands(program);
 
 program.parse();

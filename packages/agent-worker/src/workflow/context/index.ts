@@ -9,5 +9,4 @@ export * from "./provider.ts";
 export * from "./memory-provider.ts";
 export * from "./file-provider.ts";
 export * from "./mcp-server.ts";
-export * from "./transport.ts";
 export * from "./proposals.ts";

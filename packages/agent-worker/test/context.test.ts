@@ -12,7 +12,7 @@ import {
   createContextMCPServer,
 } from '../src/workflow/context/index.ts'
 import type { Message } from '../src/workflow/context/index.ts'
-import { getSocketPath } from '../src/workflow/context/transport.ts'
+
 
 // ==================== extractMentions Tests ====================
 
@@ -1145,17 +1145,3 @@ describe('MCP Server Tools', () => {
   })
 })
 
-// ==================== Transport Tests ====================
-
-describe('getSocketPath', () => {
-
-  test('generates socket path with workflow name and instance', () => {
-    const path = getSocketPath('my-workflow', 'production')
-    expect(path).toMatch(/agent-worker-my-workflow-production\.sock$/)
-  })
-
-  test('uses tmp directory', () => {
-    const path = getSocketPath('test', 'default')
-    expect(path).toMatch(/^(\/tmp|\/var)/)
-  })
-})
