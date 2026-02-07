@@ -47,6 +47,8 @@ export interface ProposalResult {
   winner?: string;
   /** Map of voter → choice */
   votes: Record<string, string>;
+  /** Map of voter → reason (optional) */
+  reasons?: Record<string, string>;
   /** Map of option → vote count */
   counts: Record<string, number>;
   /** When resolved */
@@ -77,6 +79,8 @@ export interface ProposalsState {
   proposals: Record<string, Proposal>;
   /** Archive of resolved proposals (optional, for history) */
   archive?: Record<string, Proposal>;
+  /** Monotonic ID counter to prevent ID reuse across sessions */
+  idCounter?: number;
   version: number;
 }
 
@@ -129,8 +133,10 @@ export class ProposalManager {
       if (existsSync(this.statePath)) {
         const data: ProposalsState = JSON.parse(readFileSync(this.statePath, "utf-8"));
         this.proposals = new Map(Object.entries(data.proposals || {}));
-        // Restore ID counter from existing proposals
-        // Find the highest used ID so generateId() returns the next one
+        // Restore ID counter: prefer persisted counter, fall back to scanning proposals
+        if (data.idCounter != null && data.idCounter > this.idCounter) {
+          this.idCounter = data.idCounter;
+        }
         for (const id of this.proposals.keys()) {
           const num = parseInt(id.replace("prop-", ""), 10);
           if (!isNaN(num) && num > this.idCounter) {
@@ -154,6 +160,7 @@ export class ProposalManager {
 
     const state: ProposalsState = {
       proposals: Object.fromEntries(activeOnly),
+      idCounter: this.idCounter,
       version: Date.now(),
     };
     writeFileSync(this.statePath, JSON.stringify(state, null, 2));
@@ -271,6 +278,10 @@ export class ProposalManager {
 
     // Record vote (overwrites previous vote from same voter)
     proposal.result!.votes[params.voter] = params.choice;
+    if (params.reason) {
+      if (!proposal.result!.reasons) proposal.result!.reasons = {};
+      proposal.result!.reasons[params.voter] = params.reason;
+    }
 
     // Recalculate counts
     this.recalculateCounts(proposal);
