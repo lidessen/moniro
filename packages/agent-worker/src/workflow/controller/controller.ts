@@ -103,8 +103,8 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
         log(`[${name}]   <- @${msg.entry.from}: ${preview}`);
       }
 
-      // Get latest timestamp for acknowledgment
-      const latestTimestamp = inbox[inbox.length - 1]!.entry.timestamp;
+      // Get latest message ID for acknowledgment
+      const latestId = inbox[inbox.length - 1]!.entry.id;
 
       // Run agent with retry
       let attempt = 0;
@@ -139,7 +139,7 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
           log(`[${name}] Success (${lastResult.duration}ms)`);
 
           // Acknowledge inbox on success
-          await contextProvider.ackInbox(name, latestTimestamp);
+          await contextProvider.ackInbox(name, latestId);
           break;
         }
 
@@ -157,7 +157,7 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
       // If all retries exhausted, still acknowledge to prevent infinite loop
       if (lastResult && !lastResult.success) {
         log(`[${name}] Max retries exhausted, acknowledging inbox to prevent retry loop`);
-        await contextProvider.ackInbox(name, latestTimestamp);
+        await contextProvider.ackInbox(name, latestId);
       }
 
       // Notify completion

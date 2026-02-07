@@ -272,9 +272,9 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
 
   server.tool(
     "my_inbox_ack",
-    "Acknowledge inbox messages up to a timestamp. Call after processing messages.",
+    "Acknowledge inbox messages up to a message ID. Call after processing messages.",
     {
-      until: z.string().describe("Acknowledge messages up to this timestamp (inclusive)"),
+      until: z.string().describe("Acknowledge messages up to and including this message ID"),
     },
     async ({ until }, extra) => {
       const agent = getAgentId(extra) || "anonymous";

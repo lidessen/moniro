@@ -4,6 +4,7 @@
  * Storage I/O is delegated to a StorageBackend.
  */
 
+import { nanoid } from "nanoid";
 import type { Message, InboxMessage, InboxState, ResourceResult, ResourceType } from "./types.ts";
 import {
   CONTEXT_DEFAULTS,
@@ -45,7 +46,7 @@ export interface ContextProvider {
 
   // Inbox
   getInbox(agent: string): Promise<InboxMessage[]>;
-  ackInbox(agent: string, until: string): Promise<void>;
+  ackInbox(agent: string, untilId: string): Promise<void>;
 
   // Team Documents
   readDocument(file?: string): Promise<string>;
@@ -82,13 +83,9 @@ const KEYS = {
  * Channel format: JSONL (one JSON object per line)
  * Documents: raw content strings
  * Resources: content-addressed blobs
- * Inbox state: JSON cursor file
+ * Inbox state: JSON cursor file (ID-based)
  */
 export class ContextProviderImpl implements ContextProvider {
-  private sequence = 0;
-  private lastTimestamp = "";
-  private channelRead = false;
-
   constructor(
     private storage: StorageBackend,
     private validAgents: string[],
@@ -102,26 +99,10 @@ export class ContextProviderImpl implements ContextProvider {
   // ==================== Channel ====================
 
   async appendChannel(from: string, content: string, options?: SendOptions): Promise<Message> {
-    // On first append, read existing channel to get the high-water mark.
-    // This ensures timestamps are strictly monotonic across provider recreations.
-    if (!this.channelRead) {
-      this.channelRead = true;
-      await this.initLastTimestamp();
-    }
-
-    // Use sequence suffix to ensure unique timestamps in rapid succession
-    const now = new Date();
-    const seq = this.sequence++;
-    let timestamp = `${now.toISOString().slice(0, -1)}${seq.toString().padStart(3, "0")}Z`;
-
-    // Ensure strict monotonicity — bump if we'd collide with a prior message
-    if (timestamp <= this.lastTimestamp) {
-      timestamp = bumpTimestamp(this.lastTimestamp);
-    }
-    this.lastTimestamp = timestamp;
-
+    const id = nanoid();
+    const timestamp = new Date().toISOString();
     const mentions = extractMentions(content, this.validAgents);
-    const msg: Message = { timestamp, from, content, mentions };
+    const msg: Message = { id, timestamp, from, content, mentions };
 
     // Add optional fields only if present
     if (options?.to) msg.to = options.to;
@@ -168,15 +149,21 @@ export class ContextProviderImpl implements ContextProvider {
 
   async getInbox(agent: string): Promise<InboxMessage[]> {
     const state = await this.loadInboxState();
-    const lastAck = state.readCursors[agent] || "";
+    const lastAckId = state.readCursors[agent];
 
-    // Read all messages (unfiltered) since last ack
+    // Read all messages (unfiltered)
     const raw = await this.storage.read(KEYS.channel);
     if (!raw) return [];
 
     let entries = parseJsonl<Message>(raw);
-    if (lastAck) {
-      entries = entries.filter((e) => e.timestamp > lastAck);
+
+    // Skip messages up to and including the last acked message
+    if (lastAckId) {
+      const ackIdx = entries.findIndex((e) => e.id === lastAckId);
+      if (ackIdx >= 0) {
+        entries = entries.slice(ackIdx + 1);
+      }
+      // If ackIdx is -1 (ID not found — e.g. legacy cursor), show all messages
     }
 
     // Inbox includes: @mentions to this agent OR DMs to this agent
@@ -193,9 +180,9 @@ export class ContextProviderImpl implements ContextProvider {
       }));
   }
 
-  async ackInbox(agent: string, until: string): Promise<void> {
+  async ackInbox(agent: string, untilId: string): Promise<void> {
     const state = await this.loadInboxState();
-    state.readCursors[agent] = until;
+    state.readCursors[agent] = untilId;
     await this.storage.write(KEYS.inboxState, JSON.stringify(state, null, 2));
   }
 
@@ -272,26 +259,6 @@ export class ContextProviderImpl implements ContextProvider {
   async destroy(): Promise<void> {
     await this.storage.delete(KEYS.inboxState);
   }
-
-  // ==================== Internal ====================
-
-  /** Read the last timestamp from the existing channel log */
-  private async initLastTimestamp(): Promise<void> {
-    const raw = await this.storage.read(KEYS.channel);
-    if (!raw) return;
-    const lines = raw.trimEnd().split("\n");
-    for (let i = lines.length - 1; i >= 0; i--) {
-      try {
-        const msg = JSON.parse(lines[i]!);
-        if (msg.timestamp) {
-          this.lastTimestamp = msg.timestamp;
-          return;
-        }
-      } catch {
-        // Skip malformed lines
-      }
-    }
-  }
 }
 
 // ==================== Helpers ====================
@@ -312,18 +279,6 @@ function parseJsonl<T>(content: string): T[] {
     }
   }
   return results;
-}
-
-/**
- * Increment the sub-second portion of a timestamp by 1.
- * Format: YYYY-MM-DDTHH:mm:ss.NNNNNNZ → increment NNNNNN
- */
-function bumpTimestamp(ts: string): string {
-  const dotIdx = ts.lastIndexOf(".");
-  const base = ts.slice(0, dotIdx + 1);
-  const sub = ts.slice(dotIdx + 1, -1); // strip trailing Z
-  const bumped = (parseInt(sub, 10) + 1).toString().padStart(sub.length, "0");
-  return `${base}${bumped}Z`;
 }
 
 /**

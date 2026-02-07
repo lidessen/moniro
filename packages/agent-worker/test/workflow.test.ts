@@ -712,7 +712,7 @@ describe('runWorkflow', () => {
 
     await run1.contextProvider!.appendChannel('system', '@agent1 do something')
     await run1.contextProvider!.ackInbox('agent1',
-      (await run1.contextProvider!.getInbox('agent1'))[0].entry.timestamp,
+      (await run1.contextProvider!.getInbox('agent1'))[0].entry.id,
     )
     await run1.shutdown!()
 
@@ -757,7 +757,7 @@ describe('runWorkflow', () => {
     await run1.contextProvider!.appendChannel('system', '@agent1 do something')
     const run1Inbox = await run1.contextProvider!.getInbox('agent1')
     expect(run1Inbox).toHaveLength(1)
-    await run1.contextProvider!.ackInbox('agent1', run1Inbox[0].entry.timestamp)
+    await run1.contextProvider!.ackInbox('agent1', run1Inbox[0].entry.id)
     await run1.shutdown!()
 
     // Run 2: inbox state was destroyed, so old message reappears as unread
