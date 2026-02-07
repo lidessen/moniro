@@ -480,11 +480,15 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
             createdBy,
           });
 
-          // Announce in channel
+          // Announce in channel and @mention all agents so it lands in their inbox
           const optionsList = proposal.options.map((o) => `${o.id}: ${o.label}`).join(", ");
+          const otherAgents = validAgents
+            .filter((a) => a !== createdBy)
+            .map((a) => `@${a}`)
+            .join(" ");
           await provider.appendChannel(
             createdBy,
-            `Created proposal "${proposal.title}" (${proposal.id})\nOptions: ${optionsList}\nUse team_vote tool to cast your vote.`,
+            `Created proposal "${proposal.title}" (${proposal.id})\nOptions: ${optionsList}\nUse team_vote tool to cast your vote. ${otherAgents}`,
           );
 
           return {
@@ -552,14 +556,16 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
         const reasonText = reason ? ` (reason: ${reason})` : "";
         await provider.appendChannel(voter, `Voted "${choice}" on ${proposalId}${reasonText}`);
 
-        // If resolved, announce result
+        // If resolved, announce result and notify all voters via @mention
         if (result.resolved && result.proposal) {
           const winnerOption = result.proposal.options.find(
             (o) => o.id === result.proposal!.result?.winner,
           );
+          const voters = Object.keys(result.proposal.result?.votes || {});
+          const mentions = voters.map((v) => `@${v}`).join(" ");
           await provider.appendChannel(
             "system",
-            `Proposal ${proposalId} resolved! Winner: ${winnerOption?.label || result.proposal.result?.winner || "none"}`,
+            `Proposal ${proposalId} resolved! Winner: ${winnerOption?.label || result.proposal.result?.winner || "none"} ${mentions}`,
           );
         }
 

@@ -103,6 +103,16 @@ export function buildAgentPrompt(ctx: AgentRunContext): string {
     "- **my_inbox_ack**: Acknowledge messages after processing (pass the latest timestamp).",
   );
   sections.push("");
+  sections.push("### Proposal & Voting Tools");
+  sections.push(
+    "- **team_proposal_create**: Create a proposal for team voting (types: election, decision, approval, assignment).",
+  );
+  sections.push(
+    "- **team_vote**: Cast your vote on an active proposal. You can change your vote by voting again.",
+  );
+  sections.push("- **team_proposal_status**: Check status of a proposal, or list all active proposals.");
+  sections.push("- **team_proposal_cancel**: Cancel a proposal you created.");
+  sections.push("");
   sections.push("### Resource Tools");
   sections.push(
     "- **resource_create**: Store large content, get a reference (resource:id) for use anywhere.",

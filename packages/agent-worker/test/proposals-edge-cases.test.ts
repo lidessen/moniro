@@ -41,7 +41,7 @@ describe("ProposalManager edge cases", () => {
   // 1. ID counter reset across sessions
   // --------------------------------------------------------------------------
   describe("ID counter across sessions", () => {
-    test("ID counter resets when all proposals resolved before reload", () => {
+    test("ID counter preserved even when all proposals resolved before reload", () => {
       // Create and resolve two proposals
       const p1 = manager.create({
         type: "approval",
@@ -70,7 +70,7 @@ describe("ProposalManager edge cases", () => {
       expect(manager.get(p1.id)?.status).toBe("resolved");
       expect(manager.get(p2.id)?.status).toBe("resolved");
 
-      // Create new manager — only active proposals are persisted, so state is empty
+      // Create new manager — idCounter is now persisted in state file
       const manager2 = createProposalManager({
         stateDir: tempDir,
         validAgents: agents,
@@ -82,10 +82,8 @@ describe("ProposalManager edge cases", () => {
         createdBy: "charlie",
       });
 
-      // BUG: ID counter resets because no active proposals were in the state file
-      // p3 gets "prop-1" instead of "prop-3"
-      // This documents the current behavior — it's a known limitation
-      expect(p3.id).toBe("prop-1"); // <- ID reuse!
+      // Fixed: idCounter persisted separately, no more ID reuse
+      expect(p3.id).toBe("prop-3");
     });
 
     test("ID counter preserved when at least one proposal remains active", () => {
@@ -338,7 +336,7 @@ describe("ProposalManager edge cases", () => {
   // 5. Persistence only saves active proposals
   // --------------------------------------------------------------------------
   describe("persistence drops non-active proposals", () => {
-    test("resolved proposals are not in state file", () => {
+    test("resolved proposals are not in state file but idCounter is preserved", () => {
       const p = manager.create({
         type: "approval",
         title: "Will resolve",
@@ -361,6 +359,8 @@ describe("ProposalManager edge cases", () => {
 
       // Only active proposals are persisted
       expect(Object.keys(state.proposals)).toHaveLength(0);
+      // But idCounter is preserved
+      expect(state.idCounter).toBe(1);
     });
 
     test("cancelled proposals are not in state file", () => {
@@ -412,7 +412,110 @@ describe("ProposalManager edge cases", () => {
   });
 
   // --------------------------------------------------------------------------
-  // 7. Voting on same proposal after resolution
+  // 7. Vote reason persistence
+  // --------------------------------------------------------------------------
+  describe("vote reason persistence", () => {
+    test("stores vote reason alongside choice", () => {
+      const p = manager.create({
+        type: "decision",
+        title: "With reasons",
+        options: [
+          { id: "a", label: "A" },
+          { id: "b", label: "B" },
+        ],
+        createdBy: "alice",
+      });
+
+      manager.vote({
+        proposalId: p.id,
+        voter: "alice",
+        choice: "a",
+        reason: "Better performance",
+      });
+      manager.vote({
+        proposalId: p.id,
+        voter: "bob",
+        choice: "b",
+        reason: "Easier to maintain",
+      });
+
+      const fetched = manager.get(p.id);
+      expect(fetched?.result?.reasons?.alice).toBe("Better performance");
+      expect(fetched?.result?.reasons?.bob).toBe("Easier to maintain");
+    });
+
+    test("reason persists across manager instances", () => {
+      const p = manager.create({
+        type: "decision",
+        title: "Persistent reasons",
+        options: [
+          { id: "a", label: "A" },
+          { id: "b", label: "B" },
+        ],
+        createdBy: "alice",
+      });
+
+      manager.vote({
+        proposalId: p.id,
+        voter: "alice",
+        choice: "a",
+        reason: "My reasoning",
+      });
+
+      const manager2 = createProposalManager({
+        stateDir: tempDir,
+        validAgents: agents,
+      });
+
+      const loaded = manager2.get(p.id);
+      expect(loaded?.result?.reasons?.alice).toBe("My reasoning");
+    });
+
+    test("vote without reason does not create empty reasons map", () => {
+      const p = manager.create({
+        type: "approval",
+        title: "No reasons",
+        createdBy: "alice",
+      });
+
+      manager.vote({ proposalId: p.id, voter: "alice", choice: "approve" });
+
+      const fetched = manager.get(p.id);
+      expect(fetched?.result?.reasons).toBeUndefined();
+    });
+
+    test("overwriting vote preserves new reason", () => {
+      const p = manager.create({
+        type: "decision",
+        title: "Changed mind",
+        options: [
+          { id: "a", label: "A" },
+          { id: "b", label: "B" },
+        ],
+        createdBy: "alice",
+      });
+
+      manager.vote({
+        proposalId: p.id,
+        voter: "alice",
+        choice: "a",
+        reason: "First thought",
+      });
+      manager.vote({
+        proposalId: p.id,
+        voter: "alice",
+        choice: "b",
+        reason: "Changed my mind",
+      });
+
+      const fetched = manager.get(p.id);
+      expect(fetched?.result?.votes["alice"]).toBe("b");
+      expect(fetched?.result?.reasons?.alice).toBe("Changed my mind");
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // 8. Voting on same proposal after resolution
   // --------------------------------------------------------------------------
   describe("post-resolution behavior", () => {
     test("cannot vote on resolved proposal", () => {
