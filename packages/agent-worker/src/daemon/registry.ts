@@ -24,6 +24,81 @@ export const CONFIG_DIR = join(homedir(), ".agent-worker");
 export const SESSIONS_DIR = join(CONFIG_DIR, "sessions");
 const DEFAULT_FILE = join(CONFIG_DIR, "default");
 
+/**
+ * Schedule configuration for periodic agent wakeup.
+ *
+ * The `wakeup` field accepts three mutually exclusive formats:
+ * - **number (ms)**: idle-based interval, resets on activity. e.g. `60000`
+ * - **duration string**: idle-based interval, resets on activity. e.g. `"30s"`, `"5m"`, `"2h"`
+ * - **cron expression**: fixed schedule, NOT reset by activity. e.g. `"0 *​/2 * * *"`
+ */
+export interface ScheduleConfig {
+  /** Wakeup schedule: number (ms), duration string ("30s"/"5m"/"2h"), or cron expression. */
+  wakeup: string | number;
+  /** Custom wakeup prompt (default provided by daemon). */
+  prompt?: string;
+}
+
+export interface ResolvedSchedule {
+  type: "interval" | "cron";
+  /** ms for interval type */
+  ms?: number;
+  /** cron expression for cron type */
+  expr?: string;
+  /** custom prompt */
+  prompt?: string;
+}
+
+const DURATION_RE = /^(\d+(?:\.\d+)?)\s*(ms|s|m|h|d)$/;
+
+/**
+ * Parse a duration string like "30s", "5m", "2h" into milliseconds.
+ * Returns null if not a valid duration format.
+ */
+export function parseDuration(value: string): number | null {
+  const match = value.match(DURATION_RE);
+  if (!match) return null;
+
+  const amount = parseFloat(match[1]!);
+  const unit = match[2]!;
+
+  const multipliers: Record<string, number> = {
+    ms: 1,
+    s: 1000,
+    m: 60 * 1000,
+    h: 60 * 60 * 1000,
+    d: 24 * 60 * 60 * 1000,
+  };
+
+  return amount * multipliers[unit]!;
+}
+
+/**
+ * Resolve a wakeup value into a typed schedule.
+ * - number → interval (ms)
+ * - "30s"/"5m"/"2h" → interval (converted to ms)
+ * - cron expression → cron
+ */
+export function resolveSchedule(config: ScheduleConfig): ResolvedSchedule {
+  const { wakeup, prompt } = config;
+
+  // Number → interval in ms
+  if (typeof wakeup === "number") {
+    if (wakeup <= 0) throw new Error("Wakeup interval must be positive");
+    return { type: "interval", ms: wakeup, prompt };
+  }
+
+  // Duration string → interval
+  const ms = parseDuration(wakeup);
+  if (ms !== null) {
+    if (ms <= 0) throw new Error("Wakeup duration must be positive");
+    return { type: "interval", ms, prompt };
+  }
+
+  // Otherwise treat as cron expression
+  return { type: "cron", expr: wakeup, prompt };
+}
+
 export interface SessionInfo {
   id: string;
   name?: string;
@@ -36,6 +111,7 @@ export interface SessionInfo {
   pid: number;
   createdAt: string;
   idleTimeout?: number; // ms, 0 = no timeout
+  schedule?: ScheduleConfig; // periodic wakeup when idle
 }
 
 export function ensureDirs(): void {

@@ -93,6 +93,10 @@ agent-worker session new -n my-session
 
 # Custom idle timeout (ms, 0 = no timeout)
 agent-worker session new --idle-timeout 3600000
+
+# With scheduled wakeup (see Scheduled Wakeup section)
+agent-worker session new --wakeup 5m
+agent-worker session new --wakeup "0 */2 * * *"
 ```
 
 ### Multiple Sessions
@@ -323,6 +327,55 @@ const state = session.getState()
 
 ---
 
+## Scheduled Wakeup
+
+Agents can be configured to wake up periodically. Two modes:
+
+| Mode | Format | Behavior |
+|------|--------|----------|
+| **Interval** | `60000`, `30s`, `5m`, `2h` | Fires after idle. Resets on any activity. |
+| **Cron** | `0 */2 * * *` | Fixed schedule. NOT reset by activity. |
+
+### At creation
+
+```bash
+# Wake every 5 minutes of inactivity
+agent-worker session new --wakeup 5m
+
+# Wake every 2 hours (fixed, cron)
+agent-worker session new --wakeup "0 */2 * * *"
+
+# With custom wakeup prompt
+agent-worker session new --wakeup 30s --wakeup-prompt "Check for new tasks"
+```
+
+### Runtime management
+
+```bash
+# Set wakeup on running agent
+agent-worker agent schedule set 5m
+agent-worker agent schedule set "0 */2 * * *" -p "Run health check"
+
+# View current schedule
+agent-worker agent schedule get
+
+# Remove wakeup
+agent-worker agent schedule clear
+```
+
+### Format detection
+
+The `--wakeup` value is automatically detected:
+- Pure number → **ms interval** (e.g., `60000` = 60s)
+- Duration string → **interval** (e.g., `30s`, `5m`, `2h`, `1d`)
+- Otherwise → **cron expression** (5-field: min hour dom month dow)
+
+**Interval** resets its timer whenever the agent handles activity (external sends, etc). It measures "time since last active."
+
+**Cron** fires at fixed wall-clock times regardless of agent activity.
+
+---
+
 ## Troubleshooting
 
 | Issue | Solution |
@@ -366,6 +419,10 @@ agent-worker tool list       List tools
 agent-worker pending         List pending approvals
 agent-worker approve         Approve tool call
 agent-worker deny            Deny tool call
+
+agent-worker agent schedule set    Set wakeup schedule
+agent-worker agent schedule get    View current schedule
+agent-worker agent schedule clear  Remove wakeup schedule
 
 agent-worker providers       Check SDK providers
 agent-worker backends        Check available backends

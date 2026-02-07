@@ -597,6 +597,130 @@ describe('handleRequest', () => {
     })
   })
 
+  describe('schedule actions', () => {
+    test('schedule_get returns null when no schedule configured', async () => {
+      const result = await handleRequest(
+        getState(state),
+        { action: 'schedule_get' },
+        noopResetTimer,
+        noopShutdown,
+      )
+      expect(result.success).toBe(true)
+      expect(result.data).toBeNull()
+    })
+
+    test('schedule_set with ms number', async () => {
+      const resetAllCalled: boolean[] = []
+      const result = await handleRequest(
+        getState(state),
+        {
+          action: 'schedule_set',
+          payload: { wakeup: 60000 },
+        },
+        noopResetTimer,
+        noopShutdown,
+        () => { resetAllCalled.push(true) },
+      )
+      expect(result.success).toBe(true)
+      const data = result.data as { wakeup: number }
+      expect(data.wakeup).toBe(60000)
+      expect(state.info.schedule?.wakeup).toBe(60000)
+      expect(resetAllCalled.length).toBe(1)
+    })
+
+    test('schedule_set with duration string', async () => {
+      const result = await handleRequest(
+        getState(state),
+        {
+          action: 'schedule_set',
+          payload: { wakeup: '5m' },
+        },
+        noopResetTimer,
+        noopShutdown,
+        noopResetTimer,
+      )
+      expect(result.success).toBe(true)
+      const data = result.data as { wakeup: string }
+      expect(data.wakeup).toBe('5m')
+    })
+
+    test('schedule_set with cron expression', async () => {
+      const result = await handleRequest(
+        getState(state),
+        {
+          action: 'schedule_set',
+          payload: { wakeup: '0 */2 * * *' },
+        },
+        noopResetTimer,
+        noopShutdown,
+        noopResetTimer,
+      )
+      expect(result.success).toBe(true)
+      const data = result.data as { wakeup: string }
+      expect(data.wakeup).toBe('0 */2 * * *')
+    })
+
+    test('schedule_set with prompt', async () => {
+      const result = await handleRequest(
+        getState(state),
+        {
+          action: 'schedule_set',
+          payload: { wakeup: '30s', prompt: 'Check tasks' },
+        },
+        noopResetTimer,
+        noopShutdown,
+        noopResetTimer,
+      )
+      expect(result.success).toBe(true)
+      const data = result.data as { wakeup: string; prompt: string }
+      expect(data.wakeup).toBe('30s')
+      expect(data.prompt).toBe('Check tasks')
+    })
+
+    test('schedule_set rejects empty payload', async () => {
+      const result = await handleRequest(
+        getState(state),
+        {
+          action: 'schedule_set',
+          payload: {},
+        },
+        noopResetTimer,
+        noopShutdown,
+      )
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('wakeup')
+    })
+
+    test('schedule_get returns schedule after set', async () => {
+      state.info.schedule = { wakeup: '0 * * * *', prompt: 'wake up' }
+      const result = await handleRequest(
+        getState(state),
+        { action: 'schedule_get' },
+        noopResetTimer,
+        noopShutdown,
+      )
+      expect(result.success).toBe(true)
+      const data = result.data as { wakeup: string; prompt: string }
+      expect(data.wakeup).toBe('0 * * * *')
+      expect(data.prompt).toBe('wake up')
+    })
+
+    test('schedule_clear removes schedule', async () => {
+      state.info.schedule = { wakeup: 60000 }
+      const resetAllCalled: boolean[] = []
+      const result = await handleRequest(
+        getState(state),
+        { action: 'schedule_clear' },
+        noopResetTimer,
+        noopShutdown,
+        () => { resetAllCalled.push(true) },
+      )
+      expect(result.success).toBe(true)
+      expect(state.info.schedule).toBeUndefined()
+      expect(resetAllCalled.length).toBe(1)
+    })
+  })
+
   describe('unknown action', () => {
     test('returns error for unknown action', async () => {
       const result = await handleRequest(
