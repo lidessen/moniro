@@ -30,7 +30,7 @@ const DEFAULT_FILE = join(CONFIG_DIR, "default");
  * The `wakeup` field accepts three mutually exclusive formats:
  * - **number (ms)**: idle-based interval, resets on activity. e.g. `60000`
  * - **duration string**: idle-based interval, resets on activity. e.g. `"30s"`, `"5m"`, `"2h"`
- * - **cron expression**: fixed schedule, NOT reset by activity. e.g. `"0 *​/2 * * *"`
+ * - **cron expression**: fixed schedule, NOT reset by activity. e.g. `"0 9 * * 1-5"`
  */
 export interface ScheduleConfig {
   /** Wakeup schedule: number (ms), duration string ("30s"/"5m"/"2h"), or cron expression. */

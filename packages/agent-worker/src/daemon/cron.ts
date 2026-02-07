@@ -17,6 +17,12 @@ function range(min: number, max: number): number[] {
   return r;
 }
 
+function parseIntStrict(s: string, context: string): number {
+  const n = parseInt(s, 10);
+  if (isNaN(n)) throw new Error(`Invalid number "${s}" in ${context}`);
+  return n;
+}
+
 function parseCronField(field: string, min: number, max: number): Set<number> {
   const values = new Set<number>();
 
@@ -25,25 +31,29 @@ function parseCronField(field: string, min: number, max: number): Set<number> {
       for (const v of range(min, max)) values.add(v);
     } else if (part.includes("/")) {
       const [rangeStr, stepStr] = part.split("/");
-      const step = parseInt(stepStr!, 10);
-      if (isNaN(step) || step <= 0) throw new Error(`Invalid step: ${part}`);
+      const step = parseIntStrict(stepStr!, `step "${part}"`);
+      if (step <= 0) throw new Error(`Invalid step: ${part}`);
 
       let lo = min;
       let hi = max;
       if (rangeStr !== "*") {
         if (rangeStr!.includes("-")) {
-          [lo, hi] = rangeStr!.split("-").map(Number) as [number, number];
+          const parts = rangeStr!.split("-");
+          lo = parseIntStrict(parts[0]!, `range "${part}"`);
+          hi = parseIntStrict(parts[1]!, `range "${part}"`);
         } else {
-          lo = parseInt(rangeStr!, 10);
+          lo = parseIntStrict(rangeStr!, `field "${part}"`);
           hi = max;
         }
       }
       for (let v = lo; v <= hi; v += step) values.add(v);
     } else if (part.includes("-")) {
-      const [lo, hi] = part.split("-").map(Number) as [number, number];
+      const parts = part.split("-");
+      const lo = parseIntStrict(parts[0]!, `range "${part}"`);
+      const hi = parseIntStrict(parts[1]!, `range "${part}"`);
       for (const v of range(lo, hi)) values.add(v);
     } else {
-      values.add(parseInt(part, 10));
+      values.add(parseIntStrict(part, `field "${field}"`));
     }
   }
 

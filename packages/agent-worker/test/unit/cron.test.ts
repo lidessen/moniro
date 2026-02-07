@@ -57,6 +57,13 @@ describe("parseCron", () => {
     expect(() => parseCron("* * *")).toThrow("expected 5 fields");
     expect(() => parseCron("* * * * * *")).toThrow("expected 5 fields");
   });
+
+  test("throws on non-numeric values", () => {
+    expect(() => parseCron("abc * * * *")).toThrow("Invalid number");
+    expect(() => parseCron("* * * * foo")).toThrow("Invalid number");
+    expect(() => parseCron("a-b * * * *")).toThrow("Invalid number");
+    expect(() => parseCron("*/x * * * *")).toThrow("Invalid number");
+  });
 });
 
 describe("nextCronTime", () => {
