@@ -27,9 +27,9 @@ describe("ContextProvider.destroy()", () => {
       const provider = new MemoryContextProvider(["agent1", "agent2"]);
 
       // Write some data
-      await provider.appendChannel("agent1", "@agent2 hello");
+      const msg = await provider.appendChannel("agent1", "@agent2 hello");
       await provider.writeDocument("some content");
-      await provider.ackInbox("agent2", new Date().toISOString());
+      await provider.ackInbox("agent2", msg.id);
 
       // Destroy
       await provider.destroy();
@@ -62,9 +62,9 @@ describe("ContextProvider.destroy()", () => {
       const provider = createFileContextProvider(testDir, ["agent1", "agent2"]);
 
       // Write data
-      await provider.appendChannel("agent1", "@agent2 hello");
+      const msg = await provider.appendChannel("agent1", "@agent2 hello");
       await provider.writeDocument("important notes");
-      await provider.ackInbox("agent2", new Date().toISOString());
+      await provider.ackInbox("agent2", msg.id);
 
       // Verify inbox state exists before destroy
       expect(existsSync(join(testDir, "_state", "inbox.json"))).toBe(true);
@@ -146,7 +146,7 @@ describe("Cross-Instance Isolation", () => {
 
     // Acknowledge in instance A
     const inboxA = await providerA.getInbox("bob");
-    await providerA.ackInbox("bob", inboxA[0].entry.timestamp);
+    await providerA.ackInbox("bob", inboxA[0].entry.id);
 
     // Instance B should still have unread messages
     const inboxB = await providerB.getInbox("bob");
@@ -184,10 +184,10 @@ describe("Cross-Instance Isolation", () => {
     const providerA = createFileContextProvider(instanceADir, ["alice", "bob"]);
     const providerB = createFileContextProvider(instanceBDir, ["alice", "bob"]);
 
-    await providerA.appendChannel("alice", "@bob task A");
-    await providerB.appendChannel("alice", "@bob task B");
-    await providerA.ackInbox("bob", new Date().toISOString());
-    await providerB.ackInbox("bob", new Date().toISOString());
+    const msgA = await providerA.appendChannel("alice", "@bob task A");
+    const msgB = await providerB.appendChannel("alice", "@bob task B");
+    await providerA.ackInbox("bob", msgA.id);
+    await providerB.ackInbox("bob", msgB.id);
 
     // Destroy instance A
     await providerA.destroy();
@@ -260,7 +260,7 @@ describe("Resume Semantics", () => {
     const provider1 = createFileContextProvider(testDir, ["alice", "bob"]);
     await provider1.appendChannel("alice", "@bob check this");
     const inbox1 = await provider1.getInbox("bob");
-    await provider1.ackInbox("bob", inbox1[0].entry.timestamp);
+    await provider1.ackInbox("bob", inbox1[0].entry.id);
 
     // Verify bob has no unread messages
     expect(await provider1.getInbox("bob")).toHaveLength(0);
@@ -428,7 +428,7 @@ describe("Concurrent Write Safety (single process)", () => {
     }
   });
 
-  test("timestamps are unique even for rapid concurrent writes", async () => {
+  test("message IDs are unique even for rapid concurrent writes", async () => {
     const provider = new MemoryContextProvider(["alice"]);
 
     const promises = Array.from({ length: 50 }, (_, i) =>
@@ -436,11 +436,11 @@ describe("Concurrent Write Safety (single process)", () => {
     );
     const results = await Promise.all(promises);
 
-    const timestamps = results.map((r) => r.timestamp);
-    const uniqueTimestamps = new Set(timestamps);
+    const ids = results.map((r) => r.id);
+    const uniqueIds = new Set(ids);
 
-    // All timestamps should be unique (sequence counter ensures this)
-    expect(uniqueTimestamps.size).toBe(50);
+    // All IDs should be unique (nanoid ensures this)
+    expect(uniqueIds.size).toBe(50);
   });
 
   test("concurrent getInbox and appendChannel do not corrupt state", async () => {
@@ -488,7 +488,7 @@ describe("Bind (Persistent) Context", () => {
     expect(inbox1).toHaveLength(1);
 
     // Ack the message
-    await provider1.ackInbox("bob", inbox1[0].entry.timestamp);
+    await provider1.ackInbox("bob", inbox1[0].entry.id);
     expect(await provider1.getInbox("bob")).toHaveLength(0);
 
     // Persistent shutdown: only release lock, don't destroy
@@ -513,7 +513,7 @@ describe("Bind (Persistent) Context", () => {
     const provider1 = createFileContextProvider(testDir, ["alice", "bob"]);
 
     await provider1.appendChannel("alice", "@bob review this");
-    await provider1.ackInbox("bob", (await provider1.getInbox("bob"))[0].entry.timestamp);
+    await provider1.ackInbox("bob", (await provider1.getInbox("bob"))[0].entry.id);
     expect(await provider1.getInbox("bob")).toHaveLength(0);
 
     // Ephemeral shutdown: destroy clears inbox state

@@ -5,6 +5,8 @@
 
 /** A single message in the channel (public, DM, or log) */
 export interface Message {
+  /** Unique message ID (nanoid) */
+  id: string;
   /** ISO timestamp */
   timestamp: string;
   /** Author agent name or 'system' */
@@ -104,7 +106,7 @@ export interface InboxMessage {
 
 /** Inbox state (per-agent read cursors) */
 export interface InboxState {
-  /** Per-agent read cursor: agent name → timestamp of last acknowledged message */
+  /** Per-agent read cursor: agent name → ID of last acknowledged message */
   readCursors: Record<string, string>;
 }
 

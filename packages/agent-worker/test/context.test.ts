@@ -168,6 +168,8 @@ describe('MemoryContextProvider', () => {
     test('reads channel entries since timestamp', async () => {
       await provider.appendChannel('agent1', 'First')
       const second = await provider.appendChannel('agent2', 'Second')
+      // Ensure next message gets a strictly later timestamp
+      await new Promise(r => setTimeout(r, 2))
       await provider.appendChannel('agent3', 'Third')
 
       const entries = await provider.readChannel({ since: second.timestamp })
@@ -211,7 +213,7 @@ describe('MemoryContextProvider', () => {
       const entry = await provider.appendChannel('agent1', '@agent2 please review')
       await provider.appendChannel('agent3', '@agent2 also check this')
 
-      await provider.ackInbox('agent2', entry.timestamp)
+      await provider.ackInbox('agent2', entry.id)
 
       const inbox = await provider.getInbox('agent2')
       expect(inbox).toHaveLength(1)
@@ -347,9 +349,9 @@ describe('MemoryContextProvider', () => {
 
   describe('test helpers', () => {
     test('clear removes all data', async () => {
-      await provider.appendChannel('agent1', 'Message')
+      const msg = await provider.appendChannel('agent1', 'Message')
       await provider.writeDocument('Content')
-      await provider.ackInbox('agent2', new Date().toISOString())
+      await provider.ackInbox('agent2', msg.id)
 
       provider.clear()
 
@@ -461,7 +463,7 @@ describe('FileContextProvider', () => {
 
     test('persists inbox state to file', async () => {
       const entry = await provider.appendChannel('agent1', '@agent2 check this')
-      await provider.ackInbox('agent2', entry.timestamp)
+      await provider.ackInbox('agent2', entry.id)
 
       // Create new provider to verify persistence
       const newProvider = createFileContextProvider(testDir, ['agent1', 'agent2'])
@@ -472,13 +474,13 @@ describe('FileContextProvider', () => {
 
     test('inbox state is stored in _state directory', async () => {
       const entry = await provider.appendChannel('agent1', '@agent2 check this')
-      await provider.ackInbox('agent2', entry.timestamp)
+      await provider.ackInbox('agent2', entry.id)
 
       const statePath = join(testDir, '_state', 'inbox.json')
       expect(existsSync(statePath)).toBe(true)
 
       const state = JSON.parse(readFileSync(statePath, 'utf-8'))
-      expect(state.readCursors.agent2).toBe(entry.timestamp)
+      expect(state.readCursors.agent2).toBe(entry.id)
     })
   })
 
@@ -633,7 +635,7 @@ describe('createFileContextProvider', () => {
     const provider = createFileContextProvider(testDir, ['agent1', 'agent2'])
 
     const entry = await provider.appendChannel('agent1', '@agent2 hello')
-    await provider.ackInbox('agent2', entry.timestamp)
+    await provider.ackInbox('agent2', entry.id)
 
     expect(existsSync(join(testDir, '_state', 'inbox.json'))).toBe(true)
   })
@@ -788,6 +790,8 @@ describe('MCP Server Tools', () => {
     test('reads entries since timestamp', async () => {
       await provider.appendChannel('agent1', 'First')
       const second = await provider.appendChannel('agent2', 'Second')
+      // Ensure next message gets a strictly later timestamp
+      await new Promise(r => setTimeout(r, 2))
       await provider.appendChannel('agent3', 'Third')
 
       const result = (await callTool('channel_read', {
@@ -923,19 +927,19 @@ describe('MCP Server Tools', () => {
   })
 
   describe('my_inbox_ack', () => {
-    test('acknowledges inbox up to timestamp', async () => {
+    test('acknowledges inbox up to message ID', async () => {
       const entry = await provider.appendChannel('agent1', '@agent2 first')
       await provider.appendChannel('agent3', '@agent2 second')
 
-      // Acknowledge first message
+      // Acknowledge first message by ID
       const ackResult = (await callTool(
         'my_inbox_ack',
-        { until: entry.timestamp },
+        { until: entry.id },
         { sessionId: 'agent2' }
       )) as { status: string; until: string }
 
       expect(ackResult.status).toBe('acknowledged')
-      expect(ackResult.until).toBe(entry.timestamp)
+      expect(ackResult.until).toBe(entry.id)
 
       // Check inbox - should only have second message
       const inbox = await provider.getInbox('agent2')
@@ -943,12 +947,12 @@ describe('MCP Server Tools', () => {
       expect(inbox[0].entry.from).toBe('agent3')
     })
 
-    test('acknowledges all messages when using latest timestamp', async () => {
+    test('acknowledges all messages when using latest ID', async () => {
       await provider.appendChannel('agent1', '@agent2 first')
       const second = await provider.appendChannel('agent3', '@agent2 second')
 
-      // Acknowledge all
-      await callTool('my_inbox_ack', { until: second.timestamp }, { sessionId: 'agent2' })
+      // Acknowledge all by last message ID
+      await callTool('my_inbox_ack', { until: second.id }, { sessionId: 'agent2' })
 
       const inbox = await provider.getInbox('agent2')
       expect(inbox).toEqual([])
