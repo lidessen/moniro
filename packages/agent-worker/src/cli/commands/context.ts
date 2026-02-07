@@ -1,5 +1,4 @@
 import type { Command } from "commander";
-import { readFileSync } from "node:fs";
 
 export function registerContextCommands(program: Command) {
   const contextCmd = program
@@ -142,74 +141,6 @@ export function registerContextCommands(program: Command) {
           `  [${m.entry.timestamp}]${priority} from ${m.entry.from}: ${m.entry.content.slice(0, 60)}...`,
         );
       }
-    });
-
-  // Context document subcommands
-  const documentCmd = contextCmd.command("document").description("Document operations");
-
-  documentCmd
-    .command("read")
-    .description("Read the shared document")
-    .requiredOption("--dir <path>", "Context directory path")
-    .action(async (options) => {
-      const { createFileContextProvider } = await import("@/workflow/context/index.ts");
-
-      const provider = createFileContextProvider(options.dir, []);
-      const content = await provider.readDocument();
-
-      if (content) {
-        console.log(content);
-      } else {
-        console.log("(empty document)");
-      }
-    });
-
-  documentCmd
-    .command("write")
-    .description("Write content to the shared document")
-    .requiredOption("--dir <path>", "Context directory path")
-    .option("--content <text>", "Content to write")
-    .option("--file <path>", "Read content from file")
-    .action(async (options) => {
-      const { createFileContextProvider } = await import("@/workflow/context/index.ts");
-
-      let content = options.content;
-      if (options.file) {
-        content = readFileSync(options.file, "utf-8");
-      }
-
-      if (!content) {
-        console.error("Provide --content or --file");
-        process.exit(1);
-      }
-
-      const provider = createFileContextProvider(options.dir, []);
-      await provider.writeDocument(content);
-      console.log("Document written");
-    });
-
-  documentCmd
-    .command("append")
-    .description("Append content to the shared document")
-    .requiredOption("--dir <path>", "Context directory path")
-    .option("--content <text>", "Content to append")
-    .option("--file <path>", "Read content from file")
-    .action(async (options) => {
-      const { createFileContextProvider } = await import("@/workflow/context/index.ts");
-
-      let content = options.content;
-      if (options.file) {
-        content = readFileSync(options.file, "utf-8");
-      }
-
-      if (!content) {
-        console.error("Provide --content or --file");
-        process.exit(1);
-      }
-
-      const provider = createFileContextProvider(options.dir, []);
-      await provider.appendDocument(content);
-      console.log("Content appended");
     });
 
   // MCP stdio bridge (for external CLI tools)
