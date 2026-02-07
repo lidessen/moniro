@@ -41,16 +41,20 @@ export interface Logger {
   child: (prefix: string) => Logger;
 }
 
-/** ANSI color codes */
+/** Whether to use ANSI colors */
+const shouldColor = !!process.stdout.isTTY && !process.env.NO_COLOR;
+const a = (code: string) => (shouldColor ? code : "");
+
+/** ANSI color codes — empty when not a TTY */
 const colors = {
-  reset: "\x1b[0m",
-  dim: "\x1b[2m",
-  bold: "\x1b[1m",
-  red: "\x1b[31m",
-  yellow: "\x1b[33m",
-  blue: "\x1b[34m",
-  cyan: "\x1b[36m",
-  gray: "\x1b[90m",
+  reset: a("\x1b[0m"),
+  dim: a("\x1b[2m"),
+  bold: a("\x1b[1m"),
+  red: a("\x1b[31m"),
+  yellow: a("\x1b[33m"),
+  blue: a("\x1b[34m"),
+  cyan: a("\x1b[36m"),
+  gray: a("\x1b[90m"),
 };
 
 /** Format timestamp as HH:MM:SS.mmm */

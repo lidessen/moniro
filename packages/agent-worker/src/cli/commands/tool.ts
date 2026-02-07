@@ -2,6 +2,7 @@ import type { Command } from "commander";
 import { join } from "node:path";
 import type { ToolInfo } from "@/agent/types.ts";
 import { sendRequest, isSessionActive } from "../client.ts";
+import { outputJson } from "../output.ts";
 
 export function registerToolCommands(program: Command) {
   const toolCmd = program.command("tool").description("Manage tools");
@@ -123,6 +124,7 @@ export function registerToolCommands(program: Command) {
     .command("list")
     .description("List tools")
     .option("--to <target>", "Target agent")
+    .option("--json", "Output as JSON")
     .action(async (options) => {
       const target = options.to;
 
@@ -138,6 +140,12 @@ export function registerToolCommands(program: Command) {
       }
 
       const tools = res.data as ToolInfo[];
+
+      if (options.json) {
+        outputJson(tools);
+        return;
+      }
+
       if (tools.length === 0) {
         console.log("No tools");
       } else {

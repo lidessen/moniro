@@ -12,6 +12,7 @@ import {
   waitForReady,
 } from "@/daemon/index.ts";
 import { buildAgentId, parseAgentId, isValidInstanceName, DEFAULT_INSTANCE } from "../instance.ts";
+import { outputJson } from "../output.ts";
 
 // Common action for creating new agent
 async function createAgentAction(
@@ -27,6 +28,7 @@ async function createAgentAction(
     importSkill?: string[];
     foreground?: boolean;
     instance?: string;
+    json?: boolean;
   },
 ) {
   let system = options.system ?? "You are a helpful assistant.";
@@ -97,9 +99,14 @@ async function createAgentAction(
     if (info) {
       const displayName = name || info.id.slice(0, 8);
       const instanceStr = options.instance ? `@${options.instance}` : "";
-      console.log(`Agent started: ${displayName}${instanceStr}`);
-      console.log(`Model: ${info.model}`);
-      console.log(`Backend: ${backend}`);
+
+      if (options.json) {
+        outputJson({ name: `${displayName}${instanceStr}`, model: info.model, backend });
+      } else {
+        console.log(`Agent started: ${displayName}${instanceStr}`);
+        console.log(`Model: ${info.model}`);
+        console.log(`Backend: ${backend}`);
+      }
     } else {
       console.error("Failed to start agent");
       process.exit(1);
@@ -108,8 +115,26 @@ async function createAgentAction(
 }
 
 // Common action for listing agents
-function listAgentsAction() {
+function listAgentsAction(options?: { json?: boolean }) {
   const sessions = listSessions();
+
+  if (options?.json) {
+    outputJson(
+      sessions.map((s) => {
+        const parsed = s.name ? parseAgentId(s.name) : null;
+        return {
+          id: s.id,
+          name: parsed?.agent ?? null,
+          instance: parsed?.instance ?? null,
+          model: s.model,
+          backend: s.backend,
+          running: isSessionRunning(s.id),
+        };
+      }),
+    );
+    return;
+  }
+
   if (sessions.length === 0) {
     console.log("No active agents");
     return;
@@ -146,7 +171,8 @@ function addNewCommandOptions(cmd: Command): Command {
     .option("--skill-dir <path...>", "Scan directories for skills")
     .option("--import-skill <spec...>", "Import skills from Git (owner/repo:{skill1,skill2})")
     .option("--instance <name>", "Instance name")
-    .option("--foreground", "Run in foreground");
+    .option("--foreground", "Run in foreground")
+    .option("--json", "Output as JSON");
 }
 
 export function registerAgentCommands(program: Command) {
@@ -159,23 +185,36 @@ export function registerAgentCommands(program: Command) {
     createAgentAction,
   );
 
-  agentCmd.command("list").description("List all agents").action(listAgentsAction);
+  agentCmd
+    .command("list")
+    .description("List all agents")
+    .option("--json", "Output as JSON")
+    .action(listAgentsAction);
 
   agentCmd
     .command("status [target]")
     .description("Check agent status")
-    .action(async (target) => {
+    .option("--json", "Output as JSON")
+    .action(async (target, options) => {
       if (!isSessionRunning(target)) {
-        console.log(target ? `Agent not found: ${target}` : "No active agent");
+        if (options.json) {
+          outputJson({ running: false, error: target ? `Not found: ${target}` : "No active agent" });
+        } else {
+          console.log(target ? `Agent not found: ${target}` : "No active agent");
+        }
         return;
       }
 
       const res = await sendRequest({ action: "ping" }, target);
       if (res.success && res.data) {
-        const { id, model, name } = res.data as { id: string; model: string; name?: string };
-        const nameStr = name ? ` (${name})` : "";
-        console.log(`Agent: ${id}${nameStr}`);
-        console.log(`Model: ${model}`);
+        const data = res.data as { id: string; model: string; name?: string };
+        if (options.json) {
+          outputJson({ ...data, running: true });
+        } else {
+          const nameStr = data.name ? ` (${data.name})` : "";
+          console.log(`Agent: ${data.id}${nameStr}`);
+          console.log(`Model: ${data.model}`);
+        }
       }
     });
 
@@ -233,5 +272,6 @@ export function registerAgentCommands(program: Command) {
   program
     .command("ls")
     .description('List all agents (alias for "agent list")')
+    .option("--json", "Output as JSON")
     .action(listAgentsAction);
 }

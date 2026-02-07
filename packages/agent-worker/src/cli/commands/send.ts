@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 import { sendRequest, isSessionActive } from "../client.ts";
+import { outputJson } from "../output.ts";
 
 export function registerSendCommands(program: Command) {
   // Send command
@@ -133,6 +134,7 @@ export function registerSendCommands(program: Command) {
     .command("stats")
     .description("Show agent statistics")
     .option("--to <target>", "Target agent")
+    .option("--json", "Output as JSON")
     .action(async (options) => {
       const target = options.to;
 
@@ -151,10 +153,15 @@ export function registerSendCommands(program: Command) {
         messageCount: number;
         usage: { input: number; output: number; total: number };
       };
-      console.log(`Messages: ${stats.messageCount}`);
-      console.log(
-        `Tokens: ${stats.usage.total} (in: ${stats.usage.input}, out: ${stats.usage.output})`,
-      );
+
+      if (options.json) {
+        outputJson(stats);
+      } else {
+        console.log(`Messages: ${stats.messageCount}`);
+        console.log(
+          `Tokens: ${stats.usage.total} (in: ${stats.usage.input}, out: ${stats.usage.output})`,
+        );
+      }
     });
 
   // Export command

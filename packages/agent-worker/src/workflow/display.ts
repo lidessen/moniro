@@ -7,31 +7,44 @@
  * - kind=undefined (agent messages): always shown
  * - kind="log" (operational logs): always shown, dimmed
  * - kind="debug" (debug details): only shown with --debug flag, dimmed
+ *
+ * Colors are TTY-gated: no ANSI codes when output is piped or captured
+ * by a subprocess (AI agent consuming output).
  */
 
 import type { ContextProvider } from "./context/provider.ts";
 import type { Message } from "./context/types.ts";
 
-// ==================== Internal Helpers ====================
+// ==================== Color System ====================
 
-/** ANSI color codes for terminal output */
+/** Whether to use ANSI colors (TTY + NO_COLOR check) */
+const shouldColor = !!process.stdout.isTTY && !process.env.NO_COLOR;
+
+/** ANSI escape or empty string based on TTY detection */
+function ansi(code: string): string {
+  return shouldColor ? code : "";
+}
+
+/** ANSI color codes — empty when not a TTY */
 const colors = {
-  reset: "\x1b[0m",
-  dim: "\x1b[2m",
-  bold: "\x1b[1m",
+  reset: ansi("\x1b[0m"),
+  dim: ansi("\x1b[2m"),
+  bold: ansi("\x1b[1m"),
   // Agent colors (cycle through these)
   agents: [
-    "\x1b[36m", // cyan
-    "\x1b[33m", // yellow
-    "\x1b[35m", // magenta
-    "\x1b[32m", // green
-    "\x1b[34m", // blue
-    "\x1b[91m", // bright red
+    ansi("\x1b[36m"), // cyan
+    ansi("\x1b[33m"), // yellow
+    ansi("\x1b[35m"), // magenta
+    ansi("\x1b[32m"), // green
+    ansi("\x1b[34m"), // blue
+    ansi("\x1b[91m"), // bright red
   ],
-  system: "\x1b[90m", // gray for system messages
-  yellow: "\x1b[33m",
-  red: "\x1b[31m",
+  system: ansi("\x1b[90m"), // gray for system messages
+  yellow: ansi("\x1b[33m"),
+  red: ansi("\x1b[31m"),
 };
+
+// ==================== Internal Helpers ====================
 
 /** Get consistent color for an agent name */
 function getAgentColor(agentName: string, agentNames: string[]): string {
