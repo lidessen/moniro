@@ -145,13 +145,16 @@ function generateCodexMCPConfig(config: MCPServerConfig, workingDir: string): MC
   let backupPath: string | undefined;
   let originalContent: string | undefined;
 
-  // Backup existing config
-  if (existsSync(configPath)) {
-    backupPath = `${configPath}.bak`;
+  // Ensure directory exists
+  mkdirSync(codexDir, { recursive: true });
+
+  // Read existing config (if any) and create backup atomically
+  try {
     originalContent = readFileSync(configPath, "utf-8");
+    backupPath = `${configPath}.bak`;
     renameSync(configPath, backupPath);
-  } else {
-    mkdirSync(codexDir, { recursive: true });
+  } catch {
+    // No existing config or read failed — proceed without backup
   }
 
   // Generate TOML config
@@ -225,13 +228,16 @@ function generateCursorMCPConfig(config: MCPServerConfig, workingDir: string): M
   let backupPath: string | undefined;
   let originalContent: Record<string, unknown> = {};
 
-  // Backup existing config
-  if (existsSync(configPath)) {
-    backupPath = `${configPath}.bak`;
+  // Ensure directory exists
+  mkdirSync(cursorDir, { recursive: true });
+
+  // Read existing config (if any) and create backup atomically
+  try {
     originalContent = JSON.parse(readFileSync(configPath, "utf-8"));
+    backupPath = `${configPath}.bak`;
     renameSync(configPath, backupPath);
-  } else {
-    mkdirSync(cursorDir, { recursive: true });
+  } catch {
+    // No existing config or read/parse failed — proceed with empty config
   }
 
   // Generate JSON config

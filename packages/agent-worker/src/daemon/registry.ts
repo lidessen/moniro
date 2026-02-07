@@ -1,4 +1,14 @@
-import { existsSync, unlinkSync, writeFileSync, readFileSync, mkdirSync } from "node:fs";
+import {
+  existsSync,
+  unlinkSync,
+  writeFileSync,
+  readFileSync,
+  mkdirSync,
+  openSync,
+  closeSync,
+  writeSync,
+  constants,
+} from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { BackendType } from "../backends/types.ts";
@@ -6,6 +16,10 @@ import type { BackendType } from "../backends/types.ts";
 export const CONFIG_DIR = join(homedir(), ".agent-worker");
 export const SESSIONS_DIR = join(CONFIG_DIR, "sessions");
 export const REGISTRY_FILE = join(CONFIG_DIR, "registry.json");
+const REGISTRY_LOCK = join(CONFIG_DIR, "registry.lock");
+const LOCK_STALE_MS = 5_000;
+const LOCK_TIMEOUT_MS = 3_000;
+const LOCK_RETRY_INTERVAL_MS = 10;
 
 export interface SessionRegistry {
   sessions: Record<string, SessionInfo>;
@@ -52,35 +66,118 @@ export function saveRegistry(registry: SessionRegistry): void {
   writeFileSync(REGISTRY_FILE, JSON.stringify(registry, null, 2));
 }
 
+/**
+ * Acquire an exclusive file lock on the registry using O_CREAT|O_EXCL.
+ * Stale locks from dead processes are automatically cleaned up.
+ */
+function acquireRegistryLock(): void {
+  ensureDirs();
+  const deadline = Date.now() + LOCK_TIMEOUT_MS;
+
+  while (true) {
+    try {
+      const fd = openSync(
+        REGISTRY_LOCK,
+        constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY,
+      );
+      writeSync(fd, JSON.stringify({ pid: process.pid, ts: Date.now() }));
+      closeSync(fd);
+      return;
+    } catch (e: unknown) {
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+
+      // Lock file exists — check if stale
+      try {
+        const lock = JSON.parse(readFileSync(REGISTRY_LOCK, "utf-8"));
+        const stale = Date.now() - lock.ts > LOCK_STALE_MS;
+        let dead = false;
+        if (!stale) {
+          try {
+            process.kill(lock.pid, 0);
+          } catch {
+            dead = true;
+          }
+        }
+        if (stale || dead) {
+          try {
+            unlinkSync(REGISTRY_LOCK);
+          } catch {}
+          continue;
+        }
+      } catch {
+        try {
+          unlinkSync(REGISTRY_LOCK);
+        } catch {}
+        continue;
+      }
+
+      if (Date.now() >= deadline) {
+        throw new Error(
+          `Timeout acquiring registry lock after ${LOCK_TIMEOUT_MS}ms`,
+        );
+      }
+
+      // Brief spin wait
+      const until = Date.now() + LOCK_RETRY_INTERVAL_MS;
+      while (Date.now() < until) {
+        /* spin */
+      }
+    }
+  }
+}
+
+function releaseRegistryLock(): void {
+  try {
+    unlinkSync(REGISTRY_LOCK);
+  } catch {}
+}
+
+/**
+ * Execute a function while holding an exclusive lock on the registry file.
+ * Prevents concurrent read-modify-write races between processes.
+ */
+function withRegistryLock<T>(fn: () => T): T {
+  acquireRegistryLock();
+  try {
+    return fn();
+  } finally {
+    releaseRegistryLock();
+  }
+}
+
 export function registerSession(info: SessionInfo): void {
-  const registry = loadRegistry();
-  registry.sessions[info.id] = info;
-  if (info.name) {
-    // Also register by name for easy lookup
-    registry.sessions[info.name] = info;
-  }
-  // Set as default if first session
-  if (Object.keys(registry.sessions).length <= 2) {
-    registry.defaultSession = info.id;
-  }
-  saveRegistry(registry);
+  withRegistryLock(() => {
+    const registry = loadRegistry();
+    registry.sessions[info.id] = info;
+    if (info.name) {
+      // Also register by name for easy lookup
+      registry.sessions[info.name] = info;
+    }
+    // Set as default if first session
+    if (Object.keys(registry.sessions).length <= 2) {
+      registry.defaultSession = info.id;
+    }
+    saveRegistry(registry);
+  });
 }
 
 export function unregisterSession(idOrName: string): void {
-  const registry = loadRegistry();
-  const info = registry.sessions[idOrName];
-  if (info) {
-    delete registry.sessions[info.id];
-    if (info.name) {
-      delete registry.sessions[info.name];
+  withRegistryLock(() => {
+    const registry = loadRegistry();
+    const info = registry.sessions[idOrName];
+    if (info) {
+      delete registry.sessions[info.id];
+      if (info.name) {
+        delete registry.sessions[info.name];
+      }
+      if (registry.defaultSession === info.id) {
+        // Set another session as default
+        const remaining = Object.values(registry.sessions).filter((s) => s.id !== info.id);
+        registry.defaultSession = remaining[0]?.id;
+      }
     }
-    if (registry.defaultSession === info.id) {
-      // Set another session as default
-      const remaining = Object.values(registry.sessions).filter((s) => s.id !== info.id);
-      registry.defaultSession = remaining[0]?.id;
-    }
-  }
-  saveRegistry(registry);
+    saveRegistry(registry);
+  });
 }
 
 export function getSessionInfo(idOrName?: string): SessionInfo | null {
@@ -130,12 +227,14 @@ export function listSessions(): SessionInfo[] {
 }
 
 export function setDefaultSession(idOrName: string): boolean {
-  const registry = loadRegistry();
-  const info = registry.sessions[idOrName];
-  if (!info) return false;
-  registry.defaultSession = info.id;
-  saveRegistry(registry);
-  return true;
+  return withRegistryLock(() => {
+    const registry = loadRegistry();
+    const info = registry.sessions[idOrName];
+    if (!info) return false;
+    registry.defaultSession = info.id;
+    saveRegistry(registry);
+    return true;
+  });
 }
 
 export function isSessionRunning(idOrName?: string): boolean {
