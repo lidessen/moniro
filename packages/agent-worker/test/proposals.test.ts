@@ -10,7 +10,6 @@ import {
   createProposalManager,
   formatProposal,
   formatProposalList,
-  PROPOSAL_DEFAULTS,
   type ProposalManager,
   type Proposal,
 } from '../src/workflow/context/proposals.js'

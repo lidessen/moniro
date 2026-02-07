@@ -431,7 +431,7 @@ kickoff: "@assistant start working"
 
 // ==================== Runner Tests ====================
 
-import { initWorkflow, runWorkflow } from '../src/workflow/runner.ts'
+import { runWorkflow } from '../src/workflow/runner.ts'
 import type { ParsedWorkflow } from '../src/workflow/types.ts'
 
 describe('runWorkflow', () => {

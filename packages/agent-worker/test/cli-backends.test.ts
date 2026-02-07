@@ -4,7 +4,7 @@
  * Uses mock-cli.ts to simulate cursor-agent, claude, and codex CLIs
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test'
+import { describe, test, expect } from 'bun:test'
 import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import { CursorBackend } from '../src/backends/cursor.ts'
@@ -112,7 +112,7 @@ describe('CursorBackend with Mock', () => {
     // Override to use timeout mock
     const originalBuild = backend['buildCommand'].bind(backend)
     backend['buildCommand'] = (message: string) => {
-      const cmd = originalBuild(message)
+      originalBuild(message)
       return {
         command: 'bun',
         args: [MOCK_CLI_PATH, 'cursor-agent', '-p', message],

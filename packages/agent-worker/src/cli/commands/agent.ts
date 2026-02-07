@@ -1,8 +1,8 @@
 import { Command, Option } from "commander";
 import { readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
-import { getDefaultModel } from "../../agent/models.ts";
-import type { BackendType } from "../../backends/types.ts";
+import { getDefaultModel } from "@/agent/models.ts";
+import type { BackendType } from "@/backends/types.ts";
 import { sendRequest } from "../client.ts";
 import {
   startDaemon,
@@ -10,7 +10,7 @@ import {
   listSessions,
   setDefaultSession,
   waitForReady,
-} from "../../daemon/index.ts";
+} from "@/daemon/index.ts";
 import { buildAgentId, parseAgentId, isValidInstanceName, DEFAULT_INSTANCE } from "../instance.ts";
 
 // Common action for creating new agent

@@ -584,7 +584,7 @@ describe('Alice-Bob workflow with mock backends', () => {
     })
 
     const entries = await provider.readChannel()
-    const flow = entries.map((e) => `${e.from}: ${e.content.slice(0, 50)}`)
+    // Debug: entries.map((e) => `${e.from}: ${e.content.slice(0, 50)}`)
 
     // Verify 5-message flow
     expect(entries).toHaveLength(5)

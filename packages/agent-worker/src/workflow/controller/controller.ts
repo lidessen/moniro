@@ -228,7 +228,7 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
 
 // ==================== Agent Run Orchestration ====================
 
-import type { Backend } from "../../backends/types.ts";
+import type { Backend } from "@/backends/types.ts";
 import { runMockAgent } from "./mock-runner.ts";
 
 /**

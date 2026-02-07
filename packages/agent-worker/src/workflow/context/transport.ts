@@ -115,7 +115,7 @@ export async function runWithUnixSocket(
         if (headerMatch) {
           agentId = headerMatch[1]!.trim();
           // Set sessionId on transport so MCP SDK passes it to tool handlers as extra.sessionId
-          (transport as any).sessionId = agentId;
+          Object.assign(transport, { sessionId: agentId });
           // Remove header from chunk
           const remaining = str.slice(headerMatch[0].length);
           if (remaining) {

@@ -593,7 +593,7 @@ export async function runWorkflowWithControllers(
  */
 async function shutdownControllers(
   controllers: Map<string, AgentController>,
-  debug: boolean,
+  _debug: boolean,
   logger: Logger,
 ): Promise<void> {
   logger.debug("Stopping controllers...");

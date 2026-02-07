@@ -3,7 +3,7 @@
  * Tests for agent controller, backend abstraction, and prompt building
  */
 
-import { describe, test, expect, beforeEach, mock } from 'bun:test'
+import { describe, test, expect } from 'bun:test'
 import {
   CONTROLLER_DEFAULTS,
   type AgentRunContext,

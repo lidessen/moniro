@@ -6,12 +6,11 @@
  */
 
 import { describe, test, expect, beforeEach, afterEach, afterAll } from 'bun:test'
-import { spawn, execSync } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { join } from 'node:path'
-import { existsSync, rmSync, mkdirSync } from 'node:fs'
+import { existsSync, rmSync } from 'node:fs'
 
 const CLI_PATH = join(import.meta.dir, '../dist/cli/index.mjs')
-const MOCK_CLI_PATH = join(import.meta.dir, 'mock-cli.ts')
 const TEST_SOCKET_DIR = join(import.meta.dir, '../.test-sockets')
 
 // Helper to run CLI command
@@ -104,7 +103,7 @@ describe('CLI Integration', () => {
 
     test('lists agent with ls command', async () => {
       // First create an agent in background (it will fail without API key but register)
-      const createResult = await runCli(['new', 'test-ls-agent', '-m', 'anthropic/claude-sonnet-4-5'])
+      await runCli(['new', 'test-ls-agent', '-m', 'anthropic/claude-sonnet-4-5'])
 
       // Give it a moment to start
       await new Promise(resolve => setTimeout(resolve, 500))
@@ -117,7 +116,7 @@ describe('CLI Integration', () => {
     })
 
     test('creates agent with name using positional arg', async () => {
-      const result = await runCli(['new', 'my-named-agent', '-m', 'anthropic/claude-sonnet-4-5'])
+      await runCli(['new', 'my-named-agent', '-m', 'anthropic/claude-sonnet-4-5'])
 
       // Give it a moment
       await new Promise(resolve => setTimeout(resolve, 500))
@@ -275,7 +274,7 @@ describe('Session Lifecycle', () => {
     // For now, test the command structure
 
     // 1. Create agent (will fail without API key but shows structure works)
-    const createResult = await runCli(['new', 'lifecycle-test', '-m', 'anthropic/claude-sonnet-4-5'])
+    await runCli(['new', 'lifecycle-test', '-m', 'anthropic/claude-sonnet-4-5'])
 
     // 2. The agent may or may not start depending on API key
     await new Promise(resolve => setTimeout(resolve, 500))

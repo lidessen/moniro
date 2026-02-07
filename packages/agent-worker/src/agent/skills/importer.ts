@@ -23,10 +23,8 @@ export interface ImportedSkill {
 export class SkillImporter {
   private tempDir: string;
   private imported = new Map<string, ImportedSkill>();
-  private sessionId: string;
 
   constructor(sessionId: string) {
-    this.sessionId = sessionId;
     this.tempDir = join(tmpdir(), `agent-worker-skills-${sessionId}`);
   }
 

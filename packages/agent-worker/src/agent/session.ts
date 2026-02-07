@@ -462,11 +462,14 @@ export class AgentSession {
    * Get tool info (names, descriptions, approval status)
    */
   getTools(): ToolInfo[] {
-    return Object.entries(this.tools).map(([name, t]) => ({
-      name,
-      description: (t as any)?.description,
-      needsApproval: !!this.approval[name],
-    }));
+    return Object.entries(this.tools).map(([name, t]) => {
+      const tool = t as Record<string, unknown> | null | undefined;
+      return {
+        name,
+        description: tool?.description as string | undefined,
+        needsApproval: !!this.approval[name],
+      };
+    });
   }
 
   history(): AgentMessage[] {
@@ -520,8 +523,9 @@ export class AgentSession {
     }
 
     let result: unknown;
-    if ((t as any).execute) {
-      result = await (t as any).execute(approval.arguments);
+    const tool = t as Record<string, unknown>;
+    if (typeof tool.execute === "function") {
+      result = await tool.execute(approval.arguments);
     } else {
       result = { error: "No implementation provided" };
     }

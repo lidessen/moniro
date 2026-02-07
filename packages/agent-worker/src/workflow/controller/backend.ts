@@ -3,10 +3,10 @@
  * Maps workflow config to Backend instances from backends/
  */
 
-import type { Backend } from "../../backends/types.ts";
-import { parseModel } from "../../backends/model-maps.ts";
-import { createBackend } from "../../backends/index.ts";
-import { createMockBackend } from "../../backends/mock.ts";
+import type { Backend } from "@/backends/types.ts";
+import { parseModel } from "@/backends/model-maps.ts";
+import { createBackend } from "@/backends/index.ts";
+import { createMockBackend } from "@/backends/mock.ts";
 
 /**
  * Get backend by explicit backend type

@@ -16,7 +16,7 @@ export function registerContextCommands(program: Command) {
     .requiredOption("--dir <path>", "Context directory path")
     .option("--agents <list>", "Comma-separated list of valid agent names")
     .action(async (message, options) => {
-      const { createFileContextProvider } = await import("../../workflow/context/index.ts");
+      const { createFileContextProvider } = await import("@/workflow/context/index.ts");
 
       const validAgents = options.agents ? options.agents.split(",") : [options.from];
       const provider = createFileContextProvider(options.dir, validAgents);
@@ -36,7 +36,7 @@ export function registerContextCommands(program: Command) {
     .option("--limit <count>", "Maximum entries to return", parseInt)
     .option("--json", "Output as JSON")
     .action(async (options) => {
-      const { createFileContextProvider } = await import("../../workflow/context/index.ts");
+      const { createFileContextProvider } = await import("@/workflow/context/index.ts");
 
       const provider = createFileContextProvider(options.dir, []);
       const entries = await provider.readChannel({ since: options.since, limit: options.limit });
@@ -65,7 +65,7 @@ export function registerContextCommands(program: Command) {
     .option("-n, --count <count>", "Number of messages", "5")
     .option("--json", "Output as JSON")
     .action(async (options) => {
-      const { createFileContextProvider } = await import("../../workflow/context/index.ts");
+      const { createFileContextProvider } = await import("@/workflow/context/index.ts");
 
       const provider = createFileContextProvider(options.dir, []);
       const count = parseInt(options.count, 10);
@@ -98,7 +98,7 @@ export function registerContextCommands(program: Command) {
     .option("--ack <timestamp>", "Acknowledge mentions up to this timestamp")
     .option("--json", "Output as JSON")
     .action(async (options) => {
-      const { createFileContextProvider } = await import("../../workflow/context/index.ts");
+      const { createFileContextProvider } = await import("@/workflow/context/index.ts");
 
       const validAgents = options.agents ? options.agents.split(",") : [options.agent];
       const provider = createFileContextProvider(options.dir, validAgents);
@@ -138,7 +138,7 @@ export function registerContextCommands(program: Command) {
     .description("Read the shared document")
     .requiredOption("--dir <path>", "Context directory path")
     .action(async (options) => {
-      const { createFileContextProvider } = await import("../../workflow/context/index.ts");
+      const { createFileContextProvider } = await import("@/workflow/context/index.ts");
 
       const provider = createFileContextProvider(options.dir, []);
       const content = await provider.readDocument();
@@ -157,7 +157,7 @@ export function registerContextCommands(program: Command) {
     .option("--content <text>", "Content to write")
     .option("--file <path>", "Read content from file")
     .action(async (options) => {
-      const { createFileContextProvider } = await import("../../workflow/context/index.ts");
+      const { createFileContextProvider } = await import("@/workflow/context/index.ts");
 
       let content = options.content;
       if (options.file) {
@@ -181,7 +181,7 @@ export function registerContextCommands(program: Command) {
     .option("--content <text>", "Content to append")
     .option("--file <path>", "Read content from file")
     .action(async (options) => {
-      const { createFileContextProvider } = await import("../../workflow/context/index.ts");
+      const { createFileContextProvider } = await import("@/workflow/context/index.ts");
 
       let content = options.content;
       if (options.file) {

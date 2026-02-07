@@ -225,7 +225,7 @@ export class ContextProviderImpl implements ContextProvider {
 
   async createResource(
     content: string,
-    createdBy: string,
+    _createdBy: string,
     type: ResourceType = "text",
   ): Promise<ResourceResult> {
     const id = generateResourceId();

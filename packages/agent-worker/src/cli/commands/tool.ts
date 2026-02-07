@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import { join } from "node:path";
-import type { ToolInfo } from "../../agent/types.ts";
+import type { ToolInfo } from "@/agent/types.ts";
 import { sendRequest, isSessionActive } from "../client.ts";
 
 export function registerToolCommands(program: Command) {

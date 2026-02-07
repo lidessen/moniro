@@ -1,5 +1,5 @@
 import type { Command } from "commander";
-import { FRONTIER_MODELS, getDefaultModel } from "../../agent/models.ts";
+import { FRONTIER_MODELS, getDefaultModel } from "@/agent/models.ts";
 
 // Provider API key configuration
 const PROVIDER_API_KEYS: Record<string, { envVar: string; description: string }> = {
@@ -54,7 +54,7 @@ export function registerInfoCommands(program: Command) {
     .command("backends")
     .description("Check available backends (SDK, CLI tools)")
     .action(async () => {
-      const { listBackends } = await import("../../backends/index.ts");
+      const { listBackends } = await import("@/backends/index.ts");
       const backends = await listBackends();
 
       console.log("Backend Status:\n");

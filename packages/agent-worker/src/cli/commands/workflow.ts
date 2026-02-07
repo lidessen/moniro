@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 import { spawn } from "node:child_process";
 import { sendRequest } from "../client.ts";
-import { isSessionRunning, listSessions } from "../../daemon/index.ts";
+import { isSessionRunning, listSessions } from "@/daemon/index.ts";
 
 export function registerWorkflowCommands(program: Command) {
   // Run workflow
@@ -14,7 +14,7 @@ export function registerWorkflowCommands(program: Command) {
     .option("--json", "Output results as JSON")
     .action(async (file, options) => {
       const { parseWorkflowFile, runWorkflowWithControllers } =
-        await import("../../workflow/index.ts");
+        await import("@/workflow/index.ts");
 
       try {
         // Parse workflow
@@ -79,7 +79,7 @@ export function registerWorkflowCommands(program: Command) {
     .option("--background", "Run in background (daemonize)")
     .action(async (file, options) => {
       const { parseWorkflowFile, runWorkflowWithControllers } =
-        await import("../../workflow/index.ts");
+        await import("@/workflow/index.ts");
 
       // Background mode: spawn detached process
       if (options.background) {
