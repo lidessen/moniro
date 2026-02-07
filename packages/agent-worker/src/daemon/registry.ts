@@ -119,8 +119,6 @@ export interface SessionInfo {
   schedule?: ScheduleConfig; // periodic wakeup when idle
 }
 
-/** Default context directory relative to cwd */
-export const DEFAULT_CONTEXT_BASE = ".agent-worker";
 
 export function ensureDirs(): void {
   mkdirSync(SESSIONS_DIR, { recursive: true });
@@ -288,9 +286,9 @@ export async function waitForReady(
 
 /**
  * Resolve context directory for an instance.
- * Priority: explicit contextDir > lookup from existing agents > project-local default.
+ * Priority: explicit contextDir > lookup from existing agents > global default.
  *
- * Default: `.agent-worker/{instance}/` relative to cwd (project-local).
+ * Default: `~/.agent-worker/contexts/{instance}/`
  */
 export function resolveContextDir(instance: string, contextDir?: string): string {
   // 1. Explicit path
@@ -305,9 +303,8 @@ export function resolveContextDir(instance: string, contextDir?: string): string
     return existing[0]!.contextDir;
   }
 
-  // 3. Project-local default
-  const { resolve } = require("node:path") as typeof import("node:path");
-  return resolve(join(DEFAULT_CONTEXT_BASE, instance));
+  // 3. Global default (~/.agent-worker/contexts/{instance}/)
+  return join(CONTEXTS_DIR, instance);
 }
 
 /**
@@ -317,13 +314,6 @@ export function ensureInstanceContext(instance: string, contextDir?: string): st
   const dir = resolveContextDir(instance, contextDir);
   mkdirSync(dir, { recursive: true });
   return dir;
-}
-
-/**
- * @deprecated Use resolveContextDir instead
- */
-export function getInstanceContextDir(instance: string): string {
-  return resolveContextDir(instance);
 }
 
 /**

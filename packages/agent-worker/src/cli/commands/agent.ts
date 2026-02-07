@@ -259,7 +259,7 @@ function addNewCommandOptions(cmd: Command): Command {
     .option("--wakeup <value>", "Scheduled wakeup: ms number, duration (30s/5m/2h), or cron expr")
     .option("--wakeup-prompt <prompt>", "Custom prompt for scheduled wakeup")
     .option("--instance <name>", "Instance namespace (agents in same instance share context)")
-    .option("--context-dir <path>", "Context directory path (default: .agent-worker/{instance}/)")
+    .option("--context-dir <path>", "Context directory path")
     .option("--foreground", "Run in foreground")
     .option("--json", "Output as JSON");
 }

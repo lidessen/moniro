@@ -9,7 +9,6 @@ export {
   getSessionInfo,
   parseDuration,
   resolveSchedule,
-  getInstanceContextDir,
   ensureInstanceContext,
   getInstanceAgents,
   getInstanceAgentNames,
