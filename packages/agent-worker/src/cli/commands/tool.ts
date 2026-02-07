@@ -1,6 +1,6 @@
 import type { Command } from 'commander'
 import { join } from 'node:path'
-import type { ToolDefinition } from '../../agent/types.ts'
+import type { ToolInfo } from '../../agent/types.ts'
 import { sendRequest, isSessionActive } from '../client.ts'
 
 export function registerToolCommands(program: Command) {
@@ -33,14 +33,14 @@ export function registerToolCommands(program: Command) {
         required.push(paramName)
       }
 
-      const tool: ToolDefinition = {
+      const payload = {
         name,
         description: options.desc,
         parameters: { type: 'object', properties, required },
         needsApproval: options.needsApproval ?? false,
       }
 
-      const res = await sendRequest({ action: 'tool_add', payload: tool }, target)
+      const res = await sendRequest({ action: 'tool_add', payload }, target)
       if (res.success) {
         const approvalNote = options.needsApproval ? ' (needs approval)' : ''
         console.log(`Tool added: ${name}${approvalNote}`)
@@ -71,16 +71,10 @@ export function registerToolCommands(program: Command) {
       }, target)
 
       if (res.success) {
-        const data = res.data as { imported: string[]; skipped?: string[] }
+        const data = res.data as { imported: string[] }
         console.log(`Imported ${data.imported.length} tool(s):`)
         for (const name of data.imported) {
           console.log(`  ${name}`)
-        }
-        if (data.skipped && data.skipped.length > 0) {
-          console.log(`Skipped ${data.skipped.length} invalid tool(s):`)
-          for (const name of data.skipped) {
-            console.log(`  ${name}`)
-          }
         }
       } else {
         console.error('Error:', res.error)
@@ -137,14 +131,13 @@ export function registerToolCommands(program: Command) {
         process.exit(1)
       }
 
-      const tools = res.data as ToolDefinition[]
+      const tools = res.data as ToolInfo[]
       if (tools.length === 0) {
         console.log('No tools')
       } else {
         for (const t of tools) {
           const approval = t.needsApproval ? ' [needs approval]' : ''
-          const mock = t.mockResponse !== undefined ? ' [mocked]' : ''
-          console.log(`  ${t.name}${approval}${mock} - ${t.description}`)
+          console.log(`  ${t.name}${approval} - ${t.description ?? '(no description)'}`)
         }
       }
     })

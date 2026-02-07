@@ -3,7 +3,6 @@ import { existsSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { AgentSession } from '../agent/session.ts'
-import type { ToolDefinition } from '../agent/types.ts'
 import type { BackendType } from '../backends/types.ts'
 import { createBackend } from '../backends/index.ts'
 import { SkillsProvider, createSkillsTool, SkillImporter } from '../agent/skills/index.ts'
@@ -35,7 +34,7 @@ async function setupSkills(
   skillPaths?: string[],
   skillDirs?: string[],
   importSkills?: string[]
-): Promise<{ tools: ToolDefinition[]; importer?: SkillImporter }> {
+): Promise<{ tools: Record<string, unknown>; importer?: SkillImporter }> {
   const provider = new SkillsProvider()
 
   // Scan default directories
@@ -90,10 +89,12 @@ async function setupSkills(
     }
   }
 
-  return {
-    tools: skills.length > 0 ? [createSkillsTool(provider)] : [],
-    importer,
+  const tools: Record<string, unknown> = {}
+  if (skills.length > 0) {
+    tools.Skills = createSkillsTool(provider)
   }
+
+  return { tools, importer }
 }
 
 let state: ServerState | null = null

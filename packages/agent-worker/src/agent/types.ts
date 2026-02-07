@@ -16,22 +16,17 @@ export interface AgentMessage {
 }
 
 /**
- * Tool definition with optional mock implementation
+ * Approval check — static boolean or dynamic function
  */
-export interface ToolDefinition {
+export type ApprovalCheck = boolean | ((args: Record<string, unknown>) => boolean)
+
+/**
+ * Tool info returned by getTools() — read-only view
+ */
+export interface ToolInfo {
   name: string
-  description: string
-  parameters: {
-    type: 'object'
-    properties: Record<string, unknown>
-    required?: string[]
-  }
-  /** Mock function - returns controlled response for testing */
-  execute?: (args: Record<string, unknown>) => unknown | Promise<unknown>
-  /** Static mock response (JSON-serializable, used when execute is not set) */
-  mockResponse?: unknown
-  /** Require user approval before execution (default: false) */
-  needsApproval?: boolean | ((args: Record<string, unknown>) => boolean)
+  description?: string
+  needsApproval: boolean
 }
 
 /**
@@ -97,8 +92,10 @@ export interface SessionConfig {
   model: string
   /** System prompt */
   system: string
-  /** Tool definitions with mock implementations */
-  tools?: ToolDefinition[]
+  /** AI SDK tools — Record<name, tool()> */
+  tools?: Record<string, unknown>
+  /** Per-tool approval config — Record<name, boolean | (args) => boolean> */
+  approval?: Record<string, ApprovalCheck>
   /** Maximum tokens for response (default: 4096) */
   maxTokens?: number
   /** Maximum tool call steps per turn (default: 10) */

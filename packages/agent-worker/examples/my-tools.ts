@@ -7,25 +7,22 @@
  *   agent-worker send "What's the weather in Tokyo?" --to test
  */
 
-// Note: In a real project, import from 'agent-worker' after installing the package
-// For development, we use relative imports
-import type { ToolDefinition } from '../src/types.ts'
+import { tool, jsonSchema } from 'ai'
 
-const tools: ToolDefinition[] = [
-  {
-    name: 'get_weather',
+const tools = {
+  get_weather: tool({
     description: 'Get current weather for a location',
-    parameters: {
+    parameters: jsonSchema<Record<string, unknown>>({
       type: 'object',
       properties: {
         location: { type: 'string', description: 'City name' },
         unit: { type: 'string', enum: ['celsius', 'fahrenheit'] },
       },
       required: ['location'],
-    },
+    }),
     execute: async (args) => {
-      const location = args.location as string
-      const unit = (args.unit as string) || 'celsius'
+      const location = (args as any).location as string
+      const unit = ((args as any).unit as string) || 'celsius'
       // Mock implementation
       return {
         location,
@@ -34,21 +31,21 @@ const tools: ToolDefinition[] = [
         condition: 'sunny',
       }
     },
-  },
-  {
-    name: 'search_web',
+  }),
+
+  search_web: tool({
     description: 'Search the web for information',
-    parameters: {
+    parameters: jsonSchema<Record<string, unknown>>({
       type: 'object',
       properties: {
         query: { type: 'string', description: 'Search query' },
         maxResults: { type: 'number', description: 'Max results to return' },
       },
       required: ['query'],
-    },
+    }),
     execute: async (args) => {
-      const query = args.query as string
-      const maxResults = (args.maxResults as number) || 5
+      const query = (args as any).query as string
+      const maxResults = ((args as any).maxResults as number) || 5
       // Mock implementation
       return {
         query,
@@ -58,11 +55,11 @@ const tools: ToolDefinition[] = [
         ].slice(0, maxResults),
       }
     },
-  },
-  {
-    name: 'file_operation',
+  }),
+
+  file_operation: tool({
     description: 'Perform file operations (read, write, delete)',
-    parameters: {
+    parameters: jsonSchema<Record<string, unknown>>({
       type: 'object',
       properties: {
         action: { type: 'string', enum: ['read', 'write', 'delete'] },
@@ -70,13 +67,11 @@ const tools: ToolDefinition[] = [
         content: { type: 'string', description: 'Content for write operation' },
       },
       required: ['action', 'path'],
-    },
-    // Conditional approval: only require approval for delete operations
-    needsApproval: (args) => (args.action as string) === 'delete',
+    }),
     execute: async (args) => {
-      const action = args.action as string
-      const path = args.path as string
-      const content = args.content as string | undefined
+      const action = (args as any).action as string
+      const path = (args as any).path as string
+      const content = (args as any).content as string | undefined
       // Mock implementation
       switch (action) {
         case 'read':
@@ -89,7 +84,10 @@ const tools: ToolDefinition[] = [
           return { error: `Unknown action: ${action}` }
       }
     },
-  },
-]
+  }),
+}
+
+// Note: For file_operation, configure approval separately in your session:
+//   approval: { file_operation: (args) => args.action === 'delete' }
 
 export default tools

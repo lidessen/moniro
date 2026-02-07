@@ -9,16 +9,16 @@ export {
   getDefaultModel,
 } from './models.ts'
 export type { SupportedProvider } from './models.ts'
-export { createTools } from './tools/convert.ts'
 export type {
   AgentMessage,
   AgentResponse,
+  ApprovalCheck,
   MessageStatus,
   PendingApproval,
   SessionConfig,
   SessionState,
   ToolCall,
-  ToolDefinition,
+  ToolInfo,
   TokenUsage,
   Transcript,
 } from './types.ts'

@@ -1,6 +1,5 @@
 export { AgentSession, type AgentSessionConfig, type SendOptions, type StepInfo } from './agent/session.ts'
 export { createModel, createModelAsync, FRONTIER_MODELS, SUPPORTED_PROVIDERS } from './agent/models.ts'
-export { createTools } from './agent/tools/convert.ts'
 export {
   createBashTool,
   createBashTools,
@@ -46,12 +45,13 @@ export type {
 export type {
   AgentMessage,
   AgentResponse,
+  ApprovalCheck,
   MessageStatus,
   PendingApproval,
   SessionConfig,
   SessionState,
   ToolCall,
-  ToolDefinition,
+  ToolInfo,
   TokenUsage,
   Transcript,
 } from './agent/types.ts'

@@ -1,14 +1,14 @@
 import { ToolLoopAgent, stepCountIs, type ModelMessage } from 'ai'
 import { createModelAsync } from './models.ts'
-import { createTools } from './tools/convert.ts'
 import type {
   AgentMessage,
   AgentResponse,
+  ApprovalCheck,
   PendingApproval,
   SessionConfig,
   SessionState,
   ToolCall,
-  ToolDefinition,
+  ToolInfo,
   TokenUsage,
   Transcript,
 } from './types.ts'
@@ -50,6 +50,9 @@ export interface SendOptions {
  * Maintains conversation state across multiple send() calls,
  * enabling improvisational testing where you observe responses
  * and decide next actions.
+ *
+ * Tools are AI SDK tool() objects passed as Record<name, tool()>.
+ * Approval is configured separately via Record<name, check>.
  */
 export class AgentSession {
   readonly id: string
@@ -57,7 +60,11 @@ export class AgentSession {
   readonly system: string
   readonly createdAt: string
 
-  private tools: ToolDefinition[]
+  // Tools: name → AI SDK tool (from tool())
+  private tools: Record<string, any>
+  // Approval: name → check
+  private approval: Record<string, ApprovalCheck>
+
   private maxTokens: number
   private maxSteps: number
   private messages: AgentMessage[] = []
@@ -102,7 +109,8 @@ export class AgentSession {
 
     this.model = config.model
     this.system = config.system
-    this.tools = config.tools ?? []
+    this.tools = config.tools ? { ...config.tools } : {}
+    this.approval = config.approval ? { ...config.approval } : {}
     this.maxTokens = config.maxTokens ?? 4096
     this.maxSteps = config.maxSteps ?? 10
     this.backend = config.backend ?? null
@@ -111,50 +119,53 @@ export class AgentSession {
   /**
    * Check if a tool needs approval for given arguments
    */
-  private toolNeedsApproval(tool: ToolDefinition, args: Record<string, unknown>): boolean {
-    if (!tool.needsApproval) return false
-    if (typeof tool.needsApproval === 'function') {
-      return tool.needsApproval(args)
-    }
-    return tool.needsApproval
+  private checkApproval(name: string, args: Record<string, unknown>): boolean {
+    const check = this.approval[name]
+    if (!check) return false
+    if (typeof check === 'function') return check(args)
+    return check
   }
 
   /**
-   * Build tools with approval handling
+   * Build tools with approval wrapping for ToolLoopAgent
    */
-  private buildTools(autoApprove: boolean): ReturnType<typeof createTools> | undefined {
-    if (this.tools.length === 0) return undefined
+  private buildTools(autoApprove: boolean): Record<string, any> | undefined {
+    const names = Object.keys(this.tools)
+    if (names.length === 0) return undefined
 
-    // Wrap tools to handle approval
-    const wrappedTools = this.tools.map((tool) => ({
-      ...tool,
-      execute: async (args: Record<string, unknown>) => {
-        // Check if approval is needed
-        if (!autoApprove && this.toolNeedsApproval(tool, args)) {
-          // Create pending approval
-          const approval: PendingApproval = {
-            id: crypto.randomUUID(),
-            toolName: tool.name,
-            toolCallId: crypto.randomUUID(),
-            arguments: args,
-            requestedAt: new Date().toISOString(),
-            status: 'pending',
+    // If auto-approve or no approval config, pass tools directly
+    if (autoApprove || Object.keys(this.approval).length === 0) {
+      return this.tools
+    }
+
+    // Wrap tools that need approval
+    const wrapped: Record<string, any> = {}
+    for (const [name, t] of Object.entries(this.tools)) {
+      if (!this.approval[name]) {
+        wrapped[name] = t
+        continue
+      }
+      // Wrap execute with approval check
+      wrapped[name] = {
+        ...t,
+        execute: async (args: any, options?: any) => {
+          if (this.checkApproval(name, args)) {
+            const approval: PendingApproval = {
+              id: crypto.randomUUID(),
+              toolName: name,
+              toolCallId: crypto.randomUUID(),
+              arguments: args,
+              requestedAt: new Date().toISOString(),
+              status: 'pending',
+            }
+            this.pendingApprovals.push(approval)
+            return { __approvalRequired: true, approvalId: approval.id }
           }
-          this.pendingApprovals.push(approval)
-          return { __approvalRequired: true, approvalId: approval.id }
-        }
-        // Execute normally
-        if (tool.execute) {
-          return tool.execute(args)
-        }
-        // Return static mock response if set
-        if (tool.mockResponse !== undefined) {
-          return tool.mockResponse
-        }
-        return { error: 'No mock implementation provided' }
-      },
-    }))
-    return createTools(wrappedTools)
+          return t.execute?.(args, options)
+        },
+      }
+    }
+    return wrapped
   }
 
   /**
@@ -179,19 +190,16 @@ export class AgentSession {
 
   /**
    * Send a message via CLI backend (non-SDK path)
-   * Delegates to backend.send() and manages history/usage uniformly
    */
   private async sendViaBackend(content: string): Promise<AgentResponse> {
     const startTime = performance.now()
     const timestamp = new Date().toISOString()
 
-    // Add user message to history
     this.messages.push({ role: 'user', content, status: 'complete', timestamp })
 
     const result = await this.backend!.send(content, { system: this.system })
     const latency = Math.round(performance.now() - startTime)
 
-    // Add assistant response to history
     this.messages.push({
       role: 'assistant',
       content: result.content,
@@ -199,7 +207,6 @@ export class AgentSession {
       timestamp: new Date().toISOString(),
     })
 
-    // Track usage if backend provides it
     const usage: TokenUsage = {
       input: result.usage?.input ?? 0,
       output: result.usage?.output ?? 0,
@@ -209,7 +216,6 @@ export class AgentSession {
     this.totalUsage.output += usage.output
     this.totalUsage.total += usage.total
 
-    // Map backend tool calls to ToolCall format
     const toolCalls: ToolCall[] = (result.toolCalls ?? []).map((tc) => ({
       name: tc.name,
       arguments: tc.arguments as Record<string, unknown>,
@@ -228,28 +234,20 @@ export class AgentSession {
 
   /**
    * Send a message and get the agent's response
-   * Conversation state is maintained across calls
-   *
-   * @param content - The message to send
-   * @param options - Send options (autoApprove, onStepFinish, etc.)
    */
   async send(content: string, options: SendOptions = {}): Promise<AgentResponse> {
-    // CLI backend: delegate to backend.send()
     if (this.backend) {
       return this.sendViaBackend(content)
     }
 
-    // SDK backend: use ToolLoopAgent
     const { autoApprove = true, onStepFinish } = options
     const startTime = performance.now()
     const timestamp = new Date().toISOString()
 
-    // Add user message to history
     this.messages.push({ role: 'user', content, status: 'complete', timestamp })
 
     const agent = await this.getAgent(autoApprove)
 
-    // Track tool calls across steps
     const allToolCalls: ToolCall[] = []
     let stepNumber = 0
 
@@ -258,7 +256,6 @@ export class AgentSession {
       onStepFinish: async ({ usage, toolCalls, toolResults }) => {
         stepNumber++
 
-        // Build tool calls for this step
         const stepToolCalls: ToolCall[] = []
         if (toolCalls) {
           for (const tc of toolCalls) {
@@ -274,7 +271,6 @@ export class AgentSession {
           }
         }
 
-        // Call user's callback if provided
         if (onStepFinish) {
           const stepUsage: TokenUsage = {
             input: usage?.inputTokens ?? 0,
@@ -288,7 +284,6 @@ export class AgentSession {
 
     const latency = Math.round(performance.now() - startTime)
 
-    // Add assistant response to history (complete)
     this.messages.push({
       role: 'assistant',
       content: result.text,
@@ -296,7 +291,6 @@ export class AgentSession {
       timestamp: new Date().toISOString(),
     })
 
-    // Update usage
     const usage: TokenUsage = {
       input: result.usage?.inputTokens ?? 0,
       output: result.usage?.outputTokens ?? 0,
@@ -306,7 +300,6 @@ export class AgentSession {
     this.totalUsage.output += usage.output
     this.totalUsage.total += usage.total
 
-    // Get pending approvals created during this send
     const currentPending = this.pendingApprovals.filter((p) => p.status === 'pending')
 
     return {
@@ -320,35 +313,23 @@ export class AgentSession {
 
   /**
    * Send a message and stream the response
-   * Returns an async iterable of text chunks
-   *
-   * For CLI backends, falls back to non-streaming: calls send() and yields
-   * the full response as a single chunk.
-   *
-   * @param content - The message to send
-   * @param options - Send options (autoApprove, onStepFinish, etc.)
    */
   async *sendStream(
     content: string,
     options: SendOptions = {}
   ): AsyncGenerator<string, AgentResponse, unknown> {
-    // CLI backends: fall back to non-streaming
     if (this.backend) {
       const response = await this.sendViaBackend(content)
       yield response.content
       return response
     }
 
-    // SDK backend: full streaming support
     const { autoApprove = true, onStepFinish } = options
     const startTime = performance.now()
     const timestamp = new Date().toISOString()
 
-    // Add user message to history
     this.messages.push({ role: 'user', content, status: 'complete', timestamp })
 
-    // Add assistant message with 'responding' status immediately
-    // This allows other observers to see the message is in progress
     const assistantMsg: AgentMessage = {
       role: 'assistant',
       content: '',
@@ -359,7 +340,6 @@ export class AgentSession {
 
     const agent = await this.getAgent(autoApprove)
 
-    // Track tool calls across steps
     const allToolCalls: ToolCall[] = []
     let stepNumber = 0
 
@@ -394,7 +374,6 @@ export class AgentSession {
       },
     })
 
-    // Stream text chunks and update assistant message in real-time
     for await (const chunk of result.textStream) {
       assistantMsg.content += chunk
       yield chunk
@@ -402,12 +381,10 @@ export class AgentSession {
 
     const latency = Math.round(performance.now() - startTime)
 
-    // Get final text and mark as complete
     const text = await result.text
     assistantMsg.content = text
     assistantMsg.status = 'complete'
 
-    // Update usage
     const finalUsage = await result.usage
     const usage: TokenUsage = {
       input: finalUsage?.inputTokens ?? 0,
@@ -430,78 +407,72 @@ export class AgentSession {
   }
 
   /**
-   * Add a tool definition with mock implementation
+   * Add an AI SDK tool
    * Only supported for SDK backends (ToolLoopAgent)
    */
-  addTool(tool: ToolDefinition): void {
+  addTool(name: string, t: unknown): void {
     if (this.backend) {
       throw new Error('Tool management not supported for CLI backends')
     }
-    this.tools.push(tool)
+    this.tools[name] = t
     this.toolsChanged = true
-    this.cachedAgent = null // Force rebuild
+    this.cachedAgent = null
   }
 
   /**
-   * Set mock response for an existing tool
-   * Only supported for SDK backends
+   * Set approval requirement for a tool
+   */
+  setApproval(name: string, check: ApprovalCheck): void {
+    this.approval[name] = check
+  }
+
+  /**
+   * Replace a tool's execute function (for testing)
    */
   mockTool(name: string, mockFn: (args: Record<string, unknown>) => unknown): void {
     if (this.backend) {
       throw new Error('Tool management not supported for CLI backends')
     }
-    const tool = this.tools.find((t) => t.name === name)
-    if (tool) {
-      tool.execute = mockFn
-      this.toolsChanged = true
-      this.cachedAgent = null // Force rebuild
-    } else {
+    const t = this.tools[name]
+    if (!t) {
       throw new Error(`Tool not found: ${name}`)
     }
+    this.tools[name] = { ...t, execute: mockFn }
+    this.toolsChanged = true
+    this.cachedAgent = null
   }
 
   /**
-   * Get current tool definitions (without execute functions)
-   */
-  getTools(): ToolDefinition[] {
-    return this.tools.map((t) => ({
-      name: t.name,
-      description: t.description,
-      parameters: t.parameters,
-      needsApproval: t.needsApproval,
-      mockResponse: t.mockResponse,
-    }))
-  }
-
-  /**
-   * Set a static mock response for an existing tool (JSON-serializable)
-   * Only supported for SDK backends
+   * Set a static mock response for an existing tool
    */
   setMockResponse(name: string, response: unknown): void {
     if (this.backend) {
       throw new Error('Tool management not supported for CLI backends')
     }
-    const tool = this.tools.find((t) => t.name === name)
-    if (tool) {
-      tool.mockResponse = response
-      this.toolsChanged = true
-      this.cachedAgent = null // Force rebuild
-    } else {
+    const t = this.tools[name]
+    if (!t) {
       throw new Error(`Tool not found: ${name}`)
     }
+    this.tools[name] = { ...t, execute: () => response }
+    this.toolsChanged = true
+    this.cachedAgent = null
   }
 
   /**
-   * Get conversation history with status information
-   * Messages with status 'responding' are still being generated
+   * Get tool info (names, descriptions, approval status)
    */
+  getTools(): ToolInfo[] {
+    return Object.entries(this.tools).map(([name, t]) => ({
+      name,
+      description: (t as any)?.description,
+      needsApproval: !!this.approval[name],
+    }))
+  }
+
   history(): AgentMessage[] {
     return [...this.messages]
   }
 
-  /**
-   * Get session statistics
-   */
   stats(): { messageCount: number; usage: TokenUsage } {
     return {
       messageCount: this.messages.length,
@@ -509,9 +480,6 @@ export class AgentSession {
     }
   }
 
-  /**
-   * Export full transcript for analysis
-   */
   export(): Transcript {
     return {
       sessionId: this.id,
@@ -523,9 +491,6 @@ export class AgentSession {
     }
   }
 
-  /**
-   * Get session state for persistence
-   */
   getState(): SessionState {
     return {
       id: this.id,
@@ -536,17 +501,10 @@ export class AgentSession {
     }
   }
 
-  /**
-   * Get all pending approvals
-   */
   getPendingApprovals(): PendingApproval[] {
     return this.pendingApprovals.filter((p) => p.status === 'pending')
   }
 
-  /**
-   * Approve a pending tool call and execute it
-   * @returns The tool execution result
-   */
   async approve(approvalId: string): Promise<unknown> {
     const approval = this.pendingApprovals.find((p) => p.id === approvalId)
     if (!approval) {
@@ -556,31 +514,22 @@ export class AgentSession {
       throw new Error(`Approval already ${approval.status}: ${approvalId}`)
     }
 
-    // Find the tool
-    const tool = this.tools.find((t) => t.name === approval.toolName)
-    if (!tool) {
+    const t = this.tools[approval.toolName]
+    if (!t) {
       throw new Error(`Tool not found: ${approval.toolName}`)
     }
 
-    // Execute the tool
     let result: unknown
-    if (tool.execute) {
-      result = await tool.execute(approval.arguments)
+    if ((t as any).execute) {
+      result = await (t as any).execute(approval.arguments)
     } else {
-      result = { error: 'No mock implementation provided' }
+      result = { error: 'No implementation provided' }
     }
 
-    // Update approval status
     approval.status = 'approved'
-
     return result
   }
 
-  /**
-   * Deny a pending tool call
-   * @param approvalId - The approval ID to deny
-   * @param reason - Optional reason for denial
-   */
   deny(approvalId: string, reason?: string): void {
     const approval = this.pendingApprovals.find((p) => p.id === approvalId)
     if (!approval) {
@@ -594,9 +543,6 @@ export class AgentSession {
     approval.denyReason = reason
   }
 
-  /**
-   * Clear conversation history (keep system prompt and tools)
-   */
   clear(): void {
     this.messages = []
     this.totalUsage = { input: 0, output: 0, total: 0 }

@@ -1,6 +1,6 @@
 import type { Server } from 'node:net'
+import { tool, jsonSchema } from 'ai'
 import type { AgentSession } from '../agent/session.ts'
-import type { ToolDefinition } from '../agent/types.ts'
 import type { SkillImporter } from '../agent/skills/index.ts'
 import type { SessionInfo } from './registry.ts'
 
@@ -81,9 +81,23 @@ export async function handleRequest(
       }
 
       case 'tool_add': {
-        const tool = req.payload as ToolDefinition
-        session.addTool(tool)
-        return { success: true, data: { name: tool.name } }
+        const { name, description, parameters, needsApproval } = req.payload as {
+          name: string
+          description: string
+          parameters: { type: 'object'; properties: Record<string, unknown>; required?: string[] }
+          needsApproval?: boolean
+        }
+        // Create AI SDK tool from the CLI payload
+        const t = tool({
+          description,
+          parameters: jsonSchema<Record<string, unknown>>(parameters),
+          execute: async () => ({ error: 'No implementation - use tool mock to set response' }),
+        })
+        session.addTool(name, t)
+        if (needsApproval) {
+          session.setApproval(name, true)
+        }
+        return { success: true, data: { name } }
       }
 
       case 'tool_mock': {
@@ -103,64 +117,54 @@ export async function handleRequest(
         }
         const { filePath } = req.payload as { filePath: string }
 
-        // Validate file path
         if (!filePath || typeof filePath !== 'string') {
           return { success: false, error: 'File path is required' }
         }
 
-        // Dynamic import the file with error handling
         let module: Record<string, unknown>
         try {
           module = await import(filePath)
         } catch (importError) {
           const message = importError instanceof Error ? importError.message : String(importError)
-          // Sanitize path from error message for security
           const sanitizedMsg = message.replace(filePath, '<file>')
           return { success: false, error: `Failed to import file: ${sanitizedMsg}` }
         }
 
-        // Extract tools from module (support default export or named 'tools')
-        let tools: ToolDefinition[] = []
-        if (Array.isArray(module.default)) {
-          tools = module.default
+        // Extract tools from module — expect Record<string, tool()> or { tools: Record }
+        let toolsRecord: Record<string, unknown> = {}
+        if (module.default && typeof module.default === 'object' && !Array.isArray(module.default)) {
+          toolsRecord = module.default as Record<string, unknown>
         } else if (typeof module.default === 'function') {
-          // Support async factory function
           try {
             const result = await module.default()
-            tools = Array.isArray(result) ? result : []
+            if (result && typeof result === 'object' && !Array.isArray(result)) {
+              toolsRecord = result as Record<string, unknown>
+            }
           } catch (factoryError) {
             const message =
               factoryError instanceof Error ? factoryError.message : String(factoryError)
             return { success: false, error: `Factory function failed: ${message}` }
           }
-        } else if (Array.isArray(module.tools)) {
-          tools = module.tools
+        } else if (module.tools && typeof module.tools === 'object' && !Array.isArray(module.tools)) {
+          toolsRecord = module.tools as Record<string, unknown>
         } else {
           return {
             success: false,
-            error: 'No tools found. Export default array or named "tools" array.',
+            error: 'No tools found. Export default Record<name, tool()> or named "tools" Record.',
           }
         }
 
-        // Validate and add tools
         const imported: string[] = []
-        const skipped: string[] = []
-        for (const tool of tools) {
-          if (!tool.name || typeof tool.name !== 'string') {
-            skipped.push('(unnamed)')
-            continue
+        for (const [name, t] of Object.entries(toolsRecord)) {
+          if (t && typeof t === 'object') {
+            session.addTool(name, t)
+            imported.push(name)
           }
-          if (!tool.description || !tool.parameters) {
-            skipped.push(tool.name)
-            continue
-          }
-          session.addTool(tool)
-          imported.push(tool.name)
         }
 
         return {
           success: true,
-          data: { imported, skipped: skipped.length > 0 ? skipped : undefined },
+          data: { imported },
         }
       }
 
@@ -193,7 +197,6 @@ export async function handleRequest(
       }
 
       case 'shutdown':
-        // Decrement before async shutdown
         state.pendingRequests--
         setTimeout(() => gracefulShutdown(), 100)
         return { success: true, data: 'Shutting down' }

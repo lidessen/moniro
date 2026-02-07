@@ -10,17 +10,25 @@ agent-worker provides programmatic control over AI agent conversations — both 
 src/
 ├── index.ts                    # Public API (library usage)
 │
-├── core/                       # Pure domain logic
+├── agent/                      # Agent core: session, models, tools, skills
 │   ├── index.ts                # Re-exports
-│   ├── types.ts                # Core types (AgentMessage, ToolDefinition, etc.)
+│   ├── types.ts                # Core types (AgentMessage, SessionConfig, ToolInfo, etc.)
 │   ├── session.ts              # AgentSession — SDK-based agentic loop
 │   ├── models.ts               # Model creation, provider registry
-│   ├── model-maps.ts           # Model name translation (single source of truth)
-│   └── tools.ts                # ToolDefinition → AI SDK tool conversion
+│   ├── tools/                  # Built-in tool factories
+│   │   ├── index.ts            # Re-exports
+│   │   ├── bash.ts             # Bash/readFile/writeFile (sandboxed)
+│   │   └── skills.ts           # Skills tool (createSkillsTool)
+│   └── skills/                 # Skills system (scan/load/import)
+│       ├── index.ts            # Re-exports
+│       ├── provider.ts         # SkillsProvider (scan/load)
+│       ├── importer.ts         # Git-based skill import
+│       └── import-spec.ts      # Import spec parsing
 │
 ├── backends/                   # AI provider adapters
 │   ├── types.ts                # Backend interface (send + run + isAvailable)
 │   ├── index.ts                # Factory + availability checks
+│   ├── model-maps.ts           # Model name translation (single source of truth)
 │   ├── sdk.ts                  # Vercel AI SDK backend
 │   ├── claude-code.ts          # Claude Code CLI backend
 │   ├── codex.ts                # Codex CLI backend
@@ -30,44 +38,34 @@ src/
 ├── daemon/                     # Central process manager
 │   ├── index.ts                # Re-exports
 │   ├── daemon.ts               # Daemon: manages agents, MCP, lifecycle
+│   ├── server.ts               # Unix socket server
 │   ├── registry.ts             # Persistent agent registry (~/.agent-worker/)
 │   └── handler.ts              # Request → Response dispatch
 │
-├── context/                    # Agent collaboration (standalone)
-│   ├── index.ts                # Re-exports
-│   ├── types.ts                # Channel, inbox, document types
-│   ├── provider.ts             # ContextProvider interface + implementation
-│   ├── storage.ts              # StorageBackend interface
-│   ├── file-provider.ts        # File-based storage
-│   ├── memory-provider.ts      # In-memory storage (testing)
-│   ├── mcp-server.ts           # MCP server exposing context tools
-│   ├── http-transport.ts       # HTTP transport for MCP
-│   └── proposals.ts            # Proposal/voting system
-│
-├── workflow/                   # Agent orchestration
+├── workflow/                   # Agent orchestration + collaboration
 │   ├── types.ts                # Workflow schema types
 │   ├── parser.ts               # YAML workflow parser
 │   ├── interpolate.ts          # Variable interpolation (${{ }})
 │   ├── runner.ts               # Workflow runtime (init + run)
 │   ├── display.ts              # Channel output formatting (ANSI)
 │   ├── logger.ts               # Structured logger
+│   ├── backend-config.ts       # Backend/MCP config generation
+│   ├── context/                # Agent collaboration (channel, inbox, docs)
+│   │   ├── index.ts            # Re-exports
+│   │   ├── types.ts            # Channel, inbox, document types
+│   │   ├── provider.ts         # ContextProvider interface + implementation
+│   │   ├── storage.ts          # StorageBackend interface
+│   │   ├── file-provider.ts    # File-based storage
+│   │   ├── memory-provider.ts  # In-memory storage (testing)
+│   │   ├── mcp-server.ts       # MCP server exposing context tools
+│   │   ├── http-transport.ts   # HTTP transport for MCP
+│   │   └── proposals.ts        # Proposal/voting system
 │   └── controller/             # Agent lifecycle management
 │       ├── controller.ts       # Poll + retry + wake loop
 │       ├── backend.ts          # Backend selection + factories
 │       ├── prompt.ts           # Agent prompt building
 │       ├── send.ts             # Send target parsing
-│       ├── mcp-config.ts       # MCP config generation
 │       └── types.ts            # Controller types
-│
-├── skills/                     # Skills system (always tool-based)
-│   ├── index.ts                # Re-exports
-│   ├── provider.ts             # SkillsProvider (scan/load)
-│   ├── importer.ts             # Git-based skill import
-│   └── import-spec.ts          # Import spec parsing
-│
-├── tools/                      # Built-in tools
-│   ├── bash.ts                 # Bash tool
-│   └── skills.ts               # Skills tool (createSkillsTool)
 │
 └── cli/                        # Thin presentation layer
     ├── index.ts                # Entry: setup program, import commands
@@ -85,14 +83,19 @@ src/
 
 ## Responsibility Boundaries
 
-### core/ — Pure Domain Logic
+### agent/ — Agent Core
 
-No I/O, no process management, no network. Just data structures and algorithms.
+Session management, model creation, tools, and skills.
 
 - `session.ts`: Stateful agentic loop using Vercel AI SDK's ToolLoopAgent
 - `models.ts`: Create LanguageModel from model identifiers (gateway/direct)
-- `model-maps.ts`: Translate model names between backends (the SINGLE source of truth)
-- `tools.ts`: Convert ToolDefinition[] to AI SDK tool objects
+- `tools/bash.ts`: Sandboxed bash/readFile/writeFile as AI SDK tool() objects
+- `tools/skills.ts`: Skills access as AI SDK tool()
+- `skills/`: Scan, load, and import agent skills
+
+Tools are AI SDK `tool()` objects stored as `Record<name, tool()>`. No custom
+abstraction — session passes them directly to ToolLoopAgent. Approval is
+configured separately via `Record<name, ApprovalCheck>` on SessionConfig.
 
 ### backends/ — AI Provider Adapters
 
@@ -124,9 +127,9 @@ The daemon is the heart of agent-worker. One daemon process manages:
 Key design: the daemon is the only long-lived process. CLI commands are
 short-lived — they connect, send a request, print the response, and exit.
 
-### context/ — Agent Collaboration
+### workflow/context/ — Agent Collaboration
 
-A standalone collaboration system, not workflow-specific:
+A collaboration system nested under workflow:
 
 - **Channel**: Append-only message log with @mentions
 - **Inbox**: Per-agent filtered view of channel (mentions + DMs)
@@ -203,14 +206,6 @@ Previously there were two hierarchies:
 
 Both wrapped the same CLI tools. The adapter layer (`CLIAdapterBackend`)
 existed only to bridge them. With one interface, no adapter needed.
-
-### Why top-level context/?
-
-The context system (channel, inbox, documents, MCP) is independently
-useful. Nesting it under `workflow/` implied it was workflow-specific.
-Promoting it makes the dependency direction clear:
-- `workflow/` depends on `context/`
-- `context/` depends on nothing
 
 ### Why unified skills via tools?
 

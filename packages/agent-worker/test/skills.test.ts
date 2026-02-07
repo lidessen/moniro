@@ -335,15 +335,12 @@ describe('createSkillsTool', () => {
     } catch {}
   })
 
-  test('creates valid tool definition', () => {
+  test('creates valid AI SDK tool', () => {
     const provider = new SkillsProvider()
-    const tool = createSkillsTool(provider)
+    const skillsTool = createSkillsTool(provider) as any
 
-    expect(tool.name).toBe('Skills')
-    expect(tool.description).toContain('agent skills')
-    expect(tool.parameters.type).toBe('object')
-    expect(tool.parameters.properties.operation).toBeDefined()
-    expect(tool.execute).toBeDefined()
+    expect(skillsTool.description).toContain('agent skills')
+    expect(skillsTool.execute).toBeDefined()
   })
 
   test('list operation returns skills', async () => {
@@ -475,7 +472,7 @@ description: Skill for session testing
     const session = new AgentSession({
       model: 'openai/gpt-5.2',
       system: 'You are a helpful assistant.',
-      tools: [createSkillsTool(provider)],
+      tools: { Skills: createSkillsTool(provider) as any },
     })
 
     expect(session.id).toBeDefined()

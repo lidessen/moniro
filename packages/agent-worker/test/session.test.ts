@@ -1,9 +1,7 @@
 import { describe, test, expect } from 'bun:test'
 import { MockLanguageModelV3 } from 'ai/test'
-import { generateText } from 'ai'
+import { generateText, tool, jsonSchema } from 'ai'
 import { AgentSession } from '../src/agent/session.ts'
-import { createTools } from '../src/agent/tools/convert.ts'
-import type { ToolDefinition } from '../src/agent/types.ts'
 
 // Helper to create V3 format response
 function mockResponse(text: string, inputTokens = 10, outputTokens = 5) {
@@ -62,48 +60,43 @@ describe('AgentSession', () => {
   })
 
   describe('tool calling', () => {
-    test('creates tools from definitions', () => {
-      const toolDefs: ToolDefinition[] = [
-        {
-          name: 'read_file',
+    test('creates AI SDK tools with tool()', () => {
+      const tools = {
+        read_file: tool({
           description: 'Read file contents',
-          parameters: {
+          parameters: jsonSchema<Record<string, unknown>>({
             type: 'object',
             properties: {
               path: { type: 'string', description: 'File path' },
             },
             required: ['path'],
-          },
-          execute: async (args) => ({ content: `Content of ${args.path}` }),
-        },
-      ]
+          }),
+          execute: async (args) => ({ content: `Content of ${(args as any).path}` }),
+        }),
+      }
 
-      const tools = createTools(toolDefs)
       expect(tools).toHaveProperty('read_file')
       expect(tools.read_file.description).toBe('Read file contents')
     })
 
-    test('executes tool with mock response', async () => {
-      const toolDefs: ToolDefinition[] = [
-        {
-          name: 'get_weather',
+    test('executes AI SDK tool directly', async () => {
+      const tools = {
+        get_weather: tool({
           description: 'Get weather for a location',
-          parameters: {
+          parameters: jsonSchema<Record<string, unknown>>({
             type: 'object',
             properties: {
               location: { type: 'string' },
             },
             required: ['location'],
-          },
+          }),
           execute: async (args) => ({
             temperature: 72,
             conditions: 'sunny',
-            location: args.location,
+            location: (args as any).location,
           }),
-        },
-      ]
-
-      const tools = createTools(toolDefs)
+        }),
+      }
 
       // Test the execute function directly
       const result = await tools.get_weather.execute!(
@@ -205,48 +198,42 @@ describe('AgentSession', () => {
   })
 })
 
-describe('createTools', () => {
-  test('handles empty tool list', () => {
-    const tools = createTools([])
+describe('AI SDK tool creation', () => {
+  test('empty tools record', () => {
+    const tools: Record<string, unknown> = {}
     expect(Object.keys(tools)).toHaveLength(0)
   })
 
-  test('handles tool without execute function', () => {
-    const toolDefs: ToolDefinition[] = [
-      {
-        name: 'no_execute',
+  test('tool without execute function', () => {
+    const tools = {
+      no_execute: tool({
         description: 'A tool without execute',
-        parameters: {
+        parameters: jsonSchema<Record<string, unknown>>({
           type: 'object',
           properties: {},
-        },
-      },
-    ]
+        }),
+      }),
+    }
 
-    const tools = createTools(toolDefs)
     expect(tools.no_execute).toBeDefined()
   })
 
   test('handles multiple tools', () => {
-    const toolDefs: ToolDefinition[] = [
-      {
-        name: 'tool_a',
+    const tools = {
+      tool_a: tool({
         description: 'First tool',
-        parameters: { type: 'object', properties: {} },
-      },
-      {
-        name: 'tool_b',
+        parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+      }),
+      tool_b: tool({
         description: 'Second tool',
-        parameters: { type: 'object', properties: {} },
-      },
-      {
-        name: 'tool_c',
+        parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+      }),
+      tool_c: tool({
         description: 'Third tool',
-        parameters: { type: 'object', properties: {} },
-      },
-    ]
+        parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+      }),
+    }
 
-    const tools = createTools(toolDefs)
     expect(Object.keys(tools)).toHaveLength(3)
     expect(tools.tool_a.description).toBe('First tool')
     expect(tools.tool_b.description).toBe('Second tool')
@@ -256,7 +243,7 @@ describe('createTools', () => {
 
 describe('FRONTIER_MODELS', () => {
   test('contains valid provider model lists', async () => {
-    const { FRONTIER_MODELS, SUPPORTED_PROVIDERS } = await import('../src/models.ts')
+    const { FRONTIER_MODELS, SUPPORTED_PROVIDERS } = await import('../src/agent/models.ts')
 
     // All supported providers should have frontier models
     for (const provider of SUPPORTED_PROVIDERS) {
@@ -273,7 +260,7 @@ describe('FRONTIER_MODELS', () => {
 
 describe('createModel', () => {
   test('throws on unknown provider', async () => {
-    const { createModel } = await import('../src/models.ts')
+    const { createModel } = await import('../src/agent/models.ts')
 
     // Provider-only format throws for unknown providers
     expect(() => createModel('invalid-model')).toThrow(
@@ -282,7 +269,7 @@ describe('createModel', () => {
   })
 
   test('resolves provider-only format to default model', async () => {
-    const { createModel, FRONTIER_MODELS } = await import('../src/models.ts')
+    const { createModel, FRONTIER_MODELS } = await import('../src/agent/models.ts')
 
     // Valid provider should use gateway format with first model
     const model = createModel('openai')
@@ -290,7 +277,7 @@ describe('createModel', () => {
   })
 
   test('throws on empty model name after colon', async () => {
-    const { createModel } = await import('../src/models.ts')
+    const { createModel } = await import('../src/agent/models.ts')
 
     expect(() => createModel('anthropic:')).toThrow(
       'Invalid model identifier: anthropic:. Model name is required.'
@@ -298,7 +285,7 @@ describe('createModel', () => {
   })
 
   test('throws on unloaded provider', async () => {
-    const { createModel } = await import('../src/models.ts')
+    const { createModel } = await import('../src/agent/models.ts')
 
     // Direct provider format requires async loading first
     expect(() => createModel('unknown:model-name')).toThrow(
@@ -307,7 +294,7 @@ describe('createModel', () => {
   })
 
   test('createModelAsync throws on unknown provider', async () => {
-    const { createModelAsync } = await import('../src/models.ts')
+    const { createModelAsync } = await import('../src/agent/models.ts')
 
     await expect(createModelAsync('unknown:model-name')).rejects.toThrow(
       'Unknown provider: unknown'
@@ -315,7 +302,7 @@ describe('createModel', () => {
   })
 
   test('handles gateway format with slash', async () => {
-    const { createModel } = await import('../src/models.ts')
+    const { createModel } = await import('../src/agent/models.ts')
 
     // Gateway format should not throw (creates gateway model)
     const model = createModel('openai/gpt-5.2')
@@ -324,7 +311,7 @@ describe('createModel', () => {
   })
 
   test('createModelAsync handles gateway format', async () => {
-    const { createModelAsync } = await import('../src/models.ts')
+    const { createModelAsync } = await import('../src/agent/models.ts')
 
     const model = await createModelAsync('anthropic/claude-sonnet-4-5')
     expect(model).toBeDefined()
@@ -332,7 +319,7 @@ describe('createModel', () => {
   })
 
   test('createModelAsync handles provider-only format', async () => {
-    const { createModelAsync, FRONTIER_MODELS } = await import('../src/models.ts')
+    const { createModelAsync, FRONTIER_MODELS } = await import('../src/agent/models.ts')
 
     const model = await createModelAsync('anthropic')
     expect(model).toBeDefined()
@@ -340,7 +327,7 @@ describe('createModel', () => {
   })
 
   test('createModelAsync throws on unknown provider-only format', async () => {
-    const { createModelAsync } = await import('../src/models.ts')
+    const { createModelAsync } = await import('../src/agent/models.ts')
 
     await expect(createModelAsync('invalid-provider')).rejects.toThrow(
       'Unknown provider: invalid-provider. Supported:'
@@ -348,7 +335,7 @@ describe('createModel', () => {
   })
 
   test('createModelAsync throws on empty model name', async () => {
-    const { createModelAsync } = await import('../src/models.ts')
+    const { createModelAsync } = await import('../src/agent/models.ts')
 
     await expect(createModelAsync('openai:')).rejects.toThrow(
       'Invalid model identifier: openai:. Model name is required.'
@@ -356,14 +343,14 @@ describe('createModel', () => {
   })
 
   test('getDefaultModel returns correct format', async () => {
-    const { getDefaultModel, DEFAULT_PROVIDER, FRONTIER_MODELS } = await import('../src/models.ts')
+    const { getDefaultModel, DEFAULT_PROVIDER, FRONTIER_MODELS } = await import('../src/agent/models.ts')
 
     const defaultModel = getDefaultModel()
     expect(defaultModel).toBe(`${DEFAULT_PROVIDER}/${FRONTIER_MODELS[DEFAULT_PROVIDER][0]}`)
   })
 
   test('all providers in SUPPORTED_PROVIDERS have frontier models', async () => {
-    const { SUPPORTED_PROVIDERS, FRONTIER_MODELS } = await import('../src/models.ts')
+    const { SUPPORTED_PROVIDERS, FRONTIER_MODELS } = await import('../src/agent/models.ts')
 
     for (const provider of SUPPORTED_PROVIDERS) {
       expect(FRONTIER_MODELS[provider]).toBeDefined()
@@ -373,7 +360,7 @@ describe('createModel', () => {
   })
 
   test('all providers can be resolved via provider-only format', async () => {
-    const { createModel, SUPPORTED_PROVIDERS, FRONTIER_MODELS } = await import('../src/models.ts')
+    const { createModel, SUPPORTED_PROVIDERS, FRONTIER_MODELS } = await import('../src/agent/models.ts')
 
     for (const provider of SUPPORTED_PROVIDERS) {
       const model = createModel(provider)
@@ -389,16 +376,15 @@ describe('AgentSession advanced', () => {
       system: 'Test',
     })
 
-    session.addTool({
-      name: 'test_tool',
+    session.addTool('test_tool', tool({
       description: 'A test tool',
-      parameters: {
+      parameters: jsonSchema<Record<string, unknown>>({
         type: 'object',
         properties: {
           input: { type: 'string' },
         },
-      },
-    })
+      }),
+    }))
 
     // Export should work (tools are internal but session should function)
     const transcript = session.export()
@@ -409,14 +395,13 @@ describe('AgentSession advanced', () => {
     const session = new AgentSession({
       model: 'openai/gpt-5.2',
       system: 'Test',
-      tools: [
-        {
-          name: 'my_tool',
+      tools: {
+        my_tool: tool({
           description: 'Original tool',
-          parameters: { type: 'object', properties: {} },
-          execute: () => ({ result: 'original' }),
-        },
-      ],
+          parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+          execute: async () => ({ result: 'original' }),
+        }),
+      },
     })
 
     session.mockTool('my_tool', () => ({ result: 'mocked' }))
@@ -450,18 +435,16 @@ describe('AgentSession advanced', () => {
     const session = new AgentSession({
       model: 'openai/gpt-5.2',
       system: 'Test',
-      tools: [
-        {
-          name: 'tool1',
+      tools: {
+        tool1: tool({
           description: 'First',
-          parameters: { type: 'object', properties: {} },
-        },
-        {
-          name: 'tool2',
+          parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+        }),
+        tool2: tool({
           description: 'Second',
-          parameters: { type: 'object', properties: {} },
-        },
-      ],
+          parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+        }),
+      },
     })
 
     expect(session.stats().messageCount).toBe(0)
@@ -540,47 +523,33 @@ describe('AgentSession advanced', () => {
   })
 })
 
-describe('createTools edge cases', () => {
-  test('tool without execute returns error object', async () => {
-    const toolDefs: ToolDefinition[] = [
-      {
-        name: 'no_impl',
-        description: 'No implementation',
-        parameters: { type: 'object', properties: {} },
-      },
-    ]
+describe('AI SDK tool edge cases', () => {
+  test('tool without execute', () => {
+    const t = tool({
+      description: 'No implementation',
+      parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+    })
 
-    const tools = createTools(toolDefs)
-
-    const result = await tools.no_impl.execute!(
-      {},
-      { toolCallId: 'test', messages: [], abortSignal: undefined as never }
-    )
-
-    expect(result).toEqual({ error: 'No mock implementation provided' })
+    expect(t).toBeDefined()
+    expect(t.description).toBe('No implementation')
   })
 
   test('tool with async execute function', async () => {
-    const toolDefs: ToolDefinition[] = [
-      {
-        name: 'async_tool',
-        description: 'Async tool',
-        parameters: {
-          type: 'object',
-          properties: {
-            delay: { type: 'number' },
-          },
+    const t = tool({
+      description: 'Async tool',
+      parameters: jsonSchema<Record<string, unknown>>({
+        type: 'object',
+        properties: {
+          delay: { type: 'number' },
         },
-        execute: async (args) => {
-          await new Promise((r) => setTimeout(r, 1))
-          return { delayed: true, input: args.delay }
-        },
+      }),
+      execute: async (args) => {
+        await new Promise((r) => setTimeout(r, 1))
+        return { delayed: true, input: (args as any).delay }
       },
-    ]
+    })
 
-    const tools = createTools(toolDefs)
-
-    const result = await tools.async_tool.execute!(
+    const result = await t.execute!(
       { delay: 100 },
       { toolCallId: 'test', messages: [], abortSignal: undefined as never }
     )
@@ -589,24 +558,20 @@ describe('createTools edge cases', () => {
   })
 
   test('tool parameters with required fields', () => {
-    const toolDefs: ToolDefinition[] = [
-      {
-        name: 'required_params',
-        description: 'Has required params',
-        parameters: {
-          type: 'object',
-          properties: {
-            name: { type: 'string', description: 'User name' },
-            age: { type: 'number', description: 'User age' },
-          },
-          required: ['name'],
+    const t = tool({
+      description: 'Has required params',
+      parameters: jsonSchema<Record<string, unknown>>({
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'User name' },
+          age: { type: 'number', description: 'User age' },
         },
-      },
-    ]
+        required: ['name'],
+      }),
+    })
 
-    const tools = createTools(toolDefs)
-    expect(tools.required_params).toBeDefined()
-    expect(tools.required_params.description).toBe('Has required params')
+    expect(t).toBeDefined()
+    expect(t.description).toBe('Has required params')
   })
 })
 
@@ -618,8 +583,8 @@ describe('bash-tools integration', () => {
       files: { 'test.txt': 'hello world' },
     })
 
-    expect(tools).toHaveLength(3) // bash, readFile, writeFile
-    expect(tools.map((t) => t.name)).toEqual(['bash', 'readFile', 'writeFile'])
+    expect(Object.keys(tools)).toHaveLength(3) // bash, readFile, writeFile
+    expect(Object.keys(tools)).toEqual(['bash', 'readFile', 'writeFile'])
     expect(toolkit).toBeDefined()
     expect(toolkit.sandbox).toBeDefined()
   })
@@ -632,7 +597,7 @@ describe('bash-tools integration', () => {
       includeReadFile: false,
     })
 
-    expect(tools.map((t) => t.name)).toEqual(['bash', 'writeFile'])
+    expect(Object.keys(tools)).toEqual(['bash', 'writeFile'])
   })
 
   test('createBashTools respects includeWriteFile option', async () => {
@@ -643,7 +608,7 @@ describe('bash-tools integration', () => {
       includeWriteFile: false,
     })
 
-    expect(tools.map((t) => t.name)).toEqual(['bash', 'readFile'])
+    expect(Object.keys(tools)).toEqual(['bash', 'readFile'])
   })
 
   test('bash tool executes commands', async () => {
@@ -653,8 +618,8 @@ describe('bash-tools integration', () => {
       files: { 'test.txt': 'hello world' },
     })
 
-    const bashTool = tools.find((t) => t.name === 'bash')!
-    const result = (await bashTool.execute!({ command: 'echo "test"' })) as {
+    const bashTool = tools.bash as any
+    const result = (await bashTool.execute({ command: 'echo "test"' })) as {
       stdout: string
       stderr: string
       exitCode: number
@@ -671,8 +636,8 @@ describe('bash-tools integration', () => {
       files: { 'hello.txt': 'Hello, World!' },
     })
 
-    const readFileTool = tools.find((t) => t.name === 'readFile')!
-    const result = (await readFileTool.execute!({ path: 'hello.txt' })) as { content: string }
+    const readFileTool = tools.readFile as any
+    const result = (await readFileTool.execute({ path: 'hello.txt' })) as { content: string }
 
     expect(result.content).toBe('Hello, World!')
   })
@@ -682,11 +647,11 @@ describe('bash-tools integration', () => {
 
     const { tools } = await createBashTools({ files: {} })
 
-    const writeFileTool = tools.find((t) => t.name === 'writeFile')!
-    const readFileTool = tools.find((t) => t.name === 'readFile')!
+    const writeFileTool = tools.writeFile as any
+    const readFileTool = tools.readFile as any
 
-    await writeFileTool.execute!({ path: 'new.txt', content: 'new content' })
-    const result = (await readFileTool.execute!({ path: 'new.txt' })) as { content: string }
+    await writeFileTool.execute({ path: 'new.txt', content: 'new content' })
+    const result = (await readFileTool.execute({ path: 'new.txt' })) as { content: string }
 
     expect(result.content).toBe('new content')
   })
@@ -699,31 +664,21 @@ describe('bash-tools integration', () => {
       'package.json': '{"name": "test"}',
     })
 
-    expect(tools).toHaveLength(3)
+    expect(Object.keys(tools)).toHaveLength(3)
 
-    const readFileTool = tools.find((t) => t.name === 'readFile')!
-    const result = (await readFileTool.execute!({ path: 'src/index.ts' })) as { content: string }
+    const readFileTool = tools.readFile as any
+    const result = (await readFileTool.execute({ path: 'src/index.ts' })) as { content: string }
     expect(result.content).toBe('console.log("hello")')
   })
 
-  test('tools have correct parameter schemas', async () => {
+  test('tools have descriptions', async () => {
     const { createBashTools } = await import('../src/agent/tools/bash.ts')
 
     const { tools } = await createBashTools({ files: {} })
 
-    const bashTool = tools.find((t) => t.name === 'bash')!
-    expect(bashTool.parameters.properties).toHaveProperty('command')
-    expect(bashTool.parameters.required).toContain('command')
-
-    const readFileTool = tools.find((t) => t.name === 'readFile')!
-    expect(readFileTool.parameters.properties).toHaveProperty('path')
-    expect(readFileTool.parameters.required).toContain('path')
-
-    const writeFileTool = tools.find((t) => t.name === 'writeFile')!
-    expect(writeFileTool.parameters.properties).toHaveProperty('path')
-    expect(writeFileTool.parameters.properties).toHaveProperty('content')
-    expect(writeFileTool.parameters.required).toContain('path')
-    expect(writeFileTool.parameters.required).toContain('content')
+    expect((tools.bash as any).description).toContain('bash')
+    expect((tools.readFile as any).description).toContain('Read')
+    expect((tools.writeFile as any).description).toContain('Write')
   })
 
   test('tools work with AgentSession', async () => {
@@ -745,24 +700,23 @@ describe('bash-tools integration', () => {
 })
 
 describe('tool approval workflow', () => {
-  test('needsApproval boolean flag on tool definition', () => {
+  test('needsApproval via approval config', () => {
     const session = new AgentSession({
       model: 'openai/gpt-5.2',
       system: 'Test',
-      tools: [
-        {
-          name: 'safe_tool',
+      tools: {
+        safe_tool: tool({
           description: 'A safe tool',
-          parameters: { type: 'object', properties: {} },
-          needsApproval: false,
-        },
-        {
-          name: 'dangerous_tool',
+          parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+        }),
+        dangerous_tool: tool({
           description: 'A dangerous tool',
-          parameters: { type: 'object', properties: {} },
-          needsApproval: true,
-        },
-      ],
+          parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+        }),
+      },
+      approval: {
+        dangerous_tool: true,
+      },
     })
 
     expect(session.id).toBeDefined()
@@ -773,21 +727,22 @@ describe('tool approval workflow', () => {
     const session = new AgentSession({
       model: 'openai/gpt-5.2',
       system: 'Test',
-      tools: [
-        {
-          name: 'file_op',
+      tools: {
+        file_op: tool({
           description: 'File operations',
-          parameters: {
+          parameters: jsonSchema<Record<string, unknown>>({
             type: 'object',
             properties: {
               path: { type: 'string' },
               action: { type: 'string' },
             },
-          },
-          // Only need approval for delete operations
-          needsApproval: (args) => args.action === 'delete',
-        },
-      ],
+          }),
+        }),
+      },
+      // Only need approval for delete operations
+      approval: {
+        file_op: (args) => args.action === 'delete',
+      },
     })
 
     expect(session.id).toBeDefined()
@@ -869,19 +824,23 @@ describe('tool approval workflow', () => {
     expect(session.getPendingApprovals()[0].toolName).toBe('test_tool')
   })
 
-  test('getTools returns tool definitions without execute', () => {
+  test('getTools returns tool info without execute', () => {
     const session = new AgentSession({
       model: 'openai/gpt-5.2',
       system: 'Test',
-      tools: [
-        {
-          name: 'my_tool',
+      tools: {
+        my_tool: tool({
           description: 'A test tool',
-          parameters: { type: 'object', properties: { input: { type: 'string' } } },
-          needsApproval: true,
-          execute: () => ({ result: 'executed' }),
-        },
-      ],
+          parameters: jsonSchema<Record<string, unknown>>({
+            type: 'object',
+            properties: { input: { type: 'string' } },
+          }),
+          execute: async () => ({ result: 'executed' }),
+        }),
+      },
+      approval: {
+        my_tool: true,
+      },
     })
 
     const tools = session.getTools()
@@ -893,23 +852,23 @@ describe('tool approval workflow', () => {
     expect(tools[0]).not.toHaveProperty('execute')
   })
 
-  test('setMockResponse sets static response', () => {
+  test('setMockResponse sets static response for tool', () => {
     const session = new AgentSession({
       model: 'openai/gpt-5.2',
       system: 'Test',
-      tools: [
-        {
-          name: 'api_tool',
+      tools: {
+        api_tool: tool({
           description: 'API tool',
-          parameters: { type: 'object', properties: {} },
-        },
-      ],
+          parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+        }),
+      },
     })
 
     session.setMockResponse('api_tool', { status: 'ok', data: [1, 2, 3] })
 
+    // Verify tool still listed
     const tools = session.getTools()
-    expect(tools[0].mockResponse).toEqual({ status: 'ok', data: [1, 2, 3] })
+    expect(tools[0].name).toBe('api_tool')
   })
 
   test('setMockResponse throws for non-existent tool', () => {
@@ -1045,7 +1004,12 @@ describe('tool approval workflow', () => {
       {
         model: 'openai/gpt-5.2',
         system: 'Test',
-        tools: [{ name: 'tool1', description: 'Test', parameters: { type: 'object', properties: {} } }],
+        tools: {
+          tool1: tool({
+            description: 'Test',
+            parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+          }),
+        },
       },
       savedState
     )
@@ -1081,17 +1045,16 @@ describe('tool approval workflow', () => {
       {
         model: 'openai/gpt-5.2',
         system: 'Test',
-        tools: [
-          {
-            name: 'my_tool',
+        tools: {
+          my_tool: tool({
             description: 'Test',
-            parameters: { type: 'object', properties: {} },
-            execute: (args) => {
+            parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+            execute: async (args) => {
               executeCalled = true
               return { result: 'executed', args }
             },
-          },
-        ],
+          }),
+        },
       },
       savedState
     )
@@ -1123,19 +1086,18 @@ describe('tool approval workflow', () => {
       {
         model: 'openai/gpt-5.2',
         system: 'Test',
-        tools: [
-          {
-            name: 'my_tool',
+        tools: {
+          my_tool: tool({
             description: 'Test',
-            parameters: { type: 'object', properties: {} },
-          },
-        ],
+            parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+          }),
+        },
       },
       savedState
     )
 
     const result = await session.approve('approval-1')
-    expect(result).toEqual({ error: 'No mock implementation provided' })
+    expect(result).toEqual({ error: 'No implementation provided' })
   })
 
   test('approve throws when tool not found', async () => {

@@ -2,7 +2,7 @@
  * Agent tools
  *
  * This directory contains tool implementations that agents can use.
- * Each tool is a function that returns a ToolDefinition or ToolDefinition[].
+ * Each tool produces AI SDK tool() objects as Record<name, tool()>.
  *
  * Available tools:
  * - Skills: Access and read agent skills
