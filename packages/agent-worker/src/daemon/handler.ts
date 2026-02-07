@@ -3,7 +3,8 @@ import { tool, jsonSchema } from "ai";
 import type { AgentSession } from "../agent/session.ts";
 import type { SkillImporter } from "../agent/skills/index.ts";
 import type { FeedbackEntry } from "../agent/tools/feedback.ts";
-import type { SessionInfo, ScheduleConfig } from "./registry.ts";
+import { resolveSchedule, type SessionInfo, type ScheduleConfig } from "./registry.ts";
+import { parseCron } from "./cron.ts";
 
 export interface ServerState {
   session: AgentSession; // Always non-null: unified session for all backends
@@ -228,13 +229,22 @@ export async function handleRequest(
 
       case "schedule_set": {
         const payload = req.payload as { wakeup?: string | number; prompt?: string };
-        if (!payload?.wakeup) {
+        if (!payload?.wakeup && payload?.wakeup !== 0) {
           return { success: false, error: "Invalid schedule: provide wakeup (number ms, duration string, or cron expression)" };
         }
         const schedule: ScheduleConfig = {
           wakeup: payload.wakeup,
           prompt: payload.prompt,
         };
+        // Validate upfront: resolveSchedule checks number/duration, parseCron checks cron syntax
+        try {
+          const resolved = resolveSchedule(schedule);
+          if (resolved.type === "cron") {
+            parseCron(resolved.expr!);
+          }
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
         info.schedule = schedule;
         // Reset all timers so the new schedule takes effect immediately
         if (resetAllTimers) resetAllTimers();

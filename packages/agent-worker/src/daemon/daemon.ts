@@ -456,6 +456,14 @@ export async function startDaemon(config: {
         const resolved = resolveSchedule(config.schedule);
         if (resolved.type === "interval") {
           console.log(`Wakeup: every ${resolved.ms! / 1000}s when idle`);
+          // Warn if idle timeout would fire before wakeup interval
+          const idleMs = config.idleTimeout ?? DEFAULT_IDLE_TIMEOUT;
+          if (idleMs > 0 && resolved.ms! > idleMs) {
+            console.warn(
+              `Warning: idle timeout (${idleMs / 1000}s) is shorter than wakeup interval (${resolved.ms! / 1000}s). ` +
+                `Session will shut down before wakeup fires. Use --idle-timeout 0 to disable.`,
+            );
+          }
         } else {
           console.log(`Wakeup: cron ${resolved.expr}`);
         }

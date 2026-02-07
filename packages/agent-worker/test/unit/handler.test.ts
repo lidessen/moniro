@@ -705,6 +705,36 @@ describe('handleRequest', () => {
       expect(data.prompt).toBe('wake up')
     })
 
+    test('schedule_set rejects invalid cron expression', async () => {
+      const result = await handleRequest(
+        getState(state),
+        {
+          action: 'schedule_set',
+          payload: { wakeup: 'not a cron' },
+        },
+        noopResetTimer,
+        noopShutdown,
+        noopResetTimer,
+      )
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('expected 5 fields')
+    })
+
+    test('schedule_set rejects negative number', async () => {
+      const result = await handleRequest(
+        getState(state),
+        {
+          action: 'schedule_set',
+          payload: { wakeup: -100 },
+        },
+        noopResetTimer,
+        noopShutdown,
+        noopResetTimer,
+      )
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('positive')
+    })
+
     test('schedule_clear removes schedule', async () => {
       state.info.schedule = { wakeup: 60000 }
       const resetAllCalled: boolean[] = []
