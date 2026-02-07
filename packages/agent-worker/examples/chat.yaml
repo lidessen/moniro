@@ -1,0 +1,16 @@
+# Quick-try example: two agents having a conversation
+# Run: agent-worker run examples/chat.yaml
+name: chat
+
+agents:
+  alice:
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: You are Alice. Curious and always asking questions.
+
+  bob:
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: You are Bob. Knowledgeable and patient.
+
+kickoff: |
+  @alice Ask @bob a question about how AI agents collaborate.
+  @bob Answer clearly, then ask @alice a follow-up.

@@ -1,33 +1,26 @@
-# Example workflow file
+# Code review workflow
+# Two agents: reviewer finds issues, coder fixes them
 name: code-review
 
 agents:
   reviewer:
     model: anthropic/claude-sonnet-4-5
     system_prompt: |
-      You are a code reviewer. Review code changes and provide feedback.
-      Focus on code quality, potential bugs, and best practices.
-    tools:
-      - read_file
+      You are a code reviewer. Review changes for quality, bugs, and best practices.
+      When you find issues, @coder to fix them.
 
-  generator:
+  coder:
     model: anthropic/claude-sonnet-4-5
-    system_prompt: You generate changesets in the standard format.
+    system_prompt: |
+      You are a coder. Fix issues found by the reviewer.
+      After fixing, @reviewer to verify.
 
-tasks:
-  - shell: git diff --cached
+setup:
+  - shell: git diff HEAD~1
     as: diff
 
-  - send: |
-      Review these changes:
-      ${{ diff }}
-    to: reviewer
-    as: review
+kickoff: |
+  PR diff:
+  ${{ diff }}
 
-  - send: |
-      Based on this review:
-      ${{ review }}
-
-      Generate a changeset.
-    to: generator
-    as: changeset
+  @reviewer please review these changes.

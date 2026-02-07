@@ -2,10 +2,7 @@
 
 Multi-agent orchestration with shared context and @mention-driven collaboration.
 
-**Related documents:**
-
-- [REFERENCE.md](./REFERENCE.md) - Implementation details, interfaces, code examples
-- [TODO.md](./TODO.md) - Implementation plan and progress
+**Related**: [REFERENCE.md](./REFERENCE.md) | [TODO.md](./TODO.md)
 
 ---
 
@@ -420,7 +417,6 @@ kickoff: |
 
 ## References
 
-- [REFERENCE.md](./REFERENCE.md) - Interfaces, types, implementation code
-- [TODO.md](./TODO.md) - Implementation tasks and progress
-- [Docker Compose](https://docs.docker.com/compose/) - Service orchestration inspiration
-- [Slack API](https://api.slack.com/) - Channel/mention model
+- [REFERENCE.md](./REFERENCE.md) - MCP tools, controller loop, prompt structure
+- [TODO.md](./TODO.md) - Implementation progress
+- [../backends.md](../backends.md) - Backend feature matrix and CLI details

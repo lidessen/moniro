@@ -1,5 +1,30 @@
 # agent-worker
 
+## 0.4.0
+
+### Major Changes
+
+- Multi-agent workflow system with shared context and @mention-driven collaboration
+  - YAML-based workflow definition with `agents`, `setup`, and `kickoff`
+  - Channel (communication) + Document (workspace) shared context model
+  - @mention system for natural agent coordination
+  - MCP-based architecture — works with any MCP-compatible agent backend
+  - Context providers: File (persistent) and Memory (ephemeral/testing)
+  - Agent Controller with polling loop, retry, exponential backoff, idle detection
+  - Proposal & Voting system (election, decision, approval, assignment)
+  - Variable interpolation (`${{ }}`) in workflow YAML
+  - Run mode (exit when idle) and Start mode (persistent)
+  - Instance isolation for parallel workflows
+
+- Mock backend for testing workflows without real LLM API calls
+
+- CLI commands: `run`, `start`, `stop`, `context`
+
+- Test architecture overhaul
+  - Shared test helpers: mock-model, mock-backend, wait utilities
+  - Unit tests for AgentSession.send() and daemon handler dispatch
+  - Fixed all 21 pre-existing test failures (546 pass, 0 fail)
+
 ## 0.3.0
 
 ### Minor Changes
