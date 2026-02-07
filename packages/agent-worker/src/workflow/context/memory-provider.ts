@@ -78,14 +78,6 @@ export class MemoryContextProvider extends ContextProviderImpl {
     return map;
   }
 
-  /**
-   * Destroy: cleans up transient state (inbox cursors) only.
-   * Channel log, documents, and resources are preserved — matching FileContextProvider behavior.
-   * Use clear() for full reset in tests.
-   */
-  override async destroy(): Promise<void> {
-    await super.destroy();
-  }
 }
 
 /**

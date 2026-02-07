@@ -254,9 +254,6 @@ export class ContextProviderImpl implements ContextProvider {
   // ==================== Lifecycle ====================
 
   async destroy(): Promise<void> {
-    // Reset in-memory sequence counter
-    this.sequence = 0;
-    // Clean up inbox read cursors (transient state)
     await this.storage.delete(KEYS.inboxState);
   }
 }

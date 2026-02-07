@@ -49,7 +49,7 @@ export interface RunConfig {
   /** Agent startup function */
   startAgent: (agentName: string, config: ResolvedAgent, mcpUrl: string) => Promise<void>;
   /** Callback when an agent @mentions another agent */
-  onMention?: (from: string, target: string, msg: import("../context/types.ts").Message) => void;
+  onMention?: (from: string, target: string, msg: import("./context/types.ts").Message) => void;
   /** Debug log function for MCP tool calls */
   debugLog?: (message: string) => void;
 }

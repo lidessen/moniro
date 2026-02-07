@@ -295,6 +295,17 @@ describe('validateWorkflow', () => {
     expect(result.valid).toBe(false)
   })
 
+  test('validates bare file provider without config', () => {
+    const workflow = {
+      agents: {
+        a: { model: 'm', system_prompt: 's' },
+      },
+      context: { provider: 'file' },
+    }
+    const result = validateWorkflow(workflow)
+    expect(result.valid).toBe(true)
+  })
+
   test('validates context config.bind', () => {
     const workflow = {
       agents: {
@@ -681,7 +692,7 @@ describe('runWorkflow', () => {
     expect(result.error).toContain('context is disabled')
   })
 
-  test('persistent (bind) context preserves inbox state on shutdown', async () => {
+  test('persistent (bind) context: second run sees preserved state', async () => {
     const contextDir = join(testDir, 'bind-ctx')
     const workflow: ParsedWorkflow = {
       name: 'bind-test',
@@ -689,34 +700,42 @@ describe('runWorkflow', () => {
       agents: { agent1: { model: 'test', resolvedSystemPrompt: 'test' } },
       context: { provider: 'file', dir: contextDir, persistent: true },
       setup: [],
-      kickoff: '@agent1 start',
     }
 
-    const result = await runWorkflow({
+    // Run 1: write and ack a message
+    const run1 = await runWorkflow({
       workflow,
       instance: 'test',
       startAgent: async () => {},
     })
+    expect(run1.success).toBe(true)
 
-    expect(result.success).toBe(true)
-
-    // Write something to inbox state before shutdown
-    await result.contextProvider!.appendChannel('system', '@agent1 do something')
-    await result.contextProvider!.ackInbox('agent1',
-      (await result.contextProvider!.getInbox('agent1'))[0].entry.timestamp,
+    await run1.contextProvider!.appendChannel('system', '@agent1 do something')
+    await run1.contextProvider!.ackInbox('agent1',
+      (await run1.contextProvider!.getInbox('agent1'))[0].entry.timestamp,
     )
+    await run1.shutdown!()
 
-    // Shutdown (persistent mode — should preserve inbox state)
-    await result.shutdown!()
+    // Run 2: verify state persisted via API (not file checks)
+    const run2 = await runWorkflow({
+      workflow,
+      instance: 'test',
+      startAgent: async () => {},
+    })
+    expect(run2.success).toBe(true)
 
-    // Verify inbox state file still exists (not cleaned up)
-    const inboxPath = join(contextDir, '_state', 'inbox.json')
-    expect(existsSync(inboxPath)).toBe(true)
-    const inboxData = JSON.parse(readFileSync(inboxPath, 'utf-8'))
-    expect(inboxData.readCursors.agent1).toBeDefined()
+    // Inbox should be empty — ack from run 1 persisted
+    const inbox = await run2.contextProvider!.getInbox('agent1')
+    expect(inbox).toHaveLength(0)
+
+    // Channel history from run 1 should be visible
+    const messages = await run2.contextProvider!.readChannel()
+    expect(messages.some(m => m.content === '@agent1 do something')).toBe(true)
+
+    await run2.shutdown!()
   })
 
-  test('ephemeral context cleans up inbox state on shutdown', async () => {
+  test('ephemeral context: second run sees reset inbox', async () => {
     const contextDir = join(testDir, 'ephemeral-ctx')
     const workflow: ParsedWorkflow = {
       name: 'ephemeral-test',
@@ -724,29 +743,36 @@ describe('runWorkflow', () => {
       agents: { agent1: { model: 'test', resolvedSystemPrompt: 'test' } },
       context: { provider: 'file', dir: contextDir },
       setup: [],
-      kickoff: '@agent1 start',
+      // No kickoff with @mention — avoids extra inbox entries from kickoff messages
     }
 
-    const result = await runWorkflow({
+    // Run 1: write and ack a message
+    const run1 = await runWorkflow({
       workflow,
       instance: 'test',
       startAgent: async () => {},
     })
+    expect(run1.success).toBe(true)
 
-    expect(result.success).toBe(true)
+    await run1.contextProvider!.appendChannel('system', '@agent1 do something')
+    const run1Inbox = await run1.contextProvider!.getInbox('agent1')
+    expect(run1Inbox).toHaveLength(1)
+    await run1.contextProvider!.ackInbox('agent1', run1Inbox[0].entry.timestamp)
+    await run1.shutdown!()
 
-    // Write something to inbox state before shutdown
-    await result.contextProvider!.appendChannel('system', '@agent1 do something')
-    await result.contextProvider!.ackInbox('agent1',
-      (await result.contextProvider!.getInbox('agent1'))[0].entry.timestamp,
-    )
+    // Run 2: inbox state was destroyed, so old message reappears as unread
+    const run2 = await runWorkflow({
+      workflow,
+      instance: 'test',
+      startAgent: async () => {},
+    })
+    expect(run2.success).toBe(true)
 
-    // Shutdown (ephemeral mode — should clean up inbox state)
-    await result.shutdown!()
+    const inbox = await run2.contextProvider!.getInbox('agent1')
+    expect(inbox).toHaveLength(1)
+    expect(inbox[0].entry.content).toBe('@agent1 do something')
 
-    // Inbox state should be cleaned up
-    const inboxPath = join(contextDir, '_state', 'inbox.json')
-    expect(existsSync(inboxPath)).toBe(false)
+    await run2.shutdown!()
   })
 })
 
