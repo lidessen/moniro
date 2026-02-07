@@ -7,8 +7,8 @@
  * Backends are pure communication adapters — they only know how to send().
  */
 
-import type { ContextProvider } from '../../context/provider.ts'
-import type { ProposalManager } from '../../context/proposals.ts'
+import type { ContextProvider } from '../context/provider.ts'
+import type { ProposalManager } from '../context/proposals.ts'
 import type {
   AgentController,
   AgentControllerConfig,

@@ -555,7 +555,7 @@ describe('runWorkflow', () => {
 
 // ==================== MCP Config Tests ====================
 
-import { generateMCPConfig, cleanupMCPConfigs, type MCPConfigResult } from '../src/workflow/mcp-config.ts'
+import { generateMCPConfig, cleanupMCPConfigs, type MCPConfigResult } from '../src/workflow/backend-config.ts'
 import { existsSync, readFileSync } from 'node:fs'
 
 describe('generateMCPConfig', () => {

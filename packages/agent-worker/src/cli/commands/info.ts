@@ -1,5 +1,5 @@
 import type { Command } from 'commander'
-import { FRONTIER_MODELS, getDefaultModel } from '../../core/models.ts'
+import { FRONTIER_MODELS, getDefaultModel } from '../../agent/models.ts'
 
 // Provider API key configuration
 const PROVIDER_API_KEYS: Record<string, { envVar: string; description: string }> = {

@@ -1,5 +1,5 @@
 import { createConnection } from 'node:net'
-import { getSessionInfo, isSessionRunning } from './server.ts'
+import { getSessionInfo, isSessionRunning } from '../daemon/server.ts'
 
 interface Request {
   action: string

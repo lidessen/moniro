@@ -16,7 +16,7 @@ import type {
   SetupTask,
   AgentDefinition,
 } from './types.ts'
-import { CONTEXT_DEFAULTS } from '../context/types.js'
+import { CONTEXT_DEFAULTS } from './context/types.js'
 
 /**
  * Parse options

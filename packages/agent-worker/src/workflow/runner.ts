@@ -10,11 +10,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ParsedWorkflow, SetupTask, ResolvedAgent, ResolvedContext, ResolvedFileContext } from './types.ts'
 import { interpolate, createContext, type VariableContext } from './interpolate.ts'
-import { createFileContextProvider } from '../context/file-provider.ts'
-import { createMemoryContextProvider } from '../context/memory-provider.ts'
-import { createContextMCPServer } from '../context/mcp-server.ts'
-import { runWithHttp, type HttpMCPServer } from '../context/http-transport.ts'
-import type { ContextProvider } from '../context/provider.ts'
+import { createFileContextProvider } from './context/file-provider.ts'
+import { createMemoryContextProvider } from './context/memory-provider.ts'
+import { createContextMCPServer } from './context/mcp-server.ts'
+import { runWithHttp, type HttpMCPServer } from './context/http-transport.ts'
+import type { ContextProvider } from './context/provider.ts'
 import {
   createAgentController,
   checkWorkflowIdle,
@@ -23,7 +23,7 @@ import {
   type AgentController,
 } from './controller/index.ts'
 import type { Backend } from '../backends/types.ts'
-import type { Message } from '../context/types.ts'
+import type { Message } from './context/types.ts'
 import { startChannelWatcher, type ChannelWatcher } from './display.ts'
 import { createLogger, createSilentLogger, type Logger } from './logger.ts'
 

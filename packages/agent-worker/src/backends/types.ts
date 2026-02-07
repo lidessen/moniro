@@ -11,9 +11,9 @@ export {
   CLAUDE_MODEL_MAP,
   CODEX_MODEL_MAP,
   getModelForBackend,
-} from '../core/model-maps.ts'
+} from './model-maps.ts'
 
-import type { BackendType } from '../core/model-maps.ts'
+import type { BackendType } from './model-maps.ts'
 
 export interface BackendConfig {
   type: BackendType

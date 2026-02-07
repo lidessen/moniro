@@ -10,8 +10,8 @@ import {
   FileContextProvider,
   createFileContextProvider,
   createContextMCPServer,
-} from '../src/context/index.ts'
-import type { Message } from '../src/context/index.ts'
+} from '../src/workflow/context/index.ts'
+import type { Message } from '../src/workflow/context/index.ts'
 
 // ==================== extractMentions Tests ====================
 
@@ -1144,7 +1144,7 @@ describe('MCP Server Tools', () => {
 // ==================== Transport Tests ====================
 
 describe('getSocketPath', () => {
-  const { getSocketPath } = require('../src/context/transport.ts')
+  const { getSocketPath } = require('../src/workflow/context/transport.ts')
 
   test('generates socket path with workflow name and instance', () => {
     const path = getSocketPath('my-workflow', 'production')

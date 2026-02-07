@@ -12,7 +12,7 @@ import {
   listSessions,
   setDefaultSession,
   type SessionInfo,
-} from '../src/cli/server.ts'
+} from '../src/daemon/server.ts'
 
 describe('Server Session Management', () => {
   // Note: These tests use the actual registry file in ~/.agent-worker

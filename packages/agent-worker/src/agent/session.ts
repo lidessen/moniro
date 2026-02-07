@@ -1,6 +1,6 @@
 import { ToolLoopAgent, stepCountIs, type ModelMessage } from 'ai'
 import { createModelAsync } from './models.ts'
-import { createTools } from './tools.ts'
+import { createTools } from './tools/convert.ts'
 import type {
   AgentMessage,
   AgentResponse,

@@ -4,7 +4,7 @@
  */
 
 import type { Backend } from '../../backends/types.ts'
-import { parseModel, getModelForBackend } from '../../core/model-maps.ts'
+import { parseModel, getModelForBackend } from '../../backends/model-maps.ts'
 import { createBackend } from '../../backends/index.ts'
 import { createMockBackend } from '../../backends/mock.ts'
 

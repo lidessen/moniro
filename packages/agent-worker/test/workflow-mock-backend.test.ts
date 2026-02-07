@@ -10,12 +10,12 @@
  */
 
 import { describe, test, expect, afterEach } from 'bun:test'
-import { createMemoryContextProvider } from '../src/context/memory-provider.ts'
+import { createMemoryContextProvider } from '../src/workflow/context/memory-provider.ts'
 import { createAgentController, checkWorkflowIdle } from '../src/workflow/controller/controller.ts'
 import type { AgentController } from '../src/workflow/controller/types.ts'
 import type { Backend } from '../src/backends/types.ts'
 import type { ResolvedAgent } from '../src/workflow/types.ts'
-import type { ContextProvider } from '../src/context/provider.ts'
+import type { ContextProvider } from '../src/workflow/context/provider.ts'
 
 // ==================== Helpers ====================
 

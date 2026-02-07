@@ -1,7 +1,7 @@
 import type { Server } from 'node:net'
-import type { AgentSession } from '../core/session.ts'
-import type { ToolDefinition } from '../core/types.ts'
-import type { SkillImporter } from '../skills/index.ts'
+import type { AgentSession } from '../agent/session.ts'
+import type { ToolDefinition } from '../agent/types.ts'
+import type { SkillImporter } from '../agent/skills/index.ts'
 import type { SessionInfo } from './registry.ts'
 
 export interface ServerState {

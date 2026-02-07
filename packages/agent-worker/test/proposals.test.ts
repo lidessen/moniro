@@ -13,7 +13,7 @@ import {
   PROPOSAL_DEFAULTS,
   type ProposalManager,
   type Proposal,
-} from '../src/context/proposals.js'
+} from '../src/workflow/context/proposals.js'
 
 describe('ProposalManager', () => {
   let manager: ProposalManager

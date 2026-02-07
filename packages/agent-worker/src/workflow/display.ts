@@ -3,8 +3,8 @@
  * Terminal output formatting for workflow channel messages.
  */
 
-import type { ContextProvider } from '../context/provider.ts'
-import type { Message } from '../context/types.ts'
+import type { ContextProvider } from './context/provider.ts'
+import type { Message } from './context/types.ts'
 
 // ==================== Internal Helpers ====================
 

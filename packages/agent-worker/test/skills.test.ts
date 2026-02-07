@@ -9,7 +9,7 @@ import {
   buildGitUrl,
   getSpecDisplayName,
   SkillImporter,
-} from '../src/skills/index.ts'
+} from '../src/agent/skills/index.ts'
 
 // Test skill content
 const validSkillMd = `---
@@ -455,7 +455,7 @@ describe('Skills integration', () => {
   })
 
   test('works with AgentSession', async () => {
-    const { AgentSession } = await import('../src/session.ts')
+    const { AgentSession } = await import('../src/agent/session.ts')
 
     const skillDir = join(testDir, 'session-skill')
     mkdirSync(skillDir)

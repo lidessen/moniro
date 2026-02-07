@@ -1,5 +1,5 @@
 import { tool, jsonSchema } from 'ai'
-import type { ToolDefinition } from './types.ts'
+import type { ToolDefinition } from '../types.ts'
 
 /**
  * Convert ToolDefinition array to AI SDK tools object

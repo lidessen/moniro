@@ -5,7 +5,7 @@
  */
 
 import { createBashTool, type CreateBashToolOptions, type BashToolkit } from 'bash-tool'
-import type { ToolDefinition } from '../core/types.ts'
+import type { ToolDefinition } from '../types.ts'
 
 export type { CreateBashToolOptions, BashToolkit }
 export { createBashTool }

@@ -10,14 +10,14 @@ import {
   type AgentRunResult,
 } from '../src/workflow/controller/types.ts'
 import type { Backend } from '../src/backends/types.ts'
-import { parseModel, resolveModelAlias } from '../src/core/model-maps.ts'
+import { parseModel, resolveModelAlias } from '../src/backends/model-maps.ts'
 import { formatInbox, formatChannel, buildAgentPrompt } from '../src/workflow/controller/prompt.ts'
 import { createAgentController, checkWorkflowIdle, isWorkflowComplete, buildWorkflowIdleState } from '../src/workflow/controller/controller.ts'
 import { generateWorkflowMCPConfig } from '../src/workflow/controller/mcp-config.ts'
 import { parseSendTarget, sendToWorkflowChannel, formatUserSender } from '../src/workflow/controller/send.ts'
 import type { WorkflowIdleState } from '../src/workflow/controller/types.ts'
-import { createMemoryContextProvider } from '../src/context/memory-provider.ts'
-import type { InboxMessage, Message } from '../src/context/types.ts'
+import { createMemoryContextProvider } from '../src/workflow/context/memory-provider.ts'
+import type { InboxMessage, Message } from '../src/workflow/context/types.ts'
 import type { ResolvedAgent } from '../src/workflow/types.ts'
 
 // ==================== Model Parsing Tests ====================

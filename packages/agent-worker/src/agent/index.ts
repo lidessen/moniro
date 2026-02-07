@@ -1,4 +1,4 @@
-// Core domain re-exports
+// Agent: definition, session, capabilities
 export { AgentSession, type SendOptions, type StepInfo } from './session.ts'
 export {
   createModel,
@@ -9,7 +9,7 @@ export {
   getDefaultModel,
 } from './models.ts'
 export type { SupportedProvider } from './models.ts'
-export { createTools } from './tools.ts'
+export { createTools } from './tools/convert.ts'
 export type {
   AgentMessage,
   AgentResponse,
@@ -22,14 +22,3 @@ export type {
   TokenUsage,
   Transcript,
 } from './types.ts'
-export {
-  getModelForBackend,
-  parseModel,
-  resolveModelAlias,
-  BACKEND_DEFAULT_MODELS,
-  SDK_MODEL_ALIASES,
-  CURSOR_MODEL_MAP,
-  CLAUDE_MODEL_MAP,
-  CODEX_MODEL_MAP,
-} from './model-maps.ts'
-export type { BackendType, ParsedModel } from './model-maps.ts'

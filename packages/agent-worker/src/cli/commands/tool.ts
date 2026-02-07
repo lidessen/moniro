@@ -1,6 +1,6 @@
 import type { Command } from 'commander'
 import { join } from 'node:path'
-import type { ToolDefinition } from '../../core/types.ts'
+import type { ToolDefinition } from '../../agent/types.ts'
 import { sendRequest, isSessionActive } from '../client.ts'
 
 export function registerToolCommands(program: Command) {

@@ -7,13 +7,13 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { createMemoryContextProvider } from '../src/context/memory-provider.js'
+import { createMemoryContextProvider } from '../src/workflow/context/memory-provider.js'
 import { createAgentController, checkWorkflowIdle } from '../src/workflow/controller/controller.js'
-import { createProposalManager, type ProposalManager } from '../src/context/proposals.js'
+import { createProposalManager, type ProposalManager } from '../src/workflow/context/proposals.js'
 import type { AgentController } from '../src/workflow/controller/types.js'
 import type { Backend } from '../src/backends/types.js'
 import type { ResolvedAgent } from '../src/workflow/types.js'
-import type { ContextProvider } from '../src/context/provider.js'
+import type { ContextProvider } from '../src/workflow/context/provider.js'
 
 // ==================== Test Helpers ====================
 

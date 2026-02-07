@@ -3,7 +3,7 @@
  * Helpers for building agent prompts from context
  */
 
-import type { Message, InboxMessage } from '../../context/types.ts'
+import type { Message, InboxMessage } from '../context/types.ts'
 import type { AgentRunContext } from './types.ts'
 
 /**

@@ -2,11 +2,11 @@ import { createServer } from 'node:net'
 import { existsSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { AgentSession } from '../core/session.ts'
-import type { ToolDefinition } from '../core/types.ts'
+import { AgentSession } from '../agent/session.ts'
+import type { ToolDefinition } from '../agent/types.ts'
 import type { BackendType } from '../backends/types.ts'
 import { createBackend } from '../backends/index.ts'
-import { SkillsProvider, createSkillsTool, SkillImporter } from '../skills/index.ts'
+import { SkillsProvider, createSkillsTool, SkillImporter } from '../agent/skills/index.ts'
 import {
   SESSIONS_DIR,
   ensureDirs,

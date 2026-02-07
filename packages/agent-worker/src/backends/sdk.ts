@@ -6,7 +6,7 @@
 import { generateText } from 'ai'
 import type { LanguageModel } from 'ai'
 import type { Backend, BackendResponse } from './types.ts'
-import { createModel, createModelAsync } from '../core/models.ts'
+import { createModel, createModelAsync } from '../agent/models.ts'
 
 export interface SdkBackendOptions {
   /** Model identifier (e.g., 'openai/gpt-5.2' or 'anthropic:claude-sonnet-4-5') */
