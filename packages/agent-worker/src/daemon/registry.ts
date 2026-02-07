@@ -105,6 +105,8 @@ export interface SessionInfo {
   name?: string;
   /** Instance namespace (agents in the same instance share context) */
   instance: string;
+  /** Absolute path to context directory (runtime mapping, stored on creation) */
+  contextDir: string;
   model: string;
   system: string;
   backend: BackendType;
@@ -284,9 +286,13 @@ export async function waitForReady(
 
 /**
  * Get the context directory for an instance.
- * Always: `~/.agent-worker/contexts/{instance}/`
+ * Looks up from running agents first, falls back to default path.
  */
 export function getInstanceContextDir(instance: string): string {
+  const agents = getInstanceAgents(instance);
+  if (agents.length > 0 && agents[0]!.contextDir) {
+    return agents[0]!.contextDir;
+  }
   return join(CONTEXTS_DIR, instance);
 }
 

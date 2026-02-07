@@ -442,6 +442,7 @@ export async function startDaemon(config: {
     id: effectiveId,
     name: config.name,
     instance,
+    contextDir,
     model: config.model,
     system: config.system,
     backend: backendType,
