@@ -15,8 +15,8 @@ bun add -g agent-worker
 ### CLI
 
 ```bash
-# Create a session
-agent-worker session new -m anthropic/claude-sonnet-4-5
+# Create a new agent
+agent-worker new -m anthropic/claude-sonnet-4-5
 
 # Send a message (async by default)
 agent-worker send "Analyze this codebase"
@@ -113,9 +113,9 @@ See [docs/backends.md](./docs/backends.md) for feature matrix and CLI details.
 ## Model Formats
 
 ```bash
-agent-worker session new -m anthropic/claude-sonnet-4-5   # Gateway (recommended)
-agent-worker session new -m anthropic                      # Provider-only (frontier model)
-agent-worker session new -m deepseek:deepseek-chat         # Direct format
+agent-worker new -m anthropic/claude-sonnet-4-5   # Gateway (recommended)
+agent-worker new -m anthropic                      # Provider-only (frontier model)
+agent-worker new -m deepseek:deepseek-chat         # Direct format
 ```
 
 ## Requirements
