@@ -29,7 +29,6 @@ jobs:
             exit 0
           fi
           echo "command=$COMMAND" >> "$GITHUB_OUTPUT"
-          echo "workflow_file=.workflows/${COMMAND}.yaml" >> "$GITHUB_OUTPUT"
           echo "Parsed command: $COMMAND"
 
       - name: Get PR head SHA
@@ -48,18 +47,26 @@ jobs:
         with:
           ref: ${{ steps.pr.outputs.head_sha }}
 
-      - name: Check workflow file
+      # Resolve workflow file: .ts takes priority over .yaml
+      - name: Resolve workflow file
         if: steps.parse.outputs.command != ''
-        id: check
+        id: resolve
+        env:
+          COMMAND: ${{ steps.parse.outputs.command }}
         run: |
-          if [ -f "${{ steps.parse.outputs.workflow_file }}" ]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
+          if [ -f ".workflows/${COMMAND}.ts" ]; then
+            echo "file=.workflows/${COMMAND}.ts" >> "$GITHUB_OUTPUT"
+            echo "type=ts" >> "$GITHUB_OUTPUT"
+          elif [ -f ".workflows/${COMMAND}.yaml" ]; then
+            echo "file=.workflows/${COMMAND}.yaml" >> "$GITHUB_OUTPUT"
+            echo "type=yaml" >> "$GITHUB_OUTPUT"
           else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "file=" >> "$GITHUB_OUTPUT"
+            echo "type=none" >> "$GITHUB_OUTPUT"
           fi
 
       - name: React to comment
-        if: steps.check.outputs.exists == 'true'
+        if: steps.resolve.outputs.file != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -67,39 +74,49 @@ jobs:
             -f content='eyes'
 
       - uses: oven-sh/setup-bun@v2
-        if: steps.check.outputs.exists == 'true'
+        if: steps.resolve.outputs.file != ''
         with:
           bun-version: latest
 
-      - name: Install Claude CLI
-        if: steps.check.outputs.exists == 'true'
-        run: npm install -g @anthropic-ai/claude-code
-
       - name: Install dependencies
-        if: steps.check.outputs.exists == 'true'
+        if: steps.resolve.outputs.file != ''
         run: bun install
 
       - name: Build agent-worker
-        if: steps.check.outputs.exists == 'true'
+        if: steps.resolve.outputs.file != ''
         working-directory: packages/agent-worker
         run: bun run build
 
-      - name: Run agent workflow
-        if: steps.check.outputs.exists == 'true'
+      # .ts workflows: run directly with bun
+      - name: Run workflow (ts)
+        if: steps.resolve.outputs.type == 'ts'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.issue.number }}
         run: |
-          bun packages/agent-worker/src/cli/index.ts run ${{ steps.parse.outputs.workflow_file }}
+          bun ${{ steps.resolve.outputs.file }}
+
+      # .yaml workflows: run via agent-worker CLI
+      - name: Run workflow (yaml)
+        if: steps.resolve.outputs.type == 'yaml'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          bun packages/agent-worker/src/cli/index.ts run ${{ steps.resolve.outputs.file }}
 
       - name: Report unknown command
-        if: steps.parse.outputs.command != '' && steps.check.outputs.exists == 'false'
+        if: steps.parse.outputs.command != '' && steps.resolve.outputs.type == 'none'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COMMAND: ${{ steps.parse.outputs.command }}
         run: |
           gh pr comment ${{ github.event.issue.number }} \
             --repo ${{ github.repository }} \
-            --body "Unknown command: \`/$COMMAND\`. No workflow found at \`.workflows/${COMMAND}.yaml\`."
+            --body "Unknown command: \`/$COMMAND\`. No workflow found at \`.workflows/${COMMAND}.ts\` or \`.workflows/${COMMAND}.yaml\`."
