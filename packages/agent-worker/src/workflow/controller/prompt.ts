@@ -124,9 +124,9 @@ export function buildAgentPrompt(ctx: AgentRunContext): string {
     sections.push("");
     sections.push("### Feedback Tool");
     sections.push(
-      "- **feedback_submit**: Report observations about tools or workflows — friction, bugs, suggestions, or praise.",
+      "- **feedback_submit**: Report workflow improvement needs — a missing tool, an awkward step, or a capability gap.",
     );
-    sections.push("  Only use when you genuinely have something to say. Be specific.");
+    sections.push("  Only use when you genuinely hit a pain point during your work.");
   }
 
   sections.push("");

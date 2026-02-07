@@ -190,13 +190,11 @@ export function registerToolCommands(program: Command) {
       } else {
         for (const entry of entries) {
           const icon =
-            entry.type === "bug"
-              ? "[bug]"
+            entry.type === "missing"
+              ? "[missing]"
               : entry.type === "friction"
                 ? "[friction]"
-                : entry.type === "praise"
-                  ? "[praise]"
-                  : "[suggestion]";
+                : "[suggestion]";
           console.log(`  ${icon} ${entry.target}: ${entry.description}`);
           if (entry.context) {
             console.log(`         context: ${entry.context}`);
