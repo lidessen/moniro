@@ -26,9 +26,6 @@ agent-worker send "What is 2+2?" --wait
 
 # View messages
 agent-worker peek
-
-# Run a multi-agent workflow
-agent-worker run review.yaml
 ```
 
 ### SDK
