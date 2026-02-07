@@ -1,9 +1,9 @@
 /**
- * Feedback tool — lets agents report observations about tools and workflows
+ * Feedback tool — lets agents surface workflow improvement needs
  *
- * When enabled, agents can call this tool to leave structured feedback:
- * friction points, bugs, suggestions, or praise. Feedback is collected
- * in memory and optionally forwarded via a callback.
+ * When enabled, agents can report what's missing or inconvenient during work:
+ * a tool they wished they had, a step that felt unnecessarily slow, or a
+ * capability gap. The purpose is workflow improvement, not bug reporting.
  *
  * @example
  * ```typescript
@@ -27,13 +27,13 @@ import { tool, jsonSchema } from "ai";
 export interface FeedbackEntry {
   /** ISO timestamp */
   timestamp: string;
-  /** What is being commented on — tool name, skill name, "workflow", etc. */
+  /** What area this is about — a tool name, workflow step, etc. */
   target: string;
   /** Category */
-  type: "bug" | "suggestion" | "friction" | "praise";
-  /** What the agent observed or suggests */
+  type: "missing" | "friction" | "suggestion";
+  /** What the agent needed or what could be improved */
   description: string;
-  /** Optional: what the agent was doing when it noticed */
+  /** Optional: what the agent was trying to do */
   context?: string;
 }
 
@@ -62,12 +62,9 @@ export interface FeedbackToolResult {
 export const FEEDBACK_PROMPT = `
 ## Feedback
 
-You have a \`feedback\` tool. Use it when you notice something about the tools or workflow worth reporting — a friction point, a bug, a missing capability, or something that works well.
+You have a \`feedback\` tool. If you run into something inconvenient during your work — a tool you wish you had, a workflow step that feels unnecessarily slow, a capability gap — use it to report what you needed.
 
-Guidelines:
-- Only call it when you genuinely have something to say. No obligation to give feedback.
-- Be specific: name the tool/workflow, describe what happened, suggest what could be better.
-- One entry per observation. Multiple calls are fine.
+The purpose is to improve the workflow for future runs. Don't force feedback; only call it when you genuinely hit a pain point.
 `.trim();
 
 // ── Factory ────────────────────────────────────────────────────────
@@ -80,28 +77,28 @@ export function createFeedbackTool(
 
   const feedbackTool = tool({
     description:
-      "Submit feedback about a tool, skill, or workflow. Use when you notice friction, bugs, missing capabilities, or something that works particularly well.",
+      "Report a workflow improvement need. Use when you hit something inconvenient — a missing tool, an awkward step, or a capability you wished you had.",
     parameters: jsonSchema({
       type: "object",
       properties: {
         target: {
           type: "string",
           description:
-            "What you are giving feedback on — a tool name (e.g. bash, readFile), a skill name, or a general area (e.g. workflow, prompt).",
+            "The area this is about — a tool name (e.g. bash, readFile), a workflow step, or a general area (e.g. file search, code review).",
         },
         type: {
           type: "string",
-          enum: ["bug", "suggestion", "friction", "praise"],
+          enum: ["missing", "friction", "suggestion"],
           description:
-            "bug: something broken. suggestion: an improvement idea. friction: something awkward or slow. praise: something that works well.",
+            "missing: a tool or capability you needed but didn't have. friction: something that works but is awkward or slow. suggestion: a concrete improvement idea.",
         },
         description: {
           type: "string",
-          description: "What you observed or suggest. Be specific.",
+          description: "What you needed or what could be improved. Be specific.",
         },
         context: {
           type: "string",
-          description: "Optional: what you were doing when you noticed this.",
+          description: "Optional: what you were trying to do when you hit this.",
         },
       },
       required: ["target", "type", "description"],

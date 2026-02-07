@@ -690,23 +690,23 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
   if (feedbackEnabled) {
     server.tool(
       "feedback_submit",
-      "Submit feedback about a tool, workflow, or process. Use when you notice friction, bugs, missing capabilities, or something that works well.",
+      "Report a workflow improvement need. Use when you hit something inconvenient — a missing tool, an awkward step, or a capability you wished you had.",
       {
         target: z
           .string()
           .describe(
-            "What you are giving feedback on — a tool name, a workflow step, or a general area.",
+            "The area this is about — a tool name, a workflow step, or a general area (e.g. file search, code review).",
           ),
         type: z
-          .enum(["bug", "suggestion", "friction", "praise"])
+          .enum(["missing", "friction", "suggestion"])
           .describe(
-            "bug: something broken. suggestion: an improvement idea. friction: something awkward or slow. praise: something that works well.",
+            "missing: a tool or capability you needed but didn't have. friction: something that works but is awkward or slow. suggestion: a concrete improvement idea.",
           ),
-        description: z.string().describe("What you observed or suggest. Be specific."),
+        description: z.string().describe("What you needed or what could be improved. Be specific."),
         context: z
           .string()
           .optional()
-          .describe("Optional: what you were doing when you noticed this."),
+          .describe("Optional: what you were trying to do when you hit this."),
       },
       async ({ target, type, description, context: ctx }, extra) => {
         const from = getAgentId(extra) || "anonymous";
