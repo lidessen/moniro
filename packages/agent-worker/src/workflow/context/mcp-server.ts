@@ -54,13 +54,13 @@ function formatInbox(messages: InboxMessage[]): string {
 
   return JSON.stringify({
     messages: messages.map((m) => ({
+      id: m.entry.id,
       from: m.entry.from,
       content: m.entry.content,
       timestamp: m.entry.timestamp,
       priority: m.priority,
     })),
     count: messages.length,
-    latestTimestamp: messages[messages.length - 1]!.entry.timestamp,
   });
 }
 

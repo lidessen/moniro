@@ -877,9 +877,8 @@ describe('MCP Server Tools', () => {
       await provider.appendChannel('agent3', '@agent2 second mention')
 
       const result = (await callTool('my_inbox', {}, { sessionId: 'agent2' })) as {
-        messages: Array<{ from: string; priority: string }>
+        messages: Array<{ id: string; from: string; priority: string }>
         count: number
-        latestTimestamp: string
       }
 
       expect(result.count).toBe(2)
