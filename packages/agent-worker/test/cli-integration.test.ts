@@ -195,7 +195,7 @@ describe('CLI Integration', () => {
     test('shows help for send command', async () => {
       const result = await runCli(['send', '--help'])
       expect(result.exitCode).toBe(0)
-      expect(result.stdout).toContain('--instance')
+      expect(result.stdout).toContain('--workflow')
     })
   })
 
@@ -222,7 +222,7 @@ describe('CLI Integration', () => {
     test('shows empty channel when no messages', async () => {
       // peek reads from channel — succeeds even with no agents
       // Use unique instance to avoid seeing messages from other tests
-      const result = await runCli(['peek', '--instance', `empty-${Date.now()}`])
+      const result = await runCli(['peek', '--workflow', `empty-${Date.now()}`])
       expect(result.exitCode).toBe(0)
       expect(result.stdout).toMatch(/No messages/)
     })

@@ -29,7 +29,7 @@ async function createAgentAction(
     skillDir?: string[];
     importSkill?: string[];
     foreground?: boolean;
-    instance?: string;
+    workflow?: string;
     json?: boolean;
     feedback?: boolean;
     wakeup?: string;
@@ -44,7 +44,7 @@ async function createAgentAction(
   const backend = (options.backend ?? "sdk") as BackendType;
   const model = options.model || getDefaultModel();
   const idleTimeout = parseInt(options.idleTimeout ?? "1800000", 10);
-  const instance = options.instance || DEFAULT_INSTANCE;
+  const instance = options.workflow || DEFAULT_INSTANCE;
 
   // Auto-generate name if not provided (a0, a1, ..., z9)
   const agentName = name || generateAutoName();
@@ -53,13 +53,13 @@ async function createAgentAction(
   let fullName: string;
   if (agentName.includes("@")) {
     fullName = agentName;
-  } else if (options.instance) {
-    if (!isValidInstanceName(options.instance)) {
-      console.error(`Invalid instance name: ${options.instance}`);
-      console.error("Instance names must be alphanumeric, hyphen, or underscore");
+  } else if (options.workflow) {
+    if (!isValidInstanceName(options.workflow)) {
+      console.error(`Invalid workflow name: ${options.workflow}`);
+      console.error("Workflow names must be alphanumeric, hyphen, or underscore");
       process.exit(1);
     }
-    fullName = buildAgentId(agentName, options.instance);
+    fullName = buildAgentId(agentName, options.workflow);
   } else {
     fullName = buildAgentId(agentName, DEFAULT_INSTANCE);
   }
@@ -89,7 +89,7 @@ async function createAgentAction(
   } else {
     const scriptPath = process.argv[1] ?? "";
     const args = [scriptPath, "new", agentName, "-m", model, "-b", backend, "-s", system, "--foreground"];
-    args.push("--instance", instance);
+    args.push("--workflow", instance);
     args.push("--idle-timeout", String(idleTimeout));
     if (options.feedback) {
       args.push("--feedback");
@@ -140,12 +140,12 @@ async function createAgentAction(
 }
 
 // Common action for listing agents
-function listAgentsAction(options?: { json?: boolean; instance?: string }) {
+function listAgentsAction(options?: { json?: boolean; workflow?: string }) {
   let sessions = listSessions();
 
-  // Filter by instance if specified
-  if (options?.instance) {
-    sessions = sessions.filter((s) => s.instance === options.instance);
+  // Filter by workflow if specified
+  if (options?.workflow) {
+    sessions = sessions.filter((s) => s.instance === options.workflow);
   }
 
   if (options?.json) {
@@ -193,7 +193,7 @@ function listAgentsAction(options?: { json?: boolean; instance?: string }) {
 }
 
 // Common action for stopping agents
-async function stopAgentAction(target?: string, options?: { all?: boolean; instance?: string }) {
+async function stopAgentAction(target?: string, options?: { all?: boolean; workflow?: string }) {
   if (options?.all) {
     const sessions = listSessions();
     for (const s of sessions) {
@@ -206,8 +206,8 @@ async function stopAgentAction(target?: string, options?: { all?: boolean; insta
     return;
   }
 
-  if (options?.instance) {
-    const sessions = listSessions().filter((s) => s.instance === options.instance);
+  if (options?.workflow) {
+    const sessions = listSessions().filter((s) => s.instance === options.workflow);
     for (const s of sessions) {
       if (isSessionRunning(s.id)) {
         await sendRequest({ action: "shutdown" }, s.id);
@@ -219,7 +219,7 @@ async function stopAgentAction(target?: string, options?: { all?: boolean; insta
   }
 
   if (!target) {
-    console.error("Specify target agent, or use --all / --instance");
+    console.error("Specify target agent, or use --all / --workflow");
     process.exit(1);
   }
 
@@ -253,7 +253,7 @@ function addNewCommandOptions(cmd: Command): Command {
     .option("--feedback", "Enable feedback tool (agent can report tool/workflow observations)")
     .option("--wakeup <value>", "Scheduled wakeup: ms number, duration (30s/5m/2h), or cron expr")
     .option("--wakeup-prompt <prompt>", "Custom prompt for scheduled wakeup")
-    .option("--instance <name>", "Instance namespace (agents in same instance share context)")
+    .option("-w, --workflow <name>", "Workflow namespace (agents in same workflow share context)")
     .option("--foreground", "Run in foreground")
     .option("--json", "Output as JSON");
 }
@@ -273,7 +273,7 @@ export function registerAgentCommands(program: Command) {
     .command("ls")
     .description("List all agents")
     .option("--json", "Output as JSON")
-    .option("--instance <name>", "Filter by instance")
+    .option("-w, --workflow <name>", "Filter by workflow")
     .action(listAgentsAction);
 
   // `stop` — stop agent(s)
@@ -281,7 +281,7 @@ export function registerAgentCommands(program: Command) {
     .command("stop [target]")
     .description("Stop agent(s)")
     .option("--all", "Stop all agents")
-    .option("--instance <name>", "Stop all agents in instance")
+    .option("-w, --workflow <name>", "Stop all agents in workflow")
     .action(stopAgentAction);
 
   // `status` — check agent status

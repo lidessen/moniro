@@ -25,10 +25,10 @@ export function registerSendCommands(program: Command) {
   program
     .command("send <message>")
     .description("Send message to channel (use @agent to route)")
-    .option("--instance <name>", "Target instance", DEFAULT_INSTANCE)
+    .option("-w, --workflow <name>", "Target workflow", DEFAULT_INSTANCE)
     .option("--json", "Output as JSON")
     .action(async (message, options) => {
-      const instance = options.instance;
+      const instance = options.workflow;
       const provider = getContextProvider(instance);
 
       const entry = await provider.appendChannel("user", message);
@@ -50,13 +50,13 @@ export function registerSendCommands(program: Command) {
   program
     .command("peek")
     .description("View channel messages (default: last 10)")
-    .option("--instance <name>", "Target instance", DEFAULT_INSTANCE)
+    .option("-w, --workflow <name>", "Target workflow", DEFAULT_INSTANCE)
     .option("--json", "Output as JSON")
     .option("--all", "Show all messages")
     .option("-n, --last <count>", "Show last N messages", parseInt)
     .option("--find <text>", "Filter messages containing text (case-insensitive)")
     .action(async (options) => {
-      const instance = options.instance;
+      const instance = options.workflow;
       const provider = getContextProvider(instance);
 
       const limit = options.all ? undefined : (options.last ?? 10);

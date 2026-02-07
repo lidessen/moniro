@@ -6,7 +6,7 @@ export function registerWorkflowCommands(program: Command) {
   program
     .command("run <file>")
     .description("Execute workflow and exit when complete")
-    .option("--instance <name>", "Instance name", "default")
+    .option("-w, --workflow <name>", "Workflow name", "default")
     .option("-d, --debug", "Show debug details (internal logs, MCP traces, idle checks)")
     .option("--feedback", "Enable feedback tool (agents can report tool/workflow observations)")
     .option("--json", "Output results as JSON")
@@ -15,11 +15,11 @@ export function registerWorkflowCommands(program: Command) {
         await import("@/workflow/index.ts");
 
       try {
-        const workflow = await parseWorkflowFile(file, { instance: options.instance });
+        const workflow = await parseWorkflowFile(file, { instance: options.workflow });
 
         const result = await runWorkflowWithControllers({
           workflow,
-          instance: options.instance,
+          instance: options.workflow,
           debug: options.debug,
           log: console.log,
           mode: "run",
@@ -70,7 +70,7 @@ export function registerWorkflowCommands(program: Command) {
   program
     .command("start <file>")
     .description("Start workflow and keep agents running")
-    .option("--instance <name>", "Instance name", "default")
+    .option("-w, --workflow <name>", "Workflow name", "default")
     .option("-d, --debug", "Show debug details (internal logs, MCP traces, idle checks)")
     .option("--feedback", "Enable feedback tool (agents can report tool/workflow observations)")
     .option("--background", "Run in background (daemonize)")
@@ -81,7 +81,7 @@ export function registerWorkflowCommands(program: Command) {
       // Background mode: spawn detached process
       if (options.background) {
         const scriptPath = process.argv[1] ?? "";
-        const args = [scriptPath, "start", file, "--instance", options.instance];
+        const args = [scriptPath, "start", file, "--workflow", options.workflow];
         if (options.feedback) {
           args.push("--feedback");
         }
@@ -93,7 +93,7 @@ export function registerWorkflowCommands(program: Command) {
         child.unref();
 
         console.log(`Workflow started in background (PID: ${child.pid})`);
-        console.log(`Use \`agent-worker stop --instance ${options.instance}\` to stop.`);
+        console.log(`Use \`agent-worker stop -w ${options.workflow}\` to stop.`);
         return;
       }
 
@@ -112,11 +112,11 @@ export function registerWorkflowCommands(program: Command) {
       process.on("SIGTERM", cleanup);
 
       try {
-        const workflow = await parseWorkflowFile(file, { instance: options.instance });
+        const workflow = await parseWorkflowFile(file, { instance: options.workflow });
 
         const result = await runWorkflowWithControllers({
           workflow,
-          instance: options.instance,
+          instance: options.workflow,
           debug: options.debug,
           log: console.log,
           mode: "start",
