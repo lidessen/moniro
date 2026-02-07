@@ -6,7 +6,6 @@ import {
   parseAgentId,
   buildAgentId,
   isValidInstanceName,
-  normalizeTarget,
   DEFAULT_INSTANCE,
 } from '../src/cli/instance.ts'
 
@@ -119,25 +118,6 @@ describe('isValidInstanceName', () => {
 
   test('rejects empty string', () => {
     expect(isValidInstanceName('')).toBe(false)
-  })
-})
-
-describe('normalizeTarget', () => {
-  test('returns undefined for undefined', () => {
-    expect(normalizeTarget(undefined)).toBeUndefined()
-  })
-
-  test('returns undefined for empty string', () => {
-    expect(normalizeTarget('')).toBeUndefined()
-  })
-
-  test('preserves target with @', () => {
-    expect(normalizeTarget('agent@instance')).toBe('agent@instance')
-  })
-
-  test('preserves simple name without modification', () => {
-    // For backwards compatibility, simple names are not modified
-    expect(normalizeTarget('myagent')).toBe('myagent')
   })
 })
 
