@@ -23,7 +23,7 @@ import {
 
 describe("ContextProvider.destroy()", () => {
   describe("MemoryContextProvider", () => {
-    test("destroy clears all data", async () => {
+    test("destroy clears transient state but preserves persistent data", async () => {
       const provider = new MemoryContextProvider(["agent1", "agent2"]);
 
       // Write some data
@@ -34,9 +34,11 @@ describe("ContextProvider.destroy()", () => {
       // Destroy
       await provider.destroy();
 
-      // All data should be cleared
-      expect(await provider.readChannel()).toEqual([]);
-      expect(await provider.readDocument()).toBe("");
+      // Channel and documents should be preserved
+      expect(await provider.readChannel()).toHaveLength(1);
+      expect(await provider.readDocument()).toBe("some content");
+
+      // Inbox state (transient) should be cleared
       expect(await provider.getInboxState("agent2")).toBeUndefined();
     });
   });

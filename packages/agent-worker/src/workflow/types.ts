@@ -28,6 +28,7 @@ export interface WorkflowFile {
    * Shared context configuration
    * - undefined (not set): default file provider enabled
    * - false: explicitly disabled
+   * - { bind: './path' }: persistent file provider (like Docker Compose volumes)
    * - { provider: 'file', config?: {...} }: file provider with config
    * - { provider: 'memory' }: memory provider (for testing)
    */

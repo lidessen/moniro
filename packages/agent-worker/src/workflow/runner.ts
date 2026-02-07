@@ -209,6 +209,10 @@ export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> 
           context[task.as] = result;
         }
       } catch (error) {
+        // Release lock before propagating error
+        if (contextProvider instanceof FileContextProvider) {
+          contextProvider.releaseLock();
+        }
         await httpMcpServer.close();
         throw new Error(`Setup failed: ${error instanceof Error ? error.message : String(error)}`);
       }

@@ -4,7 +4,7 @@
  * Includes instance lock to prevent concurrent access to the same context directory.
  */
 
-import { existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { ContextProviderImpl } from "./provider.ts";
 import { FileStorage } from "./storage.ts";
@@ -76,7 +76,6 @@ export class FileContextProvider extends ContextProviderImpl {
     // Ensure _state directory exists (FileStorage may not have created it yet)
     const stateDir = join(this.contextDir, "_state");
     if (!existsSync(stateDir)) {
-      const { mkdirSync } = require("node:fs");
       mkdirSync(stateDir, { recursive: true });
     }
     writeFileSync(this.lockPath, JSON.stringify(lock, null, 2));
