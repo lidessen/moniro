@@ -3,11 +3,11 @@
  * Provides shared context (channel + document) for agent collaboration
  */
 
-export * from './types.js'
-export * from './storage.js'
-export * from './provider.js'
-export * from './memory-provider.js'
-export * from './file-provider.js'
-export * from './mcp-server.js'
-export * from './transport.js'
-export * from './proposals.js'
+export * from "./types.ts";
+export * from "./storage.ts";
+export * from "./provider.ts";
+export * from "./memory-provider.ts";
+export * from "./file-provider.ts";
+export * from "./mcp-server.ts";
+export * from "./transport.ts";
+export * from "./proposals.ts";

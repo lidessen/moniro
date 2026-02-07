@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { accessSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import {
@@ -727,10 +727,7 @@ describe('SkillImporter', () => {
     await importer.cleanup()
 
     // Verify it's gone
-    expect(() => {
-      const fs = require('node:fs')
-      fs.accessSync(tempDir)
-    }).toThrow()
+    expect(() => accessSync(tempDir)).toThrow()
   })
 
   test('getImportedSkills returns empty array initially', () => {
@@ -783,10 +780,7 @@ describe('SkillImporter', () => {
     await importer.cleanup() // Should not throw
 
     // Still cleaned up
-    expect(() => {
-      const fs = require('node:fs')
-      fs.accessSync(tempDir)
-    }).toThrow()
+    expect(() => accessSync(tempDir)).toThrow()
   })
 
   test('getImportedSkills returns imported skill metadata', () => {

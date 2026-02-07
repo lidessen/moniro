@@ -8,10 +8,10 @@ export {
   unregisterSession,
   getSessionInfo,
   type SessionInfo,
-} from './registry.ts'
+} from "./registry.ts";
 
 // Re-export daemon entry point
-export { startDaemon } from './daemon.ts'
+export { startDaemon } from "./daemon.ts";
 
 // Re-export handler types
-export type { ServerState, Request, Response } from './handler.ts'
+export type { ServerState, Request, Response } from "./handler.ts";

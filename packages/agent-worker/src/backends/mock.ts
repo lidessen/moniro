@@ -5,7 +5,7 @@
  * For workflow integration testing with MCP tools, see controller/mock-runner.ts.
  */
 
-import type { Backend, BackendResponse } from './types.ts'
+import type { Backend, BackendResponse } from "./types.ts";
 
 /**
  * Mock AI Backend for testing
@@ -15,16 +15,16 @@ import type { Backend, BackendResponse } from './types.ts'
  * via the mock runner strategy (controller/mock-runner.ts).
  */
 export class MockAIBackend implements Backend {
-  readonly type = 'mock' as const
+  readonly type = "mock" as const;
 
   constructor(private debugLog?: (message: string) => void) {}
 
   async send(message: string, _options?: { system?: string }): Promise<BackendResponse> {
-    const log = this.debugLog || (() => {})
-    log(`[mock] Received message (${message.length} chars)`)
+    const log = this.debugLog || (() => {});
+    log(`[mock] Received message (${message.length} chars)`);
     return {
       content: `[mock] Processed: ${message.slice(0, 200)}`,
-    }
+    };
   }
 }
 
@@ -32,5 +32,5 @@ export class MockAIBackend implements Backend {
  * Create a mock AI backend
  */
 export function createMockBackend(debugLog?: (msg: string) => void): Backend {
-  return new MockAIBackend(debugLog)
+  return new MockAIBackend(debugLog);
 }

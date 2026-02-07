@@ -2,14 +2,10 @@
  * Workflow file type definitions
  */
 
-import type { ContextConfig } from './context/types.js'
+import type { ContextConfig } from "./context/types.ts";
 
 // Re-export context types for convenience
-export type {
-  ContextConfig,
-  FileContextConfig,
-  MemoryContextConfig,
-} from '../context/types.js'
+export type { ContextConfig, FileContextConfig, MemoryContextConfig } from "./context/types.ts";
 
 // ==================== Workflow File ====================
 
@@ -18,10 +14,10 @@ export type {
  */
 export interface WorkflowFile {
   /** Workflow name (defaults to filename) */
-  name?: string
+  name?: string;
 
   /** Agent definitions */
-  agents: Record<string, AgentDefinition>
+  agents: Record<string, AgentDefinition>;
 
   /**
    * Shared context configuration
@@ -30,102 +26,102 @@ export interface WorkflowFile {
    * - { provider: 'file', config?: {...} }: file provider with config
    * - { provider: 'memory' }: memory provider (for testing)
    */
-  context?: ContextConfig
+  context?: ContextConfig;
 
   /**
    * Setup commands - run before kickoff
    * Shell commands to prepare variables for kickoff
    */
-  setup?: SetupTask[]
+  setup?: SetupTask[];
 
   /**
    * Kickoff message - initiates workflow via @mention
    * Optional: if omitted, agents start but wait for external trigger
    */
-  kickoff?: string
+  kickoff?: string;
 }
 
 // ==================== Agent Definition ====================
 
 export interface AgentDefinition {
   /** Backend to use: 'sdk' (default), 'claude', 'cursor', 'codex', 'mock' (testing) */
-  backend?: 'sdk' | 'claude' | 'cursor' | 'codex' | 'mock'
+  backend?: "sdk" | "claude" | "cursor" | "codex" | "mock";
 
   /** Model identifier (e.g., 'anthropic/claude-sonnet-4-5'). Optional for CLI backends that have defaults. */
-  model?: string
+  model?: string;
 
   /** System prompt - inline string or file path */
-  system_prompt: string
+  system_prompt: string;
 
   /** Tool names to enable */
-  tools?: string[]
+  tools?: string[];
 
   /** Maximum tokens for response */
-  max_tokens?: number
+  max_tokens?: number;
 
   /** Maximum tool call steps per turn */
-  max_steps?: number
+  max_steps?: number;
 }
 
 // ==================== Setup Task ====================
 
 export interface SetupTask {
   /** Shell command to execute */
-  shell: string
+  shell: string;
 
   /** Variable name to store output */
-  as?: string
+  as?: string;
 }
 
 // ==================== Parsed Workflow ====================
 
 export interface ParsedWorkflow {
-  name: string
-  filePath: string
-  agents: Record<string, ResolvedAgent>
+  name: string;
+  filePath: string;
+  agents: Record<string, ResolvedAgent>;
 
   /** Resolved context configuration */
-  context?: ResolvedContext
+  context?: ResolvedContext;
 
   /** Setup tasks */
-  setup: SetupTask[]
+  setup: SetupTask[];
 
   /** Kickoff message (with variables interpolated) */
-  kickoff?: string
+  kickoff?: string;
 }
 
 export interface ResolvedAgent extends AgentDefinition {
   /** Resolved system prompt content */
-  resolvedSystemPrompt: string
+  resolvedSystemPrompt: string;
 }
 
 /** Resolved context configuration */
-export type ResolvedContext = ResolvedFileContext | ResolvedMemoryContext
+export type ResolvedContext = ResolvedFileContext | ResolvedMemoryContext;
 
 /** Resolved file context with actual paths */
 export interface ResolvedFileContext {
-  provider: 'file'
+  provider: "file";
   /** Context directory path */
-  dir: string
+  dir: string;
   /** Document owner (single-writer model, optional) */
-  documentOwner?: string
+  documentOwner?: string;
 }
 
 /** Resolved memory context (for testing) */
 export interface ResolvedMemoryContext {
-  provider: 'memory'
+  provider: "memory";
   /** Document owner (single-writer model, optional) */
-  documentOwner?: string
+  documentOwner?: string;
 }
 
 // ==================== Validation ====================
 
 export interface ValidationError {
-  path: string
-  message: string
+  path: string;
+  message: string;
 }
 
 export interface ValidationResult {
-  valid: boolean
-  errors: ValidationError[]
+  valid: boolean;
+  errors: ValidationError[];
 }

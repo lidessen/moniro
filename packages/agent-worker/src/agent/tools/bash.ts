@@ -4,11 +4,11 @@
  * Provides bash, readFile, writeFile tools for AI agents in a sandboxed environment
  */
 
-import { createBashTool, type CreateBashToolOptions, type BashToolkit } from 'bash-tool'
-import { tool, jsonSchema } from 'ai'
+import { createBashTool, type CreateBashToolOptions, type BashToolkit } from "bash-tool";
+import { tool, jsonSchema } from "ai";
 
-export type { CreateBashToolOptions, BashToolkit }
-export { createBashTool }
+export type { CreateBashToolOptions, BashToolkit };
+export { createBashTool };
 
 /**
  * Options for creating bash tools compatible with AgentSession
@@ -17,11 +17,11 @@ export interface BashToolsOptions extends CreateBashToolOptions {
   /**
    * Include readFile tool (default: true)
    */
-  includeReadFile?: boolean
+  includeReadFile?: boolean;
   /**
    * Include writeFile tool (default: true)
    */
-  includeWriteFile?: boolean
+  includeWriteFile?: boolean;
 }
 
 /**
@@ -41,86 +41,88 @@ export interface BashToolsOptions extends CreateBashToolOptions {
  * ```
  */
 export async function createBashTools(
-  options: BashToolsOptions = {}
+  options: BashToolsOptions = {},
 ): Promise<{ tools: Record<string, unknown>; toolkit: BashToolkit }> {
-  const { includeReadFile = true, includeWriteFile = true, ...bashOptions } = options
+  const { includeReadFile = true, includeWriteFile = true, ...bashOptions } = options;
 
-  const toolkit = await createBashTool(bashOptions)
+  const toolkit = await createBashTool(bashOptions);
 
-  const tools: Record<string, unknown> = {}
+  const tools: Record<string, unknown> = {};
 
   tools.bash = tool({
-    description: 'Execute bash commands in a sandboxed environment. Returns stdout, stderr, and exit code.',
-    parameters: jsonSchema<Record<string, unknown>>({
-      type: 'object',
+    description:
+      "Execute bash commands in a sandboxed environment. Returns stdout, stderr, and exit code.",
+    parameters: jsonSchema({
+      type: "object",
       properties: {
         command: {
-          type: 'string',
-          description: 'The bash command to execute',
+          type: "string",
+          description: "The bash command to execute",
         },
       },
-      required: ['command'],
+      required: ["command"],
     }),
-    execute: async (args) => {
-      const bashTool = toolkit.tools.bash
+    execute: async (args: Record<string, unknown>) => {
+      const bashTool = toolkit.tools.bash;
       if (!bashTool?.execute) {
-        throw new Error('Bash tool not available')
+        throw new Error("Bash tool not available");
       }
-      return bashTool.execute(args as { command: string }, {} as never)
+      return bashTool.execute(args as { command: string }, {} as never);
     },
-  })
+  });
 
   if (includeReadFile) {
     tools.readFile = tool({
-      description: 'Read the contents of a file from the sandbox filesystem.',
-      parameters: jsonSchema<Record<string, unknown>>({
-        type: 'object',
+      description: "Read the contents of a file from the sandbox filesystem.",
+      parameters: jsonSchema({
+        type: "object",
         properties: {
           path: {
-            type: 'string',
-            description: 'The path to the file to read',
+            type: "string",
+            description: "The path to the file to read",
           },
         },
-        required: ['path'],
+        required: ["path"],
       }),
-      execute: async (args) => {
-        const readFileTool = toolkit.tools.readFile
+      execute: async (args: Record<string, unknown>) => {
+        const readFileTool = toolkit.tools.readFile;
         if (!readFileTool?.execute) {
-          throw new Error('ReadFile tool not available')
+          throw new Error("ReadFile tool not available");
         }
-        return readFileTool.execute(args as { path: string }, {} as never)
+        return readFileTool.execute(args as { path: string }, {} as never);
       },
-    })
+    });
   }
 
   if (includeWriteFile) {
     tools.writeFile = tool({
-      description: 'Write content to a file in the sandbox filesystem. Creates parent directories if needed.',
-      parameters: jsonSchema<Record<string, unknown>>({
-        type: 'object',
+      description:
+        "Write content to a file in the sandbox filesystem. Creates parent directories if needed.",
+      parameters: jsonSchema({
+        type: "object",
         properties: {
           path: {
-            type: 'string',
-            description: 'The path to the file to write',
+            type: "string",
+            description: "The path to the file to write",
           },
           content: {
-            type: 'string',
-            description: 'The content to write to the file',
+            type: "string",
+            description: "The content to write to the file",
           },
         },
-        required: ['path', 'content'],
+        required: ["path", "content"],
       }),
-      execute: async (args) => {
-        const writeFileTool = toolkit.tools.writeFile
+      execute: async (args: Record<string, unknown>) => {
+        const writeFileTool = toolkit.tools.writeFile;
         if (!writeFileTool?.execute) {
-          throw new Error('WriteFile tool not available')
+          throw new Error("WriteFile tool not available");
         }
-        return writeFileTool.execute(args as { path: string; content: string }, {} as never)
+        return writeFileTool.execute(args as { path: string; content: string }, {} as never);
       },
-    })
+    });
   }
 
-  return { tools, toolkit }
+  return { tools, toolkit };
 }
 
 /**
@@ -128,12 +130,12 @@ export async function createBashTools(
  */
 export async function createBashToolsFromDirectory(
   source: string,
-  options: Omit<BashToolsOptions, 'uploadDirectory'> = {}
+  options: Omit<BashToolsOptions, "uploadDirectory"> = {},
 ): Promise<{ tools: Record<string, unknown>; toolkit: BashToolkit }> {
   return createBashTools({
     ...options,
     uploadDirectory: { source },
-  })
+  });
 }
 
 /**
@@ -141,10 +143,10 @@ export async function createBashToolsFromDirectory(
  */
 export async function createBashToolsFromFiles(
   files: Record<string, string>,
-  options: Omit<BashToolsOptions, 'files'> = {}
+  options: Omit<BashToolsOptions, "files"> = {},
 ): Promise<{ tools: Record<string, unknown>; toolkit: BashToolkit }> {
   return createBashTools({
     ...options,
     files,
-  })
+  });
 }

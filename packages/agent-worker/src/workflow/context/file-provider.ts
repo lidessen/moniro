@@ -3,8 +3,8 @@
  * Thin wrapper around ContextProviderImpl + FileStorage.
  */
 
-import { ContextProviderImpl } from './provider.js'
-import { FileStorage } from './storage.js'
+import { ContextProviderImpl } from "./provider.ts";
+import { FileStorage } from "./storage.ts";
 
 /**
  * File-based ContextProvider.
@@ -13,7 +13,7 @@ import { FileStorage } from './storage.js'
  */
 export class FileContextProvider extends ContextProviderImpl {
   constructor(storage: FileStorage, validAgents: string[]) {
-    super(storage, validAgents)
+    super(storage, validAgents);
   }
 }
 
@@ -33,8 +33,8 @@ export class FileContextProvider extends ContextProviderImpl {
  */
 export function createFileContextProvider(
   contextDir: string,
-  validAgents: string[]
+  validAgents: string[],
 ): FileContextProvider {
-  const storage = new FileStorage(contextDir)
-  return new FileContextProvider(storage, validAgents)
+  const storage = new FileStorage(contextDir);
+  return new FileContextProvider(storage, validAgents);
 }

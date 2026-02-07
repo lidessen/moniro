@@ -1,32 +1,32 @@
 /**
  * Message status for streaming/response tracking
  */
-export type MessageStatus = 'responding' | 'complete'
+export type MessageStatus = "responding" | "complete";
 
 /**
  * Extended message with status for tracking streaming state
  */
 export interface AgentMessage {
-  role: 'user' | 'assistant' | 'system' | 'tool'
-  content: string
+  role: "user" | "assistant" | "system" | "tool";
+  content: string;
   /** Message status - 'responding' while streaming, 'complete' when done */
-  status?: MessageStatus
+  status?: MessageStatus;
   /** Timestamp when message started */
-  timestamp?: string
+  timestamp?: string;
 }
 
 /**
  * Approval check — static boolean or dynamic function
  */
-export type ApprovalCheck = boolean | ((args: Record<string, unknown>) => boolean)
+export type ApprovalCheck = boolean | ((args: Record<string, unknown>) => boolean);
 
 /**
  * Tool info returned by getTools() — read-only view
  */
 export interface ToolInfo {
-  name: string
-  description?: string
-  needsApproval: boolean
+  name: string;
+  description?: string;
+  needsApproval: boolean;
 }
 
 /**
@@ -34,38 +34,38 @@ export interface ToolInfo {
  */
 export interface PendingApproval {
   /** Unique approval ID */
-  id: string
+  id: string;
   /** Tool name */
-  toolName: string
+  toolName: string;
   /** Tool call ID from the model */
-  toolCallId: string
+  toolCallId: string;
   /** Arguments passed to the tool */
-  arguments: Record<string, unknown>
+  arguments: Record<string, unknown>;
   /** When the approval was requested */
-  requestedAt: string
+  requestedAt: string;
   /** Current status */
-  status: 'pending' | 'approved' | 'denied'
+  status: "pending" | "approved" | "denied";
   /** Denial reason if denied */
-  denyReason?: string
+  denyReason?: string;
 }
 
 /**
  * A single tool call with its result
  */
 export interface ToolCall {
-  name: string
-  arguments: Record<string, unknown>
-  result: unknown
-  timing: number
+  name: string;
+  arguments: Record<string, unknown>;
+  result: unknown;
+  timing: number;
 }
 
 /**
  * Token usage statistics
  */
 export interface TokenUsage {
-  input: number
-  output: number
-  total: number
+  input: number;
+  output: number;
+  total: number;
 }
 
 /**
@@ -73,15 +73,15 @@ export interface TokenUsage {
  */
 export interface AgentResponse {
   /** Final text content */
-  content: string
+  content: string;
   /** All tool calls made during this turn */
-  toolCalls: ToolCall[]
+  toolCalls: ToolCall[];
   /** Tool calls awaiting approval (response is incomplete until approved) */
-  pendingApprovals: PendingApproval[]
+  pendingApprovals: PendingApproval[];
   /** Token usage */
-  usage: TokenUsage
+  usage: TokenUsage;
   /** Response latency in ms */
-  latency: number
+  latency: number;
 }
 
 /**
@@ -89,17 +89,17 @@ export interface AgentResponse {
  */
 export interface SessionConfig {
   /** Model identifier (e.g., 'openai/gpt-5.2' or 'anthropic:claude-sonnet-4-5') */
-  model: string
+  model: string;
   /** System prompt */
-  system: string
+  system: string;
   /** AI SDK tools — Record<name, tool()> */
-  tools?: Record<string, unknown>
+  tools?: Record<string, unknown>;
   /** Per-tool approval config — Record<name, boolean | (args) => boolean> */
-  approval?: Record<string, ApprovalCheck>
+  approval?: Record<string, ApprovalCheck>;
   /** Maximum tokens for response (default: 4096) */
-  maxTokens?: number
+  maxTokens?: number;
   /** Maximum tool call steps per turn (default: 10) */
-  maxSteps?: number
+  maxSteps?: number;
 }
 
 /**
@@ -107,25 +107,25 @@ export interface SessionConfig {
  */
 export interface SessionState {
   /** Session ID to restore */
-  id: string
+  id: string;
   /** Creation timestamp */
-  createdAt: string
+  createdAt: string;
   /** Conversation messages with status */
-  messages: AgentMessage[]
+  messages: AgentMessage[];
   /** Accumulated token usage */
-  totalUsage: TokenUsage
+  totalUsage: TokenUsage;
   /** Pending tool approvals */
-  pendingApprovals: PendingApproval[]
+  pendingApprovals: PendingApproval[];
 }
 
 /**
  * Exported transcript for analysis
  */
 export interface Transcript {
-  sessionId: string
-  model: string
-  system: string
-  messages: AgentMessage[]
-  totalUsage: TokenUsage
-  createdAt: string
+  sessionId: string;
+  model: string;
+  system: string;
+  messages: AgentMessage[];
+  totalUsage: TokenUsage;
+  createdAt: string;
 }

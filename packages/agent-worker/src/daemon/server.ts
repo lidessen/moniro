@@ -1,4 +1,4 @@
-// Re-exports from daemon modules (server.ts moved from cli/ to daemon/)
+// Re-exports from daemon modules
 export {
   listSessions,
   setDefaultSession,
@@ -8,5 +8,5 @@ export {
   unregisterSession,
   getSessionInfo,
   type SessionInfo,
-} from './registry.ts'
-export { startDaemon as startServer } from './daemon.ts'
+} from "./registry.ts";
+export { startDaemon } from "./daemon.ts";

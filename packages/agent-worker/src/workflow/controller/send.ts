@@ -3,23 +3,23 @@
  * Target pattern parsing and message routing
  */
 
-import type { ContextProvider } from '../context/provider.ts'
+import type { ContextProvider } from "../context/provider.ts";
 
 /**
  * Send target types
  */
-export type SendTargetType = 'standalone' | 'workflow-agent' | 'workflow-channel'
+export type SendTargetType = "standalone" | "workflow-agent" | "workflow-channel";
 
 /**
  * Parsed send target
  */
 export interface ParsedSendTarget {
   /** Target type */
-  type: SendTargetType
+  type: SendTargetType;
   /** Agent name (for standalone and workflow-agent) */
-  agent?: string
+  agent?: string;
   /** Workflow instance (for workflow-agent and workflow-channel) */
-  instance?: string
+  instance?: string;
 }
 
 /**
@@ -35,28 +35,28 @@ export interface ParsedSendTarget {
  */
 export function parseSendTarget(target: string): ParsedSendTarget {
   // @instance → workflow channel broadcast
-  if (target.startsWith('@') && !target.includes('@', 1)) {
+  if (target.startsWith("@") && !target.includes("@", 1)) {
     return {
-      type: 'workflow-channel',
+      type: "workflow-channel",
       instance: target.slice(1),
-    }
+    };
   }
 
   // agent@instance → workflow agent
-  if (target.includes('@')) {
-    const [agent, instance] = target.split('@')
+  if (target.includes("@")) {
+    const [agent, instance] = target.split("@");
     return {
-      type: 'workflow-agent',
+      type: "workflow-agent",
       agent,
       instance,
-    }
+    };
   }
 
   // agent → standalone
   return {
-    type: 'standalone',
+    type: "standalone",
     agent: target,
-  }
+  };
 }
 
 /**
@@ -64,13 +64,13 @@ export function parseSendTarget(target: string): ParsedSendTarget {
  */
 export interface SendResult {
   /** Success status */
-  success: boolean
+  success: boolean;
   /** Target type that was used */
-  type: SendTargetType
+  type: SendTargetType;
   /** Timestamp of sent message (for workflow targets) */
-  timestamp?: string
+  timestamp?: string;
   /** Error message if failed */
-  error?: string
+  error?: string;
 }
 
 /**
@@ -85,25 +85,25 @@ export async function sendToWorkflowChannel(
   provider: ContextProvider,
   from: string,
   message: string,
-  mention?: string
+  mention?: string,
 ): Promise<SendResult> {
   try {
     // Add @mention if specified
-    const fullMessage = mention ? `@${mention} ${message}` : message
+    const fullMessage = mention ? `@${mention} ${message}` : message;
 
-    const entry = await provider.appendChannel(from, fullMessage)
+    const entry = await provider.appendChannel(from, fullMessage);
 
     return {
       success: true,
-      type: mention ? 'workflow-agent' : 'workflow-channel',
+      type: mention ? "workflow-agent" : "workflow-channel",
       timestamp: entry.timestamp,
-    }
+    };
   } catch (error) {
     return {
       success: false,
-      type: mention ? 'workflow-agent' : 'workflow-channel',
+      type: mention ? "workflow-agent" : "workflow-channel",
       error: error instanceof Error ? error.message : String(error),
-    }
+    };
   }
 }
 
@@ -112,5 +112,5 @@ export async function sendToWorkflowChannel(
  * Uses [user] format to distinguish from agent messages
  */
 export function formatUserSender(username?: string): string {
-  return username ? `user:${username}` : 'user'
+  return username ? `user:${username}` : "user";
 }
