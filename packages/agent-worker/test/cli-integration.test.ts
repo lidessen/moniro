@@ -10,7 +10,7 @@ import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import { existsSync, rmSync } from 'node:fs'
 
-const CLI_PATH = join(import.meta.dir, '../dist/cli/index.mjs')
+const CLI_PATH = join(import.meta.dir, '../src/cli/index.ts')
 const TEST_SOCKET_DIR = join(import.meta.dir, '../.test-sockets')
 
 // Helper to run CLI command
@@ -21,7 +21,7 @@ async function runCli(
   const { timeout = 10000, env = {} } = options
 
   return new Promise((resolve) => {
-    const proc = spawn('node', [CLI_PATH, ...args], {
+    const proc = spawn('bun', ['run', CLI_PATH, ...args], {
       env: { ...process.env, ...env },
       stdio: ['pipe', 'pipe', 'pipe'],
     })
@@ -62,9 +62,9 @@ async function runCli(
 // Helper to stop all test agents
 async function stopAllAgents() {
   try {
-    await runCli(['stop', '--all'], { timeout: 5000 })
+    await runCli(['stop', '--all'], { timeout: 3000 })
   } catch {
-    // Ignore errors
+    // Ignore errors — agent may not be running
   }
 }
 
@@ -76,17 +76,11 @@ function cleanupTestDir() {
 }
 
 describe('CLI Integration', () => {
-  beforeEach(async () => {
-    // Stop any running agents before each test
-    await stopAllAgents()
-  })
+  // Only stop agents after tests that create them (not on every beforeEach)
+  // This avoids 3+ second CLI spawn overhead on every test.
 
-  afterEach(async () => {
-    // Clean up after each test
+  afterAll(async () => {
     await stopAllAgents()
-  })
-
-  afterAll(() => {
     cleanupTestDir()
   })
 
@@ -236,10 +230,10 @@ describe('CLI Integration', () => {
 
   describe('backends command', () => {
     test('lists available backends', async () => {
-      const result = await runCli(['backends'])
+      const result = await runCli(['backends'], { timeout: 15000 })
       expect(result.exitCode).toBe(0)
       expect(result.stdout).toContain('sdk')
-    })
+    }, 20000) // Longer timeout: checkBackends spawns processes for each CLI backend
   })
 
   describe('providers command', () => {

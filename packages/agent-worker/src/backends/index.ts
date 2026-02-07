@@ -48,6 +48,14 @@ export function createBackend(config: BackendOptions): Backend {
   }
 }
 
+/** Check availability with a timeout to avoid hanging when CLIs are missing */
+function withTimeout(promise: Promise<boolean>, ms: number): Promise<boolean> {
+  return Promise.race([
+    promise,
+    new Promise<boolean>((resolve) => setTimeout(() => resolve(false), ms)),
+  ]);
+}
+
 /**
  * Check which backends are available
  */
@@ -56,10 +64,11 @@ export async function checkBackends(): Promise<Record<BackendType, boolean>> {
   const codex = new CodexBackend();
   const cursor = new CursorBackend();
 
+  // Each isAvailable() spawns a process; use a 3s timeout to avoid hanging
   const [claudeAvailable, codexAvailable, cursorAvailable] = await Promise.all([
-    claude.isAvailable(),
-    codex.isAvailable(),
-    cursor.isAvailable(),
+    withTimeout(claude.isAvailable(), 3000),
+    withTimeout(codex.isAvailable(), 3000),
+    withTimeout(cursor.isAvailable(), 3000),
   ]);
 
   return {

@@ -90,7 +90,7 @@ export class CursorBackend implements Backend {
 
     for (const cmd of commands) {
       try {
-        await execa(cmd, ["--version"], { stdin: "ignore", timeout: 5000 });
+        await execa(cmd, ["--version"], { stdin: "ignore", timeout: 2000 });
         return true;
       } catch {
         // Try next command
