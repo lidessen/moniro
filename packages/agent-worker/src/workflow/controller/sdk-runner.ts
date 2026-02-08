@@ -158,13 +158,17 @@ export async function runSdkAgent(
     });
 
     const totalToolCalls = result.steps.reduce((n, s) => n + s.toolCalls.length, 0);
-    log(`DONE ${result.steps.length} steps, ${totalToolCalls} tool calls`);
 
     await mcp.close();
-    return { success: true, duration: Date.now() - startTime, content: result.text };
+    return {
+      success: true,
+      duration: Date.now() - startTime,
+      content: result.text,
+      steps: result.steps.length,
+      toolCalls: totalToolCalls,
+    };
   } catch (error) {
     const errorMsg = formatError(error);
-    log(`ERROR ${errorMsg}`);
     return { success: false, error: errorMsg, duration: Date.now() - startTime };
   }
 }

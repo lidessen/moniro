@@ -107,6 +107,10 @@ export interface AgentRunResult {
   duration: number;
   /** Agent text response (SDK backends only — CLI backends handle output via tools) */
   content?: string;
+  /** Number of steps (SDK/mock backends) */
+  steps?: number;
+  /** Number of tool calls (SDK/mock backends) */
+  toolCalls?: number;
 }
 
 // ==================== Idle Detection ====================

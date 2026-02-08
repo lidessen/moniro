@@ -143,7 +143,10 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
         lastResult = await runAgent(backend, runContext, log);
 
         if (lastResult.success) {
-          log(`DONE (${lastResult.duration}ms)`);
+          const detail = lastResult.steps
+            ? `${lastResult.steps} steps, ${lastResult.toolCalls} tool calls, ${lastResult.duration}ms`
+            : `${lastResult.duration}ms`;
+          log(`DONE ${detail}`);
 
           // Write agent's final response to channel (so it's visible to user)
           if (lastResult.content) {
