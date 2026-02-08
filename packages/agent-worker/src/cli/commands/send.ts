@@ -8,35 +8,41 @@ import {
   isSessionRunning,
 } from "@/daemon/index.ts";
 import { createFileContextProvider, getDefaultContextDir } from "@/workflow/context/file-provider.ts";
-import { DEFAULT_INSTANCE } from "../instance.ts";
+import { DEFAULT_WORKFLOW, DEFAULT_TAG } from "../target.ts";
 
 /**
- * Get a context provider for the given instance.
+ * Get a context provider for the given workflow:tag.
  * Auto-provisions the context directory if it doesn't exist.
  */
-function getContextProvider(instance: string) {
-  const dir = getDefaultContextDir(instance);
+function getContextProvider(workflow: string, tag: string, instanceFallback?: string) {
+  const dir = getDefaultContextDir(workflow, tag);
   mkdirSync(dir, { recursive: true });
-  const agentNames = [...getInstanceAgentNames(instance), "user"];
+  const agentNames = [...getInstanceAgentNames(instanceFallback || workflow), "user"];
   return createFileContextProvider(dir, agentNames);
 }
 
 export function registerSendCommands(program: Command) {
-  // Send command — posts to instance channel with @mention routing
+  // Send command — posts to workflow channel with @mention routing
   program
     .command("send <message>")
     .description("Send message to workflow channel. Use @agent to mention specific agents.")
-    .option("-w, --workflow <name>", "Target workflow (default: global)", DEFAULT_INSTANCE)
+    .option("-w, --workflow <name>", "Target workflow:tag (default: global)", `${DEFAULT_WORKFLOW}`)
     .option("--json", "Output as JSON")
     .addHelpText('after', `
 Examples:
   $ agent-worker send "@alice analyze this code"     # Mention alice in global workflow
   $ agent-worker send "@alice hello" -w review       # Mention alice in review workflow
   $ agent-worker send "team update" -w review        # Broadcast to all agents in review
+  $ agent-worker send "@alice check this" -w review:pr-123  # Mention in specific workflow:tag
     `)
     .action(async (message, options) => {
-      const instance = options.workflow;
-      const provider = getContextProvider(instance);
+      // Parse workflow:tag format
+      const workflowInput = options.workflow;
+      const colonIndex = workflowInput.indexOf(":");
+      const workflow = colonIndex === -1 ? workflowInput : workflowInput.slice(0, colonIndex);
+      const tag = colonIndex === -1 ? DEFAULT_TAG : workflowInput.slice(colonIndex + 1);
+
+      const provider = getContextProvider(workflow, tag, workflowInput);
 
       const entry = await provider.appendChannel("user", message);
 
@@ -57,14 +63,19 @@ Examples:
   program
     .command("peek")
     .description("View channel messages (default: last 10)")
-    .option("-w, --workflow <name>", "Target workflow", DEFAULT_INSTANCE)
+    .option("-w, --workflow <name>", "Target workflow:tag", `${DEFAULT_WORKFLOW}`)
     .option("--json", "Output as JSON")
     .option("--all", "Show all messages")
     .option("-n, --last <count>", "Show last N messages", parseInt)
     .option("--find <text>", "Filter messages containing text (case-insensitive)")
     .action(async (options) => {
-      const instance = options.workflow;
-      const provider = getContextProvider(instance);
+      // Parse workflow:tag format
+      const workflowInput = options.workflow;
+      const colonIndex = workflowInput.indexOf(":");
+      const workflow = colonIndex === -1 ? workflowInput : workflowInput.slice(0, colonIndex);
+      const tag = colonIndex === -1 ? DEFAULT_TAG : workflowInput.slice(colonIndex + 1);
+
+      const provider = getContextProvider(workflow, tag, workflowInput);
 
       const limit = options.all ? undefined : (options.last ?? 10);
       let messages = await provider.readChannel({ limit });
