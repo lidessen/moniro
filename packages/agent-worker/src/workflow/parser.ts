@@ -21,7 +21,11 @@ import { resolveContextDir } from "./context/file-provider.ts";
  * Parse options
  */
 export interface ParseOptions {
-  /** Instance name for context directory (default: 'default') */
+  /** Workflow name (default: 'global') */
+  workflow?: string;
+  /** Workflow tag (default: 'main') */
+  tag?: string;
+  /** @deprecated Use workflow instead. Instance name for context directory */
   instance?: string;
 }
 
@@ -33,7 +37,9 @@ export async function parseWorkflowFile(
   options?: ParseOptions,
 ): Promise<ParsedWorkflow> {
   const absolutePath = resolve(filePath);
-  const instance = options?.instance || "default";
+  const workflow = options?.workflow ?? options?.instance ?? "global";
+  const tag = options?.tag ?? "main";
+  const instance = options?.instance ?? workflow; // Backward compat
 
   if (!existsSync(absolutePath)) {
     throw new Error(`Workflow file not found: ${absolutePath}`);
@@ -68,7 +74,7 @@ export async function parseWorkflowFile(
   }
 
   // Resolve context configuration
-  const context = resolveContext(raw.context, workflowDir, name, instance);
+  const context = resolveContext(raw.context, workflowDir, name, workflow, tag);
 
   return {
     name,
@@ -93,10 +99,17 @@ function resolveContext(
   config: WorkflowFile["context"] | null,
   workflowDir: string,
   workflowName: string,
-  instance: string,
+  workflow: string,
+  tag: string,
 ): ResolvedContext | undefined {
   const resolve = (template: string) =>
-    resolveContextDir(template, { workflowName, instance, baseDir: workflowDir });
+    resolveContextDir(template, {
+      workflowName,
+      workflow,
+      tag,
+      instance: workflow, // Backward compat
+      baseDir: workflowDir,
+    });
 
   // false = explicitly disabled
   if (config === false) {

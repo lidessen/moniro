@@ -46,7 +46,11 @@ const execAsync = promisify(exec);
 export interface RunConfig {
   /** Workflow to run */
   workflow: ParsedWorkflow;
-  /** Instance name */
+  /** Workflow name (defaults to "global") */
+  workflowName?: string;
+  /** Workflow tag (defaults to "main") */
+  tag?: string;
+  /** @deprecated Use workflowName instead. Instance name */
   instance?: string;
   /** Agent startup function */
   startAgent: (agentName: string, config: ResolvedAgent, mcpUrl: string) => Promise<void>;
@@ -126,7 +130,8 @@ export interface WorkflowRuntime {
  */
 export function createWorkflowProvider(
   workflow: ParsedWorkflow,
-  instance: string,
+  workflowName: string,
+  tag: string,
 ): { contextProvider: ContextProvider; contextDir: string; persistent: boolean } {
   const agentNames = Object.keys(workflow.agents);
 
@@ -179,11 +184,17 @@ export function createWorkflowProvider(
 export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> {
   const {
     workflow,
-    instance = "default",
+    workflowName: workflowNameParam,
+    tag: tagParam,
+    instance,
     onMention,
     debugLog,
     feedback: feedbackEnabled,
   } = config;
+
+  // Extract workflow name and tag
+  const workflowName = workflowNameParam ?? instance ?? "global";
+  const tag = tagParam ?? "main";
 
   // Use provided logger, or create a silent one
   const logger = config.logger ?? createSilentLogger();
@@ -202,7 +213,7 @@ export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> 
     isPersistent = config.persistent ?? false;
     logger.debug("Using pre-created context provider");
   } else {
-    const created = createWorkflowProvider(workflow, instance);
+    const created = createWorkflowProvider(workflow, workflowName, tag);
     contextProvider = created.contextProvider;
     contextDir = created.contextDir;
     isPersistent = created.persistent;
@@ -247,7 +258,7 @@ export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> 
 
   // Run setup commands
   const setupResults: Record<string, string> = {};
-  const context = createContext(workflow.name, instance, setupResults);
+  const context = createContext(workflow.name, tag, setupResults);
 
   if (workflow.setup && workflow.setup.length > 0) {
     logger.info("Running setup...");
@@ -415,7 +426,11 @@ export async function runWorkflow(config: RunConfig): Promise<RunResult> {
 export interface ControllerRunConfig {
   /** Workflow to run */
   workflow: ParsedWorkflow;
-  /** Instance name */
+  /** Workflow name (defaults to "global") */
+  workflowName?: string;
+  /** Workflow tag (defaults to "main") */
+  tag?: string;
+  /** @deprecated Use workflowName instead. Instance name */
   instance?: string;
   /** Debug mode (show debug channel entries in output) */
   debug?: boolean;
@@ -468,7 +483,9 @@ export async function runWorkflowWithControllers(
 ): Promise<ControllerRunResult> {
   const {
     workflow,
-    instance = "default",
+    workflowName: workflowNameParam,
+    tag: tagParam,
+    instance,
     debug = false,
     log = console.log,
     mode = "run",
@@ -478,9 +495,17 @@ export async function runWorkflowWithControllers(
   } = config;
   const startTime = Date.now();
 
+  // Extract workflow name and tag
+  const workflowName = workflowNameParam ?? instance ?? "global";
+  const tag = tagParam ?? "main";
+
   try {
     // 1. Create context provider first (so channel logger can use it)
-    const { contextProvider, contextDir, persistent } = createWorkflowProvider(workflow, instance);
+    const { contextProvider, contextDir, persistent } = createWorkflowProvider(
+      workflow,
+      workflowName,
+      tag,
+    );
 
     // Capture current channel position so watcher skips entries from previous runs
     const { cursor: channelStart } = await contextProvider.tailChannel(0);
