@@ -117,15 +117,16 @@ export function formatStructuredLog(
 
 // ==================== Timeline Style (left-margin time) ====================
 /**
- * Timeline style: Time | [source] on first line, message on separate lines
+ * Timeline style: Time with colored dot indicator for each agent
  *
  * Example:
- * 17:13 | [workflow]
- *       | Running workflow: test-simple with a very long message that
- *       | wraps to the next line automatically
- * 17:13 | [system]
- *       | Test started
- *       | Multi-line content continues here
+ * 01:17:13 ● workflow
+ *          │ Running workflow: test-simple with a very long message
+ *          │ that wraps to the next line automatically
+ * 01:17:20 ● alice
+ *          │ @bob What are AI agents?
+ * 01:17:25 ● bob
+ *          │ @alice AI agents are autonomous software entities
  */
 export function formatTimelineLog(
   entry: Message,
@@ -134,14 +135,35 @@ export function formatTimelineLog(
 ): string {
   const time = formatTime(entry.timestamp, layout).formatted;
   const timeStr = showTime ? chalk.dim(time) : " ".repeat(layout.timeWidth);
-  const source = chalk.cyan(`[${entry.from}]`);
-  const separator = chalk.dim("|");
+
+  // Agent colors - cycle through distinct colors
+  const agentColors = [
+    chalk.cyan,     // workflow, system
+    chalk.yellow,   // agent 1
+    chalk.magenta,  // agent 2
+    chalk.green,    // agent 3
+    chalk.blue,     // agent 4
+    chalk.redBright,// agent 5
+  ];
+
+  // Assign color based on common agent names
+  let dotColor: typeof chalk.cyan;
+  if (entry.from === "workflow" || entry.from === "system") {
+    dotColor = agentColors[0]!; // cyan for system messages
+  } else {
+    // Hash agent name to consistent color
+    const hash = entry.from.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    dotColor = agentColors[(hash % (agentColors.length - 1)) + 1]!;
+  }
+
+  const dot = dotColor("●");
+  const separator = chalk.dim("│");
 
   // Wrap content to fit within terminal width
-  // Format: TIME | [SOURCE]
-  //         |     CONTENT (auto-wrapped)
-  const prefixWidth = layout.timeWidth + 3; // "TIME | "
-  const contentWidth = Math.min(layout.terminalWidth - prefixWidth - 6, 80);
+  // Format: TIME ● SOURCE
+  //         │   CONTENT (auto-wrapped)
+  const prefixWidth = layout.timeWidth + 3; // "TIME ● "
+  const contentWidth = Math.min(layout.terminalWidth - prefixWidth - 3, 80);
 
   // Wrap the message
   const wrappedLines = wrapAnsi(entry.content, contentWidth, {
@@ -151,11 +173,11 @@ export function formatTimelineLog(
 
   const result: string[] = [];
 
-  // First line: TIME | [SOURCE]
-  result.push(`${timeStr} ${separator} ${source}`);
+  // First line: TIME ● SOURCE
+  result.push(`${timeStr} ${dot} ${chalk.bold(entry.from)}`);
 
   // Content lines: all indented with separator
-  const indent = " ".repeat(layout.timeWidth) + ` ${separator} `;
+  const indent = " ".repeat(layout.timeWidth + 1) + `${separator} `;
   result.push(...wrappedLines.map((line) => indent + line));
 
   return result.join("\n");

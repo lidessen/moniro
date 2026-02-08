@@ -103,9 +103,9 @@ export function calculateLayout(options: LayoutOptions): LayoutConfig {
  * Heuristic: if it's early in the day, likely a short session
  */
 function isShortSession(): boolean {
-  // Simple heuristic: workflow sessions are usually < 1 hour
-  // Can be enhanced with actual session start time tracking
-  return true; // Default to compact for better space efficiency
+  // Use full time format (HH:MM:SS) for better precision
+  // This helps track workflow duration more accurately
+  return false; // Always use HH:MM:SS format
 }
 
 // ==================== Width Utilities ====================
