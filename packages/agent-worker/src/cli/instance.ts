@@ -1,63 +1,23 @@
 /**
- * Instance naming utilities
+ * Instance naming utilities (DEPRECATED)
  *
- * Format: agent@instance (email style)
- * - agent: agent name (required)
- * - instance: instance name (optional, defaults to 'default')
+ * @deprecated This module is deprecated. Use target.ts instead for the new workflow:tag model.
+ * This file now re-exports from target.ts for backward compatibility.
  *
- * Examples:
- * - "reviewer" → { agent: "reviewer", instance: "default" }
- * - "reviewer@pr-123" → { agent: "reviewer", instance: "pr-123" }
- * - "reviewer@default" → { agent: "reviewer", instance: "default" }
+ * Old format: agent@instance (email style)
+ * New format: agent@workflow:tag (Docker-style)
+ *
+ * Migration:
+ * - Replace "instance" with "workflow:tag" terminology
+ * - Use parseTarget() instead of parseAgentId() for full functionality
+ * - Use buildTarget() instead of buildAgentId() for workflow:tag support
  */
 
-export const DEFAULT_INSTANCE = "default";
-
-export interface AgentIdentifier {
-  agent: string;
-  instance: string;
-  /** Full identifier: agent@instance */
-  full: string;
-}
-
-/**
- * Parse agent identifier from string
- * Supports: "agent", "agent@instance"
- */
-export function parseAgentId(input: string): AgentIdentifier {
-  const atIndex = input.indexOf("@");
-
-  if (atIndex === -1) {
-    // No instance specified
-    return {
-      agent: input,
-      instance: DEFAULT_INSTANCE,
-      full: `${input}@${DEFAULT_INSTANCE}`,
-    };
-  }
-
-  const agent = input.slice(0, atIndex);
-  const instance = input.slice(atIndex + 1) || DEFAULT_INSTANCE;
-
-  return {
-    agent,
-    instance,
-    full: `${agent}@${instance}`,
-  };
-}
-
-/**
- * Build full agent identifier from parts
- */
-export function buildAgentId(agent: string, instance?: string): string {
-  const inst = instance || DEFAULT_INSTANCE;
-  return `${agent}@${inst}`;
-}
-
-/**
- * Check if instance name is valid
- * Must be alphanumeric, hyphen, or underscore
- */
-export function isValidInstanceName(name: string): boolean {
-  return /^[a-zA-Z0-9_-]+$/.test(name);
-}
+// Re-export backward-compatible APIs from target.ts
+export {
+  DEFAULT_INSTANCE,
+  type AgentIdentifier,
+  parseAgentId,
+  buildAgentId,
+  isValidInstanceName,
+} from "./target.ts";
