@@ -8,8 +8,8 @@ on:
 
 jobs:
   generate-changeset:
-    # Only run if PR was merged (not just closed)
-    if: github.event.pull_request.merged == true
+    # Only run if PR was merged (not just closed) and is NOT a release PR
+    if: github.event.pull_request.merged == true && !startsWith(github.event.pull_request.head.ref, 'release/')
     runs-on: ubuntu-latest
     permissions:
       contents: write
