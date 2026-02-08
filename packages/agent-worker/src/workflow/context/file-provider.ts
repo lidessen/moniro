@@ -122,12 +122,16 @@ export class FileContextProvider extends ContextProviderImpl {
  */
 export function resolveContextDir(
   dirTemplate: string,
-  opts: { workflowName?: string; instance: string; baseDir?: string },
+  opts: { workflowName?: string; workflow?: string; tag?: string; instance?: string; baseDir?: string },
 ): string {
-  const workflowName = opts.workflowName ?? opts.instance;
+  // Support new workflow:tag format
+  const workflow = opts.workflow ?? opts.workflowName ?? opts.instance ?? "global";
+  const tag = opts.tag ?? "main";
+
   let dir = dirTemplate
-    .replace("${{ workflow.name }}", workflowName)
-    .replace("${{ instance }}", opts.instance);
+    .replace("${{ workflow.name }}", workflow)
+    .replace("${{ workflow.tag }}", tag)
+    .replace("${{ instance }}", opts.instance ?? workflow); // Backward compat
 
   if (dir.startsWith("~/")) {
     dir = join(homedir(), dir.slice(2));
@@ -141,11 +145,26 @@ export function resolveContextDir(
 }
 
 /**
- * Resolve context dir for a workflow/instance using default template.
+ * Resolve context dir for a workflow:tag using default template.
  * Shorthand for the common case.
+ * @param workflow Workflow name (defaults to "global")
+ * @param tag Workflow instance tag (defaults to "main")
+ * @param instanceOrWorkflowName (deprecated) Legacy parameter for backward compatibility
  */
-export function getDefaultContextDir(instance: string, workflowName?: string): string {
-  return resolveContextDir(CONTEXT_DEFAULTS.dir, { instance, workflowName });
+export function getDefaultContextDir(
+  workflow?: string,
+  tag?: string,
+  instanceOrWorkflowName?: string,
+): string {
+  // Backward compatibility: if called with old signature (instance, workflowName)
+  // First param could be instance (old usage) or workflow (new usage)
+  const wf = workflow ?? instanceOrWorkflowName ?? "global";
+  const t = tag ?? "main";
+
+  return resolveContextDir(CONTEXT_DEFAULTS.dir, {
+    workflow: wf,
+    tag: t,
+  });
 }
 
 /**

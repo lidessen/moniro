@@ -5,7 +5,8 @@
  * - ${{ name }} - task output variable
  * - ${{ env.VAR }} - environment variable
  * - ${{ workflow.name }} - workflow name
- * - ${{ workflow.instance }} - instance name
+ * - ${{ workflow.tag }} - workflow instance tag
+ * - ${{ workflow.instance }} - (deprecated) alias for workflow.tag
  */
 
 export interface VariableContext {
@@ -18,7 +19,10 @@ export interface VariableContext {
   /** Workflow metadata */
   workflow?: {
     name: string;
-    instance: string;
+    /** Workflow instance tag */
+    tag: string;
+    /** @deprecated Use tag instead */
+    instance?: string;
   };
 }
 
@@ -52,11 +56,12 @@ function resolveExpression(expression: string, context: VariableContext): string
     return context.env?.[varName] ?? process.env[varName];
   }
 
-  // Handle workflow.name, workflow.instance
+  // Handle workflow.name, workflow.tag, workflow.instance (deprecated)
   if (expression.startsWith("workflow.")) {
     const field = expression.slice(9);
     if (field === "name") return context.workflow?.name;
-    if (field === "instance") return context.workflow?.instance;
+    if (field === "tag") return context.workflow?.tag;
+    if (field === "instance") return context.workflow?.instance || context.workflow?.tag; // Backward compat
     return undefined;
   }
 
@@ -144,7 +149,7 @@ export function evaluateCondition(expression: string, context: VariableContext):
  */
 export function createContext(
   workflowName: string,
-  instance: string,
+  tag: string,
   taskOutputs: Record<string, string> = {},
 ): VariableContext {
   return {
@@ -152,7 +157,8 @@ export function createContext(
     env: process.env as Record<string, string>,
     workflow: {
       name: workflowName,
-      instance,
+      tag,
+      instance: tag, // Backward compatibility
     },
   };
 }

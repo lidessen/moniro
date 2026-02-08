@@ -23,6 +23,7 @@ import type { ServerState, Request } from "./handler.ts";
 import { msUntilNextCron } from "./cron.ts";
 import { createFileContextProvider, getDefaultContextDir } from "../workflow/context/file-provider.ts";
 import type { ContextProvider } from "../workflow/context/provider.ts";
+import { buildTargetDisplay } from "../cli/target.ts";
 
 const DEFAULT_SKILL_DIRS = [
   ".agents/skills",
@@ -368,6 +369,11 @@ export async function startDaemon(config: {
   model: string;
   system: string;
   name?: string;
+  /** Workflow name (defaults to "global") */
+  workflow?: string;
+  /** Workflow instance tag (defaults to "main") */
+  tag?: string;
+  /** @deprecated Use workflow instead */
   instance?: string;
   idleTimeout?: number;
   backend?: BackendType;
@@ -381,7 +387,11 @@ export async function startDaemon(config: {
 
   const backendType = config.backend || "sdk";
   const sessionId = crypto.randomUUID();
-  const instance = config.instance || "default";
+
+  // Support both new (workflow/tag) and old (instance) parameters
+  const workflow = config.workflow ?? config.instance ?? "global";
+  const tag = config.tag ?? "main";
+  const instance = config.instance ?? workflow; // For backward compat
 
   // Setup skills (both local and imported)
   const { tools, importer } = await setupSkills(
@@ -430,8 +440,8 @@ export async function startDaemon(config: {
     unlinkSync(socketPath);
   }
 
-  // Setup instance context (shared channel + documents)
-  const contextDir = getDefaultContextDir(instance);
+  // Setup workflow:tag context (shared channel + documents)
+  const contextDir = getDefaultContextDir(workflow, tag);
   mkdirSync(contextDir, { recursive: true });
   const agentDisplayName = config.name ? getAgentDisplayName(config.name) : effectiveId.slice(0, 8);
   const existingAgentNames = getInstanceAgentNames(instance);
@@ -441,7 +451,9 @@ export async function startDaemon(config: {
   const info: SessionInfo = {
     id: effectiveId,
     name: config.name,
-    instance,
+    workflow,
+    tag,
+    instance, // Backward compat
     contextDir,
     model: config.model,
     system: config.system,
@@ -524,10 +536,11 @@ export async function startDaemon(config: {
     startInboxPolling();
 
     const nameStr = config.name ? ` (${config.name})` : "";
+    const workflowDisplay = buildTargetDisplay(undefined, workflow, tag);
     console.log(`Session started: ${effectiveId}${nameStr}`);
     console.log(`Model: ${config.model}`);
     console.log(`Backend: ${backendType}`);
-    console.log(`Instance: ${instance}`);
+    console.log(`Workflow: ${workflowDisplay}`);
     if (config.schedule) {
       try {
         const resolved = resolveSchedule(config.schedule);
