@@ -278,7 +278,7 @@ export function formatStandardLog(entry: Message, includeMillis: boolean = false
   if (isError) contentColor = chalk.red;
 
   // Format first line with colors
-  const firstLine = `${chalk.dim(timestamp)} ${chalk.cyan(entry.from)}: ${contentColor(lines[0])}`;
+  const firstLine = `${chalk.dim(timestamp)} ${chalk.cyan(entry.from)}: ${contentColor(lines[0]!)}`;
   const result = [firstLine];
 
   // Continuation lines: align with content (not timestamp)
