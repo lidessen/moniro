@@ -2,9 +2,8 @@
  * Example tools file for agent-worker CLI
  *
  * Usage:
- *   agent-worker session new -m openai/gpt-4o -n test
- *   agent-worker tool import ./examples/my-tools.ts --to test
- *   agent-worker send "What's the weather in Tokyo?" --to test
+ *   agent-worker new test -m openai/gpt-4o --tool ./examples/my-tools.ts
+ *   agent-worker send test "What's the weather in Tokyo?"
  */
 
 import { tool, jsonSchema } from "ai";

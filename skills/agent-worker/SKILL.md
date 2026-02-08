@@ -23,7 +23,7 @@ Both modes share the same context system: agents communicate through **channels*
 |-------------|----------|
 | Chat with an AI agent | Agent Mode (CLI) |
 | Test tools/prompts quickly | Agent Mode with `-b mock` |
-| Run multiple agents manually | Agent Mode with `-w workflow` |
+| Run multiple agents manually | Workflow Mode (YAML) |
 | Define structured multi-agent tasks | Workflow Mode (YAML) |
 | Automate repeatable workflows | Workflow Mode (YAML) |
 
