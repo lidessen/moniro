@@ -70,45 +70,53 @@ setup:
         --jq '"Files: \(.additions + .deletions) lines in " + (env.FILES_COUNT // "0") + " files (+\(.additions)/-\(.deletions))"'
     as: file_stats
 
-  # Get diff based on review type
+  # Get commit range for incremental reviews
   - shell: |
       if [ "$TRIGGER_TYPE" = "synchronize" ] && [ -n "$BEFORE_SHA" ] && [ -n "$AFTER_SHA" ]; then
-        # Incremental review: get diff between before and after SHAs
-        echo "Incremental review: $BEFORE_SHA...$AFTER_SHA"
-
-        # Get commit messages for context
-        echo "## New Commits:"
-        gh api repos/$GITHUB_REPOSITORY/compare/$BEFORE_SHA...$AFTER_SHA \
-          --jq '.commits[] | "- \(.sha[0:7]) \(.commit.message | split("\n")[0])"'
-
-        echo -e "\n## Incremental Changes:"
-        # Get the actual diff for new commits
-        gh api repos/$GITHUB_REPOSITORY/compare/$BEFORE_SHA...$AFTER_SHA \
-          --jq '.files[] | "diff --git a/\(.filename) b/\(.filename)\n\(.patch // "")"'
+        echo "$BEFORE_SHA...$AFTER_SHA"
       else
-        # Initial review or manual trigger: check all changes
-        echo "Full review - all PR changes"
-        gh pr diff "$PR_NUMBER" --repo "$GITHUB_REPOSITORY"
+        echo ""
       fi
-    as: review_diff
+    as: commit_range
 
 kickoff: |
-  @reviewer Review the following code changes and provide actionable feedback.
+  @reviewer Review code changes for PR #${{ pr_number }} in repository $GITHUB_REPOSITORY.
 
-  **Review Type**: ${{ review_type == 'incremental' && 'Incremental (new commits)' || 'Initial (full review)' }}
+  **Review Type**: ${{ review_type == 'incremental' && 'Incremental (new commits only)' || 'Initial (full review)' }}
+
+  ## PR Info
+  ```json
+  ${{ pr_info }}
+  ```
+
+  ## Changed Files
+  ```
+  ${{ changed_files }}
+  ```
 
   ${{ review_type == 'incremental' && '## New Commits\n' + formatted_commits || '' }}
 
-  ## Changed Files
-  ${{ changed_files }}
+  ## How to Review
 
-  ## Code Changes
-  ${{ review_diff }}
+  **Use Bash tool to view diffs as needed**:
+
+  ```bash
+  # View full PR diff
+  gh pr diff $PR_NUMBER --repo $GITHUB_REPOSITORY
+
+  # View specific file diff
+  gh pr diff $PR_NUMBER --repo $GITHUB_REPOSITORY -- path/to/file.ts
+
+  ${{ commit_range != '' && '# View incremental diff (new commits only)\ngit diff ' + commit_range || '' }}
+
+  ${{ commit_range != '' && '# View specific file in new commits\ngit diff ' + commit_range + ' -- path/to/file.ts' || '' }}
+  ```
 
   **Your Task**:
-  - Analyze code quality, potential bugs, and best practices
-  - Provide specific feedback with file:line references
-  - Be constructive and actionable
+  1. Use Bash tool to view relevant diffs (you'll see full context, not truncated)
+  2. Analyze code quality, potential bugs, and best practices
+  3. Provide specific feedback with file:line references
+  4. Be constructive and actionable
 
   Write your analysis to /tmp/review-content.md with:
   - **Summary**: Brief overview

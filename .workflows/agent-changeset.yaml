@@ -71,23 +71,6 @@ setup:
         --json files --jq '.files[].path'
     as: changed_files
 
-  # Get PR diff (limited to prevent context overflow)
-  - shell: |
-      # Get diff and limit to 10000 characters to prevent model context overflow
-      DIFF=$(gh pr diff "${{ pr_number }}" --repo "$GITHUB_REPOSITORY")
-      DIFF_LENGTH=${#DIFF}
-
-      if [ $DIFF_LENGTH -gt 10000 ]; then
-        echo "⚠️ Diff is large ($DIFF_LENGTH chars), truncating to 10000 chars"
-        echo "--- TRUNCATED DIFF (first 10000 chars) ---"
-        echo "$DIFF" | head -c 10000
-        echo ""
-        echo "--- TRUNCATED (showing first 10000 of $DIFF_LENGTH chars) ---"
-      else
-        echo "$DIFF"
-      fi
-    as: pr_diff
-
   # Check for existing changesets in the merged PR
   - shell: |
       CHANGESETS=$(gh pr view "${{ pr_number }}" --repo "$GITHUB_REPOSITORY" \
@@ -130,7 +113,13 @@ setup:
     as: packages
 
 kickoff: |
-  @changeset_analyzer Analyze this merged PR to determine if a changeset should be generated.
+  @changeset_analyzer Analyze merged PR #${{ pr_number }} to determine if a changeset should be generated.
+
+  ## Context
+
+  **Repository**: $GITHUB_REPOSITORY
+  **PR Number**: ${{ pr_number }}
+  **Default Branch**: ${{ default_branch }}
 
   ## PR Information
   ```json
@@ -152,12 +141,22 @@ kickoff: |
   ${{ packages }}
   ```
 
-  ## PR Diff
-  ```diff
-  ${{ pr_diff }}
+  ## How to Analyze
+
+  **Use Bash tool to view diffs as needed**:
+
+  ```bash
+  # View full PR diff
+  gh pr diff ${{ pr_number }} --repo $GITHUB_REPOSITORY
+
+  # View specific file diff
+  gh pr diff ${{ pr_number }} --repo $GITHUB_REPOSITORY -- path/to/file.ts
+
+  # View commit messages in detail
+  gh pr view ${{ pr_number }} --repo $GITHUB_REPOSITORY --json commits --jq '.commits[].commit.message'
   ```
 
-  **Note**: If the diff is truncated, use the changed_files list and commit messages for analysis.
+  This gives you access to full, untruncated diffs with complete context.
 
   ## Task
 
