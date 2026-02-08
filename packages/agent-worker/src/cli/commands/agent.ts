@@ -256,7 +256,14 @@ export function registerAgentCommands(program: Command) {
 
   // `new` — create agent
   addNewCommandOptions(
-    program.command("new [name]").description("Create a new agent (auto-names if omitted: a0, a1, ...)"),
+    program.command("new [name]")
+      .description("Create a new agent (auto-names if omitted: a0, a1, ...)")
+      .addHelpText('after', `
+Examples:
+  $ agent-worker new alice -m anthropic/claude-sonnet-4-5          # Standalone agent
+  $ agent-worker new reviewer -m anthropic/claude-sonnet-4-5 -w review  # Agent in workflow
+  $ agent-worker new -b mock                                       # Quick testing without API key
+      `),
   ).action(createAgentAction);
 
   // `ls` — list agents
@@ -324,7 +331,15 @@ export function registerAgentCommands(program: Command) {
   // ============================================================================
   // Schedule commands (top-level)
   // ============================================================================
-  const scheduleCmd = program.command("schedule").description("Manage scheduled wakeup");
+  const scheduleCmd = program.command("schedule")
+    .description("Manage scheduled wakeup for agents")
+    .addHelpText('after', `
+Examples:
+  $ agent-worker schedule alice set 30s                    # Wake alice every 30 seconds
+  $ agent-worker schedule alice set 5m --prompt "Status?"  # With custom prompt
+  $ agent-worker schedule alice get                        # View current schedule
+  $ agent-worker schedule alice clear                      # Remove schedule
+    `);
 
   scheduleCmd
     .command("get [target]")

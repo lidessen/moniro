@@ -25,9 +25,15 @@ export function registerSendCommands(program: Command) {
   // Send command — posts to instance channel with @mention routing
   program
     .command("send <message>")
-    .description("Send message to channel (use @agent to route)")
-    .option("-w, --workflow <name>", "Target workflow", DEFAULT_INSTANCE)
+    .description("Send message to workflow channel. Use @agent to mention specific agents.")
+    .option("-w, --workflow <name>", "Target workflow (default: global)", DEFAULT_INSTANCE)
     .option("--json", "Output as JSON")
+    .addHelpText('after', `
+Examples:
+  $ agent-worker send "@alice analyze this code"     # Mention alice in global workflow
+  $ agent-worker send "@alice hello" -w review       # Mention alice in review workflow
+  $ agent-worker send "team update" -w review        # Broadcast to all agents in review
+    `)
     .action(async (message, options) => {
       const instance = options.workflow;
       const provider = getContextProvider(instance);

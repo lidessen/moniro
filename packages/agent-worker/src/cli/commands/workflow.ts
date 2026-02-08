@@ -10,6 +10,12 @@ export function registerWorkflowCommands(program: Command) {
     .option("-d, --debug", "Show debug details (internal logs, MCP traces, idle checks)")
     .option("--feedback", "Enable feedback tool (agents can report tool/workflow observations)")
     .option("--json", "Output results as JSON")
+    .addHelpText('after', `
+Examples:
+  $ agent-worker run review.yaml                        # One-shot execution
+  $ agent-worker run review.yaml -w review:pr-123       # With specific tag
+  $ agent-worker run review.yaml --json | jq .document  # Machine-readable output
+    `)
     .action(async (file, options) => {
       const { parseWorkflowFile, runWorkflowWithControllers } =
         await import("@/workflow/index.ts");
@@ -77,12 +83,21 @@ export function registerWorkflowCommands(program: Command) {
     .option("-d, --debug", "Show debug details (internal logs, MCP traces, idle checks)")
     .option("--feedback", "Enable feedback tool (agents can report tool/workflow observations)")
     .option("--background", "Run in background (daemonize)")
+    .addHelpText('after', `
+Examples:
+  $ agent-worker start review.yaml                    # Foreground (Ctrl+C to stop)
+  $ agent-worker start review.yaml --background       # Background daemon
+  $ agent-worker start review.yaml -w review:pr-123   # With specific tag
+    `)
     .action(async (file, options) => {
       const { parseWorkflowFile, runWorkflowWithControllers } =
         await import("@/workflow/index.ts");
 
       // Background mode: spawn detached process
       if (options.background) {
+        const { getDefaultContextDir } = await import("@/workflow/context/file-provider.ts");
+        const contextDir = getDefaultContextDir(options.workflow, options.workflow);
+
         const scriptPath = process.argv[1] ?? "";
         const args = [scriptPath, "start", file, "--workflow", options.workflow];
         if (options.feedback) {
@@ -95,8 +110,14 @@ export function registerWorkflowCommands(program: Command) {
         });
         child.unref();
 
-        console.log(`Workflow started in background (PID: ${child.pid})`);
-        console.log(`Use \`agent-worker stop -w ${options.workflow}\` to stop.`);
+        console.log(`Workflow: ${options.workflow}`);
+        console.log(`PID: ${child.pid}`);
+        console.log(`Context: ${contextDir}`);
+        console.log(`\nTo monitor:`);
+        console.log(`  agent-worker ls -w ${options.workflow}`);
+        console.log(`  agent-worker peek -w ${options.workflow}`);
+        console.log(`\nTo stop:`);
+        console.log(`  agent-worker stop -w ${options.workflow}`);
         return;
       }
 
