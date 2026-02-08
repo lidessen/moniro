@@ -1,4 +1,4 @@
-name: Agent Command
+name: Agent Workflow
 
 on:
   issue_comment:
