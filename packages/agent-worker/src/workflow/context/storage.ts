@@ -6,18 +6,17 @@
  * Implementations map these to actual storage (filesystem, memory, DB, etc.).
  */
 
+import { existsSync, mkdirSync } from "node:fs";
 import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-  appendFileSync,
-  readdirSync,
-  openSync,
-  readSync,
-  closeSync,
-  statSync,
-} from "node:fs";
+  readFile,
+  writeFile,
+  appendFile,
+  readdir,
+  stat,
+  open,
+  mkdir,
+  unlink,
+} from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 
 // ==================== Interface ====================
@@ -128,20 +127,15 @@ export class FileStorage implements StorageBackend {
     return join(this.baseDir, key);
   }
 
-  private ensureParentDir(filePath: string): void {
+  private async ensureParentDir(filePath: string): Promise<void> {
     const dir = dirname(filePath);
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
-    }
+    await mkdir(dir, { recursive: true });
   }
 
   async read(key: string): Promise<string | null> {
     const filePath = this.resolve(key);
     try {
-      if (existsSync(filePath)) {
-        return readFileSync(filePath, "utf-8");
-      }
-      return null;
+      return await readFile(filePath, "utf-8");
     } catch {
       return null;
     }
@@ -149,71 +143,73 @@ export class FileStorage implements StorageBackend {
 
   async readFrom(key: string, offset: number): Promise<{ content: string; offset: number }> {
     const filePath = this.resolve(key);
+    let fh;
     try {
-      if (!existsSync(filePath)) return { content: "", offset: 0 };
-      const size = statSync(filePath).size;
+      fh = await open(filePath, "r");
+      const { size } = await fh.stat();
       if (offset >= size) return { content: "", offset: size };
-      const fd = openSync(filePath, "r");
-      try {
-        const length = size - offset;
-        const buffer = Buffer.alloc(length);
-        readSync(fd, buffer, 0, length, offset);
-        return { content: buffer.toString("utf-8"), offset: size };
-      } finally {
-        closeSync(fd);
+      const length = size - offset;
+      const buffer = Buffer.alloc(length);
+      await fh.read(buffer, 0, length, offset);
+      return { content: buffer.toString("utf-8"), offset: size };
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+        return { content: "", offset: 0 };
       }
-    } catch {
       return { content: "", offset };
+    } finally {
+      await fh?.close();
     }
   }
 
   async write(key: string, content: string): Promise<void> {
     const filePath = this.resolve(key);
-    this.ensureParentDir(filePath);
-    writeFileSync(filePath, content);
+    await this.ensureParentDir(filePath);
+    await writeFile(filePath, content);
   }
 
   async append(key: string, content: string): Promise<void> {
     const filePath = this.resolve(key);
-    this.ensureParentDir(filePath);
-    appendFileSync(filePath, content);
+    await this.ensureParentDir(filePath);
+    await appendFile(filePath, content);
   }
 
   async exists(key: string): Promise<boolean> {
-    return existsSync(this.resolve(key));
+    try {
+      await stat(this.resolve(key));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async list(prefix: string): Promise<string[]> {
     const dir = this.resolve(prefix);
-    if (!existsSync(dir)) {
+    try {
+      const results: string[] = [];
+      const walk = async (currentDir: string): Promise<void> => {
+        const entries = await readdir(currentDir, { withFileTypes: true });
+        for (const entry of entries) {
+          const fullPath = join(currentDir, entry.name);
+          if (entry.isDirectory()) {
+            await walk(fullPath);
+          } else if (entry.isFile()) {
+            results.push(relative(dir, fullPath));
+          }
+        }
+      };
+      await walk(dir);
+      return results.sort();
+    } catch {
       return [];
     }
-
-    const results: string[] = [];
-    const walk = (currentDir: string): void => {
-      const entries = readdirSync(currentDir, { withFileTypes: true });
-      for (const entry of entries) {
-        const fullPath = join(currentDir, entry.name);
-        if (entry.isDirectory()) {
-          walk(fullPath);
-        } else if (entry.isFile()) {
-          results.push(relative(dir, fullPath));
-        }
-      }
-    };
-    walk(dir);
-    return results.sort();
   }
 
   async delete(key: string): Promise<void> {
-    const filePath = this.resolve(key);
     try {
-      if (existsSync(filePath)) {
-        const { unlinkSync } = await import("node:fs");
-        unlinkSync(filePath);
-      }
+      await unlink(this.resolve(key));
     } catch {
-      // Ignore deletion errors
+      // Ignore deletion errors (including ENOENT)
     }
   }
 }
