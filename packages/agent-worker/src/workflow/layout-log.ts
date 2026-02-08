@@ -6,6 +6,7 @@
  */
 
 import chalk from "chalk";
+import wrapAnsi from "wrap-ansi";
 import type { Message } from "./context/types.ts";
 import { formatTime, type LayoutConfig } from "./layout.ts";
 
@@ -116,16 +117,13 @@ export function formatStructuredLog(
 
 // ==================== Timeline Style (left-margin time) ====================
 /**
- * Timeline style: Time in left margin, content flows naturally
+ * Timeline style: Time in left margin, inline source, auto-wrap content
  *
  * Example:
- * 17:13 │ workflow
- *       │   Running workflow: test
- *       │   Agents: alice, bob
- *       │
- * 17:13 │ system
- *       │   Test started
- *       │   Multi-line content
+ * 17:13 | [workflow] Running workflow: test-simple with a very long
+ *       |            message that wraps to the next line automatically
+ * 17:13 | [system] Test started
+ *       |          Multi-line content continues here
  */
 export function formatTimelineLog(
   entry: Message,
@@ -133,20 +131,31 @@ export function formatTimelineLog(
   showTime: boolean = true,
 ): string {
   const time = formatTime(entry.timestamp, layout).formatted;
-  const timeStr = showTime ? time : " ".repeat(layout.timeWidth);
+  const timeStr = showTime ? chalk.dim(time) : " ".repeat(layout.timeWidth);
+  const source = chalk.cyan(`[${entry.from}]`);
+  const separator = chalk.dim("|");
 
-  const lines = entry.content.split("\n");
+  // Wrap content to fit within terminal width
+  // Format: TIME | [SOURCE] CONTENT
+  // Calculate available width for content
+  const prefixWidth = layout.timeWidth + 3 + entry.from.length + 2; // "TIME | [SOURCE] "
+  const contentWidth = Math.min(layout.terminalWidth - prefixWidth, 80);
+
+  // Wrap the message
+  const wrappedLines = wrapAnsi(entry.content, contentWidth, {
+    hard: true,
+    trim: false,
+  }).split("\n");
+
   const result: string[] = [];
 
-  // Header line
-  result.push(
-    `${chalk.dim(timeStr)} ${chalk.dim("│")} ${chalk.cyan.bold(entry.from)}`,
-  );
+  // First line: TIME | [SOURCE] CONTENT
+  result.push(`${timeStr} ${separator} ${source} ${wrappedLines[0]}`);
 
-  // Content lines
-  const indent = " ".repeat(layout.timeWidth) + " │   ";
-  for (const line of lines) {
-    result.push(indent + line);
+  // Continuation lines: align with content start
+  if (wrappedLines.length > 1) {
+    const indent = " ".repeat(layout.timeWidth) + ` ${separator} ${" ".repeat(entry.from.length + 2)} `;
+    result.push(...wrappedLines.slice(1).map((line) => indent + line));
   }
 
   return result.join("\n");
