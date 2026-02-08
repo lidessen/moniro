@@ -8,118 +8,192 @@
  * - kind="debug" (debug details): only shown with --debug flag
  *
  * Two display modes:
- * - TTY (human): colored, aligned columns, box-drawing separators
+ * - TTY (human): colored, aligned columns, smart wrapping
  * - Non-TTY (agent/pipe): plain text, no colors, simple separators
+ *
+ * Best practices implemented:
+ * - Adaptive layout based on terminal width and agent names
+ * - Smart text wrapping preserving ANSI colors
+ * - Message grouping to reduce visual noise
+ * - Background-agnostic color scheme
  */
 
+import chalk from "chalk";
+import wrapAnsi from "wrap-ansi";
 import type { ContextProvider } from "./context/provider.ts";
 import type { Message } from "./context/types.ts";
+import {
+  calculateLayout,
+  formatTime,
+  resetTimeTracking,
+  shouldGroup,
+  createGroupingState,
+  getIndent,
+  padToWidth,
+  type LayoutConfig,
+  type GroupingState,
+} from "./layout.ts";
 
 // ==================== Color System ====================
 
 /** Whether to use rich terminal formatting */
 const isTTY = !!process.stdout.isTTY && !process.env.NO_COLOR;
 
-/** ANSI escape or empty string */
-const a = (code: string) => (isTTY ? code : "");
-
+/**
+ * Background-agnostic color scheme
+ * Uses only bold and standard colors that work on any theme
+ */
 const C = {
-  reset: a("\x1b[0m"),
-  dim: a("\x1b[2m"),
-  bold: a("\x1b[1m"),
-  yellow: a("\x1b[33m"),
-  red: a("\x1b[31m"),
-  // Agent name colors — cycle through
-  agents: [
-    a("\x1b[36m"), // cyan
-    a("\x1b[33m"), // yellow
-    a("\x1b[35m"), // magenta
-    a("\x1b[32m"), // green
-    a("\x1b[34m"), // blue
-    a("\x1b[91m"), // bright red
-  ],
-  system: a("\x1b[90m"), // gray
+  // Text styling
+  dim: isTTY ? chalk.dim : (s: string) => s,
+  bold: isTTY ? chalk.bold : (s: string) => s,
+
+  // Status colors (background-agnostic)
+  yellow: isTTY ? chalk.yellow : (s: string) => s,
+  red: isTTY ? chalk.red : (s: string) => s,
+  green: isTTY ? chalk.green : (s: string) => s,
+
+  // Agent colors — cycle through distinct hues
+  agents: isTTY
+    ? [
+        chalk.cyan,
+        chalk.yellow,
+        chalk.magenta,
+        chalk.green,
+        chalk.blue,
+        chalk.redBright,
+      ]
+    : Array(6).fill((s: string) => s),
+
+  // System messages
+  system: isTTY ? chalk.gray : (s: string) => s,
 };
 
 /** Separators — box-drawing for TTY, plain for pipe */
 const SEP = {
-  agent: isTTY ? "\u2502" : "|", // │ or |
-  log: isTTY ? "\u250a" : ":", // ┊ or :
+  agent: isTTY ? "│" : "|", // agent messages
+  log: isTTY ? "┊" : ":", // log/debug messages
+  grouped: isTTY ? "│" : "|", // grouped continuation
 };
+
+// ==================== Display Context ====================
+
+/**
+ * Display context maintains layout and grouping state
+ */
+export interface DisplayContext {
+  layout: LayoutConfig;
+  grouping: GroupingState;
+  agentNames: string[];
+  enableGrouping: boolean;
+}
+
+/**
+ * Create display context for a workflow
+ */
+export function createDisplayContext(
+  agentNames: string[],
+  options?: { enableGrouping?: boolean },
+): DisplayContext {
+  return {
+    layout: calculateLayout({ agentNames }),
+    grouping: createGroupingState(),
+    agentNames,
+    enableGrouping: options?.enableGrouping ?? true,
+  };
+}
 
 // ==================== Internal Helpers ====================
 
-const NAME_WIDTH = 12;
-
-function getAgentColor(name: string, agentNames: string[]): string {
+function getAgentColor(name: string, agentNames: string[]): (s: string) => string {
   if (name === "system" || name === "user") return C.system;
   const idx = agentNames.indexOf(name);
   if (idx < 0) return C.agents[0]!;
   return C.agents[idx % C.agents.length]!;
 }
 
-function formatTime(timestamp: string): string {
-  return new Date(timestamp).toTimeString().slice(0, 8);
-}
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// ==================== Formatting ====================
+// ==================== Message Formatting ====================
 
-/** Format a channel entry for display */
-export function formatChannelEntry(entry: Message, agentNames: string[]): string {
-  const time = formatTime(entry.timestamp);
-
+/**
+ * Format a channel entry for display
+ */
+export function formatChannelEntry(entry: Message, context: DisplayContext): string {
   if (entry.kind === "log" || entry.kind === "debug") {
-    return formatLogEntry(entry, time);
+    return formatLogEntry(entry, context.layout);
   }
 
-  return formatAgentEntry(entry, time, agentNames);
+  return formatAgentEntry(entry, context);
 }
 
 /**
- * Agent message:
- *   TTY:      14:30:02 alice        │ Hello @bob
- *   non-TTY:  14:30:02 [alice] Hello @bob
+ * Agent message formatting with smart wrapping and grouping
+ *
+ * Standard format:
+ *   47:08 student │ Hello @bob, I have a question
+ *                 │ about the architecture...
+ *
+ * Grouped format (same agent, same minute):
+ *         │ Follow-up message
+ *         │ Another thought
  */
-function formatAgentEntry(entry: Message, time: string, agentNames: string[]): string {
-  const color = getAgentColor(entry.from, agentNames);
-  const message = entry.content;
+function formatAgentEntry(entry: Message, context: DisplayContext): string {
+  const { layout, agentNames, grouping, enableGrouping } = context;
+
+  // Check if should group with previous message
+  const isGrouped = shouldGroup(entry.from, entry.timestamp, grouping, enableGrouping);
 
   if (!isTTY) {
     // Non-TTY: simple format for machine parsing
-    return `${time} [${entry.from}] ${message}`;
+    const time = formatTime(entry.timestamp, layout).formatted;
+    const prefix = isGrouped ? "      " : `${time} `;
+    return `${prefix}[${entry.from}] ${entry.content}`;
   }
 
-  // TTY: colored, aligned columns
-  const name = entry.from.padEnd(NAME_WIDTH);
-  const lines = message.split("\n");
+  // TTY: rich format with colors and wrapping
+  const color = getAgentColor(entry.from, agentNames);
+  const wrappedLines = wrapMessage(entry.content, layout);
 
-  if (lines.length === 1) {
-    return `${C.dim}${time}${C.reset} ${color}${name}${C.reset} ${SEP.agent} ${message}`;
+  if (isGrouped) {
+    // Grouped: omit time and name, use continuation separator
+    const indent = " ".repeat(layout.timeWidth + 1 + layout.nameWidth + 1);
+    return wrappedLines.map((line) => `${indent}${SEP.grouped} ${line}`).join("\n");
   }
 
-  const firstLine = `${C.dim}${time}${C.reset} ${color}${name}${C.reset} ${SEP.agent} ${lines[0]}`;
-  const indent = " ".repeat(9 + NAME_WIDTH + 1) + `${SEP.agent} `;
-  const rest = lines
-    .slice(1)
-    .map((l) => indent + l)
-    .join("\n");
-  return firstLine + "\n" + rest;
+  // Standard: full format with time and name
+  const time = formatTime(entry.timestamp, layout).formatted;
+  const name = padToWidth(entry.from, layout.nameWidth);
+
+  const firstLine = `${C.dim(time)} ${color(name)} ${SEP.agent} ${wrappedLines[0]}`;
+
+  if (wrappedLines.length === 1) {
+    return firstLine;
+  }
+
+  // Multi-line: indent continuation lines
+  const indent = getIndent(layout, SEP.agent);
+  const restLines = wrappedLines.slice(1).map((line) => indent + line);
+
+  return [firstLine, ...restLines].join("\n");
 }
 
 /**
- * Log/debug entry:
- *   TTY:      14:30:01 workflow     ┊ Running workflow: my-workflow
- *   TTY+DBG:  14:30:01 workflow     ┊ DBG Starting workflow...
- *   non-TTY:  14:30:01 workflow: Running workflow: my-workflow
+ * Log/debug entry formatting
+ *
+ * Format:
+ *   47:01 workflow     ┊ Running workflow: my-workflow
+ *   47:01 workflow     ┊ DBG Starting agents...
+ *   47:02 teacher      ┊ [ERROR] Connection failed: timeout
  */
-function formatLogEntry(entry: Message, time: string): string {
+function formatLogEntry(entry: Message, layout: LayoutConfig): string {
   const isDebug = entry.kind === "debug";
   const isWarn = entry.content.startsWith("[WARN]");
   const isError = entry.content.startsWith("[ERROR]");
+
+  const time = formatTime(entry.timestamp, layout).formatted;
 
   if (!isTTY) {
     // Non-TTY: simple prefix format
@@ -130,15 +204,55 @@ function formatLogEntry(entry: Message, time: string): string {
   // TTY: dimmed, aligned, with ┊ separator
   // Shorten source: "workflow:introducer" → "introducer"
   const sourceName = entry.from.includes(":") ? entry.from.split(":").pop()! : entry.from;
-  const source = sourceName.padEnd(NAME_WIDTH);
+  const source = padToWidth(sourceName, layout.nameWidth);
 
+  // Choose color based on severity
   let contentColor = C.dim;
   if (isWarn) contentColor = C.yellow;
   if (isError) contentColor = C.red;
 
-  const kindTag = isDebug ? `${C.dim}DBG${C.reset} ` : "";
+  const kindTag = isDebug ? `${C.dim("DBG")} ` : "";
 
-  return `${C.dim}${time} ${source} ${SEP.log}${C.reset} ${kindTag}${contentColor}${entry.content}${C.reset}`;
+  // Wrap long log messages
+  const wrappedLines = wrapMessage(entry.content, layout);
+  const firstLine = `${C.dim(time)} ${C.dim(source)} ${SEP.log} ${kindTag}${contentColor(wrappedLines[0]!)}`;
+
+  if (wrappedLines.length === 1) {
+    return firstLine;
+  }
+
+  // Multi-line logs: indent continuation
+  const indent = getIndent(layout, SEP.log);
+  const restLines = wrappedLines.slice(1).map((line) => indent + contentColor(line));
+
+  return [firstLine, ...restLines].join("\n");
+}
+
+/**
+ * Wrap message content to fit within layout constraints
+ * Preserves ANSI color codes
+ */
+function wrapMessage(content: string, layout: LayoutConfig): string[] {
+  // Split pre-existing newlines first
+  const paragraphs = content.split("\n");
+
+  const wrapped: string[] = [];
+  for (const para of paragraphs) {
+    if (para.length === 0) {
+      wrapped.push("");
+      continue;
+    }
+
+    // Wrap each paragraph to max width
+    const wrappedPara = wrapAnsi(para, layout.maxContentWidth, {
+      hard: true, // Break long words if necessary
+      trim: false, // Preserve intentional whitespace
+    });
+
+    wrapped.push(...wrappedPara.split("\n"));
+  }
+
+  return wrapped;
 }
 
 // ==================== Channel Watcher ====================
@@ -147,7 +261,7 @@ function formatLogEntry(entry: Message, time: string): string {
 export interface ChannelWatcherConfig {
   /** Context provider to poll */
   contextProvider: ContextProvider;
-  /** Agent names for color assignment */
+  /** Agent names for color assignment and layout */
   agentNames: string[];
   /** Output function */
   log: (msg: string) => void;
@@ -157,6 +271,8 @@ export interface ChannelWatcherConfig {
   pollInterval?: number;
   /** Starting cursor position — skip entries before this (default: 0) */
   initialCursor?: number;
+  /** Enable message grouping (default: true) */
+  enableGrouping?: boolean;
 }
 
 /** Channel watcher state */
@@ -164,9 +280,23 @@ export interface ChannelWatcher {
   stop: () => void;
 }
 
-/** Start watching channel and displaying new entries */
+/**
+ * Start watching channel and displaying new entries
+ * with adaptive layout and smart formatting
+ */
 export function startChannelWatcher(config: ChannelWatcherConfig): ChannelWatcher {
-  const { contextProvider, agentNames, log, showDebug = false, pollInterval = 500 } = config;
+  const {
+    contextProvider,
+    agentNames,
+    log,
+    showDebug = false,
+    pollInterval = 500,
+    enableGrouping = true,
+  } = config;
+
+  // Initialize display context
+  resetTimeTracking();
+  const context = createDisplayContext(agentNames, { enableGrouping });
 
   let cursor = config.initialCursor ?? 0;
   let running = true;
@@ -181,7 +311,7 @@ export function startChannelWatcher(config: ChannelWatcherConfig): ChannelWatche
             continue;
           }
 
-          log(formatChannelEntry(entry, agentNames));
+          log(formatChannelEntry(entry, context));
         }
         cursor = tail.cursor;
       } catch {
@@ -199,3 +329,13 @@ export function startChannelWatcher(config: ChannelWatcherConfig): ChannelWatche
     },
   };
 }
+
+// ==================== Exports ====================
+
+// Re-export layout utilities for testing and external use
+export {
+  calculateLayout,
+  resetTimeTracking,
+  type LayoutConfig,
+  type LayoutOptions,
+} from "./layout.ts";
