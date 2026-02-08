@@ -36,8 +36,8 @@ jobs:
             echo "trigger_type=$PR_ACTION" >> "$GITHUB_OUTPUT"
             echo "Auto-triggering agent-review for PR $PR_ACTION"
           else
-            # Parse command from comment
-            COMMAND=$(echo "$COMMENT_BODY" | head -1 | grep -oP '^/agent-[a-z0-9-]+' | sed 's|^/||')
+            # Parse command from comment (support both lowercase and uppercase)
+            COMMAND=$(echo "$COMMENT_BODY" | head -1 | grep -oiP '^/agent-[a-z0-9-]+' | sed 's|^/||' | tr '[:upper:]' '[:lower:]')
             if [ -z "$COMMAND" ]; then
               echo "No valid command found"
               exit 0
@@ -53,10 +53,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EVENT_NAME: ${{ github.event_name }}
+          PR_ACTION: ${{ github.event.action }}
         run: |
           if [ "$EVENT_NAME" = "pull_request" ]; then
             echo "head_sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
             echo "pr_number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+            # For synchronize events, capture before/after for incremental diff
+            if [ "$PR_ACTION" = "synchronize" ]; then
+              echo "before_sha=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+              echo "after_sha=${{ github.event.after }}" >> "$GITHUB_OUTPUT"
+            fi
           else
             SHA=$(gh pr view ${{ github.event.issue.number }} \
               --repo ${{ github.repository }} \
@@ -113,6 +119,8 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
           TRIGGER_TYPE: ${{ steps.parse.outputs.trigger_type }}
+          BEFORE_SHA: ${{ steps.pr.outputs.before_sha }}
+          AFTER_SHA: ${{ steps.pr.outputs.after_sha }}
         run: |
           bun packages/agent-worker/src/cli/index.ts run ${{ steps.resolve.outputs.file }}
 

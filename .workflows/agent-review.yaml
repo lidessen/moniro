@@ -6,6 +6,13 @@ agents:
 context:
   provider: memory
 
+# Configuration (can be overridden via environment variables)
+config:
+  # Maximum number of commits to show in incremental reviews
+  max_commits_display: ${MAX_COMMITS_DISPLAY:-10}
+  # Review focus: 'incremental' (new changes only) or 'full' (always review all changes)
+  review_mode: ${REVIEW_MODE:-incremental}
+
 setup:
   - shell: gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json title,body,baseRefName,headRefName,author,additions,deletions,changedFiles
     as: pr_info
@@ -30,26 +37,32 @@ setup:
       fi
     as: comment_id
 
-  # Get commit range for incremental review
+  # Get diff based on review type
   - shell: |
-      if [ "$TRIGGER_TYPE" = "synchronize" ]; then
-        # Get commits from the PR
-        COMMITS=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json commits --jq '.commits[].oid' | tail -5)
-        echo "Recent commits (last 5):"
-        echo "$COMMITS"
+      if [ "$TRIGGER_TYPE" = "synchronize" ] && [ -n "$BEFORE_SHA" ] && [ -n "$AFTER_SHA" ]; then
+        # Incremental review: get diff between before and after SHAs
+        echo "Incremental review: $BEFORE_SHA...$AFTER_SHA"
 
-        # Get diff for recent commits
-        gh pr diff "$PR_NUMBER" --repo "$GITHUB_REPOSITORY"
+        # Get commit messages for context
+        echo "## New Commits:"
+        gh api repos/$GITHUB_REPOSITORY/compare/$BEFORE_SHA...$AFTER_SHA \
+          --jq '.commits[] | "- \(.sha[0:7]) \(.commit.message | split("\n")[0])"'
+
+        echo -e "\n## Incremental Changes:"
+        # Get the actual diff for new commits
+        gh api repos/$GITHUB_REPOSITORY/compare/$BEFORE_SHA...$AFTER_SHA \
+          --jq '.files[] | "diff --git a/\(.filename) b/\(.filename)\n\(.patch // "")"'
       else
-        echo "Initial review - checking all changes"
+        # Initial review or manual trigger: check all changes
+        echo "Full review - all PR changes"
         gh pr diff "$PR_NUMBER" --repo "$GITHUB_REPOSITORY"
       fi
-    as: incremental_diff
+    as: review_diff
 
 kickoff: |
   @reviewer Please review this pull request.
 
-  **Review Type**: ${{ env.TRIGGER_TYPE == 'synchronize' && 'Incremental (new commits)' || 'Initial (full review)' }}
+  **Review Type**: ${{ env.TRIGGER_TYPE == 'synchronize' && env.BEFORE_SHA != '' && 'Incremental (new commits only)' || 'Full (all changes)' }}
 
   ## PR Info
   ${{ pr_info }}
@@ -57,8 +70,8 @@ kickoff: |
   ## Changed Files
   ${{ changed_files }}
 
-  ## Diff
-  ${{ incremental_diff }}
+  ## Changes to Review
+  ${{ review_diff }}
 
   When done, write your review to /tmp/review.md with the following format:
   - Start with the comment marker: `<!-- agent-review -->`
