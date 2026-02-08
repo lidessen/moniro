@@ -174,25 +174,27 @@ export function startChannelWatcher(config: ChannelWatcherConfig): ChannelWatche
     pollInterval = 500,
   } = config;
 
-  let lastTimestamp: string | undefined;
+  let processedCount = 0;
   let running = true;
 
   const poll = async () => {
     while (running) {
       try {
-        const entries = await contextProvider.readChannel({ since: lastTimestamp });
-        for (const entry of entries) {
-          if (lastTimestamp && entry.timestamp <= lastTimestamp) continue;
+        // Read all entries and skip already-processed ones by index.
+        // Timestamp-based dedup silently drops entries that share a timestamp
+        // with a skipped debug entry (e.g. agent channel_send messages).
+        const entries = await contextProvider.readChannel();
+        for (let i = processedCount; i < entries.length; i++) {
+          const entry = entries[i]!;
 
           // Filter: skip debug entries unless --debug
           if (entry.kind === "debug" && !showDebug) {
-            lastTimestamp = entry.timestamp;
             continue;
           }
 
           log(formatChannelEntry(entry, agentNames));
-          lastTimestamp = entry.timestamp;
         }
+        processedCount = entries.length;
       } catch {
         // Ignore errors during polling
       }
