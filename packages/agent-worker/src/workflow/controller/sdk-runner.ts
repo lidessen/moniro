@@ -121,8 +121,9 @@ export async function runSdkAgent(
         stepNum++;
         if (step.toolCalls?.length) {
           for (const tc of step.toolCalls) {
-            const argsStr = JSON.stringify(tc.args ?? {});
-            const preview = argsStr.length > 120 ? argsStr.slice(0, 120) + "..." : argsStr;
+            const input = (tc as Record<string, unknown>).input ?? (tc as Record<string, unknown>).args ?? {};
+            const inputStr = JSON.stringify(input);
+            const preview = inputStr.length > 120 ? inputStr.slice(0, 120) + "..." : inputStr;
             log(`[${ctx.name}] Step ${stepNum}: ${tc.toolName}(${preview})`);
           }
         }
