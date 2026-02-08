@@ -228,6 +228,8 @@ describe('Workflow Simulation', () => {
       mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: aliceBackend,
       pollInterval: 30,
+      workspaceDir: '/tmp/workspace',
+      projectDir: '/tmp/project',
     })
 
     const bob = createAgentController({
@@ -237,6 +239,8 @@ describe('Workflow Simulation', () => {
       mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: bobBackend,
       pollInterval: 30,
+      workspaceDir: '/tmp/workspace',
+      projectDir: '/tmp/project',
     })
 
     const charlie = createAgentController({
@@ -246,6 +250,8 @@ describe('Workflow Simulation', () => {
       mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: charlieBackend,
       pollInterval: 30,
+      workspaceDir: '/tmp/workspace',
+      projectDir: '/tmp/project',
     })
 
     controllers.push(alice, bob, charlie)
@@ -293,6 +299,8 @@ describe('Workflow Simulation', () => {
       mcpUrl: 'http://127.0.0.1:0/mcp',
       backend,
       pollInterval: 30,
+      workspaceDir: '/tmp/workspace',
+      projectDir: '/tmp/project',
     })
 
     const agent2 = createAgentController({
@@ -302,6 +310,8 @@ describe('Workflow Simulation', () => {
       mcpUrl: 'http://127.0.0.1:0/mcp',
       backend,
       pollInterval: 30,
+      workspaceDir: '/tmp/workspace',
+      projectDir: '/tmp/project',
     })
 
     controllers.set('agent1', agent1)
@@ -352,6 +362,8 @@ describe('Workflow Simulation', () => {
       backend,
       pollInterval: 30,
       retry: { maxAttempts: 3, backoffMs: 10, backoffMultiplier: 1 },
+      workspaceDir: '/tmp/workspace',
+      projectDir: '/tmp/project',
     })
 
     await worker.start()

@@ -10,7 +10,6 @@ import {
   isValidName,
   DEFAULT_WORKFLOW,
   DEFAULT_TAG,
-  type TargetIdentifier,
 } from '../src/cli/target.ts'
 
 describe('parseTarget', () => {

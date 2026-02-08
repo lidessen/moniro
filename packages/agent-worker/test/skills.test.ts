@@ -351,7 +351,7 @@ describe('createSkillsTool', () => {
     const provider = new SkillsProvider()
     await provider.addSkill(skillDir)
 
-    const tool = createSkillsTool(provider)
+    const tool = createSkillsTool(provider) as any
     const result = (await tool.execute!({ operation: 'list' })) as {
       skills: Array<{ name: string; description: string }>
     }
@@ -362,7 +362,7 @@ describe('createSkillsTool', () => {
 
   test('list operation with no skills', async () => {
     const provider = new SkillsProvider()
-    const tool = createSkillsTool(provider)
+    const tool = createSkillsTool(provider) as any
 
     const result = (await tool.execute!({ operation: 'list' })) as { message: string }
     expect(result.message).toBe('No skills available')
@@ -376,7 +376,7 @@ describe('createSkillsTool', () => {
     const provider = new SkillsProvider()
     await provider.addSkill(skillDir)
 
-    const tool = createSkillsTool(provider)
+    const tool = createSkillsTool(provider) as any
     const result = (await tool.execute!({
       operation: 'view',
       skillName: 'test-skill',
@@ -387,7 +387,7 @@ describe('createSkillsTool', () => {
 
   test('view operation throws without skillName', async () => {
     const provider = new SkillsProvider()
-    const tool = createSkillsTool(provider)
+    const tool = createSkillsTool(provider) as any
 
     await expect(tool.execute!({ operation: 'view' })).rejects.toThrow(
       'skillName is required for view operation'
@@ -404,7 +404,7 @@ describe('createSkillsTool', () => {
     const provider = new SkillsProvider()
     await provider.addSkill(skillDir)
 
-    const tool = createSkillsTool(provider)
+    const tool = createSkillsTool(provider) as any
     const result = (await tool.execute!({
       operation: 'readFile',
       skillName: 'test-skill',
@@ -416,7 +416,7 @@ describe('createSkillsTool', () => {
 
   test('readFile operation throws without required params', async () => {
     const provider = new SkillsProvider()
-    const tool = createSkillsTool(provider)
+    const tool = createSkillsTool(provider) as any
 
     await expect(tool.execute!({ operation: 'readFile' })).rejects.toThrow(
       'skillName and filePath are required'
@@ -429,7 +429,7 @@ describe('createSkillsTool', () => {
 
   test('throws on unknown operation', async () => {
     const provider = new SkillsProvider()
-    const tool = createSkillsTool(provider)
+    const tool = createSkillsTool(provider) as any
 
     await expect(tool.execute!({ operation: 'invalid' })).rejects.toThrow(
       'Unknown operation: invalid'
@@ -505,7 +505,7 @@ For details, see [references/advanced.md](references/advanced.md)
 
     const provider = new SkillsProvider()
     await provider.addSkill(skillDir)
-    const tool = createSkillsTool(provider)
+    const tool = createSkillsTool(provider) as any
 
     // Step 1: List skills
     const listResult = (await tool.execute!({ operation: 'list' })) as {

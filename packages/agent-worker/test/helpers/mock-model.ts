@@ -16,11 +16,11 @@ export function textModel(text: string, inputTokens = 10, outputTokens = 5) {
       content: [{ type: 'text' as const, text }],
       finishReason: { unified: 'stop' as const, raw: 'stop' },
       usage: {
-        inputTokens: { total: inputTokens },
-        outputTokens: { total: outputTokens }
+        inputTokens: { total: inputTokens, noCache: undefined, cacheRead: undefined, cacheWrite: undefined },
+        outputTokens: { total: outputTokens, text: undefined, reasoning: undefined }
       },
-      warnings: undefined,
-    } as const,
+      warnings: [],
+    },
   })
 }
 
@@ -33,8 +33,7 @@ export function toolCallModel(
   input: Record<string, unknown>,
   finalText: string,
 ) {
-  return new MockLanguageModelV3({
-    doGenerate: mockValues(
+  const mockGen = mockValues(
       // Step 1: tool call
       {
         content: [
@@ -47,22 +46,25 @@ export function toolCallModel(
         ],
         finishReason: { unified: 'tool-calls' as const, raw: 'tool_use' },
         usage: {
-          inputTokens: { total: 20 },
-          outputTokens: { total: 15 }
+          inputTokens: { total: 20, noCache: undefined, cacheRead: undefined, cacheWrite: undefined },
+          outputTokens: { total: 15, text: undefined, reasoning: undefined }
         },
-        warnings: undefined,
-      } as const,
+        warnings: [],
+      },
       // Step 2: final text
       {
         content: [{ type: 'text' as const, text: finalText }],
         finishReason: { unified: 'stop' as const, raw: 'stop' },
         usage: {
-          inputTokens: { total: 30 },
-          outputTokens: { total: 10 }
+          inputTokens: { total: 30, noCache: undefined, cacheRead: undefined, cacheWrite: undefined },
+          outputTokens: { total: 10, text: undefined, reasoning: undefined }
         },
-        warnings: undefined,
-      } as const,
-    ),
+        warnings: [],
+      },
+    )
+
+  return new MockLanguageModelV3({
+    doGenerate: async () => mockGen(),
   })
 }
 
@@ -71,18 +73,20 @@ export function toolCallModel(
  * Useful for multi-turn tests.
  */
 export function sequenceModel(responses: string[]) {
-  return new MockLanguageModelV3({
-    doGenerate: mockValues(
+  const mockGen = mockValues(
       ...responses.map((text) => ({
         content: [{ type: 'text' as const, text }],
         finishReason: { unified: 'stop' as const, raw: 'stop' },
         usage: {
-          inputTokens: { total: 10 },
-          outputTokens: { total: 5 }
+          inputTokens: { total: 10, noCache: undefined, cacheRead: undefined, cacheWrite: undefined },
+          outputTokens: { total: 5, text: undefined, reasoning: undefined }
         },
-        warnings: undefined,
-      } as const)),
-    ),
+        warnings: [],
+      })),
+    )
+
+  return new MockLanguageModelV3({
+    doGenerate: async () => mockGen(),
   })
 }
 

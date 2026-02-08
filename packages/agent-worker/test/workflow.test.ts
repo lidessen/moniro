@@ -390,7 +390,7 @@ kickoff: "@assistant start working"
     const workflow = await parseWorkflowFile(workflowPath)
     expect(workflow.name).toBe('test-workflow')
     expect(workflow.agents.assistant).toBeDefined()
-    expect(workflow.agents.assistant.model).toBe('openai/gpt-5.2')
+    expect(workflow.agents.assistant!.model).toBe('openai/gpt-5.2')
     expect(workflow.kickoff).toBe('@assistant start working')
   })
 
@@ -442,7 +442,7 @@ kickoff: "@assistant start working"
     )
 
     const workflow = await parseWorkflowFile(workflowPath)
-    expect(workflow.agents.reviewer.resolvedSystemPrompt).toBe('You are a code reviewer.')
+    expect(workflow.agents.reviewer!.resolvedSystemPrompt).toBe('You are a code reviewer.')
   })
 
   test('resolves .md system_prompt file', async () => {
@@ -460,7 +460,7 @@ kickoff: "@assistant start working"
     )
 
     const workflow = await parseWorkflowFile(workflowPath)
-    expect(workflow.agents.helper.resolvedSystemPrompt).toContain('# Assistant')
+    expect(workflow.agents.helper!.resolvedSystemPrompt).toContain('# Assistant')
   })
 
   test('keeps literal system_prompt if file not found', async () => {
@@ -475,7 +475,7 @@ kickoff: "@assistant start working"
     )
 
     const workflow = await parseWorkflowFile(workflowPath)
-    expect(workflow.agents.test.resolvedSystemPrompt).toBe('nonexistent.txt')
+    expect(workflow.agents.test!.resolvedSystemPrompt).toBe('nonexistent.txt')
   })
 
   test('defaults to empty setup array', async () => {
@@ -761,7 +761,7 @@ describe('runWorkflow', () => {
 
     await run1.contextProvider!.appendChannel('system', '@agent1 do something')
     await run1.contextProvider!.ackInbox('agent1',
-      (await run1.contextProvider!.getInbox('agent1'))[0].entry.id,
+      (await run1.contextProvider!.getInbox('agent1'))[0]!.entry.id,
     )
     await run1.shutdown!()
 
@@ -806,7 +806,7 @@ describe('runWorkflow', () => {
     await run1.contextProvider!.appendChannel('system', '@agent1 do something')
     const run1Inbox = await run1.contextProvider!.getInbox('agent1')
     expect(run1Inbox).toHaveLength(1)
-    await run1.contextProvider!.ackInbox('agent1', run1Inbox[0].entry.id)
+    await run1.contextProvider!.ackInbox('agent1', run1Inbox[0]!.entry.id)
     await run1.shutdown!()
 
     // Run 2: markRunStart() sets epoch — old messages are below the floor

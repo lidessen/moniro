@@ -9,11 +9,11 @@ function mockResponse(text: string, inputTokens = 10, outputTokens = 5) {
     content: [{ type: 'text' as const, text }],
     finishReason: { unified: 'stop' as const, raw: 'stop' },
     usage: {
-      inputTokens: { total: inputTokens },
-      outputTokens: { total: outputTokens }
+      inputTokens: { total: inputTokens, noCache: undefined, cacheRead: undefined, cacheWrite: undefined },
+      outputTokens: { total: outputTokens, text: undefined, reasoning: undefined }
     },
-    warnings: undefined,
-  } as const
+    warnings: [],
+  }
 }
 
 describe('AgentSession', () => {
@@ -66,16 +66,16 @@ describe('AgentSession', () => {
   describe('tool calling', () => {
     test('creates AI SDK tools with tool()', () => {
       const tools = {
-        read_file: tool({
+        read_file: tool<{ path: string }, { content: string }>({
           description: 'Read file contents',
-          parameters: jsonSchema<Record<string, unknown>>({
+          inputSchema: jsonSchema<{ path: string }>({
             type: 'object',
             properties: {
               path: { type: 'string', description: 'File path' },
             },
             required: ['path'],
           }),
-          execute: async (args: { path: string }) => ({ content: `Content of ${args.path}` }),
+          execute: async (args) => ({ content: `Content of ${args.path}` }),
         }),
       }
 
@@ -85,16 +85,16 @@ describe('AgentSession', () => {
 
     test('executes AI SDK tool directly', async () => {
       const tools = {
-        get_weather: tool({
+        get_weather: tool<{ location: string }, { temperature: number; conditions: string; location: string }>({
           description: 'Get weather for a location',
-          parameters: jsonSchema<Record<string, unknown>>({
+          inputSchema: jsonSchema<{ location: string }>({
             type: 'object',
             properties: {
               location: { type: 'string' },
             },
             required: ['location'],
           }),
-          execute: async (args: { location: string }) => ({
+          execute: async (args) => ({
             temperature: 72,
             conditions: 'sunny',
             location: args.location,
@@ -132,11 +132,11 @@ describe('AgentSession', () => {
           ],
           finishReason: { unified: 'stop' as const, raw: 'stop' },
           usage: {
-            inputTokens: { total: 20 },
-            outputTokens: { total: 15 }
+            inputTokens: { total: 20, noCache: undefined, cacheRead: undefined, cacheWrite: undefined },
+            outputTokens: { total: 15, text: undefined, reasoning: undefined }
           },
-          warnings: undefined,
-        } as const,
+          warnings: [],
+        },
       })
 
       const response = await generateText({
@@ -214,9 +214,9 @@ describe('AI SDK tool creation', () => {
 
   test('tool without execute function', () => {
     const tools = {
-      no_execute: tool({
+      no_execute: tool<object, never>({
         description: 'A tool without execute',
-        parameters: jsonSchema<Record<string, unknown>>({
+        inputSchema: jsonSchema<object>({
           type: 'object',
           properties: {},
         }),
@@ -228,17 +228,17 @@ describe('AI SDK tool creation', () => {
 
   test('handles multiple tools', () => {
     const tools = {
-      tool_a: tool({
+      tool_a: tool<object, never>({
         description: 'First tool',
-        parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+        inputSchema: jsonSchema<object>({ type: 'object', properties: {} }),
       }),
-      tool_b: tool({
+      tool_b: tool<object, never>({
         description: 'Second tool',
-        parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+        inputSchema: jsonSchema<object>({ type: 'object', properties: {} }),
       }),
-      tool_c: tool({
+      tool_c: tool<object, never>({
         description: 'Third tool',
-        parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+        inputSchema: jsonSchema<object>({ type: 'object', properties: {} }),
       }),
     }
 
@@ -280,7 +280,7 @@ describe('createModel', () => {
     const { createModel, FRONTIER_MODELS } = await import('../src/agent/models.ts')
 
     // Valid provider should use gateway format with first model
-    const model = createModel('openai')
+    const model = createModel('openai') as any
     expect(model.modelId).toBe(`openai/${FRONTIER_MODELS.openai[0]}`)
   })
 
@@ -313,7 +313,7 @@ describe('createModel', () => {
     const { createModel } = await import('../src/agent/models.ts')
 
     // Gateway format should not throw (creates gateway model)
-    const model = createModel('openai/gpt-5.2')
+    const model = createModel('openai/gpt-5.2') as any
     expect(model).toBeDefined()
     expect(model.modelId).toBe('openai/gpt-5.2')
   })
@@ -321,7 +321,7 @@ describe('createModel', () => {
   test('createModelAsync handles gateway format', async () => {
     const { createModelAsync } = await import('../src/agent/models.ts')
 
-    const model = await createModelAsync('anthropic/claude-sonnet-4-5')
+    const model = await createModelAsync('anthropic/claude-sonnet-4-5') as any
     expect(model).toBeDefined()
     expect(model.modelId).toBe('anthropic/claude-sonnet-4-5')
   })
@@ -329,7 +329,7 @@ describe('createModel', () => {
   test('createModelAsync handles provider-only format', async () => {
     const { createModelAsync, FRONTIER_MODELS } = await import('../src/agent/models.ts')
 
-    const model = await createModelAsync('anthropic')
+    const model = await createModelAsync('anthropic') as any
     expect(model).toBeDefined()
     expect(model.modelId).toBe(`anthropic/${FRONTIER_MODELS.anthropic[0]}`)
   })
@@ -371,7 +371,7 @@ describe('createModel', () => {
     const { createModel, SUPPORTED_PROVIDERS, FRONTIER_MODELS } = await import('../src/agent/models.ts')
 
     for (const provider of SUPPORTED_PROVIDERS) {
-      const model = createModel(provider)
+      const model = createModel(provider) as any
       expect(model.modelId).toBe(`${provider}/${FRONTIER_MODELS[provider][0]}`)
     }
   })
@@ -384,9 +384,9 @@ describe('AgentSession advanced', () => {
       system: 'Test',
     })
 
-    session.addTool('test_tool', tool({
+    session.addTool('test_tool', tool<{ input: string }, never>({
       description: 'A test tool',
-      parameters: jsonSchema<Record<string, unknown>>({
+      inputSchema: jsonSchema<{ input: string }>({
         type: 'object',
         properties: {
           input: { type: 'string' },
@@ -404,9 +404,9 @@ describe('AgentSession advanced', () => {
       model: 'openai/gpt-5.2',
       system: 'Test',
       tools: {
-        my_tool: tool({
+        my_tool: tool<object, { result: string }>({
           description: 'Original tool',
-          parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+          inputSchema: jsonSchema<object>({ type: 'object', properties: {} }),
           execute: async () => ({ result: 'original' }),
         }),
       },
@@ -444,13 +444,13 @@ describe('AgentSession advanced', () => {
       model: 'openai/gpt-5.2',
       system: 'Test',
       tools: {
-        tool1: tool({
+        tool1: tool<object, never>({
           description: 'First',
-          parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+          inputSchema: jsonSchema<object>({ type: 'object', properties: {} }),
         }),
-        tool2: tool({
+        tool2: tool<object, never>({
           description: 'Second',
-          parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+          inputSchema: jsonSchema<object>({ type: 'object', properties: {} }),
         }),
       },
     })
@@ -504,6 +504,7 @@ describe('AgentSession advanced', () => {
         { role: 'assistant' as const, content: 'Hi there!' },
       ],
       totalUsage: { input: 10, output: 5, total: 15 },
+      pendingApprovals: [],
     }
 
     // Restore session
@@ -533,9 +534,9 @@ describe('AgentSession advanced', () => {
 
 describe('AI SDK tool edge cases', () => {
   test('tool without execute', () => {
-    const t = tool({
+    const t = tool<object, never>({
       description: 'No implementation',
-      parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+      inputSchema: jsonSchema<object>({ type: 'object', properties: {} }),
     })
 
     expect(t).toBeDefined()
@@ -543,15 +544,15 @@ describe('AI SDK tool edge cases', () => {
   })
 
   test('tool with async execute function', async () => {
-    const t = tool({
+    const t = tool<{ delay: number }, { delayed: boolean; input: number }>({
       description: 'Async tool',
-      parameters: jsonSchema<Record<string, unknown>>({
+      inputSchema: jsonSchema<{ delay: number }>({
         type: 'object',
         properties: {
           delay: { type: 'number' },
         },
       }),
-      execute: async (args: { delay: number }) => {
+      execute: async (args) => {
         await new Promise((r) => setTimeout(r, 1))
         return { delayed: true, input: args.delay }
       },
@@ -566,9 +567,9 @@ describe('AI SDK tool edge cases', () => {
   })
 
   test('tool parameters with required fields', () => {
-    const t = tool({
+    const t = tool<{ name: string; age?: number }, never>({
       description: 'Has required params',
-      parameters: jsonSchema<Record<string, unknown>>({
+      inputSchema: jsonSchema<{ name: string; age?: number }>({
         type: 'object',
         properties: {
           name: { type: 'string', description: 'User name' },
@@ -713,13 +714,13 @@ describe('tool approval workflow', () => {
       model: 'openai/gpt-5.2',
       system: 'Test',
       tools: {
-        safe_tool: tool({
+        safe_tool: tool<object, never>({
           description: 'A safe tool',
-          parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+          inputSchema: jsonSchema<object>({ type: 'object', properties: {} }),
         }),
-        dangerous_tool: tool({
+        dangerous_tool: tool<object, never>({
           description: 'A dangerous tool',
-          parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+          inputSchema: jsonSchema<object>({ type: 'object', properties: {} }),
         }),
       },
       approval: {
@@ -736,9 +737,9 @@ describe('tool approval workflow', () => {
       model: 'openai/gpt-5.2',
       system: 'Test',
       tools: {
-        file_op: tool({
+        file_op: tool<{ path: string; action: string }, never>({
           description: 'File operations',
-          parameters: jsonSchema<Record<string, unknown>>({
+          inputSchema: jsonSchema<{ path: string; action: string }>({
             type: 'object',
             properties: {
               path: { type: 'string' },
@@ -829,7 +830,7 @@ describe('tool approval workflow', () => {
     )
 
     expect(session.getPendingApprovals()).toHaveLength(1)
-    expect(session.getPendingApprovals()[0].toolName).toBe('test_tool')
+    expect(session.getPendingApprovals()[0]!.toolName).toBe('test_tool')
   })
 
   test('getTools returns tool info without execute', () => {
@@ -837,9 +838,9 @@ describe('tool approval workflow', () => {
       model: 'openai/gpt-5.2',
       system: 'Test',
       tools: {
-        my_tool: tool({
+        my_tool: tool<{ input: string }, { result: string }>({
           description: 'A test tool',
-          parameters: jsonSchema<Record<string, unknown>>({
+          inputSchema: jsonSchema<{ input: string }>({
             type: 'object',
             properties: { input: { type: 'string' } },
           }),
@@ -853,9 +854,9 @@ describe('tool approval workflow', () => {
 
     const tools = session.getTools()
     expect(tools).toHaveLength(1)
-    expect(tools[0]!.name).toBe('my_tool')
-    expect(tools[0]!.description).toBe('A test tool')
-    expect(tools[0]!.needsApproval).toBe(true)
+    expect(tools[0]?.name).toBe('my_tool')
+    expect(tools[0]?.description).toBe('A test tool')
+    expect(tools[0]?.needsApproval).toBe(true)
     // execute should not be in the returned tools
     expect(tools[0]).not.toHaveProperty('execute')
   })
@@ -865,9 +866,9 @@ describe('tool approval workflow', () => {
       model: 'openai/gpt-5.2',
       system: 'Test',
       tools: {
-        api_tool: tool({
+        api_tool: tool<object, never>({
           description: 'API tool',
-          parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+          inputSchema: jsonSchema<object>({ type: 'object', properties: {} }),
         }),
       },
     })
@@ -876,7 +877,7 @@ describe('tool approval workflow', () => {
 
     // Verify tool still listed
     const tools = session.getTools()
-    expect(tools[0]!.name).toBe('api_tool')
+    expect(tools[0]?.name).toBe('api_tool')
   })
 
   test('setMockResponse throws for non-existent tool', () => {
@@ -1013,9 +1014,9 @@ describe('tool approval workflow', () => {
         model: 'openai/gpt-5.2',
         system: 'Test',
         tools: {
-          tool1: tool({
+          tool1: tool<object, never>({
             description: 'Test',
-            parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+            inputSchema: jsonSchema<object>({ type: 'object', properties: {} }),
           }),
         },
       },
@@ -1054,9 +1055,9 @@ describe('tool approval workflow', () => {
         model: 'openai/gpt-5.2',
         system: 'Test',
         tools: {
-          my_tool: tool({
+          my_tool: tool<{ input?: string }, { result: string; args: { input?: string } }>({
             description: 'Test',
-            parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+            inputSchema: jsonSchema<{ input?: string }>({ type: 'object', properties: {} }),
             execute: async (args) => {
               executeCalled = true
               return { result: 'executed', args }
@@ -1095,9 +1096,9 @@ describe('tool approval workflow', () => {
         model: 'openai/gpt-5.2',
         system: 'Test',
         tools: {
-          my_tool: tool({
+          my_tool: tool<object, never>({
             description: 'Test',
-            parameters: jsonSchema<Record<string, unknown>>({ type: 'object', properties: {} }),
+            inputSchema: jsonSchema<object>({ type: 'object', properties: {} }),
           }),
         },
       },
@@ -1143,8 +1144,8 @@ describe('Backend factory', () => {
 
     const backend = createBackend({ type: 'sdk', model: 'openai/gpt-5.2' })
     expect(backend.type).toBe('sdk')
-    expect(backend.getInfo().name).toBe('Vercel AI SDK')
-    expect(backend.getInfo().model).toBe('openai/gpt-5.2')
+    expect(backend.getInfo?.().name).toBe('Vercel AI SDK')
+    expect(backend.getInfo?.().model).toBe('openai/gpt-5.2')
   })
 
   test('createBackend creates Claude CLI backend', async () => {
@@ -1152,8 +1153,8 @@ describe('Backend factory', () => {
 
     const backend = createBackend({ type: 'claude', model: 'sonnet' })
     expect(backend.type).toBe('claude')
-    expect(backend.getInfo().name).toBe('Claude Code CLI')
-    expect(backend.getInfo().model).toBe('sonnet')
+    expect(backend.getInfo?.().name).toBe('Claude Code CLI')
+    expect(backend.getInfo?.().model).toBe('sonnet')
   })
 
   test('createBackend creates Codex CLI backend', async () => {
@@ -1161,7 +1162,7 @@ describe('Backend factory', () => {
 
     const backend = createBackend({ type: 'codex', model: 'o3' })
     expect(backend.type).toBe('codex')
-    expect(backend.getInfo().name).toBe('OpenAI Codex CLI')
+    expect(backend.getInfo?.().name).toBe('OpenAI Codex CLI')
   })
 
   test('createBackend creates Cursor CLI backend', async () => {
@@ -1169,7 +1170,7 @@ describe('Backend factory', () => {
 
     const backend = createBackend({ type: 'cursor' })
     expect(backend.type).toBe('cursor')
-    expect(backend.getInfo().name).toBe('Cursor Agent CLI')
+    expect(backend.getInfo?.().name).toBe('Cursor Agent CLI')
   })
 
   test('createBackend throws for unknown type', async () => {
@@ -1318,10 +1319,10 @@ describe('createBackend with model translation', () => {
 
     // Create with generic model name
     const backend = createBackend({ type: 'cursor', model: 'sonnet' })
-    const info = backend.getInfo()
+    const info = backend.getInfo?.()
 
     // Should be translated to cursor format
-    expect(info.model).toBe('sonnet-4.5')
+    expect(info?.model).toBe('sonnet-4.5')
   })
 
   test('claude backend receives translated model', async () => {
@@ -1329,10 +1330,10 @@ describe('createBackend with model translation', () => {
 
     // Create with provider-prefixed model
     const backend = createBackend({ type: 'claude', model: 'anthropic/claude-sonnet-4-5' })
-    const info = backend.getInfo()
+    const info = backend.getInfo?.()
 
     // Should be translated to claude format
-    expect(info.model).toBe('sonnet')
+    expect(info?.model).toBe('sonnet')
   })
 
   test('backend uses default model when not specified', async () => {
@@ -1340,9 +1341,9 @@ describe('createBackend with model translation', () => {
     const { BACKEND_DEFAULT_MODELS } = await import('../src/backends/types.ts')
 
     const cursorBackend = createBackend({ type: 'cursor' })
-    expect(cursorBackend.getInfo().model).toBe(BACKEND_DEFAULT_MODELS.cursor)
+    expect(cursorBackend.getInfo?.().model).toBe(BACKEND_DEFAULT_MODELS.cursor)
 
     const claudeBackend = createBackend({ type: 'claude' })
-    expect(claudeBackend.getInfo().model).toBe(BACKEND_DEFAULT_MODELS.claude)
+    expect(claudeBackend.getInfo?.().model).toBe(BACKEND_DEFAULT_MODELS.claude)
   })
 })
