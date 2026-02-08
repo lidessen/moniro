@@ -117,13 +117,15 @@ export function formatStructuredLog(
 
 // ==================== Timeline Style (left-margin time) ====================
 /**
- * Timeline style: Time in left margin, inline source, auto-wrap content
+ * Timeline style: Time | [source] on first line, message on separate lines
  *
  * Example:
- * 17:13 | [workflow] Running workflow: test-simple with a very long
- *       |            message that wraps to the next line automatically
- * 17:13 | [system] Test started
- *       |          Multi-line content continues here
+ * 17:13 | [workflow]
+ *       | Running workflow: test-simple with a very long message that
+ *       | wraps to the next line automatically
+ * 17:13 | [system]
+ *       | Test started
+ *       | Multi-line content continues here
  */
 export function formatTimelineLog(
   entry: Message,
@@ -136,10 +138,10 @@ export function formatTimelineLog(
   const separator = chalk.dim("|");
 
   // Wrap content to fit within terminal width
-  // Format: TIME | [SOURCE] CONTENT
-  // Calculate available width for content
-  const prefixWidth = layout.timeWidth + 3 + entry.from.length + 2; // "TIME | [SOURCE] "
-  const contentWidth = Math.min(layout.terminalWidth - prefixWidth, 80);
+  // Format: TIME | [SOURCE]
+  //         |     CONTENT (auto-wrapped)
+  const prefixWidth = layout.timeWidth + 3; // "TIME | "
+  const contentWidth = Math.min(layout.terminalWidth - prefixWidth - 6, 80);
 
   // Wrap the message
   const wrappedLines = wrapAnsi(entry.content, contentWidth, {
@@ -149,14 +151,12 @@ export function formatTimelineLog(
 
   const result: string[] = [];
 
-  // First line: TIME | [SOURCE] CONTENT
-  result.push(`${timeStr} ${separator} ${source} ${wrappedLines[0]}`);
+  // First line: TIME | [SOURCE]
+  result.push(`${timeStr} ${separator} ${source}`);
 
-  // Continuation lines: align with content start
-  if (wrappedLines.length > 1) {
-    const indent = " ".repeat(layout.timeWidth) + ` ${separator} ${" ".repeat(entry.from.length + 2)} `;
-    result.push(...wrappedLines.slice(1).map((line) => indent + line));
-  }
+  // Content lines: all indented with separator
+  const indent = " ".repeat(layout.timeWidth) + ` ${separator} `;
+  result.push(...wrappedLines.map((line) => indent + line));
 
   return result.join("\n");
 }
