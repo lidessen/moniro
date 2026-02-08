@@ -116,7 +116,8 @@ export function registerToolCommands(program: Command) {
           process.exit(1);
         }
       } catch {
-        console.error("Invalid JSON response");
+        console.error("Invalid JSON response. The response parameter must be valid JSON.");
+        console.error('Example: agent-worker tool mock my-tool \'{"result": "success"}\'');
         process.exit(1);
       }
     });
