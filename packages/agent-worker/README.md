@@ -15,7 +15,7 @@ bun add -g agent-worker
 ### CLI
 
 ```bash
-# Create a new agent (in main workflow by default)
+# Create a standalone agent (global space)
 agent-worker new alice -m anthropic/claude-sonnet-4-5
 
 # Send a message
@@ -30,25 +30,32 @@ agent-worker status alice
 
 #### Working with Workflows
 
-Workflows are isolated namespaces for organizing agents:
+Workflows support multiple instances using `workflow:tag` syntax:
 
 ```bash
-# Create agents in a specific workflow
-agent-worker new reviewer -m anthropic/claude-sonnet-4-5 -w code-review
-agent-worker new coder -m anthropic/claude-sonnet-4-5 -w code-review
+# Create agents in a workflow
+agent-worker new reviewer -m anthropic/claude-sonnet-4-5 -w review
+agent-worker new coder -m anthropic/claude-sonnet-4-5 -w review
 
-# Send to specific workflow
-agent-worker send "@reviewer Check this PR" -w code-review
+# Multiple instances of the same workflow
+agent-worker new reviewer -m anthropic/claude-sonnet-4-5 -w review:pr-123
+agent-worker new reviewer -m anthropic/claude-sonnet-4-5 -w review:pr-456
+
+# Send to specific workflow instance
+agent-worker send "@reviewer Check this PR" -w review:pr-123
 
 # View workflow messages
-agent-worker peek -w code-review
+agent-worker peek -w review:pr-123
 
-# Target syntax: agent@workflow
-agent-worker status reviewer@code-review
-agent-worker stop reviewer@code-review
+# Target syntax: agent@workflow:tag
+agent-worker status reviewer@review:pr-123
+agent-worker stop reviewer@review:pr-123
 ```
 
-The default workflow is `main`. Without `-w`, agents belong to `main`.
+**Defaults**:
+- Without `-w`: agents are standalone (global space)
+- With `-w review`: uses default tag `main` → `review:main`
+- With `-w review:pr-123`: full specification
 
 ### SDK
 

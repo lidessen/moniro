@@ -31,36 +31,44 @@ Rationale: "workflow" better describes both use cases:
 - Agent scenario: workflow = namespace/context
 - Multi-agent scenario: workflow = the orchestrated task itself
 
-### 2. Default Workflow Name: `main`
+### 2. Workflow:Tag Model
 
-The global/default workflow is named **`main`** (not `default`).
+Workflows support multiple instances using a **`workflow:tag`** syntax (inspired by Docker's `image:tag`).
+
+**Concept hierarchy**:
+- **Workflow**: A defined set of agents and their collaboration pattern (YAML definition)
+- **Tag**: A specific instance/version of that workflow (runtime instance)
+
+**Default naming**:
+- Default workflow: `global` (for standalone agents)
+- Default tag: `main` (for default instance)
 
 Rationale:
-- Clearer semantics: "main workflow" (primary) vs "default workflow" (fallback)
-- Familiar to developers (git `main` branch)
-- Short and unambiguous
+- **Tag vs branch**: "tag" implies versioned instances (like Docker), not evolving branches
+- **`global` for default**: Avoids `main:main` redundancy; clearly indicates "not part of a specific task"
+- **Familiar pattern**: `nginx:1.21` → `review:pr-123`
 
 ### 3. Target Syntax
 
-Agents and workflows are referenced using:
+Full syntax: `agent@workflow:tag`
 
+With defaults and abbreviations:
 ```
-agent              # Equivalent to agent@main
-agent@workflow     # Agent in specific workflow
-@workflow          # Workflow itself (or default behavior)
-```
+alice                    # alice@global:main (display: alice)
+alice@review             # alice@review:main (display: alice@review)
+alice@review:pr-123      # Full specification
 
-Examples:
-```bash
-alice              # alice@main
-alice@task1        # alice in task1 workflow
-@main              # main workflow
-@task1             # task1 workflow
+@review                  # @review:main
+@review:pr-123           # Full workflow:tag reference
 ```
 
-Distinction from message mentions:
-- **In message content**: `@agent` is mention syntax
-- **As command target**: `agent` or `agent@workflow` (no @ prefix for agent names)
+**Display rules**:
+- Omit `@global` in display (show `alice`, not `alice@global`)
+- Omit `:main` tag in display when it's the default
+
+**Distinction from message mentions**:
+- **In message content**: `@agent` is mention syntax (triggers notification)
+- **As command target**: `agent@workflow:tag` (routing/identification)
 
 ### 4. Schedule Command Redesign
 
@@ -73,10 +81,10 @@ schedule <target> clear
 
 Examples:
 ```bash
-schedule alice set 30s
-schedule alice@task1 set 5m --prompt "check status"
-schedule @main set 1h
-schedule @task1 clear
+schedule alice set 30s                      # alice@global:main
+schedule alice@review set 5m                # alice@review:main
+schedule alice@review:pr-123 set 30s        # Full specification
+schedule @review:pr-123 set 1h              # Workflow-level default
 ```
 
 Rationale:
@@ -94,14 +102,16 @@ Rationale:
 - ✅ **Future-proof**: Target syntax supports complex scenarios
 
 ### Breaking Changes
-- ⚠️ Code using `DEFAULT_INSTANCE` needs migration to `DEFAULT_WORKFLOW = "main"`
-- ⚠️ CLI users with `--workflow default` need to update to `--workflow main`
+- ⚠️ Code using `DEFAULT_INSTANCE` needs migration to `DEFAULT_WORKFLOW = "global"` and `DEFAULT_TAG = "main"`
+- ⚠️ Target syntax extended: `agent@workflow` → `agent@workflow:tag` (with defaults)
 - ⚠️ `schedule set` command signature changes (target position shift)
+- ⚠️ Variable interpolation: `workflow.instance` → `workflow.tag`
 
 ### Migration Path
-1. **Phase 1**: Update constants and internal naming
-2. **Phase 2**: Support both `default` and `main` with deprecation warning
-3. **Phase 3**: Remove `default` support in next major version
+1. **Phase 1**: Update constants (`DEFAULT_WORKFLOW = "global"`, `DEFAULT_TAG = "main"`)
+2. **Phase 2**: Implement workflow:tag parsing and routing
+3. **Phase 3**: Update variable interpolation (`workflow.tag` instead of `workflow.instance`)
+4. **Phase 4**: Update file paths (`.workflow/<workflow>/<tag>/` or `.workflow/<workflow>:<tag>/`)
 
 ## Related Issues
 

@@ -163,16 +163,16 @@ context:
 context: false
 ```
 
-### Workflow Isolation
+### Multi-Instance Workflows
 
-Run multiple workflows in parallel:
+Run multiple instances of the same workflow using tags:
 
 ```bash
-agent-worker run review.yaml -w pr-123
-agent-worker run review.yaml -w pr-456
+agent-worker run review.yaml -w review:pr-123
+agent-worker run review.yaml -w review:pr-456
 ```
 
-Each workflow has isolated context at `.workflow/{workflow-name}/`.
+Each instance has isolated context at `.workflow/<workflow>/<tag>/`.
 
 ### Two Execution Modes
 
@@ -197,7 +197,7 @@ kickoff: |
   @reviewer please analyze
 ```
 
-Reserved variables: `${{ env.VAR }}`, `${{ workflow.name }}`
+Reserved variables: `${{ env.VAR }}`, `${{ workflow.name }}`, `${{ workflow.tag }}`
 
 ## Comparison with Claude Agent Teams
 
@@ -210,7 +210,7 @@ Claude recently released [Agent Teams](https://code.claude.com/docs/en/agent-tea
 | **Session resumption**    | ✓ File-based context survives   | ✗ In-process teammates can't resume |
 | **Backend support**       | Any MCP-compatible agent        | Claude Code only                    |
 | **Terminal requirements** | None                            | tmux/iTerm2 for split panes         |
-| **Parallel workflows**    | ✓ Workflow-based isolation      | ✗ One team per session              |
+| **Parallel instances**    | ✓ workflow:tag isolation        | ✗ One team per session              |
 | **Configuration**         | YAML workflow files             | Natural language prompts            |
 
 ### Why We Think Our Design is Better

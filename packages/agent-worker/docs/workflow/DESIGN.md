@@ -14,7 +14,7 @@ Agent Worker enables multiple AI agents to collaborate on tasks through a shared
 
 | Concept            | Description                                                   |
 | ------------------ | ------------------------------------------------------------- |
-| **Unified Naming** | `agent-name` (in main) or `agent-name@workflow` (in specific workflow) |
+| **Workflow:Tag**   | `agent@workflow:tag` syntax for multi-instance workflows      |
 | **Shared Context** | Channel (communication) + Document (workspace)                |
 | **Kickoff Model**  | Natural language workflow initiation via @mentions            |
 | **Two Modes**      | `run` (one-shot) and `start` (persistent)                     |
@@ -61,7 +61,7 @@ context:
   provider: file
   documentOwner: scribe  # Optional: single-writer for documents
   config:
-    dir: .workflow/${{ workflow }}/  # workflow is the instance name
+    dir: .workflow/${{ workflow.name }}/${{ workflow.tag }}/
 
 # Disable context
 context: false
@@ -125,7 +125,7 @@ Agents interact with three complementary context layers:
 Channel and Document are two **independent** systems:
 
 ```
-.workflow/<workflow-name>/
+.workflow/<workflow>/<tag>/
 ├── _state/                 # Internal state (system-managed)
 │   ├── inbox-state.json
 │   └── proposals.json
@@ -137,6 +137,11 @@ Channel and Document are two **independent** systems:
     │   └── auth-issues.md
     └── decisions.md        # Decision archive
 ```
+
+Example paths:
+- `.workflow/global/main/` - standalone agents (default)
+- `.workflow/review/main/` - review workflow, main tag
+- `.workflow/review/pr-123/` - review workflow, pr-123 tag
 
 ---
 
@@ -225,38 +230,45 @@ Same as run, but keeps running until `stop` command. Agents can continue collabo
 
 ```bash
 # One-shot execution
-agent-worker run review.yaml -w pr-123
+agent-worker run review.yaml -w review:pr-123
 
 # Persistent mode
-agent-worker start review.yaml -w pr-123 --background
+agent-worker start review.yaml -w review:pr-123 --background
 
 # Stop agents
-agent-worker stop -w pr-123          # All agents in workflow
-agent-worker stop reviewer@pr-123    # Specific agent
+agent-worker stop -w review:pr-123          # All agents in workflow:tag
+agent-worker stop reviewer@review:pr-123    # Specific agent
 
 # List running agents
-agent-worker ls                      # All workflows
-agent-worker ls -w pr-123            # Specific workflow
+agent-worker ls                             # All workflows
+agent-worker ls -w review:pr-123            # Specific workflow:tag
 
 # Send messages
-agent-worker send "@coder fix the bug" -w pr-123
-agent-worker send "@all sync up" -w pr-123
+agent-worker send "@coder fix the bug" -w review:pr-123
+agent-worker send "@all sync up" -w review:pr-123
 
 # Schedule commands
-agent-worker schedule reviewer set 30s
-agent-worker schedule reviewer@pr-123 set 5m
-agent-worker schedule @pr-123 set 1h  # Default for workflow
+agent-worker schedule alice set 30s                   # alice@global:main
+agent-worker schedule reviewer@review set 5m          # reviewer@review:main
+agent-worker schedule reviewer@review:pr-123 set 30s  # Full specification
+agent-worker schedule @review:pr-123 set 1h           # Workflow-level default
 ```
 
 ### Target Syntax
 
-| Pattern            | Meaning                      | Example                              |
-| ------------------ | ---------------------------- | ------------------------------------ |
-| `agent`            | Agent in `main` workflow     | `stop alice` → `alice@main`          |
-| `agent@workflow`   | Agent in specific workflow   | `stop alice@pr-123`                  |
-| `@workflow`        | Workflow itself (all agents) | `stop @pr-123` → all agents in pr-123|
+Full syntax: `agent@workflow:tag`
 
-The default workflow is `main`. Agents without `@workflow` belong to `main`.
+| Pattern                | Internal              | Display               | Meaning                          |
+| ---------------------- | --------------------- | --------------------- | -------------------------------- |
+| `alice`                | `alice@global:main`   | `alice`               | Standalone agent (global space)  |
+| `alice@review`         | `alice@review:main`   | `alice@review`        | Agent in review workflow         |
+| `alice@review:pr-123`  | `alice@review:pr-123` | `alice@review:pr-123` | Full specification               |
+| `@review`              | `@review:main`        | `@review`             | Workflow (default tag)           |
+| `@review:pr-123`       | `@review:pr-123`      | `@review:pr-123`      | Workflow:tag (full specification)|
+
+**Display rules**:
+- Omit `@global` for standalone agents (show `alice`, not `alice@global`)
+- Omit `:main` tag when it's the default (show `alice@review`, not `alice@review:main`)
 
 ---
 
