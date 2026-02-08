@@ -34,7 +34,13 @@ async function loadProvider(
           providerOptions.baseURL = options.baseURL;
         }
         if (options.apiKeyEnvVar) {
-          providerOptions.apiKey = process.env[options.apiKeyEnvVar];
+          const apiKey = process.env[options.apiKeyEnvVar];
+          if (!apiKey) {
+            throw new Error(
+              `Environment variable ${options.apiKeyEnvVar} is not set (required for ${name} provider)`,
+            );
+          }
+          providerOptions.apiKey = apiKey;
         }
         const provider = createProvider(providerOptions);
         providerCache[name] = provider;
@@ -161,7 +167,7 @@ export async function createModelAsync(modelId: string): Promise<LanguageModel> 
     minimax_cn: {
       package: "@ai-sdk/anthropic",
       export: "anthropic",
-      options: { baseURL: "https://api.minimaxi.com/anthropic", apiKeyEnvVar: "MINIMAX_CN_API_KEY" },
+      options: { baseURL: "https://api.minimaxi.com/anthropic", apiKeyEnvVar: "MINIMAX_API_KEY" },
     },
   };
 
