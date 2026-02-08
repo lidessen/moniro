@@ -200,7 +200,16 @@ describe('createContext', () => {
   test('creates context with workflow metadata', () => {
     const context = createContext('my-workflow', 'production')
     expect(context.workflow?.name).toBe('my-workflow')
-    expect(context.workflow?.instance).toBe('production')
+    expect(context.workflow?.tag).toBe('production') // New tag field
+    expect(context.workflow?.instance).toBe('production') // Backward compat
+  })
+
+  test('tag and instance fields are synchronized', () => {
+    const context = createContext('test-workflow', 'pr-123')
+    expect(context.workflow?.tag).toBe('pr-123')
+    expect(context.workflow?.instance).toBe('pr-123')
+    // Both should have the same value for backward compatibility
+    expect(context.workflow?.tag).toBe(context.workflow?.instance)
   })
 
   test('includes task outputs', () => {
@@ -523,6 +532,47 @@ context:
 
     const workflow = await parseWorkflowFile(workflowPath, { instance: 'pr-42' })
     expect((workflow.context as any).dir).toBe(join(testDir, '.ctx/pr-42/'))
+    expect((workflow.context as any).persistent).toBe(true)
+  })
+
+  test('parses config.bind with new tag parameter', async () => {
+    const workflowPath = join(testDir, 'bind-tag.yml')
+    writeFileSync(
+      workflowPath,
+      `agents:
+  a:
+    model: test
+    system_prompt: test
+context:
+  provider: file
+  config:
+    bind: .ctx/${'${{ workflow.tag }}'}/
+`
+    )
+
+    const workflow = await parseWorkflowFile(workflowPath, { tag: 'pr-123' })
+    expect((workflow.context as any).dir).toBe(join(testDir, '.ctx/pr-123/'))
+    expect((workflow.context as any).persistent).toBe(true)
+  })
+
+  test('supports workflow.name and workflow.tag templates', async () => {
+    const workflowPath = join(testDir, 'template-new.yml')
+    writeFileSync(
+      workflowPath,
+      `name: review
+agents:
+  a:
+    model: test
+    system_prompt: test
+context:
+  provider: file
+  config:
+    bind: ./data/${'${{ workflow.name }}'}/${'${{ workflow.tag }}'}/
+`
+    )
+
+    const workflow = await parseWorkflowFile(workflowPath, { tag: 'pr-456' })
+    expect((workflow.context as any).dir).toBe(join(testDir, './data/review/pr-456/'))
     expect((workflow.context as any).persistent).toBe(true)
   })
 
