@@ -289,7 +289,6 @@ async function runAgent(
     return { success: true, duration: Date.now() - startTime };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    log(`ERROR ${errorMsg}`);
     return { success: false, error: errorMsg, duration: Date.now() - startTime };
   }
 }
