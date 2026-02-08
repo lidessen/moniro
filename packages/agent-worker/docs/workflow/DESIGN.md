@@ -14,7 +14,7 @@ Agent Worker enables multiple AI agents to collaborate on tasks through a shared
 
 | Concept            | Description                                                   |
 | ------------------ | ------------------------------------------------------------- |
-| **Unified Naming** | `agent-name` (standalone) or `agent-name@instance` (workflow) |
+| **Unified Naming** | `agent-name` (in main) or `agent-name@workflow` (in specific workflow) |
 | **Shared Context** | Channel (communication) + Document (workspace)                |
 | **Kickoff Model**  | Natural language workflow initiation via @mentions            |
 | **Two Modes**      | `run` (one-shot) and `start` (persistent)                     |
@@ -61,7 +61,7 @@ context:
   provider: file
   documentOwner: scribe  # Optional: single-writer for documents
   config:
-    dir: .workflow/${{ instance }}/
+    dir: .workflow/${{ workflow }}/  # workflow is the instance name
 
 # Disable context
 context: false
@@ -125,7 +125,7 @@ Agents interact with three complementary context layers:
 Channel and Document are two **independent** systems:
 
 ```
-.workflow/instance/
+.workflow/<workflow-name>/
 ├── _state/                 # Internal state (system-managed)
 │   ├── inbox-state.json
 │   └── proposals.json
@@ -225,30 +225,38 @@ Same as run, but keeps running until `stop` command. Agents can continue collabo
 
 ```bash
 # One-shot execution
-agent-worker run review.yaml --instance pr-123
+agent-worker run review.yaml -w pr-123
 
 # Persistent mode
-agent-worker start review.yaml --background
+agent-worker start review.yaml -w pr-123 --background
 
 # Stop agents
-agent-worker stop @pr-123           # All agents in instance
-agent-worker stop reviewer@pr-123   # Specific agent
+agent-worker stop -w pr-123          # All agents in workflow
+agent-worker stop reviewer@pr-123    # Specific agent
 
 # List running agents
-agent-worker list
+agent-worker ls                      # All workflows
+agent-worker ls -w pr-123            # Specific workflow
 
 # Send messages
-agent-worker send "fix the bug" --to coder@pr-123
-agent-worker send "@all sync up" --to @pr-123
+agent-worker send "@coder fix the bug" -w pr-123
+agent-worker send "@all sync up" -w pr-123
+
+# Schedule commands
+agent-worker schedule reviewer set 30s
+agent-worker schedule reviewer@pr-123 set 5m
+agent-worker schedule @pr-123 set 1h  # Default for workflow
 ```
 
-### Send Target Patterns
+### Target Syntax
 
-| Pattern               | Target           | Effect             |
-| --------------------- | ---------------- | ------------------ |
-| `--to agent`          | Standalone       | Direct to inbox    |
-| `--to agent@instance` | Workflow agent   | Channel + @mention |
-| `--to @instance`      | Workflow channel | Broadcast          |
+| Pattern            | Meaning                      | Example                              |
+| ------------------ | ---------------------------- | ------------------------------------ |
+| `agent`            | Agent in `main` workflow     | `stop alice` → `alice@main`          |
+| `agent@workflow`   | Agent in specific workflow   | `stop alice@pr-123`                  |
+| `@workflow`        | Workflow itself (all agents) | `stop @pr-123` → all agents in pr-123|
+
+The default workflow is `main`. Agents without `@workflow` belong to `main`.
 
 ---
 

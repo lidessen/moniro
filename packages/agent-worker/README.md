@@ -15,18 +15,40 @@ bun add -g agent-worker
 ### CLI
 
 ```bash
-# Create a new agent
-agent-worker new -m anthropic/claude-sonnet-4-5
+# Create a new agent (in main workflow by default)
+agent-worker new alice -m anthropic/claude-sonnet-4-5
 
-# Send a message (async by default)
-agent-worker send "Analyze this codebase"
-
-# Wait for response
-agent-worker send "What is 2+2?" --wait
+# Send a message
+agent-worker send "@alice Analyze this codebase"
 
 # View messages
 agent-worker peek
+
+# Check status
+agent-worker status alice
 ```
+
+#### Working with Workflows
+
+Workflows are isolated namespaces for organizing agents:
+
+```bash
+# Create agents in a specific workflow
+agent-worker new reviewer -m anthropic/claude-sonnet-4-5 -w code-review
+agent-worker new coder -m anthropic/claude-sonnet-4-5 -w code-review
+
+# Send to specific workflow
+agent-worker send "@reviewer Check this PR" -w code-review
+
+# View workflow messages
+agent-worker peek -w code-review
+
+# Target syntax: agent@workflow
+agent-worker status reviewer@code-review
+agent-worker stop reviewer@code-review
+```
+
+The default workflow is `main`. Without `-w`, agents belong to `main`.
 
 ### SDK
 
