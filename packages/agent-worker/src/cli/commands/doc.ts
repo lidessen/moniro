@@ -67,7 +67,14 @@ export function registerDocCommands(program: Command) {
     });
 }
 
-async function resolveDir(workflow: string): Promise<string> {
+async function resolveDir(workflowInput: string): Promise<string> {
   const { getDefaultContextDir } = await import("@/workflow/context/file-provider.ts");
-  return getDefaultContextDir(workflow, workflow);
+  const { DEFAULT_TAG } = await import("../target.ts");
+
+  // Parse workflow:tag format
+  const colonIndex = workflowInput.indexOf(":");
+  const workflow = colonIndex === -1 ? workflowInput : workflowInput.slice(0, colonIndex);
+  const tag = colonIndex === -1 ? DEFAULT_TAG : workflowInput.slice(colonIndex + 1);
+
+  return getDefaultContextDir(workflow, tag);
 }

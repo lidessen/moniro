@@ -1,12 +1,13 @@
 import type { Command } from "commander";
 import { spawn } from "node:child_process";
+import { DEFAULT_WORKFLOW, DEFAULT_TAG } from "../target.ts";
 
 export function registerWorkflowCommands(program: Command) {
   // Run workflow
   program
     .command("run <file>")
     .description("Execute workflow and exit when complete")
-    .option("-w, --workflow <name>", "Workflow name", "default")
+    .option("-w, --workflow <name>", "Workflow name or workflow:tag", `${DEFAULT_WORKFLOW}`)
     .option("-d, --debug", "Show debug details (internal logs, MCP traces, idle checks)")
     .option("--feedback", "Enable feedback tool (agents can report tool/workflow observations)")
     .option("--json", "Output results as JSON")
@@ -20,15 +21,27 @@ Examples:
       const { parseWorkflowFile, runWorkflowWithControllers } =
         await import("@/workflow/index.ts");
 
+      // Parse workflow:tag format
+      const workflowInput = options.workflow;
+      const colonIndex = workflowInput.indexOf(":");
+      const workflowName = colonIndex === -1 ? workflowInput : workflowInput.slice(0, colonIndex);
+      const tag = colonIndex === -1 ? DEFAULT_TAG : workflowInput.slice(colonIndex + 1);
+
       try {
-        const workflow = await parseWorkflowFile(file, { instance: options.workflow });
+        const parsedWorkflow = await parseWorkflowFile(file, {
+          workflow: workflowName,
+          tag,
+          instance: workflowInput, // Backward compat
+        });
 
         // In JSON mode, route logs to stderr to keep stdout clean
         const log = options.json ? console.error : console.log;
 
         const result = await runWorkflowWithControllers({
-          workflow,
-          instance: options.workflow,
+          workflow: parsedWorkflow,
+          workflowName,
+          tag,
+          instance: workflowInput, // Backward compat
           debug: options.debug,
           log,
           mode: "run",
@@ -79,7 +92,7 @@ Examples:
   program
     .command("start <file>")
     .description("Start workflow and keep agents running")
-    .option("-w, --workflow <name>", "Workflow name", "default")
+    .option("-w, --workflow <name>", "Workflow name or workflow:tag", `${DEFAULT_WORKFLOW}`)
     .option("-d, --debug", "Show debug details (internal logs, MCP traces, idle checks)")
     .option("--feedback", "Enable feedback tool (agents can report tool/workflow observations)")
     .option("--background", "Run in background (daemonize)")
@@ -93,10 +106,16 @@ Examples:
       const { parseWorkflowFile, runWorkflowWithControllers } =
         await import("@/workflow/index.ts");
 
+      // Parse workflow:tag format
+      const workflowInput = options.workflow;
+      const colonIndex = workflowInput.indexOf(":");
+      const workflowName = colonIndex === -1 ? workflowInput : workflowInput.slice(0, colonIndex);
+      const tag = colonIndex === -1 ? DEFAULT_TAG : workflowInput.slice(colonIndex + 1);
+
       // Background mode: spawn detached process
       if (options.background) {
         const { getDefaultContextDir } = await import("@/workflow/context/file-provider.ts");
-        const contextDir = getDefaultContextDir(options.workflow, options.workflow);
+        const contextDir = getDefaultContextDir(workflowName, tag);
 
         const scriptPath = process.argv[1] ?? "";
         const args = [scriptPath, "start", file, "--workflow", options.workflow];
@@ -136,11 +155,17 @@ Examples:
       process.on("SIGTERM", cleanup);
 
       try {
-        const workflow = await parseWorkflowFile(file, { instance: options.workflow });
+        const parsedWorkflow = await parseWorkflowFile(file, {
+          workflow: workflowName,
+          tag,
+          instance: workflowInput, // Backward compat
+        });
 
         const result = await runWorkflowWithControllers({
-          workflow,
-          instance: options.workflow,
+          workflow: parsedWorkflow,
+          workflowName,
+          tag,
+          instance: workflowInput, // Backward compat
           debug: options.debug,
           log: console.log,
           mode: "start",
