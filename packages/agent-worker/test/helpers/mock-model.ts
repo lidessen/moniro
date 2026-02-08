@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Mock Model Helpers
  *
@@ -16,8 +15,12 @@ export function textModel(text: string, inputTokens = 10, outputTokens = 5) {
     doGenerate: {
       content: [{ type: 'text' as const, text }],
       finishReason: { unified: 'stop' as const, raw: 'stop' },
-      usage: { inputTokens, outputTokens },
-    },
+      usage: {
+        inputTokens: { total: inputTokens },
+        outputTokens: { total: outputTokens }
+      },
+      warnings: undefined,
+    } as const,
   })
 }
 
@@ -43,14 +46,22 @@ export function toolCallModel(
           },
         ],
         finishReason: { unified: 'tool-calls' as const, raw: 'tool_use' },
-        usage: { inputTokens: 20, outputTokens: 15 },
-      },
+        usage: {
+          inputTokens: { total: 20 },
+          outputTokens: { total: 15 }
+        },
+        warnings: undefined,
+      } as const,
       // Step 2: final text
       {
         content: [{ type: 'text' as const, text: finalText }],
         finishReason: { unified: 'stop' as const, raw: 'stop' },
-        usage: { inputTokens: 30, outputTokens: 10 },
-      },
+        usage: {
+          inputTokens: { total: 30 },
+          outputTokens: { total: 10 }
+        },
+        warnings: undefined,
+      } as const,
     ),
   })
 }
@@ -65,8 +76,12 @@ export function sequenceModel(responses: string[]) {
       ...responses.map((text) => ({
         content: [{ type: 'text' as const, text }],
         finishReason: { unified: 'stop' as const, raw: 'stop' },
-        usage: { inputTokens: 10, outputTokens: 5 },
-      })),
+        usage: {
+          inputTokens: { total: 10 },
+          outputTokens: { total: 5 }
+        },
+        warnings: undefined,
+      } as const)),
     ),
   })
 }

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, test, expect, afterEach } from 'bun:test'
 // ==================== Server Module Tests ====================
 
@@ -24,6 +23,12 @@ describe('Server Session Management', () => {
     backend: 'sdk',
     model: 'test-model',
     pidFile: `/tmp/test-${testSessionId}.pid`,
+    workflow: 'test',
+    tag: 'main',
+    contextDir: '/tmp/test',
+    system: 'Test system prompt',
+    readyFile: `/tmp/test-${testSessionId}.ready`,
+    createdAt: new Date().toISOString(),
   }
 
   afterEach(() => {
@@ -172,6 +177,12 @@ describe('CLI Command Logic', () => {
         backend: 'sdk',
         model: 'test',
         pidFile: `/tmp/${testId}.pid`,
+        workflow: 'test',
+        tag: 'main',
+        contextDir: '/tmp/test',
+        system: 'Test system prompt',
+        readyFile: `/tmp/${testId}.ready`,
+        createdAt: new Date().toISOString(),
       }
 
       registerSession(info)
@@ -199,6 +210,12 @@ describe('CLI Command Logic', () => {
         backend: 'sdk',
         model: 'test',
         pidFile: `/tmp/${id1}.pid`,
+        workflow: 'test',
+        tag: 'main',
+        contextDir: '/tmp/test',
+        system: 'Test system prompt',
+        readyFile: `/tmp/${id1}.ready`,
+        createdAt: new Date().toISOString(),
       })
 
       registerSession({
@@ -208,6 +225,12 @@ describe('CLI Command Logic', () => {
         backend: 'claude',
         model: 'test',
         pidFile: `/tmp/${id2}.pid`,
+        workflow: 'test',
+        tag: 'main',
+        contextDir: '/tmp/test',
+        system: 'Test system prompt',
+        readyFile: `/tmp/${id2}.ready`,
+        createdAt: new Date().toISOString(),
       })
 
       try {

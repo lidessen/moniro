@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Proposal & Voting System — Edge Case Tests
  *

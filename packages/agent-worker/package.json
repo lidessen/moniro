@@ -51,7 +51,7 @@
     "@ai-sdk/mistral": "^1.0.0",
     "@ai-sdk/openai": "^3.0.0",
     "@ai-sdk/xai": "^1.0.0",
-    "@types/bun": "latest",
+    "@types/bun": "^1.1.14",
     "@typescript/native-preview": "^7.0.0-dev.20260203.1",
     "oxfmt": "^0.28.0",
     "oxlint": "^1.43.0",

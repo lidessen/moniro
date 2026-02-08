@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { mkdirSync, rmSync, existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -62,6 +61,7 @@ describe('extractMentions', () => {
 describe('calculatePriority', () => {
   test('returns high for multiple mentions', () => {
     const entry: Message = {
+      id: 'test-id-1',
       timestamp: new Date().toISOString(),
       from: 'agent1',
       content: '@agent2 and @agent3 please help',
@@ -72,6 +72,7 @@ describe('calculatePriority', () => {
 
   test('returns high for urgent keyword', () => {
     const entry: Message = {
+      id: 'test-id-2',
       timestamp: new Date().toISOString(),
       from: 'agent1',
       content: '@agent2 this is urgent',
@@ -82,6 +83,7 @@ describe('calculatePriority', () => {
 
   test('returns high for asap keyword', () => {
     const entry: Message = {
+      id: 'test-id-3',
       timestamp: new Date().toISOString(),
       from: 'agent1',
       content: '@agent2 please do this ASAP',
@@ -92,6 +94,7 @@ describe('calculatePriority', () => {
 
   test('returns high for blocked keyword', () => {
     const entry: Message = {
+      id: 'test-id-4',
       timestamp: new Date().toISOString(),
       from: 'agent1',
       content: '@agent2 I am blocked on this',
@@ -102,6 +105,7 @@ describe('calculatePriority', () => {
 
   test('returns high for critical keyword', () => {
     const entry: Message = {
+      id: 'test-id-5',
       timestamp: new Date().toISOString(),
       from: 'agent1',
       content: '@agent2 critical issue found',
@@ -112,6 +116,7 @@ describe('calculatePriority', () => {
 
   test('returns normal for single mention without urgent keywords', () => {
     const entry: Message = {
+      id: 'test-id-6',
       timestamp: new Date().toISOString(),
       from: 'agent1',
       content: '@agent2 please review when you can',
@@ -122,6 +127,7 @@ describe('calculatePriority', () => {
 
   test('returns normal for no mentions', () => {
     const entry: Message = {
+      id: 'test-id-7',
       timestamp: new Date().toISOString(),
       from: 'agent1',
       content: 'Just a regular message',
@@ -162,8 +168,8 @@ describe('MemoryContextProvider', () => {
 
       const entries = await provider.readChannel()
       expect(entries).toHaveLength(2)
-      expect(entries[0].content).toBe('First')
-      expect(entries[1].content).toBe('Second')
+      expect(entries[0]!.content).toBe('First')
+      expect(entries[1]!.content).toBe('Second')
     })
 
     test('reads channel entries since timestamp', async () => {
@@ -175,7 +181,7 @@ describe('MemoryContextProvider', () => {
 
       const entries = await provider.readChannel({ since: second.timestamp })
       expect(entries).toHaveLength(1)
-      expect(entries[0].content).toBe('Third')
+      expect(entries[0]!.content).toBe('Third')
     })
 
     test('limits channel entries', async () => {
@@ -185,8 +191,8 @@ describe('MemoryContextProvider', () => {
 
       const entries = await provider.readChannel({ limit: 2 })
       expect(entries).toHaveLength(2)
-      expect(entries[0].content).toBe('Second')
-      expect(entries[1].content).toBe('Third')
+      expect(entries[0]!.content).toBe('Second')
+      expect(entries[1]!.content).toBe('Third')
     })
   })
 
@@ -197,8 +203,8 @@ describe('MemoryContextProvider', () => {
 
       const inbox = await provider.getInbox('agent2')
       expect(inbox).toHaveLength(2)
-      expect(inbox[0].entry.from).toBe('agent1')
-      expect(inbox[1].entry.from).toBe('agent3')
+      expect(inbox[0]!.entry.from).toBe('agent1')
+      expect(inbox[1]!.entry.from).toBe('agent3')
     })
 
     test('inbox messages have priority', async () => {
@@ -206,8 +212,8 @@ describe('MemoryContextProvider', () => {
       await provider.appendChannel('agent3', '@agent2 urgent: check this')
 
       const inbox = await provider.getInbox('agent2')
-      expect(inbox[0].priority).toBe('normal')
-      expect(inbox[1].priority).toBe('high')
+      expect(inbox[0]!.priority).toBe('normal')
+      expect(inbox[1]!.priority).toBe('high')
     })
 
     test('acknowledges inbox', async () => {
@@ -218,7 +224,7 @@ describe('MemoryContextProvider', () => {
 
       const inbox = await provider.getInbox('agent2')
       expect(inbox).toHaveLength(1)
-      expect(inbox[0].entry.from).toBe('agent3')
+      expect(inbox[0]!.entry.from).toBe('agent3')
     })
 
     test('returns empty for no mentions', async () => {
@@ -344,7 +350,7 @@ describe('MemoryContextProvider', () => {
       await provider.appendChannel('agent1', `Analysis complete. See [full report](${ref})`)
 
       const entries = await provider.readChannel()
-      expect(entries[0].content).toContain('resource:res_')
+      expect(entries[0]!.content).toContain('resource:res_')
     })
   })
 
@@ -415,23 +421,23 @@ describe('FileContextProvider', () => {
 
       const entries = await provider.readChannel()
       expect(entries).toHaveLength(2)
-      expect(entries[0].from).toBe('agent1')
-      expect(entries[0].content).toBe('First message')
-      expect(entries[1].from).toBe('agent2')
+      expect(entries[0]!.from).toBe('agent1')
+      expect(entries[0]!.content).toBe('First message')
+      expect(entries[1]!.from).toBe('agent2')
     })
 
     test('extracts mentions from channel', async () => {
       await provider.appendChannel('agent1', '@agent2 please review this')
 
       const entries = await provider.readChannel()
-      expect(entries[0].mentions).toEqual(['agent2'])
+      expect(entries[0]!.mentions).toEqual(['agent2'])
     })
 
     test('handles multiline messages', async () => {
       await provider.appendChannel('agent1', 'Line 1\nLine 2\nLine 3')
 
       const entries = await provider.readChannel()
-      expect(entries[0].content).toBe('Line 1\nLine 2\nLine 3')
+      expect(entries[0]!.content).toBe('Line 1\nLine 2\nLine 3')
     })
 
     test('returns empty for non-existent channel', async () => {
@@ -451,15 +457,15 @@ describe('FileContextProvider', () => {
 
       const inbox = await provider.getInbox('agent2')
       expect(inbox).toHaveLength(1)
-      expect(inbox[0].entry.from).toBe('agent1')
-      expect(inbox[0].priority).toBe('normal')
+      expect(inbox[0]!.entry.from).toBe('agent1')
+      expect(inbox[0]!.priority).toBe('normal')
     })
 
     test('inbox messages have priority for urgent keywords', async () => {
       await provider.appendChannel('agent1', '@agent2 urgent: check this')
 
       const inbox = await provider.getInbox('agent2')
-      expect(inbox[0].priority).toBe('high')
+      expect(inbox[0]!.priority).toBe('high')
     })
 
     test('persists inbox state to file', async () => {
@@ -592,7 +598,7 @@ describe('FileContextProvider', () => {
       await provider.appendChannel('agent1', `Analysis complete. See [full report](${ref})`)
 
       const entries = await provider.readChannel()
-      expect(entries[0].content).toContain('resource:res_')
+      expect(entries[0]!.content).toContain('resource:res_')
     })
   })
 })
@@ -719,7 +725,7 @@ describe('MCP Server Tools', () => {
       throw new Error(`Tool ${toolName} not found`)
     }
     const result = await tool.handler(args, extra || {})
-    const text = result.content[0].text
+    const text = result.content[0]!.text
     // Try to parse as JSON, return as-is if not JSON
     try {
       return JSON.parse(text)
@@ -751,8 +757,8 @@ describe('MCP Server Tools', () => {
       // Verify message in provider
       const entries = await provider.readChannel()
       expect(entries).toHaveLength(1)
-      expect(entries[0].from).toBe('agent1')
-      expect(entries[0].content).toBe('Hello world')
+      expect(entries[0]!.from).toBe('agent1')
+      expect(entries[0]!.content).toBe('Hello world')
     })
 
     test('extracts mentions from message', async () => {
@@ -769,7 +775,7 @@ describe('MCP Server Tools', () => {
       await callTool('channel_send', { message: 'Anonymous message' })
 
       const entries = await provider.readChannel()
-      expect(entries[0].from).toBe('anonymous')
+      expect(entries[0]!.from).toBe('anonymous')
     })
   })
 
@@ -784,8 +790,8 @@ describe('MCP Server Tools', () => {
       }>
 
       expect(result).toHaveLength(2)
-      expect(result[0].content).toBe('First')
-      expect(result[1].content).toBe('Second')
+      expect(result[0]!.content).toBe('First')
+      expect(result[1]!.content).toBe('Second')
     })
 
     test('reads entries since timestamp', async () => {
@@ -800,7 +806,7 @@ describe('MCP Server Tools', () => {
       })) as Array<{ content: string }>
 
       expect(result).toHaveLength(1)
-      expect(result[0].content).toBe('Third')
+      expect(result[0]!.content).toBe('Third')
     })
 
     test('limits entries', async () => {
@@ -884,8 +890,8 @@ describe('MCP Server Tools', () => {
 
       expect(result.count).toBe(2)
       expect(result.messages).toHaveLength(2)
-      expect(result.messages[0].from).toBe('agent1')
-      expect(result.messages[1].from).toBe('agent3')
+      expect(result.messages[0]!.from).toBe('agent1')
+      expect(result.messages[1]!.from).toBe('agent3')
     })
 
     test('includes priority in inbox messages', async () => {
@@ -896,8 +902,8 @@ describe('MCP Server Tools', () => {
         messages: Array<{ priority: string }>
       }
 
-      expect(result.messages[0].priority).toBe('normal')
-      expect(result.messages[1].priority).toBe('high')
+      expect(result.messages[0]!.priority).toBe('normal')
+      expect(result.messages[1]!.priority).toBe('high')
     })
 
     test('returns empty for no unread messages', async () => {
@@ -944,7 +950,7 @@ describe('MCP Server Tools', () => {
       // Check inbox - should only have second message
       const inbox = await provider.getInbox('agent2')
       expect(inbox).toHaveLength(1)
-      expect(inbox[0].entry.from).toBe('agent3')
+      expect(inbox[0]!.entry.from).toBe('agent3')
     })
 
     test('acknowledges all messages when using latest ID', async () => {

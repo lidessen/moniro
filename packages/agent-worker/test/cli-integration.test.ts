@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * CLI Integration Tests
  *
@@ -6,7 +5,7 @@
  * Uses a mock backend to avoid needing real cursor-agent/claude/codex
  */
 
-import { describe, test, expect, beforeEach, afterEach, afterAll } from 'bun:test'
+import { describe, test, expect, afterAll } from 'bun:test'
 import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import { existsSync, rmSync } from 'node:fs'

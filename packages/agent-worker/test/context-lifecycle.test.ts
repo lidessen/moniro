@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Context Lifecycle Tests
  *
@@ -16,7 +15,6 @@ import { tmpdir } from "node:os";
 
 import {
   MemoryContextProvider,
-  FileContextProvider,
   createFileContextProvider,
 } from "../src/workflow/context/index.ts";
 
@@ -131,10 +129,10 @@ describe("Cross-Instance Isolation", () => {
     const messagesB = await providerB.readChannel();
 
     expect(messagesA).toHaveLength(1);
-    expect(messagesA[0].content).toBe("Hello from instance A");
+    expect(messagesA[0]!.content).toBe("Hello from instance A");
 
     expect(messagesB).toHaveLength(1);
-    expect(messagesB[0].content).toBe("Hello from instance B");
+    expect(messagesB[0]!.content).toBe("Hello from instance B");
   });
 
   test("inbox state in instance A does not affect instance B", async () => {
@@ -147,12 +145,12 @@ describe("Cross-Instance Isolation", () => {
 
     // Acknowledge in instance A
     const inboxA = await providerA.getInbox("bob");
-    await providerA.ackInbox("bob", inboxA[0].entry.id);
+    await providerA.ackInbox("bob", inboxA[0]!.entry.id);
 
     // Instance B should still have unread messages
     const inboxB = await providerB.getInbox("bob");
     expect(inboxB).toHaveLength(1);
-    expect(inboxB[0].entry.content).toBe("@bob different task");
+    expect(inboxB[0]!.entry.content).toBe("@bob different task");
   });
 
   test("documents in instance A do not appear in instance B", async () => {
@@ -200,7 +198,7 @@ describe("Cross-Instance Isolation", () => {
     // Instance B channel should still have its messages
     const messagesB = await providerB.readChannel();
     expect(messagesB).toHaveLength(1);
-    expect(messagesB[0].content).toBe("@bob task B");
+    expect(messagesB[0]!.content).toBe("@bob task B");
   });
 });
 
@@ -232,8 +230,8 @@ describe("Resume Semantics", () => {
     const messages = await provider2.readChannel();
 
     expect(messages).toHaveLength(2);
-    expect(messages[0].content).toBe("First session message");
-    expect(messages[1].content).toBe("Response from first session");
+    expect(messages[0]!.content).toBe("First session message");
+    expect(messages[1]!.content).toBe("Response from first session");
   });
 
   test("new provider sees existing documents", async () => {
@@ -253,15 +251,15 @@ describe("Resume Semantics", () => {
 
     const messages = await provider2.readChannel();
     expect(messages).toHaveLength(2);
-    expect(messages[0].content).toBe("From session 1");
-    expect(messages[1].content).toBe("From session 2");
+    expect(messages[0]!.content).toBe("From session 1");
+    expect(messages[1]!.content).toBe("From session 2");
   });
 
   test("inbox state resets after destroy + reconnect", async () => {
     const provider1 = createFileContextProvider(testDir, ["alice", "bob"]);
     await provider1.appendChannel("alice", "@bob check this");
     const inbox1 = await provider1.getInbox("bob");
-    await provider1.ackInbox("bob", inbox1[0].entry.id);
+    await provider1.ackInbox("bob", inbox1[0]!.entry.id);
 
     // Verify bob has no unread messages
     expect(await provider1.getInbox("bob")).toHaveLength(0);
@@ -274,7 +272,7 @@ describe("Resume Semantics", () => {
     // Bob should see the message again since inbox state was cleared
     const inbox2 = await provider2.getInbox("bob");
     expect(inbox2).toHaveLength(1);
-    expect(inbox2[0].entry.content).toBe("@bob check this");
+    expect(inbox2[0]!.entry.content).toBe("@bob check this");
   });
 
   test("resources survive provider recreation", async () => {
@@ -489,7 +487,7 @@ describe("Bind (Persistent) Context", () => {
     expect(inbox1).toHaveLength(1);
 
     // Ack the message
-    await provider1.ackInbox("bob", inbox1[0].entry.id);
+    await provider1.ackInbox("bob", inbox1[0]!.entry.id);
     expect(await provider1.getInbox("bob")).toHaveLength(0);
 
     // Persistent shutdown: only release lock, don't destroy
@@ -514,7 +512,7 @@ describe("Bind (Persistent) Context", () => {
     const provider1 = createFileContextProvider(testDir, ["alice", "bob"]);
 
     await provider1.appendChannel("alice", "@bob review this");
-    await provider1.ackInbox("bob", (await provider1.getInbox("bob"))[0].entry.id);
+    await provider1.ackInbox("bob", (await provider1.getInbox("bob"))[0]!.entry.id);
     expect(await provider1.getInbox("bob")).toHaveLength(0);
 
     // Ephemeral shutdown: destroy clears inbox state
@@ -524,7 +522,7 @@ describe("Bind (Persistent) Context", () => {
     const provider2 = createFileContextProvider(testDir, ["alice", "bob"]);
     const inbox = await provider2.getInbox("bob");
     expect(inbox).toHaveLength(1);
-    expect(inbox[0].entry.content).toBe("@bob review this");
+    expect(inbox[0]!.entry.content).toBe("@bob review this");
   });
 
   test("persistent context accumulates channel history across runs", async () => {
@@ -542,9 +540,9 @@ describe("Bind (Persistent) Context", () => {
 
     const allMessages = await provider2.readChannel();
     expect(allMessages).toHaveLength(3);
-    expect(allMessages[0].content).toBe("Run 1: starting review");
-    expect(allMessages[1].content).toBe("Run 1: looks good");
-    expect(allMessages[2].content).toBe("Run 2: new feature added");
+    expect(allMessages[0]!.content).toBe("Run 1: starting review");
+    expect(allMessages[1]!.content).toBe("Run 1: looks good");
+    expect(allMessages[2]!.content).toBe("Run 2: new feature added");
 
     provider2.releaseLock();
   });
@@ -615,7 +613,7 @@ describe("DM Visibility Isolation", () => {
     // Charlie should only see the public message
     const charlieView = await provider.readChannel({ agent: "charlie" });
     expect(charlieView).toHaveLength(1);
-    expect(charlieView[0].content).toBe("Hello everyone");
+    expect(charlieView[0]!.content).toBe("Hello everyone");
 
     // Bob should see both
     const bobView = await provider.readChannel({ agent: "bob" });
@@ -647,7 +645,7 @@ describe("DM Visibility Isolation", () => {
     // Both agents should only see the public message
     const aliceView = await provider.readChannel({ agent: "alice" });
     expect(aliceView).toHaveLength(1);
-    expect(aliceView[0].content).toBe("Public message");
+    expect(aliceView[0]!.content).toBe("Public message");
 
     // Unfiltered view should see both
     const allEntries = await provider.readChannel();

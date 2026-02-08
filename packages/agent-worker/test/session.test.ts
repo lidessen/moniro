@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, test, expect } from 'bun:test'
 import { MockLanguageModelV3 } from 'ai/test'
 import { generateText, tool, jsonSchema } from 'ai'
@@ -9,8 +8,12 @@ function mockResponse(text: string, inputTokens = 10, outputTokens = 5) {
   return {
     content: [{ type: 'text' as const, text }],
     finishReason: { unified: 'stop' as const, raw: 'stop' },
-    usage: { inputTokens, outputTokens },
-  }
+    usage: {
+      inputTokens: { total: inputTokens },
+      outputTokens: { total: outputTokens }
+    },
+    warnings: undefined,
+  } as const
 }
 
 describe('AgentSession', () => {
@@ -72,7 +75,7 @@ describe('AgentSession', () => {
             },
             required: ['path'],
           }),
-          execute: async (args) => ({ content: `Content of ${(args as any).path}` }),
+          execute: async (args: { path: string }) => ({ content: `Content of ${args.path}` }),
         }),
       }
 
@@ -91,10 +94,10 @@ describe('AgentSession', () => {
             },
             required: ['location'],
           }),
-          execute: async (args) => ({
+          execute: async (args: { location: string }) => ({
             temperature: 72,
             conditions: 'sunny',
-            location: (args as any).location,
+            location: args.location,
           }),
         }),
       }
@@ -120,7 +123,7 @@ describe('AgentSession', () => {
               type: 'tool-call' as const,
               toolCallId: 'call-1',
               toolName: 'get_weather',
-              input: { location: 'San Francisco' },
+              input: JSON.stringify({ location: 'San Francisco' }),
             },
             {
               type: 'text' as const,
@@ -128,8 +131,12 @@ describe('AgentSession', () => {
             },
           ],
           finishReason: { unified: 'stop' as const, raw: 'stop' },
-          usage: { inputTokens: 20, outputTokens: 15 },
-        },
+          usage: {
+            inputTokens: { total: 20 },
+            outputTokens: { total: 15 }
+          },
+          warnings: undefined,
+        } as const,
       })
 
       const response = await generateText({
@@ -544,9 +551,9 @@ describe('AI SDK tool edge cases', () => {
           delay: { type: 'number' },
         },
       }),
-      execute: async (args) => {
+      execute: async (args: { delay: number }) => {
         await new Promise((r) => setTimeout(r, 1))
-        return { delayed: true, input: (args as any).delay }
+        return { delayed: true, input: args.delay }
       },
     })
 
@@ -846,9 +853,9 @@ describe('tool approval workflow', () => {
 
     const tools = session.getTools()
     expect(tools).toHaveLength(1)
-    expect(tools[0].name).toBe('my_tool')
-    expect(tools[0].description).toBe('A test tool')
-    expect(tools[0].needsApproval).toBe(true)
+    expect(tools[0]!.name).toBe('my_tool')
+    expect(tools[0]!.description).toBe('A test tool')
+    expect(tools[0]!.needsApproval).toBe(true)
     // execute should not be in the returned tools
     expect(tools[0]).not.toHaveProperty('execute')
   })
@@ -869,7 +876,7 @@ describe('tool approval workflow', () => {
 
     // Verify tool still listed
     const tools = session.getTools()
-    expect(tools[0].name).toBe('api_tool')
+    expect(tools[0]!.name).toBe('api_tool')
   })
 
   test('setMockResponse throws for non-existent tool', () => {
@@ -924,7 +931,7 @@ describe('tool approval workflow', () => {
 
     const pending = session.getPendingApprovals()
     expect(pending).toHaveLength(1)
-    expect(pending[0].toolName).toBe('tool1')
+    expect(pending[0]!.toolName).toBe('tool1')
   })
 
   test('approve with already approved throws', async () => {
@@ -1190,7 +1197,7 @@ describe('Backend factory', () => {
     const backends = await listBackends()
     expect(backends).toHaveLength(4)
     expect(backends.map((b) => b.type)).toEqual(['sdk', 'claude', 'codex', 'cursor'])
-    expect(backends[0].name).toBe('Vercel AI SDK')
+    expect(backends[0]!.name).toBe('Vercel AI SDK')
   })
 })
 

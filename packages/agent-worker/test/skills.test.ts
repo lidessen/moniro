@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { accessSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
@@ -72,8 +71,8 @@ describe('SkillsProvider', () => {
 
       const skills = provider.list()
       expect(skills).toHaveLength(1)
-      expect(skills[0].name).toBe('test-skill')
-      expect(skills[0].description).toBe('A test skill for validation')
+      expect(skills[0]!.name).toBe('test-skill')
+      expect(skills[0]!.description).toBe('A test skill for validation')
     })
 
     test('throws when SKILL.md not found', async () => {
@@ -120,7 +119,7 @@ description: Synchronous test skill
 
       const skills = provider.list()
       expect(skills).toHaveLength(1)
-      expect(skills[0].name).toBe('sync-skill')
+      expect(skills[0]!.name).toBe('sync-skill')
     })
   })
 
@@ -187,7 +186,7 @@ description: Skill found by sync scan
 
       const skills = provider.list()
       expect(skills).toHaveLength(1)
-      expect(skills[0].name).toBe('sync-scan-skill')
+      expect(skills[0]!.name).toBe('sync-scan-skill')
     })
   })
 
@@ -358,7 +357,7 @@ describe('createSkillsTool', () => {
     }
 
     expect(result.skills).toHaveLength(1)
-    expect(result.skills[0].name).toBe('test-skill')
+    expect(result.skills[0]!.name).toBe('test-skill')
   })
 
   test('list operation with no skills', async () => {
@@ -512,7 +511,7 @@ For details, see [references/advanced.md](references/advanced.md)
     const listResult = (await tool.execute!({ operation: 'list' })) as {
       skills: Array<{ name: string; description: string }>
     }
-    expect(listResult.skills[0].name).toBe('progressive-skill')
+    expect(listResult.skills[0]!.name).toBe('progressive-skill')
 
     // Step 2: View main skill
     const viewResult = (await tool.execute!({
@@ -844,7 +843,7 @@ describe('SkillsProvider with imported skills', () => {
 
     const skills = provider.list()
     expect(skills).toHaveLength(1)
-    expect(skills[0].name).toBe('test-skill')
+    expect(skills[0]!.name).toBe('test-skill')
   })
 
   test('addImportedSkillsSync loads skills synchronously', () => {
@@ -865,6 +864,6 @@ describe('SkillsProvider with imported skills', () => {
 
     const skills = provider.list()
     expect(skills).toHaveLength(1)
-    expect(skills[0].name).toBe('sync-skill')
+    expect(skills[0]!.name).toBe('sync-skill')
   })
 })

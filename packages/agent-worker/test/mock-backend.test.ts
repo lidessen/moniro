@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Mock Backend & Agent Identity Tests
  *

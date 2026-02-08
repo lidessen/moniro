@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
@@ -52,21 +51,21 @@ describe('interpolate', () => {
 
   test('interpolates workflow.name', () => {
     const context: VariableContext = {
-      workflow: { name: 'my-workflow', instance: 'default' },
+      workflow: { name: 'my-workflow', tag: 'default', instance: 'default' },
     }
     expect(interpolate('Workflow: ${{ workflow.name }}', context)).toBe('Workflow: my-workflow')
   })
 
   test('interpolates workflow.instance', () => {
     const context: VariableContext = {
-      workflow: { name: 'test', instance: 'prod' },
+      workflow: { name: 'test', tag: 'prod', instance: 'prod' },
     }
     expect(interpolate('Instance: ${{ workflow.instance }}', context)).toBe('Instance: prod')
   })
 
   test('handles unknown workflow fields', () => {
     const context: VariableContext = {
-      workflow: { name: 'test', instance: 'default' },
+      workflow: { name: 'test', tag: 'default', instance: 'default' },
     }
     expect(interpolate('${{ workflow.unknown }}', context)).toBe('${{ workflow.unknown }}')
   })
@@ -75,7 +74,7 @@ describe('interpolate', () => {
     const context: VariableContext = {
       output: 'result',
       env: { USER: 'testuser' },
-      workflow: { name: 'mixed', instance: 'dev' },
+      workflow: { name: 'mixed', tag: 'dev', instance: 'dev' },
     }
     const template = 'Output: ${{ output }}, User: ${{ env.USER }}, Workflow: ${{ workflow.name }}'
     expect(interpolate(template, context)).toBe('Output: result, User: testuser, Workflow: mixed')
@@ -648,7 +647,7 @@ describe('runWorkflow', () => {
         },
       },
       setup: [],
-      context: { dir: contextDir },
+      context: { provider: 'file', dir: contextDir },
       kickoff: '@agent1 please start working',
     }
 
@@ -679,7 +678,7 @@ describe('runWorkflow', () => {
       name: 'setup-test',
       filePath: 'test.yml',
       agents: { agent1: { model: 'test', resolvedSystemPrompt: 'test' } },
-      context: { dir: contextDir },
+      context: { provider: 'file', dir: contextDir },
       setup: [
         { shell: 'echo hello', as: 'greeting' },
         { shell: 'echo ${{ greeting }} world', as: 'full' },
@@ -708,7 +707,7 @@ describe('runWorkflow', () => {
       name: 'setup-fail-test',
       filePath: 'test.yml',
       agents: { agent1: { model: 'test', resolvedSystemPrompt: 'test' } },
-      context: { dir: contextDir },
+      context: { provider: 'file', dir: contextDir },
       setup: [{ shell: 'exit 1', as: 'fail' }],
       kickoff: 'This should not run',
     }

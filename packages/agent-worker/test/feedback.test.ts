@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Feedback Tool Tests
  */
@@ -47,11 +46,11 @@ describe('createFeedbackTool', () => {
 
       const entries = result.getFeedback()
       expect(entries).toHaveLength(1)
-      expect(entries[0].target).toBe('file-search')
-      expect(entries[0].type).toBe('missing')
-      expect(entries[0].description).toBe('Need a recursive grep tool')
-      expect(entries[0].timestamp).toBeTruthy()
-      expect(entries[0].context).toBeUndefined()
+      expect(entries[0]!.target).toBe('file-search')
+      expect(entries[0]!.type).toBe('missing')
+      expect(entries[0]!.description).toBe('Need a recursive grep tool')
+      expect(entries[0]!.timestamp).toBeTruthy()
+      expect(entries[0]!.context).toBeUndefined()
     })
 
     test('records optional context field', async () => {
@@ -65,7 +64,7 @@ describe('createFeedbackTool', () => {
       })
 
       const entries = result.getFeedback()
-      expect(entries[0].context).toBe('Running npm run build in a large monorepo')
+      expect(entries[0]!.context).toBe('Running npm run build in a large monorepo')
     })
 
     test('accepts all three valid types', async () => {
@@ -94,7 +93,7 @@ describe('createFeedbackTool', () => {
       })
 
       const entries = result.getFeedback()
-      expect(entries[0].type).toBe('suggestion')
+      expect(entries[0]!.type).toBe('suggestion')
     })
 
     test('accumulates multiple entries in order', async () => {
@@ -113,8 +112,8 @@ describe('createFeedbackTool', () => {
 
       const entries = result.getFeedback()
       expect(entries).toHaveLength(2)
-      expect(entries[0].target).toBe('a')
-      expect(entries[1].target).toBe('b')
+      expect(entries[0]!.target).toBe('a')
+      expect(entries[1]!.target).toBe('b')
     })
   })
 
@@ -133,8 +132,8 @@ describe('createFeedbackTool', () => {
       const entries = result.getFeedback()
       expect(entries).toHaveLength(50)
       // Oldest entries should have been evicted
-      expect(entries[0].target).toBe('tool-5')
-      expect(entries[49].target).toBe('tool-54')
+      expect(entries[0]!.target).toBe('tool-5')
+      expect(entries[49]!.target).toBe('tool-54')
     })
 
     test('respects custom maxEntries', async () => {
@@ -150,8 +149,8 @@ describe('createFeedbackTool', () => {
 
       const entries = result.getFeedback()
       expect(entries).toHaveLength(3)
-      expect(entries[0].target).toBe('t-2')
-      expect(entries[2].target).toBe('t-4')
+      expect(entries[0]!.target).toBe('t-2')
+      expect(entries[2]!.target).toBe('t-4')
     })
   })
 
@@ -169,7 +168,7 @@ describe('createFeedbackTool', () => {
       })
 
       expect(received).toHaveLength(1)
-      expect(received[0].target).toBe('readFile')
+      expect(received[0]!.target).toBe('readFile')
     })
   })
 
@@ -223,7 +222,7 @@ describe('createFeedbackTool', () => {
 
       const entries = result.getFeedback()
       expect(entries).toHaveLength(1)
-      expect(entries[0].target).toBe('new')
+      expect(entries[0]!.target).toBe('new')
     })
   })
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Controller Module Tests
  * Tests for agent controller, backend abstraction, and prompt building
@@ -80,12 +79,14 @@ describe('formatInbox', () => {
     const inbox: InboxMessage[] = [
       {
         entry: {
+          id: 'test-id-1',
           timestamp: '2024-01-15T10:30:45.123Z',
           from: 'alice',
           content: 'Hello @bob',
           mentions: ['bob'],
         },
         priority: 'normal',
+        seen: false,
       },
     ]
     const result = formatInbox(inbox)
@@ -99,12 +100,14 @@ describe('formatInbox', () => {
     const inbox: InboxMessage[] = [
       {
         entry: {
+          id: 'test-id-2',
           timestamp: '2024-01-15T10:30:45.123Z',
           from: 'alice',
           content: 'URGENT: @bob @charlie please review',
           mentions: ['bob', 'charlie'],
         },
         priority: 'high',
+        seen: false,
       },
     ]
     const result = formatInbox(inbox)
@@ -121,12 +124,14 @@ describe('formatChannel', () => {
   test('formats channel entries', () => {
     const entries: Message[] = [
       {
+        id: 'test-id-3',
         timestamp: '2024-01-15T10:30:45.123Z',
         from: 'alice',
         content: 'Starting review',
         mentions: [],
       },
       {
+        id: 'test-id-4',
         timestamp: '2024-01-15T10:31:00.000Z',
         from: 'bob',
         content: 'On it!',
@@ -153,16 +158,19 @@ describe('buildAgentPrompt', () => {
       inbox: [
         {
           entry: {
+            id: 'test-id-5',
             timestamp: '2024-01-15T10:30:45.123Z',
             from: 'alice',
             content: 'Please review this',
             mentions: ['reviewer'],
           },
           priority: 'normal',
+          seen: false,
         },
       ],
       recentChannel: [
         {
+          id: 'test-id-6',
           timestamp: '2024-01-15T10:30:45.123Z',
           from: 'alice',
           content: 'Please review this',
@@ -222,12 +230,14 @@ describe('buildAgentPrompt', () => {
       agent: mockAgent,
       inbox: [
         {
-          entry: { timestamp: '2024-01-15T10:30:45.123Z', from: 'a', content: 'm1', mentions: [] },
+          entry: { id: 'test-id-7', timestamp: '2024-01-15T10:30:45.123Z', from: 'a', content: 'm1', mentions: [] },
           priority: 'normal',
+          seen: false,
         },
         {
-          entry: { timestamp: '2024-01-15T10:31:00.000Z', from: 'b', content: 'm2', mentions: [] },
+          entry: { id: 'test-id-8', timestamp: '2024-01-15T10:31:00.000Z', from: 'b', content: 'm2', mentions: [] },
           priority: 'normal',
+          seen: false,
         },
       ],
       recentChannel: [],
@@ -283,6 +293,8 @@ describe('createAgentController', () => {
       contextProvider: provider,
       mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
+      workspaceDir: '/tmp/workspace',
+      projectDir: '/tmp/project',
     })
 
     expect(controller.name).toBe('agent1')
@@ -302,6 +314,8 @@ describe('createAgentController', () => {
       contextProvider: provider,
       mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
+      workspaceDir: '/tmp/workspace',
+      projectDir: '/tmp/project',
       pollInterval: 100,
     })
 
@@ -336,6 +350,8 @@ describe('createAgentController', () => {
       contextProvider: provider,
       mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
+      workspaceDir: '/tmp/workspace',
+      projectDir: '/tmp/project',
       pollInterval: 50,
     })
 
@@ -374,6 +390,8 @@ describe('createAgentController', () => {
       contextProvider: provider,
       mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
+      workspaceDir: '/tmp/workspace',
+      projectDir: '/tmp/project',
       pollInterval: 50,
       retry: { maxAttempts: 2, backoffMs: 10, backoffMultiplier: 1 },
     })
@@ -416,6 +434,8 @@ describe('createAgentController', () => {
       contextProvider: provider,
       mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
+      workspaceDir: '/tmp/workspace',
+      projectDir: '/tmp/project',
       pollInterval: 5000, // Long poll interval
     })
 
@@ -446,6 +466,8 @@ describe('createAgentController', () => {
       contextProvider: provider,
       mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
+      workspaceDir: '/tmp/workspace',
+      projectDir: '/tmp/project',
       pollInterval: 100,
     })
 
@@ -471,6 +493,8 @@ describe('createAgentController', () => {
       contextProvider: provider,
       mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
+      workspaceDir: '/tmp/workspace',
+      projectDir: '/tmp/project',
       pollInterval: 50,
       onRunComplete: (result) => {
         completedResult = result
@@ -510,6 +534,8 @@ describe('checkWorkflowIdle', () => {
       contextProvider: provider,
       mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
+      workspaceDir: '/tmp/workspace',
+      projectDir: '/tmp/project',
       pollInterval: 1000,
     })
 
@@ -519,6 +545,8 @@ describe('checkWorkflowIdle', () => {
       contextProvider: provider,
       mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
+      workspaceDir: '/tmp/workspace',
+      projectDir: '/tmp/project',
       pollInterval: 1000,
     })
 
@@ -553,6 +581,8 @@ describe('checkWorkflowIdle', () => {
       contextProvider: provider,
       mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
+      workspaceDir: '/tmp/workspace',
+      projectDir: '/tmp/project',
       pollInterval: 10000, // Long poll so it doesn't process
     })
 
@@ -658,6 +688,8 @@ describe('buildWorkflowIdleState', () => {
       contextProvider: provider,
       mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
+      workspaceDir: '/tmp/workspace',
+      projectDir: '/tmp/project',
       pollInterval: 5000,
     })
 
@@ -688,6 +720,8 @@ describe('buildWorkflowIdleState', () => {
       contextProvider: provider,
       mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: mockBackend,
+      workspaceDir: '/tmp/workspace',
+      projectDir: '/tmp/project',
       pollInterval: 10000,
     })
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Workflow Simulation Tests
  * E2E tests that simulate multi-agent collaboration
@@ -121,6 +120,8 @@ describe('Workflow Simulation', () => {
       contextProvider: provider,
       mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: reviewerBackend,
+      workspaceDir: '/tmp/workspace',
+      projectDir: '/tmp/project',
       pollInterval: 30,
     })
 
@@ -130,6 +131,8 @@ describe('Workflow Simulation', () => {
       contextProvider: provider,
       mcpUrl: 'http://127.0.0.1:0/mcp',
       backend: coderBackend,
+      workspaceDir: '/tmp/workspace',
+      projectDir: '/tmp/project',
       pollInterval: 30,
     })
 

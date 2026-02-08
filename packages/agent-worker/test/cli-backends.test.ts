@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * CLI Backend Tests
  *
