@@ -307,9 +307,14 @@ export function registerAgentCommands(program: Command) {
   program
     .command("use <target>")
     .description("Set default agent")
-    .action((target) => {
+    .option("--json", "Output as JSON")
+    .action((target, options) => {
       if (setDefaultSession(target)) {
-        console.log(`Default agent set to: ${target}`);
+        if (options.json) {
+          outputJson({ target });
+        } else {
+          console.log(`Default agent set to: ${target}`);
+        }
       } else {
         console.error(`Agent not found: ${target}`);
         process.exit(1);
@@ -351,6 +356,7 @@ export function registerAgentCommands(program: Command) {
     .description("Set wakeup schedule (ms number, duration 30s/5m/2h, or cron expression)")
     .option("-p, --prompt <prompt>", "Custom wakeup prompt")
     .option("--to <target>", "Target agent")
+    .option("--json", "Output as JSON")
     .action(async (wakeup, options) => {
       // Parse as number if it looks like one
       const wakeupValue = /^\d+$/.test(wakeup) ? parseInt(wakeup, 10) : wakeup;
@@ -363,9 +369,13 @@ export function registerAgentCommands(program: Command) {
         options.to,
       );
       if (res.success) {
-        console.log(`Wakeup set: ${wakeup}`);
-        if (options.prompt) {
-          console.log(`Prompt: ${options.prompt}`);
+        if (options.json) {
+          outputJson({ wakeup: wakeupValue, prompt: options.prompt || null });
+        } else {
+          console.log(`Wakeup set: ${wakeup}`);
+          if (options.prompt) {
+            console.log(`Prompt: ${options.prompt}`);
+          }
         }
       } else {
         console.error("Error:", res.error);
@@ -376,10 +386,15 @@ export function registerAgentCommands(program: Command) {
   scheduleCmd
     .command("clear [target]")
     .description("Remove scheduled wakeup")
-    .action(async (target) => {
+    .option("--json", "Output as JSON")
+    .action(async (target, options) => {
       const res = await sendRequest({ action: "schedule_clear" }, target);
       if (res.success) {
-        console.log("Schedule cleared");
+        if (options.json) {
+          outputJson({ success: true });
+        } else {
+          console.log("Schedule cleared");
+        }
       } else {
         console.error("Error:", res.error);
         process.exit(1);

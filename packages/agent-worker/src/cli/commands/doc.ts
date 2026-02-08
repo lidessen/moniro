@@ -29,6 +29,8 @@ export function registerDocCommands(program: Command) {
       }
       if (!content) {
         console.error("Provide --content or --file");
+        console.error("Example: agent-worker doc write -w my-workflow --content 'Document content'");
+        console.error("Or:      agent-worker doc write -w my-workflow --file content.txt");
         process.exit(1);
       }
 
@@ -43,7 +45,7 @@ export function registerDocCommands(program: Command) {
     .command("append")
     .description("Append content to the workflow document")
     .requiredOption("-w, --workflow <name>", "Workflow name")
-    .option("--content <text>", "Content to append")
+    .option("--content <text>", "Content to append (use $'...' for newlines in bash)")
     .option("--file <path>", "Read content from file")
     .action(async (options) => {
       let content = options.content;
@@ -52,6 +54,8 @@ export function registerDocCommands(program: Command) {
       }
       if (!content) {
         console.error("Provide --content or --file");
+        console.error("Example: agent-worker doc append -w my-workflow --content $'\\nNew line'");
+        console.error("Or:      agent-worker doc append -w my-workflow --file content.txt");
         process.exit(1);
       }
 
