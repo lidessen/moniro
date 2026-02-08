@@ -45,16 +45,29 @@ agent-worker status alice
 
 ### Organizing Agents
 
-Agents can be grouped into **workflows** without defining coordination:
+Agents can be grouped into **workflows** by defining them in YAML:
+
+```yaml
+# review.yaml
+agents:
+  reviewer:
+    backend: claude
+    system_prompt: You are a code reviewer.
+
+  coder:
+    backend: cursor
+    system_prompt: You are a code implementer.
+```
 
 ```bash
-# Create agents in the same workflow namespace
-agent-worker new reviewer -m anthropic/claude-sonnet-4-5 -w review
-agent-worker new coder -m anthropic/claude-sonnet-4-5 -w review
+# Run workflow agents
+agent-worker run review.yaml -w review
 
-# Send to specific agent
+# Send to specific agent in workflow
 agent-worker send reviewer@review "Check this code"
 ```
+
+**Note**: Agent Mode (`agent-worker new`) only creates standalone agents in the global workflow. For coordinated agents in named workflows, use Workflow Mode (YAML files).
 
 ### Multiple Instances (workflow:tag)
 
@@ -62,26 +75,29 @@ Run multiple isolated instances of the same workflow using **tags**:
 
 ```bash
 # Different PRs, isolated contexts
-agent-worker new reviewer -w review:pr-123
-agent-worker new reviewer -w review:pr-456
+agent-worker run review.yaml -w review:pr-123
+agent-worker run review.yaml -w review:pr-456
 
 # Each has its own conversation history
 agent-worker send reviewer@review:pr-123 "LGTM"
 agent-worker peek @review:pr-123  # Only sees pr-123 messages
 ```
 
-**Tag syntax**:
-- `alice` → standalone agent (global space)
-- `alice -w review` → `alice@review:main` (default tag: main)
-- `alice -w review:pr-123` → full specification
+**Target syntax** (used in send/peek/ls/stop commands):
+- `alice` → alice@global:main (standalone agent)
+- `alice@review` → alice@review:main (agent in review workflow)
+- `alice@review:pr-123` → full specification
+- `@review` → review workflow (for broadcast or listing)
+- `@review:pr-123` → specific workflow instance
 
 ### Agent Commands
 
 ```bash
 # Lifecycle
-agent-worker new <name> [options]        # Create agent
+agent-worker new <name> [options]        # Create standalone agent
 agent-worker stop <target>               # Stop agent
-agent-worker ls [-w workflow]            # List agents
+agent-worker ls [target]                 # List agents (default: global)
+agent-worker ls --all                    # List all agents from all workflows
 agent-worker status <target>             # Check agent status
 
 # Interaction
@@ -122,7 +138,11 @@ agent-worker send a0 "Hello"
 
 **Scheduled agent (runs every 30s when idle):**
 ```bash
-agent-worker new monitor -w ci --wakeup 30s --prompt "Check CI status"
+# Standalone agent with wakeup schedule
+agent-worker new monitor --wakeup 30s --prompt "Check CI status"
+
+# Or schedule existing agent
+agent-worker schedule monitor set 30s --prompt "Check CI status"
 ```
 
 **Send to workflow (broadcast or @mention):**
@@ -252,7 +272,7 @@ agent-worker start <file> --background                # Daemon mode
 agent-worker stop @<workflow:tag>                     # Stop workflow
 
 # Monitoring
-agent-worker ls -w <workflow:tag>        # List agents in workflow
+agent-worker ls @<workflow:tag>          # List agents in workflow
 agent-worker peek @<workflow:tag>        # View channel messages
 agent-worker doc read @<workflow:tag>    # Read shared document
 

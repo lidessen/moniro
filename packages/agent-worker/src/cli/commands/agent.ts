@@ -40,7 +40,6 @@ async function createAgentAction(
     skillDir?: string[];
     importSkill?: string[];
     foreground?: boolean;
-    workflow?: string;
     json?: boolean;
     feedback?: boolean;
     wakeup?: string;
@@ -56,34 +55,10 @@ async function createAgentAction(
   const model = options.model || getDefaultModel();
   const idleTimeout = parseInt(options.idleTimeout ?? "1800000", 10);
 
-  // Parse workflow:tag format from -w parameter
-  let workflow = DEFAULT_WORKFLOW;
-  let tag = DEFAULT_TAG;
-
-  if (options.workflow) {
-    // Support both "workflow" and "workflow:tag" formats
-    const colonIndex = options.workflow.indexOf(":");
-    if (colonIndex === -1) {
-      workflow = options.workflow;
-    } else {
-      workflow = options.workflow.slice(0, colonIndex) || DEFAULT_WORKFLOW;
-      tag = options.workflow.slice(colonIndex + 1) || DEFAULT_TAG;
-    }
-
-    // Validate workflow and tag names
-    if (!isValidName(workflow)) {
-      console.error(`Invalid workflow name: ${workflow}`);
-      console.error("Workflow names must be alphanumeric, hyphen, underscore, or dot");
-      process.exit(1);
-    }
-    if (!isValidName(tag)) {
-      console.error(`Invalid tag name: ${tag}`);
-      console.error("Tag names must be alphanumeric, hyphen, underscore, or dot");
-      process.exit(1);
-    }
-  }
-
-  const instance = options.workflow || DEFAULT_INSTANCE; // Backward compat
+  // Agent Mode only creates standalone agents in global workflow
+  const workflow = DEFAULT_WORKFLOW;
+  const tag = DEFAULT_TAG;
+  const instance = DEFAULT_INSTANCE; // Backward compat
 
   // Auto-generate name if not provided (a0, a1, ..., z9)
   const agentName = name || generateAutoName();
@@ -123,9 +98,6 @@ async function createAgentAction(
   } else {
     const scriptPath = process.argv[1] ?? "";
     const args = [scriptPath, "new", agentName, "-m", model, "-b", backend, "-s", system, "--foreground"];
-    // Pass workflow:tag format or just workflow
-    const workflowArg = tag === DEFAULT_TAG ? workflow : `${workflow}:${tag}`;
-    args.push("--workflow", workflowArg);
     args.push("--idle-timeout", String(idleTimeout));
     if (options.feedback) {
       args.push("--feedback");
@@ -183,22 +155,25 @@ async function createAgentAction(
 }
 
 // Common action for listing agents
-function listAgentsAction(options?: { json?: boolean; workflow?: string }) {
+function listAgentsAction(targetInput?: string, options?: { json?: boolean; all?: boolean }) {
   let sessions = listSessions();
 
-  // Filter by workflow if specified (support both workflow and workflow:tag)
-  if (options?.workflow) {
-    const colonIndex = options.workflow.indexOf(":");
-    if (colonIndex === -1) {
-      // Just workflow name, match any tag
-      sessions = sessions.filter((s) => s.workflow === options.workflow || s.instance === options.workflow);
-    } else {
-      // workflow:tag format
-      const workflow = options.workflow.slice(0, colonIndex);
-      const tag = options.workflow.slice(colonIndex + 1);
-      sessions = sessions.filter((s) => s.workflow === workflow && s.tag === tag);
-    }
+  // Filter by target if specified (unless --all is used)
+  if (!options?.all && targetInput) {
+    const target = parseTarget(targetInput);
+    sessions = sessions.filter((s) => {
+      const sessionWorkflow = s.workflow || s.instance || DEFAULT_WORKFLOW;
+      const sessionTag = s.tag || DEFAULT_TAG;
+      return sessionWorkflow === target.workflow && sessionTag === target.tag;
+    });
+  } else if (!options?.all && !targetInput) {
+    // Default: show global workflow only
+    sessions = sessions.filter((s) => {
+      const sessionWorkflow = s.workflow || s.instance || DEFAULT_WORKFLOW;
+      return sessionWorkflow === DEFAULT_WORKFLOW;
+    });
   }
+  // If --all is specified, show all sessions (no filter)
 
   if (options?.json) {
     outputJson(
@@ -300,7 +275,6 @@ function addNewCommandOptions(cmd: Command): Command {
     .option("--feedback", "Enable feedback tool (agent can report tool/workflow observations)")
     .option("--wakeup <value>", "Scheduled wakeup: ms number, duration (30s/5m/2h), or cron expr")
     .option("--wakeup-prompt <prompt>", "Custom prompt for scheduled wakeup")
-    .option("-w, --workflow <name>", "Workflow namespace (agents in same workflow share context)")
     .option("--foreground", "Run in foreground")
     .option("--json", "Output as JSON");
 }
@@ -313,21 +287,31 @@ export function registerAgentCommands(program: Command) {
   // `new` — create agent
   addNewCommandOptions(
     program.command("new [name]")
-      .description("Create a new agent (auto-names if omitted: a0, a1, ...)")
+      .description("Create a new standalone agent (auto-names if omitted: a0, a1, ...)")
       .addHelpText('after', `
 Examples:
-  $ agent-worker new alice -m anthropic/claude-sonnet-4-5          # Standalone agent
-  $ agent-worker new reviewer -m anthropic/claude-sonnet-4-5 -w review  # Agent in workflow
-  $ agent-worker new -b mock                                       # Quick testing without API key
+  $ agent-worker new alice -m anthropic/claude-sonnet-4-5    # Create standalone agent
+  $ agent-worker new -b mock                                 # Quick testing without API key
+  $ agent-worker new monitor --wakeup 30s                    # Agent with scheduled wakeup
+
+Note: Agent Mode creates standalone agents in the global workflow.
+      For coordinated multi-agent workflows, use Workflow Mode (YAML files).
       `),
   ).action(createAgentAction);
 
   // `ls` — list agents
   program
-    .command("ls")
-    .description("List all agents")
+    .command("ls [target]")
+    .description("List agents (default: global workflow)")
     .option("--json", "Output as JSON")
-    .option("-w, --workflow <name>", "Filter by workflow")
+    .option("--all", "Show agents from all workflows")
+    .addHelpText('after', `
+Examples:
+  $ agent-worker ls                # List global workflow agents (default)
+  $ agent-worker ls @review        # List review workflow agents
+  $ agent-worker ls @review:pr-123 # List specific workflow:tag agents
+  $ agent-worker ls --all          # List all agents from all workflows
+    `)
     .action(listAgentsAction);
 
   // `stop` — stop agent(s)

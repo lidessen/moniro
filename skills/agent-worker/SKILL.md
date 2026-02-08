@@ -56,29 +56,43 @@ agent-worker stop a0 coder
 
 ### Organizing Agents (workflow:tag)
 
-Group agents into **workflows** for context isolation:
+Group agents into **workflows** using YAML definitions:
+
+```yaml
+# review.yaml
+agents:
+  reviewer:
+    backend: claude
+    system_prompt: You are a code reviewer.
+  coder:
+    backend: cursor
+    system_prompt: You fix issues.
+```
 
 ```bash
-# Create agents in the same workflow
-agent-worker new reviewer -w review
-agent-worker new coder -w review
+# Run workflow agents
+agent-worker run review.yaml -w review
 
 # Send to specific agent in workflow
 agent-worker send reviewer@review "Check this code"
 
 # Multiple isolated instances (tags)
-agent-worker new reviewer -w review:pr-123
-agent-worker new reviewer -w review:pr-456
+agent-worker run review.yaml -w review:pr-123
+agent-worker run review.yaml -w review:pr-456
 
 # Each tag has independent context
 agent-worker send reviewer@review:pr-123 "LGTM"
 agent-worker peek @review:pr-123  # Only sees pr-123 messages
 ```
 
-**Tag syntax**:
+**Note**: `agent-worker new` only creates standalone agents in the global workflow. Use YAML for workflow agents.
+
+**Target syntax**:
 - `alice` → standalone (`alice@global:main`)
-- `alice -w review` → `alice@review:main` (default tag)
-- `alice -w review:pr-123` → full specification
+- `alice@review` → agent in review workflow (`alice@review:main`)
+- `alice@review:pr-123` → full specification
+- `@review` → workflow reference (for broadcast/listing)
+- `@review:pr-123` → specific workflow instance
 
 **Context isolation**:
 ```
@@ -92,8 +106,9 @@ agent-worker peek @review:pr-123  # Only sees pr-123 messages
 
 ```bash
 # Lifecycle
-agent-worker new [name] [options]        # Create agent
-agent-worker ls [-w workflow:tag]        # List agents
+agent-worker new [name] [options]        # Create standalone agent
+agent-worker ls [target]                 # List agents (default: global)
+agent-worker ls --all                    # List all agents from all workflows
 agent-worker status <target>             # Check status
 agent-worker stop <target>               # Stop agent
 agent-worker stop -w <workflow:tag>      # Stop all in workflow
@@ -139,15 +154,27 @@ agent-worker send a0 "Hello"
 
 **Scheduled monitoring agent:**
 ```bash
-agent-worker new monitor -w ci:staging --wakeup 30s --prompt "Check CI status"
+agent-worker new monitor --wakeup 30s --prompt "Check CI status"
 ```
 
-**Multi-agent code review (manual):**
+**Multi-agent code review (using YAML workflow):**
+```yaml
+# review.yaml
+agents:
+  reviewer:
+    backend: claude
+    system_prompt: You are a code reviewer.
+  coder:
+    backend: cursor
+    system_prompt: You fix issues.
+```
+
 ```bash
-agent-worker new reviewer -w review:pr-123
-agent-worker new coder -w review:pr-123
+# Run workflow
+agent-worker run review.yaml -w review:pr-123
+
+# Interact with agents
 agent-worker send reviewer@review:pr-123 "Review recent changes"
-# Reviewer responds, mentions @coder
 agent-worker peek @review:pr-123
 ```
 
