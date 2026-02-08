@@ -39,6 +39,7 @@ async function createAgentAction(
     skill?: string[];
     skillDir?: string[];
     importSkill?: string[];
+    tool?: string;
     foreground?: boolean;
     json?: boolean;
     feedback?: boolean;
@@ -92,6 +93,7 @@ async function createAgentAction(
       skills: options.skill,
       skillDirs: options.skillDir,
       importSkills: options.importSkill,
+      tool: options.tool,
       feedback: options.feedback,
       schedule,
     });
@@ -116,6 +118,9 @@ async function createAgentAction(
       for (const spec of options.importSkill) {
         args.push("--import-skill", spec);
       }
+    }
+    if (options.tool) {
+      args.push("--tool", options.tool);
     }
     if (options.wakeup) {
       args.push("--wakeup", options.wakeup);
@@ -272,6 +277,7 @@ function addNewCommandOptions(cmd: Command): Command {
     .option("--skill <path...>", "Add individual skill directories")
     .option("--skill-dir <path...>", "Scan directories for skills")
     .option("--import-skill <spec...>", "Import skills from Git (owner/repo:{skill1,skill2})")
+    .option("--tool <file>", "Import MCP tools from file (SDK backend only)")
     .option("--feedback", "Enable feedback tool (agent can report tool/workflow observations)")
     .option("--wakeup <value>", "Scheduled wakeup: ms number, duration (30s/5m/2h), or cron expr")
     .option("--wakeup-prompt <prompt>", "Custom prompt for scheduled wakeup")

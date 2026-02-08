@@ -380,6 +380,7 @@ export async function startDaemon(config: {
   skills?: string[];
   skillDirs?: string[];
   importSkills?: string[];
+  tool?: string;
   feedback?: boolean;
   schedule?: ScheduleConfig;
 }): Promise<void> {
@@ -400,6 +401,23 @@ export async function startDaemon(config: {
     config.skillDirs,
     config.importSkills,
   );
+
+  // Import MCP tools if specified
+  if (config.tool) {
+    const toolPath = config.tool.startsWith("/") ? config.tool : join(process.cwd(), config.tool);
+    try {
+      const module = await import(toolPath);
+      // Support array of tools or object with tools
+      const toolsList = Array.isArray(module.default) ? module.default : module.default?.tools || [];
+      for (const toolDef of toolsList) {
+        if (toolDef && toolDef.name) {
+          tools[toolDef.name] = toolDef;
+        }
+      }
+    } catch (error) {
+      console.error(`Failed to import tools from ${config.tool}:`, error);
+    }
+  }
 
   // Setup feedback tool if enabled
   let getFeedback: (() => FeedbackEntry[]) | undefined;

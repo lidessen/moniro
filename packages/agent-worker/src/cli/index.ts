@@ -12,6 +12,8 @@ import { registerWorkflowCommands } from "./commands/workflow.ts";
 import { registerApprovalCommands } from "./commands/approval.ts";
 import { registerInfoCommands } from "./commands/info.ts";
 import { registerDocCommands } from "./commands/doc.ts";
+import { registerMockCommands } from "./commands/mock.ts";
+import { registerFeedbackCommand } from "./commands/feedback.ts";
 
 const program = new Command();
 
@@ -22,7 +24,9 @@ program
 
 registerAgentCommands(program);
 registerSendCommands(program);
-registerToolCommands(program);
+registerMockCommands(program);
+registerFeedbackCommand(program);
+registerToolCommands(program);  // TODO: Remove deprecated commands
 registerWorkflowCommands(program);
 registerApprovalCommands(program);
 registerInfoCommands(program);
