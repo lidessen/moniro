@@ -174,24 +174,25 @@ export function startChannelWatcher(config: ChannelWatcherConfig): ChannelWatche
     pollInterval = 500,
   } = config;
 
-  let lastTimestamp: string | undefined;
+  // Track by ID set to avoid skipping entries that share the same
+  // millisecond timestamp (e.g. a debug log + channel_send firing together).
+  const seenIds = new Set<string>();
   let running = true;
 
   const poll = async () => {
     while (running) {
       try {
-        const entries = await contextProvider.readChannel({ since: lastTimestamp });
+        const entries = await contextProvider.readChannel();
         for (const entry of entries) {
-          if (lastTimestamp && entry.timestamp <= lastTimestamp) continue;
+          if (seenIds.has(entry.id)) continue;
+          seenIds.add(entry.id);
 
           // Filter: skip debug entries unless --debug
           if (entry.kind === "debug" && !showDebug) {
-            lastTimestamp = entry.timestamp;
             continue;
           }
 
           log(formatChannelEntry(entry, agentNames));
-          lastTimestamp = entry.timestamp;
         }
       } catch {
         // Ignore errors during polling

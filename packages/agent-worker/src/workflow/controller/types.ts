@@ -63,8 +63,10 @@ export interface AgentControllerConfig {
   backend: Backend;
   /** Callback when agent run completes */
   onRunComplete?: (result: AgentRunResult) => void;
-  /** Log function */
+  /** Debug log function (shown with --debug) */
   log?: (message: string) => void;
+  /** Info log function for key events (always shown) */
+  infoLog?: (message: string) => void;
   /** Enable feedback tool in agent prompts */
   feedback?: boolean;
 }

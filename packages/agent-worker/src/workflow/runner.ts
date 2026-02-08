@@ -564,6 +564,7 @@ export async function runWorkflowWithControllers(
         backend,
         pollInterval,
         log: (msg) => controllerLogger.debug(msg),
+        infoLog: (msg) => controllerLogger.info(msg),
         feedback: feedbackEnabled,
       });
 
@@ -614,6 +615,9 @@ export async function runWorkflowWithControllers(
         if (isIdle) {
           const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
           logger.info(`Workflow complete (${elapsed}s)`);
+          // Give the channel watcher time to poll and display the completion entry
+          // (logger.info is fire-and-forget; watcher polls every 250ms)
+          await sleep(500);
           break;
         }
         await sleep(1000);

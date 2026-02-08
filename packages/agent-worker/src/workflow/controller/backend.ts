@@ -41,9 +41,6 @@ export function getBackendForModel(
   const { provider } = parseModel(model);
 
   switch (provider) {
-    case "anthropic":
-      return getBackendByType("sdk", { ...options, model });
-
     case "claude":
       return getBackendByType("claude", { ...options, model });
 
@@ -51,6 +48,8 @@ export function getBackendForModel(
       return getBackendByType("codex", { ...options, model });
 
     default:
-      throw new Error(`Unknown provider: ${provider}. Specify backend explicitly.`);
+      // All other providers (anthropic, deepseek, openai, google, etc.)
+      // use the SDK backend via @ai-sdk/* packages
+      return getBackendByType("sdk", { ...options, model });
   }
 }

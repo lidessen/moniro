@@ -23,7 +23,8 @@ import { buildAgentPrompt } from "./prompt.ts";
 
 /**
  * Connect to workflow MCP server and create AI SDK tool wrappers.
- * Same bridge as mock-runner — extracted here for SDK agents.
+ * Uses each MCP tool's actual inputSchema so the model knows
+ * what parameters to pass (critical for non-Anthropic models).
  */
 async function createMCPToolBridge(mcpUrl: string, agentName: string) {
   const url = new URL(`${mcpUrl}?agent=${encodeURIComponent(agentName)}`);
@@ -36,9 +37,15 @@ async function createMCPToolBridge(mcpUrl: string, agentName: string) {
   const aiTools: Record<string, ReturnType<typeof tool>> = {};
   for (const mcpTool of mcpTools) {
     const toolName = mcpTool.name;
+    // Use the MCP tool's actual inputSchema when available.
+    // Falls back to generic record for tools without schemas.
+    const parameters =
+      mcpTool.inputSchema && Object.keys(mcpTool.inputSchema).length > 0
+        ? jsonSchema(mcpTool.inputSchema as Record<string, unknown>)
+        : z.record(z.unknown());
     aiTools[toolName] = tool({
       description: mcpTool.description || toolName,
-      parameters: z.record(z.unknown()),
+      parameters,
       execute: async (args: Record<string, unknown>) => {
         const result = await client.callTool({ name: toolName, arguments: args });
         return result.content;

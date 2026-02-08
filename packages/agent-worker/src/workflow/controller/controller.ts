@@ -47,6 +47,7 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
     backend,
     onRunComplete,
     log = () => {},
+    infoLog = () => {},
     feedback,
   } = config;
 
@@ -138,14 +139,15 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
         lastResult = await runAgent(backend, runContext, log);
 
         if (lastResult.success) {
-          log(`[${name}] Success (${lastResult.duration}ms)`);
+          const secs = (lastResult.duration / 1000).toFixed(1);
+          infoLog(`[${name}] Completed (${secs}s)`);
 
           // Acknowledge inbox on success
           await contextProvider.ackInbox(name, latestId);
           break;
         }
 
-        log(`[${name}] Failed: ${lastResult.error}`);
+        infoLog(`[${name}] Failed: ${lastResult.error}`);
 
         // Retry with backoff (unless last attempt)
         if (attempt < retryConfig.maxAttempts && shouldContinue(state)) {
@@ -158,7 +160,7 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
 
       // If all retries exhausted, still acknowledge to prevent infinite loop
       if (lastResult && !lastResult.success) {
-        log(`[${name}] Max retries exhausted, acknowledging inbox to prevent retry loop`);
+        infoLog(`[${name}] All ${retryConfig.maxAttempts} attempts failed, skipping`);
         await contextProvider.ackInbox(name, latestId);
       }
 
