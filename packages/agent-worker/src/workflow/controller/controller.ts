@@ -109,6 +109,9 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
       // Get latest message ID for acknowledgment
       const latestId = inbox[inbox.length - 1]!.entry.id;
 
+      // Mark inbox as seen (controller picked it up, now processing)
+      await contextProvider.markInboxSeen(name, latestId);
+
       // Run agent with retry
       let attempt = 0;
       let lastResult: AgentRunResult | null = null;

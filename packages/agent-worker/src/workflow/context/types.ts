@@ -102,12 +102,16 @@ export interface InboxMessage {
   entry: Message;
   /** Priority level */
   priority: "normal" | "high";
+  /** Whether the controller has picked up this message (but not yet processed) */
+  seen: boolean;
 }
 
-/** Inbox state (per-agent read cursors) */
+/** Inbox state (per-agent cursors) */
 export interface InboxState {
-  /** Per-agent read cursor: agent name → ID of last acknowledged message */
+  /** Per-agent ack cursor: agent name → ID of last acknowledged (processed) message */
   readCursors: Record<string, string>;
+  /** Per-agent seen cursor: agent name → ID of last seen (picked up by controller) message */
+  seenCursors?: Record<string, string>;
 }
 
 /**

@@ -605,8 +605,13 @@ export async function runWorkflowWithControllers(
           for (const [agentName] of controllers) {
             const inbox = await runtime.contextProvider.getInbox(agentName);
             if (inbox.length > 0) {
+              const unseenCount = inbox.filter((m) => !m.seen).length;
+              const seenCount = inbox.filter((m) => m.seen).length;
+              const parts: string[] = [];
+              if (seenCount > 0) parts.push(`${seenCount} processing`);
+              if (unseenCount > 0) parts.push(`${unseenCount} unread`);
               logger.debug(
-                `  ${agentName} inbox: ${inbox.length} unread from [${inbox.map((m) => m.entry.from).join(", ")}]`,
+                `  ${agentName} inbox: ${parts.join(", ")} from [${inbox.map((m) => m.entry.from).join(", ")}]`,
               );
             }
           }

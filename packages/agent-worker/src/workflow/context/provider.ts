@@ -56,6 +56,8 @@ export interface ContextProvider {
 
   // Inbox
   getInbox(agent: string): Promise<InboxMessage[]>;
+  /** Mark inbox messages as seen (controller picked them up) */
+  markInboxSeen(agent: string, untilId: string): Promise<void>;
   ackInbox(agent: string, untilId: string): Promise<void>;
 
   // Team Documents
@@ -192,6 +194,7 @@ export class ContextProviderImpl implements ContextProvider {
   async getInbox(agent: string): Promise<InboxMessage[]> {
     const state = await this.loadInboxState();
     const lastAckId = state.readCursors[agent];
+    const lastSeenId = state.seenCursors?.[agent];
 
     let entries = await this.syncChannel();
 
@@ -204,6 +207,12 @@ export class ContextProviderImpl implements ContextProvider {
       // If ackIdx is -1 (ID not found — e.g. legacy cursor), show all messages
     }
 
+    // Find seen boundary
+    let seenIdx = -1;
+    if (lastSeenId) {
+      seenIdx = entries.findIndex((e) => e.id === lastSeenId);
+    }
+
     // Inbox includes: @mentions to this agent OR DMs to this agent
     // Excludes: logs, debug entries, messages from self
     return entries
@@ -212,10 +221,21 @@ export class ContextProviderImpl implements ContextProvider {
         if (e.from === agent) return false;
         return e.mentions.includes(agent) || e.to === agent;
       })
-      .map((entry) => ({
-        entry,
-        priority: calculatePriority(entry),
-      }));
+      .map((entry) => {
+        const entryIdx = entries.indexOf(entry);
+        return {
+          entry,
+          priority: calculatePriority(entry),
+          seen: seenIdx >= 0 && entryIdx <= seenIdx,
+        };
+      });
+  }
+
+  async markInboxSeen(agent: string, untilId: string): Promise<void> {
+    const state = await this.loadInboxState();
+    if (!state.seenCursors) state.seenCursors = {};
+    state.seenCursors[agent] = untilId;
+    await this.storage.write(KEYS.inboxState, JSON.stringify(state, null, 2));
   }
 
   async ackInbox(agent: string, untilId: string): Promise<void> {
@@ -229,7 +249,10 @@ export class ContextProviderImpl implements ContextProvider {
     if (!raw) return { readCursors: {} };
     try {
       const data = JSON.parse(raw);
-      return { readCursors: data.readCursors || {} };
+      return {
+        readCursors: data.readCursors || {},
+        seenCursors: data.seenCursors,
+      };
     } catch {
       return { readCursors: {} };
     }
