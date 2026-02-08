@@ -33,6 +33,7 @@ import {
   type LayoutConfig,
   type GroupingState,
 } from "./layout.ts";
+import { formatStandardLog, formatTimelineLog } from "./layout-log.ts";
 
 // ==================== Color System ====================
 
@@ -86,6 +87,7 @@ export interface DisplayContext {
   grouping: GroupingState;
   agentNames: string[];
   enableGrouping: boolean;
+  debugMode: boolean; // Debug mode: use standard log format
 }
 
 /**
@@ -93,13 +95,14 @@ export interface DisplayContext {
  */
 export function createDisplayContext(
   agentNames: string[],
-  options?: { enableGrouping?: boolean },
+  options?: { enableGrouping?: boolean; debugMode?: boolean },
 ): DisplayContext {
   return {
     layout: calculateLayout({ agentNames }),
     grouping: createGroupingState(),
     agentNames,
     enableGrouping: options?.enableGrouping ?? true,
+    debugMode: options?.debugMode ?? false,
   };
 }
 
@@ -120,17 +123,27 @@ function sleep(ms: number): Promise<void> {
 
 /**
  * Format a channel entry for display
+ *
+ * Two modes:
+ * - Normal mode: Timeline-style layout for visual clarity
+ * - Debug mode: Standard log format (timestamp source: message)
  */
 export function formatChannelEntry(entry: Message, context: DisplayContext): string {
-  if (entry.kind === "log" || entry.kind === "debug") {
-    return formatLogEntry(entry, context.layout);
+  // Debug mode: use standard log format (no decorations, easy to grep)
+  if (context.debugMode) {
+    return formatStandardLog(entry, false);
   }
 
-  return formatAgentEntry(entry, context);
+  // Normal mode: timeline-style for visual clarity
+  // Determine if we should show time (first message from this agent in this minute)
+  const showTime = shouldGroup(entry.from, entry.timestamp, context.grouping, false) === false;
+
+  return formatTimelineLog(entry, context.layout, showTime);
 }
 
 /**
  * Agent message formatting with smart wrapping and grouping
+ * (Legacy - kept for potential custom formatting needs)
  *
  * Standard format:
  *   47:08 student │ Hello @bob, I have a question
@@ -182,6 +195,7 @@ function formatAgentEntry(entry: Message, context: DisplayContext): string {
 
 /**
  * Log/debug entry formatting
+ * (Legacy - kept for potential custom formatting needs)
  *
  * Format:
  *   47:01 workflow     ┊ Running workflow: my-workflow
@@ -295,8 +309,13 @@ export function startChannelWatcher(config: ChannelWatcherConfig): ChannelWatche
   } = config;
 
   // Initialize display context
+  // Debug mode: show all entries in standard log format
+  // Normal mode: timeline style with visual enhancements
   resetTimeTracking();
-  const context = createDisplayContext(agentNames, { enableGrouping });
+  const context = createDisplayContext(agentNames, {
+    enableGrouping: !showDebug && enableGrouping, // Disable grouping in debug mode
+    debugMode: showDebug,
+  });
 
   let cursor = config.initialCursor ?? 0;
   let running = true;
@@ -339,3 +358,6 @@ export {
   type LayoutConfig,
   type LayoutOptions,
 } from "./layout.ts";
+
+// Export legacy formatters for custom formatting needs
+export { formatAgentEntry, formatLogEntry };

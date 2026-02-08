@@ -97,7 +97,7 @@ export function formatAlignedLog(
 export function formatStructuredLog(
   entry: Message,
   layout: LayoutConfig,
-  isLast: boolean = false,
+  _isLast: boolean = false,
 ): string {
   const time = formatTime(entry.timestamp, layout).formatted;
   const lines = entry.content.split("\n");
@@ -210,6 +210,35 @@ export function recommendLogStyle(useCase: {
   return isInteractive ? "aligned" : "compact";
 }
 
+// ==================== Standard Log Format (for --debug) ====================
+
+/**
+ * Standard log format: Plain text, no decorations, easy to grep
+ *
+ * Format: TIMESTAMP SOURCE: MESSAGE
+ * Example: 2026-02-09T01:17:13Z workflow: Running workflow: test
+ *
+ * Designed for --debug mode, CI/CD logs, and piping to other tools
+ */
+export function formatStandardLog(entry: Message, includeMillis: boolean = false): string {
+  const timestamp = includeMillis
+    ? entry.timestamp // Full ISO: 2026-02-09T01:17:13.123Z
+    : entry.timestamp.split(".")[0] + "Z"; // Truncate: 2026-02-09T01:17:13Z
+
+  const lines = entry.content.split("\n");
+
+  // First line: timestamp + source + content
+  const result = [`${timestamp} ${entry.from}: ${lines[0]}`];
+
+  // Continuation lines: align with content (not timestamp)
+  if (lines.length > 1) {
+    const indent = " ".repeat(timestamp.length + 1 + entry.from.length + 2);
+    result.push(...lines.slice(1).map((line) => indent + line));
+  }
+
+  return result.join("\n");
+}
+
 // ==================== Export ====================
 
 export const LOG_STYLES = {
@@ -217,4 +246,5 @@ export const LOG_STYLES = {
   aligned: formatAlignedLog,
   structured: formatStructuredLog,
   timeline: formatTimelineLog,
+  standard: formatStandardLog,
 } as const;
