@@ -130,7 +130,7 @@ export interface WorkflowRuntime {
  */
 export function createWorkflowProvider(
   workflow: ParsedWorkflow,
-  workflowName: string,
+  _workflowName: string,
   tag: string,
 ): { contextProvider: ContextProvider; contextDir: string; persistent: boolean } {
   const agentNames = Object.keys(workflow.agents);
@@ -288,7 +288,7 @@ export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> 
   // Build runtime
   const runtime: WorkflowRuntime = {
     name: workflow.name,
-    instance,
+    instance: instance ?? `${workflowName}:${tag}`,
     contextDir,
     projectDir,
     contextProvider,

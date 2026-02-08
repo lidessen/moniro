@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+// @ts-nocheck
 /**
  * Mock CLI for testing cursor-agent, claude, and codex backends
  *

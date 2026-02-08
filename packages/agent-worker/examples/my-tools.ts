@@ -11,14 +11,14 @@ import { tool, jsonSchema } from "ai";
 const tools = {
   get_weather: tool({
     description: "Get current weather for a location",
-    parameters: jsonSchema({
+    inputSchema: jsonSchema({
       type: "object",
       properties: {
         location: { type: "string", description: "City name" },
         unit: { type: "string", enum: ["celsius", "fahrenheit"] },
       },
       required: ["location"],
-    }),
+    }) as unknown as Parameters<typeof tool>[0]["inputSchema"],
     execute: async (args: Record<string, unknown>) => {
       const location = args.location as string;
       const unit = (args.unit as string) || "celsius";
@@ -30,18 +30,18 @@ const tools = {
         condition: "sunny",
       };
     },
-  }),
+  } as unknown as Parameters<typeof tool>[0]),
 
   search_web: tool({
     description: "Search the web for information",
-    parameters: jsonSchema({
+    inputSchema: jsonSchema({
       type: "object",
       properties: {
         query: { type: "string", description: "Search query" },
         maxResults: { type: "number", description: "Max results to return" },
       },
       required: ["query"],
-    }),
+    }) as unknown as Parameters<typeof tool>[0]["inputSchema"],
     execute: async (args: Record<string, unknown>) => {
       const query = args.query as string;
       const maxResults = (args.maxResults as number) || 5;
@@ -54,11 +54,11 @@ const tools = {
         ].slice(0, maxResults),
       };
     },
-  }),
+  } as unknown as Parameters<typeof tool>[0]),
 
   file_operation: tool({
     description: "Perform file operations (read, write, delete)",
-    parameters: jsonSchema({
+    inputSchema: jsonSchema({
       type: "object",
       properties: {
         action: { type: "string", enum: ["read", "write", "delete"] },
@@ -66,7 +66,7 @@ const tools = {
         content: { type: "string", description: "Content for write operation" },
       },
       required: ["action", "path"],
-    }),
+    }) as unknown as Parameters<typeof tool>[0]["inputSchema"],
     execute: async (args: Record<string, unknown>) => {
       const action = args.action as string;
       const path = args.path as string;
@@ -83,7 +83,7 @@ const tools = {
           return { error: `Unknown action: ${action}` };
       }
     },
-  }),
+  } as unknown as Parameters<typeof tool>[0]),
 };
 
 // Note: For file_operation, configure approval separately in your session:

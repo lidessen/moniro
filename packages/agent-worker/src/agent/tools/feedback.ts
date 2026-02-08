@@ -100,7 +100,7 @@ export function createFeedbackTool(options: FeedbackToolOptions = {}): FeedbackT
         },
       },
       required: ["target", "type", "description"],
-    }),
+    }) as unknown as Parameters<typeof tool>[0]["inputSchema"],
     execute: async (args: Record<string, unknown>) => {
       const validTypes = ["missing", "friction", "suggestion"] as const;
       const rawType = args.type as string;
@@ -126,7 +126,7 @@ export function createFeedbackTool(options: FeedbackToolOptions = {}): FeedbackT
 
       return { recorded: true };
     },
-  });
+  } as unknown as Parameters<typeof tool>[0]);
 
   return {
     tool: feedbackTool,

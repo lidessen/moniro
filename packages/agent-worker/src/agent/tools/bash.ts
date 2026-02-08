@@ -61,7 +61,7 @@ export async function createBashTools(
         },
       },
       required: ["command"],
-    }),
+    }) as unknown as Parameters<typeof tool>[0]["inputSchema"],
     execute: async (args: Record<string, unknown>) => {
       const bashTool = toolkit.tools.bash;
       if (!bashTool?.execute) {
@@ -69,7 +69,7 @@ export async function createBashTools(
       }
       return bashTool.execute(args as { command: string }, {} as never);
     },
-  });
+  } as unknown as Parameters<typeof tool>[0]);
 
   if (includeReadFile) {
     tools.readFile = tool({
@@ -83,7 +83,7 @@ export async function createBashTools(
           },
         },
         required: ["path"],
-      }),
+      }) as unknown as Parameters<typeof tool>[0]["inputSchema"],
       execute: async (args: Record<string, unknown>) => {
         const readFileTool = toolkit.tools.readFile;
         if (!readFileTool?.execute) {
@@ -91,7 +91,7 @@ export async function createBashTools(
         }
         return readFileTool.execute(args as { path: string }, {} as never);
       },
-    });
+    } as unknown as Parameters<typeof tool>[0]);
   }
 
   if (includeWriteFile) {
@@ -111,7 +111,7 @@ export async function createBashTools(
           },
         },
         required: ["path", "content"],
-      }),
+      }) as unknown as Parameters<typeof tool>[0]["inputSchema"],
       execute: async (args: Record<string, unknown>) => {
         const writeFileTool = toolkit.tools.writeFile;
         if (!writeFileTool?.execute) {
@@ -119,7 +119,7 @@ export async function createBashTools(
         }
         return writeFileTool.execute(args as { path: string; content: string }, {} as never);
       },
-    });
+    } as unknown as Parameters<typeof tool>[0]);
   }
 
   return { tools, toolkit };

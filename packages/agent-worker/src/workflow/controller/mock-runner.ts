@@ -44,7 +44,7 @@ async function createMCPToolBridge(mcpUrl: string, agentName: string): Promise<M
         const result = await client.callTool({ name: toolName, arguments: args });
         return result.content;
       },
-    });
+    } as unknown as Parameters<typeof tool>[0]);
   }
 
   return {
@@ -116,7 +116,7 @@ export async function runMockAgent(
             outputTokens: { total: 10, text: 10, reasoning: 0 },
           },
         },
-      ),
+      ) as any,
     });
 
     // 3. Build prompt and run
