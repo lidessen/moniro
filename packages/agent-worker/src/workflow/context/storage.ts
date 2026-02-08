@@ -62,7 +62,7 @@ export class MemoryStorage implements StorageBackend {
 
   async readFrom(key: string, offset: number): Promise<{ content: string; offset: number }> {
     const data = this.data.get(key) ?? "";
-    if (offset >= data.length) return { content: "", offset };
+    if (offset >= data.length) return { content: "", offset: data.length };
     return { content: data.slice(offset), offset: data.length };
   }
 
@@ -150,9 +150,9 @@ export class FileStorage implements StorageBackend {
   async readFrom(key: string, offset: number): Promise<{ content: string; offset: number }> {
     const filePath = this.resolve(key);
     try {
-      if (!existsSync(filePath)) return { content: "", offset };
+      if (!existsSync(filePath)) return { content: "", offset: 0 };
       const size = statSync(filePath).size;
-      if (offset >= size) return { content: "", offset };
+      if (offset >= size) return { content: "", offset: size };
       const fd = openSync(filePath, "r");
       try {
         const length = size - offset;
