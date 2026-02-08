@@ -244,10 +244,20 @@ export function recommendLogStyle(useCase: {
 // ==================== Standard Log Format (for --debug) ====================
 
 /**
- * Standard log format: Plain text, no decorations, easy to grep
+ * Standard log format: Minimal colors for TTY, plain text for pipes
  *
  * Format: TIMESTAMP SOURCE: MESSAGE
  * Example: 2026-02-09T01:17:13Z workflow: Running workflow: test
+ *
+ * TTY Mode (terminal):
+ * - Dim timestamps for less visual weight
+ * - Cyan source names for quick scanning
+ * - Yellow [WARN] for warnings
+ * - Red [ERROR] for errors
+ *
+ * Pipe Mode (file/grep):
+ * - No colors (chalk auto-detects non-TTY)
+ * - Pure text for maximum compatibility
  *
  * Designed for --debug mode, CI/CD logs, and piping to other tools
  */
@@ -258,13 +268,23 @@ export function formatStandardLog(entry: Message, includeMillis: boolean = false
 
   const lines = entry.content.split("\n");
 
-  // First line: timestamp + source + content
-  const result = [`${timestamp} ${entry.from}: ${lines[0]}`];
+  // Detect WARN/ERROR for highlighting
+  const isWarn = entry.content.includes("[WARN]");
+  const isError = entry.content.includes("[ERROR]");
+
+  // Choose content color (chalk auto-disables on non-TTY)
+  let contentColor = (s: string) => s; // default: no color
+  if (isWarn) contentColor = chalk.yellow;
+  if (isError) contentColor = chalk.red;
+
+  // Format first line with colors
+  const firstLine = `${chalk.dim(timestamp)} ${chalk.cyan(entry.from)}: ${contentColor(lines[0])}`;
+  const result = [firstLine];
 
   // Continuation lines: align with content (not timestamp)
   if (lines.length > 1) {
     const indent = " ".repeat(timestamp.length + 1 + entry.from.length + 2);
-    result.push(...lines.slice(1).map((line) => indent + line));
+    result.push(...lines.slice(1).map((line) => indent + contentColor(line)));
   }
 
   return result.join("\n");
