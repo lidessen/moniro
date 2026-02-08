@@ -23,8 +23,8 @@ The CLI had several inconsistencies that increased cognitive load and reduced us
 ### 1. Unified Terminology
 
 **All user-facing interfaces use `workflow`**:
-- CLI parameter: `-w, --workflow <name>`
-- Code constant: `DEFAULT_WORKFLOW = "main"`
+- CLI parameter: `--tag <tag>` for workflow run/start commands
+- Code constants: `DEFAULT_WORKFLOW = "global"`, `DEFAULT_TAG = "main"`
 - Documentation: "workflow" throughout
 
 Rationale: "workflow" better describes both use cases:
@@ -91,7 +91,7 @@ Rationale:
 - **Consistency**: Target position unified across all subcommands
 - **Natural ordering**: "Who" (target) before "what" (action/value)
 - **No special flags**: No need to remember `--to` for `set`
-- **Supports defaults**: `@main` and `@workflow` for default behaviors
+- **Supports defaults**: `@workflow` for workflow-level operations without specifying agent
 
 ## Consequences
 
@@ -111,7 +111,7 @@ Rationale:
 1. **Phase 1**: Update constants (`DEFAULT_WORKFLOW = "global"`, `DEFAULT_TAG = "main"`)
 2. **Phase 2**: Implement workflow:tag parsing and routing
 3. **Phase 3**: Update variable interpolation (`workflow.tag` instead of `workflow.instance`)
-4. **Phase 4**: Update file paths (`.workflow/<workflow>/<tag>/` or `.workflow/<workflow>:<tag>/`)
+4. **Phase 4**: Update file paths to `.workflow/<workflow>/<tag>/` (avoiding colons for OS compatibility)
 
 ## Related Issues
 

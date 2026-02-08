@@ -168,8 +168,8 @@ context: false
 Run multiple instances of the same workflow using tags:
 
 ```bash
-agent-worker run review.yaml -w review:pr-123
-agent-worker run review.yaml -w review:pr-456
+agent-worker run review.yaml --tag pr-123
+agent-worker run review.yaml --tag pr-456
 ```
 
 Each instance has isolated context at `.workflow/<workflow>/<tag>/`.

@@ -230,18 +230,18 @@ Same as run, but keeps running until `stop` command. Agents can continue collabo
 
 ```bash
 # One-shot execution
-agent-worker run review.yaml -w review:pr-123
+agent-worker run review.yaml --tag pr-123
 
 # Persistent mode
-agent-worker start review.yaml -w review:pr-123 --background
+agent-worker start review.yaml --tag pr-123 --background
 
 # Stop agents
-agent-worker stop -w review:pr-123          # All agents in workflow:tag
-agent-worker stop reviewer@review:pr-123    # Specific agent
+agent-worker stop @review:pr-123          # All agents in workflow:tag
+agent-worker stop reviewer@review:pr-123  # Specific agent
 
 # List running agents
-agent-worker ls                             # All workflows
-agent-worker ls -w review:pr-123            # Specific workflow:tag
+agent-worker ls                  # Global workflow (default)
+agent-worker ls @review:pr-123   # Specific workflow:tag
 
 # Send messages
 agent-worker send coder@review:pr-123 "fix the bug"
