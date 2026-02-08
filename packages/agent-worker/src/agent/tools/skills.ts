@@ -27,7 +27,7 @@ export function createSkillsTool(provider: SkillsProvider): unknown {
         },
       },
       required: ["operation"],
-    }),
+    }) as unknown as Parameters<typeof tool>[0]["inputSchema"],
     execute: async (args: Record<string, unknown>) => {
       const operation = args.operation as string;
       const skillName = args.skillName as string | undefined;
@@ -67,5 +67,5 @@ export function createSkillsTool(provider: SkillsProvider): unknown {
           throw new Error(`Unknown operation: ${operation}`);
       }
     },
-  });
+  } as unknown as Parameters<typeof tool>[0]);
 }

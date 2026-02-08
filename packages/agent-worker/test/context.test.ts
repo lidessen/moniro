@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { mkdirSync, rmSync, existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'

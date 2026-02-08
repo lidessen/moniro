@@ -11,7 +11,7 @@
 
 export interface VariableContext {
   /** Task output variables */
-  [key: string]: string | undefined;
+  [key: string]: string | undefined | Record<string, string | undefined> | { name: string; tag: string; instance?: string };
 
   /** Environment variables (accessed via env.VAR) */
   env?: Record<string, string | undefined>;
@@ -87,7 +87,9 @@ export function extractVariables(template: string): string[] {
 
   VARIABLE_PATTERN.lastIndex = 0;
   while ((match = VARIABLE_PATTERN.exec(template)) !== null) {
-    variables.push(match[1].trim());
+    if (match[1]) {
+      variables.push(match[1].trim());
+    }
   }
 
   return variables;
@@ -106,33 +108,43 @@ export function evaluateCondition(expression: string, context: VariableContext):
   const containsMatch = interpolated.match(/^(.+)\.contains\(['"](.+)['"]\)$/);
   if (containsMatch) {
     const [, value, search] = containsMatch;
-    return value.includes(search);
+    if (value && search) {
+      return value.includes(search);
+    }
   }
 
   const startsWithMatch = interpolated.match(/^(.+)\.startsWith\(['"](.+)['"]\)$/);
   if (startsWithMatch) {
     const [, value, search] = startsWithMatch;
-    return value.startsWith(search);
+    if (value && search) {
+      return value.startsWith(search);
+    }
   }
 
   const endsWithMatch = interpolated.match(/^(.+)\.endsWith\(['"](.+)['"]\)$/);
   if (endsWithMatch) {
     const [, value, search] = endsWithMatch;
-    return value.endsWith(search);
+    if (value && search) {
+      return value.endsWith(search);
+    }
   }
 
   // Check for inequality FIRST (before equality, since !== contains ==)
   const notEqualMatch = interpolated.match(/^(.+?)\s*!==?\s*['"](.+)['"]$/);
   if (notEqualMatch) {
     const [, left, right] = notEqualMatch;
-    return left.trim() !== right;
+    if (left && right) {
+      return left.trim() !== right;
+    }
   }
 
   // Check for equality (use non-greedy match to avoid capturing operator)
   const equalMatch = interpolated.match(/^(.+?)\s*===?\s*['"](.+)['"]$/);
   if (equalMatch) {
     const [, left, right] = equalMatch;
-    return left.trim() === right;
+    if (left && right) {
+      return left.trim() === right;
+    }
   }
 
   // Check for existence (truthy)

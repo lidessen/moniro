@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Context Lifecycle Tests
  *

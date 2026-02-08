@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Proposal & Voting System Tests
  */

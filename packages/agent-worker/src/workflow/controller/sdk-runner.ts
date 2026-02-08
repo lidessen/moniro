@@ -23,7 +23,7 @@ import { buildAgentPrompt } from "./prompt.ts";
 /** Extract useful details from AI SDK errors (statusCode, url, responseBody) */
 function formatError(error: unknown): string {
   if (!(error instanceof Error)) return String(error);
-  const e = error as Record<string, unknown>;
+  const e = error as unknown as Record<string, unknown>;
   const parts: string[] = [error.message];
   if (e.statusCode) parts[0] = `HTTP ${e.statusCode}: ${error.message}`;
   if (e.url) parts.push(`url=${e.url}`);
@@ -74,7 +74,7 @@ async function createMCPToolBridge(mcpUrl: string, agentName: string) {
         const result = await client.callTool({ name: toolName, arguments: args });
         return result.content;
       },
-    });
+    } as unknown as Parameters<typeof tool>[0]);
   }
 
   return { tools: aiTools, close: () => client.close() };

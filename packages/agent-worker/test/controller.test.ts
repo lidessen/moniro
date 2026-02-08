@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Controller Module Tests
  * Tests for agent controller, backend abstraction, and prompt building

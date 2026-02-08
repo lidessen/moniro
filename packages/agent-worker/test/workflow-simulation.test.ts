@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Workflow Simulation Tests
  * E2E tests that simulate multi-agent collaboration

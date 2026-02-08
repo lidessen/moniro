@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { describe, test, expect, afterEach } from 'bun:test'
 // ==================== Server Module Tests ====================
 

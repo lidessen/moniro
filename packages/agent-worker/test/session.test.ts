@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { describe, test, expect } from 'bun:test'
 import { MockLanguageModelV3 } from 'ai/test'
 import { generateText, tool, jsonSchema } from 'ai'

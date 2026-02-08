@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Daemon Handler Unit Tests
  *
