@@ -159,6 +159,8 @@ export interface ChannelWatcherConfig {
   showDebug?: boolean;
   /** Poll interval in ms (default: 500) */
   pollInterval?: number;
+  /** Starting cursor position — skip entries before this (default: 0) */
+  initialCursor?: number;
 }
 
 /** Channel watcher state */
@@ -176,7 +178,7 @@ export function startChannelWatcher(config: ChannelWatcherConfig): ChannelWatche
     pollInterval = 500,
   } = config;
 
-  let cursor = 0;
+  let cursor = config.initialCursor ?? 0;
   let running = true;
 
   const poll = async () => {

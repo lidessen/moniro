@@ -477,6 +477,9 @@ export async function runWorkflowWithControllers(
     // 1. Create context provider first (so channel logger can use it)
     const { contextProvider, contextDir, persistent } = createWorkflowProvider(workflow, instance);
 
+    // Capture current channel position so watcher skips entries from previous runs
+    const { cursor: channelStart } = await contextProvider.tailChannel(0);
+
     // 2. Create channel logger — all output goes to channel
     const logger = createChannelLogger({ provider: contextProvider, from: "workflow" });
 
@@ -580,12 +583,13 @@ export async function runWorkflowWithControllers(
     logger.debug("Kickoff sent");
 
     // 7. Start channel watcher — the unified display layer
-    // Filters output based on --debug flag
+    // Skip entries from previous runs — channelStart was captured before any current-run writes
     const channelWatcher = startChannelWatcher({
       contextProvider: runtime.contextProvider,
       agentNames: runtime.agentNames,
       log,
       showDebug: debug,
+      initialCursor: channelStart,
       pollInterval: 250, // Fast polling for responsive output
     });
 
