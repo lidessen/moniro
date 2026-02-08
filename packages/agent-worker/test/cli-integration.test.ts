@@ -195,14 +195,15 @@ describe('CLI Integration', () => {
     test('shows help for send command', async () => {
       const result = await runCli(['send', '--help'])
       expect(result.exitCode).toBe(0)
-      expect(result.stdout).toContain('--workflow')
+      expect(result.stdout).toContain('<target>')
+      expect(result.stdout).toContain('<message>')
     })
   })
 
   describe('send command', () => {
     test('posts to channel successfully', async () => {
-      // send always succeeds — it posts to the instance channel
-      const result = await runCli(['send', 'hello'])
+      // send always succeeds — it posts to the workflow channel
+      const result = await runCli(['send', '@global', 'hello'])
       expect(result.exitCode).toBe(0)
       expect(result.stdout).toMatch(/broadcast/)
     })
@@ -212,7 +213,7 @@ describe('CLI Integration', () => {
       await runCli(['new', 'sendtest', '-m', 'anthropic/claude-sonnet-4-5'])
       await new Promise(resolve => setTimeout(resolve, 500))
 
-      const result = await runCli(['send', '@sendtest hello'])
+      const result = await runCli(['send', '@global', '@sendtest hello'])
       expect(result.exitCode).toBe(0)
       expect(result.stdout).toMatch(/@sendtest/)
     })
