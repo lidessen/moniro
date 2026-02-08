@@ -162,12 +162,12 @@ export async function createModelAsync(modelId: string): Promise<LanguageModel> 
     minimax: {
       package: "@ai-sdk/anthropic",
       export: "anthropic",
-      options: { baseURL: "https://api.minimax.io/anthropic", apiKeyEnvVar: "MINIMAX_API_KEY" },
+      options: { baseURL: "https://api.minimax.io/anthropic/v1", apiKeyEnvVar: "MINIMAX_API_KEY" },
     },
     minimax_cn: {
       package: "@ai-sdk/anthropic",
       export: "anthropic",
-      options: { baseURL: "https://api.minimaxi.com/anthropic", apiKeyEnvVar: "MINIMAX_CN_API_KEY" },
+      options: { baseURL: "https://api.minimaxi.com/anthropic/v1", apiKeyEnvVar: "MINIMAX_CN_API_KEY" },
     },
   };
 
