@@ -262,7 +262,7 @@ describe('validateWorkflow', () => {
     expect(result.errors.some(e => e.path.includes('model'))).toBe(true)
   })
 
-  test('validates agent system_prompt is required', () => {
+  test('validates agent system_prompt is optional', () => {
     const workflow = {
       agents: {
         test: {
@@ -271,8 +271,7 @@ describe('validateWorkflow', () => {
       },
     }
     const result = validateWorkflow(workflow)
-    expect(result.valid).toBe(false)
-    expect(result.errors.some(e => e.path.includes('system_prompt'))).toBe(true)
+    expect(result.valid).toBe(true)
   })
 
   test('validates agent must be object', () => {
@@ -735,7 +734,7 @@ describe('runWorkflow', () => {
     await run2.shutdown!()
   })
 
-  test('ephemeral context: second run sees reset inbox', async () => {
+  test('ephemeral context: second run inbox is isolated by run epoch', async () => {
     const contextDir = join(testDir, 'ephemeral-ctx')
     const workflow: ParsedWorkflow = {
       name: 'ephemeral-test',
@@ -760,7 +759,7 @@ describe('runWorkflow', () => {
     await run1.contextProvider!.ackInbox('agent1', run1Inbox[0].entry.id)
     await run1.shutdown!()
 
-    // Run 2: inbox state was destroyed, so old message reappears as unread
+    // Run 2: markRunStart() sets epoch — old messages are below the floor
     const run2 = await runWorkflow({
       workflow,
       instance: 'test',
@@ -768,9 +767,13 @@ describe('runWorkflow', () => {
     })
     expect(run2.success).toBe(true)
 
+    // Inbox should be empty — run epoch isolates previous run's messages
     const inbox = await run2.contextProvider!.getInbox('agent1')
-    expect(inbox).toHaveLength(1)
-    expect(inbox[0].entry.content).toBe('@agent1 do something')
+    expect(inbox).toHaveLength(0)
+
+    // But channel history is still accessible
+    const messages = await run2.contextProvider!.readChannel()
+    expect(messages.some(m => m.content === '@agent1 do something')).toBe(true)
 
     await run2.shutdown!()
   })
