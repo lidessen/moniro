@@ -152,11 +152,16 @@ export async function createModelAsync(modelId: string): Promise<LanguageModel> 
     groq: { package: "@ai-sdk/groq", export: "groq" },
     mistral: { package: "@ai-sdk/mistral", export: "mistral" },
     xai: { package: "@ai-sdk/xai", export: "xai" },
-    // MiniMax uses Claude-compatible API (requires MINIMAX_API_KEY)
+    // MiniMax uses Claude-compatible API
     minimax: {
       package: "@ai-sdk/anthropic",
       export: "anthropic",
-      options: { baseURL: "https://api.minimax.chat/v1", apiKeyEnvVar: "MINIMAX_API_KEY" },
+      options: { baseURL: "https://api.minimax.io/anthropic", apiKeyEnvVar: "MINIMAX_API_KEY" },
+    },
+    minimax_cn: {
+      package: "@ai-sdk/anthropic",
+      export: "anthropic",
+      options: { baseURL: "https://api.minimaxi.com/anthropic", apiKeyEnvVar: "MINIMAX_CN_API_KEY" },
     },
   };
 
