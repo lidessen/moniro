@@ -1,6 +1,6 @@
 # agent-worker
 
-CLI and SDK for creating and managing AI agent sessions with multiple backends.
+CLI and SDK for running AI agents — from standalone instances to collaborative workflows.
 
 ## Installation
 
@@ -10,54 +10,352 @@ npm install -g agent-worker
 bun add -g agent-worker
 ```
 
-## Quick Start
+## Two Modes of Operation
 
-### CLI
+agent-worker supports two distinct usage patterns:
+
+| Mode | Use Case | Entry Point | Coordination |
+|------|----------|-------------|--------------|
+| **Agent** | Single AI assistant | CLI commands | Direct interaction |
+| **Workflow** | Multi-agent collaboration | YAML workflow file | @mention-based |
+
+---
+
+## 🤖 Agent Mode
+
+**Run individual AI agents as standalone instances.**
+
+Perfect for: testing, prototyping, interactive Q&A, code assistance.
+
+### Quick Start
 
 ```bash
-# Create a standalone agent (global space)
+# Start an agent
 agent-worker new alice -m anthropic/claude-sonnet-4-5
 
 # Send a message
 agent-worker send "@alice Analyze this codebase"
 
-# View messages
+# View conversation
 agent-worker peek
 
 # Check status
 agent-worker status alice
 ```
 
-#### Working with Workflows
+### Organizing Agents
 
-Workflows support multiple instances using `workflow:tag` syntax:
+Agents can be grouped into **workflows** without defining coordination:
 
 ```bash
-# Create agents in a workflow
+# Create agents in the same workflow namespace
 agent-worker new reviewer -m anthropic/claude-sonnet-4-5 -w review
 agent-worker new coder -m anthropic/claude-sonnet-4-5 -w review
 
-# Multiple instances of the same workflow
-agent-worker new reviewer -m anthropic/claude-sonnet-4-5 -w review:pr-123
-agent-worker new reviewer -m anthropic/claude-sonnet-4-5 -w review:pr-456
-
-# Send to specific workflow instance
-agent-worker send "@reviewer Check this PR" -w review:pr-123
-
-# View workflow messages
-agent-worker peek -w review:pr-123
-
-# Target syntax: agent@workflow:tag
-agent-worker status reviewer@review:pr-123
-agent-worker stop reviewer@review:pr-123
+# Send to specific agent
+agent-worker send "@reviewer Check this code" -w review
 ```
 
-**Defaults**:
-- Without `-w`: agents are standalone (global space)
-- With `-w review`: uses default tag `main` → `review:main`
-- With `-w review:pr-123`: full specification
+### Multiple Instances (workflow:tag)
 
-### SDK
+Run multiple isolated instances of the same workflow using **tags**:
+
+```bash
+# Different PRs, isolated contexts
+agent-worker new reviewer -w review:pr-123
+agent-worker new reviewer -w review:pr-456
+
+# Each has its own conversation history
+agent-worker send "@reviewer LGTM" -w review:pr-123
+agent-worker peek -w review:pr-123  # Only sees pr-123 messages
+```
+
+**Tag syntax**:
+- `alice` → standalone agent (global space)
+- `alice -w review` → `alice@review:main` (default tag: main)
+- `alice -w review:pr-123` → full specification
+
+### Agent Commands
+
+```bash
+# Lifecycle
+agent-worker new <name> [options]        # Create agent
+agent-worker stop <target>               # Stop agent
+agent-worker ls [-w workflow]            # List agents
+agent-worker status <target>             # Check agent status
+
+# Interaction
+agent-worker send <message> [-w workflow:tag]
+agent-worker peek [-w workflow:tag] [--all] [--find <text>]
+
+# Scheduling (periodic wakeup when idle)
+agent-worker schedule <target> set <interval> [--prompt "Task"]
+agent-worker schedule <target> get
+agent-worker schedule <target> clear
+
+# Shared documents
+agent-worker doc read -w <workflow:tag>
+agent-worker doc write -w <workflow:tag> --content "..."
+agent-worker doc append -w <workflow:tag> --file notes.txt
+
+# Tools (for testing/mocking)
+agent-worker tool mock <tool-name> <response-json>
+agent-worker tool list
+```
+
+### Backend Options
+
+```bash
+agent-worker new alice -m anthropic/claude-sonnet-4-5  # SDK (default)
+agent-worker new alice -b claude                       # Claude CLI
+agent-worker new alice -b cursor                       # Cursor Agent
+agent-worker new alice -b mock                         # Testing (no API)
+```
+
+### Examples
+
+**Quick testing without API keys:**
+```bash
+agent-worker new -b mock
+agent-worker send "@a0 Hello"
+```
+
+**Scheduled agent (runs every 30s when idle):**
+```bash
+agent-worker new monitor -w ci --wakeup 30s --prompt "Check CI status"
+```
+
+**Feedback-enabled agent (reports observations):**
+```bash
+agent-worker new -m anthropic/claude-sonnet-4-5 --feedback
+```
+
+---
+
+## 📋 Workflow Mode
+
+**Define multi-agent collaboration through YAML workflows.**
+
+Perfect for: structured tasks, agent orchestration, reproducible pipelines.
+
+### Quick Start
+
+```yaml
+# review.yaml
+agents:
+  reviewer:
+    backend: claude
+    system_prompt: You are a code reviewer. Provide constructive feedback.
+
+  coder:
+    backend: cursor
+    model: sonnet-4.5
+    system_prompt: You implement code changes based on feedback.
+
+kickoff: |
+  @reviewer Review the recent changes and provide feedback.
+  @coder Implement the suggested improvements.
+```
+
+```bash
+# Run once and exit
+agent-worker run review.yaml
+
+# Run and keep agents alive
+agent-worker start review.yaml
+
+# Run in background
+agent-worker start review.yaml --background
+```
+
+### Workflow Instances (Tags)
+
+Run the same workflow definition with different contexts:
+
+```bash
+# Each PR gets its own isolated instance
+agent-worker run review.yaml -w review:pr-123
+agent-worker run review.yaml -w review:pr-456
+
+# Context isolation
+├── .workflow/
+│   └── review/
+│       ├── pr-123/    # Independent channel + documents
+│       └── pr-456/    # Independent channel + documents
+```
+
+### Workflow Structure
+
+```yaml
+# Full workflow structure
+name: code-review  # Optional, defaults to filename
+
+agents:
+  alice:
+    backend: sdk | claude | cursor | codex | mock
+    model: anthropic/claude-sonnet-4-5  # Required for SDK
+    system_prompt: |
+      You are Alice, a senior code reviewer.
+    tools: [bash, read, write]  # CLI backend tool names
+    max_tokens: 8000
+    max_steps: 20
+
+  bob:
+    backend: claude
+    system_prompt_file: ./prompts/bob.txt  # Load from file
+
+# Context configuration (shared channel + documents)
+context:
+  provider: file
+  config:
+    dir: ./.workflow/${{ workflow.name }}/${{ workflow.tag }}/  # Ephemeral
+    # OR
+    bind: ./data/${{ workflow.tag }}/  # Persistent (survives shutdown)
+
+# Setup commands (run before kickoff)
+setup:
+  - shell: git log --oneline -10
+    as: recent_commits  # Store output as variable
+
+  - shell: git diff main...HEAD
+    as: changes
+
+# Kickoff message (starts the workflow)
+kickoff: |
+  @alice Review these changes:
+
+  Recent commits:
+  ${{ recent_commits }}
+
+  Diff:
+  ${{ changes }}
+
+  @bob Stand by for implementation tasks.
+```
+
+### Workflow Commands
+
+```bash
+# Execution
+agent-worker run <file> [-w workflow:tag] [--json]    # Run once
+agent-worker start <file> [-w workflow:tag]           # Keep alive
+agent-worker start <file> --background                # Daemon mode
+agent-worker stop -w <workflow:tag>                   # Stop workflow
+
+# Monitoring
+agent-worker ls -w <workflow:tag>        # List agents in workflow
+agent-worker peek -w <workflow:tag>      # View channel messages
+agent-worker doc read -w <workflow:tag>  # Read shared document
+
+# Debug
+agent-worker run <file> --debug          # Show internal logs
+agent-worker run <file> --feedback       # Enable observation tool
+```
+
+### Variable Interpolation
+
+Templates support `${{ variable }}` syntax:
+
+```yaml
+setup:
+  - shell: echo "pr-${{ env.PR_NUMBER }}"
+    as: branch_name
+
+kickoff: |
+  Workflow: ${{ workflow.name }}
+  Tag: ${{ workflow.tag }}
+  Branch: ${{ branch_name }}
+```
+
+Available variables:
+- `${{ workflow.name }}` - Workflow name
+- `${{ workflow.tag }}` - Instance tag
+- `${{ env.VAR }}` - Environment variable
+- `${{ task_output }}` - Setup task output (via `as:` field)
+
+### Coordination Patterns
+
+**Sequential handoff:**
+```yaml
+kickoff: |
+  @alice Start the task.
+```
+Alice's message: "Done! @bob your turn"
+
+**Parallel broadcast:**
+```yaml
+kickoff: |
+  @alice @bob @charlie All review this code.
+```
+
+**Document-based:**
+```yaml
+agents:
+  writer:
+    system_prompt: Write analysis to the shared document.
+
+  reviewer:
+    system_prompt: Read the document and provide feedback.
+
+context:
+  provider: file
+  config:
+    bind: ./results/  # Persistent across runs
+```
+
+### Examples
+
+**PR Review Workflow:**
+```yaml
+# review.yaml
+agents:
+  reviewer:
+    backend: claude
+    system_prompt: Review code for bugs, style, performance.
+
+setup:
+  - shell: gh pr diff ${{ env.PR_NUMBER }}
+    as: diff
+
+kickoff: |
+  @reviewer Review this PR:
+
+  ${{ diff }}
+```
+
+```bash
+PR_NUMBER=123 agent-worker run review.yaml -w review:pr-123
+```
+
+**Research & Summarize:**
+```yaml
+# research.yaml
+agents:
+  researcher:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: Research topics and write findings to document.
+
+  summarizer:
+    backend: sdk
+    model: anthropic/claude-haiku-4-5
+    system_prompt: Read document and create concise summary.
+
+context:
+  provider: file
+  config:
+    bind: ./research-output/
+
+kickoff: |
+  @researcher Research "${{ env.TOPIC }}" and document findings.
+  @summarizer Wait for research to complete, then summarize.
+```
+
+---
+
+## 🔧 SDK Usage
+
+For programmatic control (TypeScript/JavaScript):
 
 ```typescript
 import { AgentSession } from 'agent-worker'
@@ -79,8 +377,9 @@ for await (const chunk of session.sendStream('Tell me a story')) {
   process.stdout.write(chunk)
 }
 
-// Persist state
+// State management
 const state = session.getState()
+// Later: restore from state
 ```
 
 ### With Skills
@@ -98,66 +397,57 @@ const session = new AgentSession({
 })
 ```
 
-## Multi-Agent Workflow
+---
 
-Two agents collaborating — Alice asks questions, Bob answers:
+## 📊 Comparison: Agent vs Workflow
 
-```yaml
-# chat.yaml
-agents:
-  alice:
-    backend: cursor
-    model: sonnet-4.5
-    system_prompt: You are Alice. Curious and always asking questions.
+| Feature | Agent Mode | Workflow Mode |
+|---------|------------|---------------|
+| **Definition** | CLI commands | YAML file |
+| **Agents** | One at a time | Multiple (orchestrated) |
+| **Coordination** | Manual (via commands) | Automatic (@mentions) |
+| **Context** | Shared channel + docs | Shared channel + docs |
+| **Isolation** | workflow:tag namespace | workflow:tag namespace |
+| **Setup** | Start agents manually | Declarative setup tasks |
+| **Best For** | Interactive tasks, testing | Structured workflows, automation |
 
-  bob:
-    backend: claude
-    system_prompt: You are Bob. Knowledgeable and patient.
-
-kickoff: |
-  @alice Ask @bob a question about how AI agents collaborate.
-  @bob Answer clearly, then ask @alice a follow-up.
+Both modes share the same underlying context system:
+```
+.workflow/
+├── global/main/        # Standalone agents (default)
+├── review/main/        # review workflow, main tag
+└── review/pr-123/      # review workflow, pr-123 tag
 ```
 
-```bash
-agent-worker run chat.yaml
-```
+---
 
-Agents coordinate via `@mentions` in a shared channel — just like a team chat. See [docs/workflow/](./docs/workflow/) for the full design.
-
-## Backends
-
-| Backend | Flag | Best For |
-|---------|------|----------|
-| SDK (default) | `-m provider/model` | Full control, tools, mocking |
-| Claude CLI | `-b claude` | Existing Claude installation |
-| Codex | `-b codex` | OpenAI Codex workflows |
-| Cursor | `-b cursor` | Cursor Agent integration |
-
-See [docs/backends.md](./docs/backends.md) for feature matrix and CLI details.
-
-## Model Formats
+## 🎯 Model Formats
 
 ```bash
 agent-worker new -m anthropic/claude-sonnet-4-5   # Gateway (recommended)
-agent-worker new -m anthropic                      # Provider-only (frontier model)
+agent-worker new -m anthropic                      # Provider-only (frontier)
 agent-worker new -m deepseek:deepseek-chat         # Direct format
 ```
+
+---
+
+## 📚 Documentation
+
+| Doc | Description |
+|-----|-------------|
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | System architecture and modules |
+| [docs/backends.md](./docs/backends.md) | Backend feature matrix |
+| [docs/workflow/](./docs/workflow/) | Workflow system design |
+| [TEST-ARCHITECTURE.md](./TEST-ARCHITECTURE.md) | Testing strategy |
+
+---
 
 ## Requirements
 
 - Node.js 18+ or Bun
 - API key for chosen provider (e.g., `ANTHROPIC_API_KEY`)
 
-## Documentation
-
-| Doc | Description |
-|-----|-------------|
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | System architecture and module structure |
-| [docs/backends.md](./docs/backends.md) | Backend feature matrix and CLI reference |
-| [docs/workflow/](./docs/workflow/) | Multi-agent workflow system |
-| [TEST-ARCHITECTURE.md](./TEST-ARCHITECTURE.md) | Testing strategy and coverage |
-| [CHANGELOG.md](./CHANGELOG.md) | Version history |
+---
 
 ## License
 
