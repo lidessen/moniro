@@ -8,7 +8,7 @@ export function createSkillsTool(provider: SkillsProvider): unknown {
   return tool({
     description:
       'Interact with available agent skills. Use "list" to see all skills with their descriptions, "view" to read a complete SKILL.md file, "readFile" to read files within a skill directory (e.g., references/, scripts/, assets/).',
-    parameters: jsonSchema({
+    inputSchema: jsonSchema({
       type: "object",
       properties: {
         operation: {

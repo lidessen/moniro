@@ -78,7 +78,7 @@ export function createFeedbackTool(
   const feedbackTool = tool({
     description:
       "Report a workflow improvement need. Use when you hit something inconvenient — a missing tool, an awkward step, or a capability you wished you had.",
-    parameters: jsonSchema({
+    inputSchema: jsonSchema({
       type: "object",
       properties: {
         target: {

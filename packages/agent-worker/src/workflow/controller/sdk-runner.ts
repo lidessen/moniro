@@ -37,7 +37,7 @@ async function createMCPToolBridge(mcpUrl: string, agentName: string) {
     const toolName = mcpTool.name;
     aiTools[toolName] = tool({
       description: mcpTool.description || toolName,
-      parameters: jsonSchema(mcpTool.inputSchema as Parameters<typeof jsonSchema>[0]),
+      inputSchema: jsonSchema(mcpTool.inputSchema as Parameters<typeof jsonSchema>[0]),
       execute: async (args: Record<string, unknown>) => {
         const result = await client.callTool({ name: toolName, arguments: args });
         return result.content;
@@ -53,7 +53,7 @@ async function createMCPToolBridge(mcpUrl: string, agentName: string) {
 function createBashTool() {
   return tool({
     description: "Execute a shell command and return stdout/stderr.",
-    parameters: jsonSchema<{ command: string }>({
+    inputSchema: jsonSchema<{ command: string }>({
       type: "object",
       properties: {
         command: { type: "string", description: "The shell command to execute" },

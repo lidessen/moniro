@@ -52,7 +52,7 @@ export async function createBashTools(
   tools.bash = tool({
     description:
       "Execute bash commands in a sandboxed environment. Returns stdout, stderr, and exit code.",
-    parameters: jsonSchema({
+    inputSchema: jsonSchema({
       type: "object",
       properties: {
         command: {
@@ -74,7 +74,7 @@ export async function createBashTools(
   if (includeReadFile) {
     tools.readFile = tool({
       description: "Read the contents of a file from the sandbox filesystem.",
-      parameters: jsonSchema({
+      inputSchema: jsonSchema({
         type: "object",
         properties: {
           path: {
@@ -98,7 +98,7 @@ export async function createBashTools(
     tools.writeFile = tool({
       description:
         "Write content to a file in the sandbox filesystem. Creates parent directories if needed.",
-      parameters: jsonSchema({
+      inputSchema: jsonSchema({
         type: "object",
         properties: {
           path: {

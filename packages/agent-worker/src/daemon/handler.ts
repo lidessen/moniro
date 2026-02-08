@@ -104,7 +104,7 @@ export async function handleRequest(
         // Create AI SDK tool from the CLI payload
         const t = tool({
           description,
-          parameters: jsonSchema(parameters),
+          inputSchema: jsonSchema(parameters),
           execute: async () => ({ error: "No implementation - use tool mock to set response" }),
         });
         session.addTool(name, t);

@@ -39,7 +39,7 @@ async function createMCPToolBridge(mcpUrl: string, agentName: string): Promise<M
     const toolName = mcpTool.name;
     aiTools[toolName] = tool({
       description: mcpTool.description || toolName,
-      parameters: jsonSchema(mcpTool.inputSchema as Parameters<typeof jsonSchema>[0]),
+      inputSchema: jsonSchema(mcpTool.inputSchema as Parameters<typeof jsonSchema>[0]),
       execute: async (args: Record<string, unknown>) => {
         const result = await client.callTool({ name: toolName, arguments: args });
         return result.content;
