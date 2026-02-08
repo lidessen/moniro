@@ -13,7 +13,18 @@ import {
   generateAutoName,
   getAgentDisplayName,
 } from "@/daemon/index.ts";
-import { buildAgentId, parseAgentId, isValidInstanceName, DEFAULT_INSTANCE } from "../instance.ts";
+import {
+  parseTarget,
+  buildTarget,
+  buildTargetDisplay,
+  isValidName,
+  DEFAULT_WORKFLOW,
+  DEFAULT_TAG,
+  // Backward compat
+  parseAgentId,
+  buildAgentId,
+  DEFAULT_INSTANCE,
+} from "../target.ts";
 import { outputJson } from "../output.ts";
 
 // Common action for creating new agent
@@ -44,24 +55,45 @@ async function createAgentAction(
   const backend = (options.backend ?? "sdk") as BackendType;
   const model = options.model || getDefaultModel();
   const idleTimeout = parseInt(options.idleTimeout ?? "1800000", 10);
-  const instance = options.workflow || DEFAULT_INSTANCE;
+
+  // Parse workflow:tag format from -w parameter
+  let workflow = DEFAULT_WORKFLOW;
+  let tag = DEFAULT_TAG;
+
+  if (options.workflow) {
+    // Support both "workflow" and "workflow:tag" formats
+    const colonIndex = options.workflow.indexOf(":");
+    if (colonIndex === -1) {
+      workflow = options.workflow;
+    } else {
+      workflow = options.workflow.slice(0, colonIndex) || DEFAULT_WORKFLOW;
+      tag = options.workflow.slice(colonIndex + 1) || DEFAULT_TAG;
+    }
+
+    // Validate workflow and tag names
+    if (!isValidName(workflow)) {
+      console.error(`Invalid workflow name: ${workflow}`);
+      console.error("Workflow names must be alphanumeric, hyphen, underscore, or dot");
+      process.exit(1);
+    }
+    if (!isValidName(tag)) {
+      console.error(`Invalid tag name: ${tag}`);
+      console.error("Tag names must be alphanumeric, hyphen, underscore, or dot");
+      process.exit(1);
+    }
+  }
+
+  const instance = options.workflow || DEFAULT_INSTANCE; // Backward compat
 
   // Auto-generate name if not provided (a0, a1, ..., z9)
   const agentName = name || generateAutoName();
 
-  // Build full agent@instance name
+  // Build full agent@workflow:tag name
   let fullName: string;
   if (agentName.includes("@")) {
     fullName = agentName;
-  } else if (options.workflow) {
-    if (!isValidInstanceName(options.workflow)) {
-      console.error(`Invalid workflow name: ${options.workflow}`);
-      console.error("Workflow names must be alphanumeric, hyphen, or underscore");
-      process.exit(1);
-    }
-    fullName = buildAgentId(agentName, options.workflow);
   } else {
-    fullName = buildAgentId(agentName, DEFAULT_INSTANCE);
+    fullName = buildTarget(agentName, workflow, tag);
   }
 
   // Build schedule config if provided
@@ -77,7 +109,9 @@ async function createAgentAction(
       model,
       system,
       name: fullName,
-      instance,
+      workflow,
+      tag,
+      instance, // Backward compat
       idleTimeout,
       backend,
       skills: options.skill,
@@ -89,7 +123,9 @@ async function createAgentAction(
   } else {
     const scriptPath = process.argv[1] ?? "";
     const args = [scriptPath, "new", agentName, "-m", model, "-b", backend, "-s", system, "--foreground"];
-    args.push("--workflow", instance);
+    // Pass workflow:tag format or just workflow
+    const workflowArg = tag === DEFAULT_TAG ? workflow : `${workflow}:${tag}`;
+    args.push("--workflow", workflowArg);
     args.push("--idle-timeout", String(idleTimeout));
     if (options.feedback) {
       args.push("--feedback");
@@ -125,12 +161,19 @@ async function createAgentAction(
     // Wait for ready signal instead of blind timeout
     const info = await waitForReady(fullName, 5000);
     if (info) {
-      const instanceStr = instance !== DEFAULT_INSTANCE ? `@${instance}` : "";
+      const targetDisplay = buildTargetDisplay(agentName, workflow, tag);
 
       if (options.json) {
-        outputJson({ name: agentName, instance, model: info.model, backend });
+        outputJson({
+          name: agentName,
+          workflow,
+          tag,
+          instance, // Backward compat
+          model: info.model,
+          backend,
+        });
       } else {
-        console.log(`${agentName}${instanceStr}`);
+        console.log(targetDisplay);
       }
     } else {
       console.error("Failed to start agent");
@@ -143,19 +186,30 @@ async function createAgentAction(
 function listAgentsAction(options?: { json?: boolean; workflow?: string }) {
   let sessions = listSessions();
 
-  // Filter by workflow if specified
+  // Filter by workflow if specified (support both workflow and workflow:tag)
   if (options?.workflow) {
-    sessions = sessions.filter((s) => s.instance === options.workflow);
+    const colonIndex = options.workflow.indexOf(":");
+    if (colonIndex === -1) {
+      // Just workflow name, match any tag
+      sessions = sessions.filter((s) => s.workflow === options.workflow || s.instance === options.workflow);
+    } else {
+      // workflow:tag format
+      const workflow = options.workflow.slice(0, colonIndex);
+      const tag = options.workflow.slice(colonIndex + 1);
+      sessions = sessions.filter((s) => s.workflow === workflow && s.tag === tag);
+    }
   }
 
   if (options?.json) {
     outputJson(
       sessions.map((s) => {
-        const parsed = s.name ? parseAgentId(s.name) : null;
+        const parsed = s.name ? parseTarget(s.name) : null;
         return {
           id: s.id,
           name: parsed?.agent ?? null,
-          instance: s.instance,
+          workflow: s.workflow,
+          tag: s.tag,
+          instance: s.instance, // Backward compat
           model: s.model,
           backend: s.backend,
           running: isSessionRunning(s.id),
@@ -170,23 +224,25 @@ function listAgentsAction(options?: { json?: boolean; workflow?: string }) {
     return;
   }
 
-  // Group by instance
-  const byInstance = new Map<string, typeof sessions>();
+  // Group by workflow:tag
+  const byWorkflow = new Map<string, typeof sessions>();
   for (const s of sessions) {
-    const inst = s.instance || DEFAULT_INSTANCE;
-    if (!byInstance.has(inst)) byInstance.set(inst, []);
-    byInstance.get(inst)!.push(s);
+    const workflow = s.workflow || s.instance || DEFAULT_WORKFLOW;
+    const tag = s.tag || DEFAULT_TAG;
+    const key = buildTargetDisplay(undefined, workflow, tag);
+    if (!byWorkflow.has(key)) byWorkflow.set(key, []);
+    byWorkflow.get(key)!.push(s);
   }
 
-  for (const [inst, agents] of byInstance) {
-    if (byInstance.size > 1) {
-      console.log(`[${inst}]`);
+  for (const [workflowDisplay, agents] of byWorkflow) {
+    if (byWorkflow.size > 1) {
+      console.log(`[${workflowDisplay}]`);
     }
     for (const s of agents) {
       const running = isSessionRunning(s.id);
       const status = running ? "running" : "stopped";
       const displayName = s.name ? getAgentDisplayName(s.name) : s.id.slice(0, 8);
-      const prefix = byInstance.size > 1 ? "  " : "";
+      const prefix = byWorkflow.size > 1 ? "  " : "";
       console.log(`${prefix}${displayName.padEnd(12)} ${s.model.padEnd(30)} [${status}]`);
     }
   }

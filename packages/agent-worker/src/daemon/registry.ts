@@ -103,8 +103,12 @@ export function resolveSchedule(config: ScheduleConfig): ResolvedSchedule {
 export interface SessionInfo {
   id: string;
   name?: string;
-  /** Instance namespace (agents in the same instance share context) */
-  instance: string;
+  /** Workflow name (namespace for agents) */
+  workflow: string;
+  /** Workflow instance tag */
+  tag: string;
+  /** @deprecated Use workflow instead. Kept for backward compatibility. */
+  instance?: string;
   /** Absolute path to context directory (runtime mapping, stored on creation) */
   contextDir: string;
   model: string;
