@@ -97,13 +97,13 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
 
       // Log inbox contents for debugging
       const senders = inbox.map((m) => m.entry.from);
-      log(`[${name}] Inbox: ${inbox.length} message(s) from [${senders.join(", ")}]`);
+      log(`Inbox: ${inbox.length} message(s) from [${senders.join(", ")}]`);
       for (const msg of inbox) {
         const preview =
           msg.entry.content.length > 120
             ? msg.entry.content.slice(0, 120) + "..."
             : msg.entry.content;
-        log(`[${name}]   <- @${msg.entry.from}: ${preview}`);
+        log(`  ← @${msg.entry.from}: ${preview}`);
       }
 
       // Get latest message ID for acknowledgment
@@ -120,7 +120,7 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
         attempt++;
         state = "running";
 
-        log(`[${name}] Running (attempt ${attempt}/${retryConfig.maxAttempts})`);
+        log(`Running (attempt ${attempt}/${retryConfig.maxAttempts})`);
 
         // Build run context
         const runContext: AgentRunContext = {
@@ -143,7 +143,7 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
         lastResult = await runAgent(backend, runContext, log);
 
         if (lastResult.success) {
-          log(`[${name}] Success (${lastResult.duration}ms)`);
+          log(`✓ Done (${lastResult.duration}ms)`);
 
           // Write agent's final response to channel (so it's visible to user)
           if (lastResult.content) {
@@ -155,20 +155,20 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
           break;
         }
 
-        errorLog(`[${name}] Failed: ${lastResult.error}`);
+        errorLog(`✗ Failed: ${lastResult.error}`);
 
         // Retry with backoff (unless last attempt)
         if (attempt < retryConfig.maxAttempts && shouldContinue(state)) {
           const delay =
             retryConfig.backoffMs * Math.pow(retryConfig.backoffMultiplier, attempt - 1);
-          log(`[${name}] Retrying in ${delay}ms...`);
+          log(`Retrying in ${delay}ms...`);
           await sleep(delay);
         }
       }
 
       // If all retries exhausted, still acknowledge to prevent infinite loop
       if (lastResult && !lastResult.success) {
-        errorLog(`[${name}] Max retries exhausted, acknowledging inbox to prevent retry loop`);
+        errorLog(`✗ Max retries exhausted, acknowledging to prevent loop`);
         await contextProvider.ackInbox(name, latestId);
       }
 
@@ -196,19 +196,17 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
       }
 
       state = "idle";
-      log(`[${name}] Starting controller`);
+      log(`Starting`);
 
       // Start loop (don't await - runs in background)
       runLoop().catch((error) => {
-        errorLog(
-          `[${name}] Controller error: ${error instanceof Error ? error.message : String(error)}`,
-        );
+        errorLog(`✗ ${error instanceof Error ? error.message : String(error)}`);
         state = "stopped";
       });
     },
 
     async stop() {
-      log(`[${name}] Stopping controller`);
+      log(`Stopping`);
       state = "stopped";
 
       // Clear pending timeout
@@ -226,7 +224,7 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
 
     wake() {
       if (state === "idle" && wakeResolver) {
-        log(`[${name}] Waking controller`);
+        log(`Waking`);
         if (pollTimeout) {
           clearTimeout(pollTimeout);
           pollTimeout = null;
@@ -280,7 +278,7 @@ async function runAgent(
 
     // Build prompt from context
     const prompt = buildAgentPrompt(ctx);
-    log(`[${ctx.name}] Prompt (${prompt.length} chars) → ${backend.type} backend`);
+    log(`Prompt (${prompt.length} chars) → ${backend.type} backend`);
 
     // Send via backend
     await backend.send(prompt, { system: ctx.agent.resolvedSystemPrompt });
@@ -288,7 +286,7 @@ async function runAgent(
     return { success: true, duration: Date.now() - startTime };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    log(`[${ctx.name}] Error: ${errorMsg}`);
+    log(`✗ ${errorMsg}`);
     return { success: false, error: errorMsg, duration: Date.now() - startTime };
   }
 }

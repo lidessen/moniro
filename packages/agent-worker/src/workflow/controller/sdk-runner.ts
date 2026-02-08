@@ -20,33 +20,39 @@ import { buildAgentPrompt } from "./prompt.ts";
 
 // ==================== Debug Formatting ====================
 
-/** Format a tool call for single-line debug output */
+/** Truncate string, flatten newlines */
+function truncate(s: string, max: number): string {
+  const flat = s.replace(/\s+/g, " ").trim();
+  return flat.length > max ? flat.slice(0, max) + "…" : flat;
+}
+
+/** Format a tool call for concise single-line debug output */
 function formatToolCall(tc: { toolName: string } & Record<string, unknown>): string {
   const input = (tc.input ?? tc.args ?? {}) as Record<string, unknown>;
   const name = tc.toolName;
 
-  // bash: show just the command
+  // bash → $ command
   if (name === "bash" && typeof input.command === "string") {
-    const cmd = input.command.replace(/\n/g, " ").trim();
-    return `$ ${cmd.length > 80 ? cmd.slice(0, 80) + "..." : cmd}`;
+    return `$ ${truncate(input.command, 80)}`;
   }
 
-  // channel_send: already visible in channel output, just note it
+  // channel_send → already visible in channel output
   if (name === "channel_send") {
-    const msg = String(input.message ?? "");
-    const preview = msg.replace(/\n/g, " ").slice(0, 50);
-    return `channel_send: "${preview}..."`;
+    return `channel_send "${truncate(String(input.message ?? ""), 50)}"`;
   }
 
-  // Other tools: key=value pairs, compact
-  const pairs = Object.entries(input)
-    .map(([k, v]) => {
-      const s = typeof v === "string" ? v : JSON.stringify(v);
-      const flat = s.replace(/\n/g, " ");
-      return `${k}=${flat.length > 40 ? flat.slice(0, 40) + "..." : flat}`;
-    })
-    .join(", ");
-  return `${name}(${pairs})`;
+  // document tools → show file + snippet
+  if (name.startsWith("document_") && typeof input.content === "string") {
+    const file = input.file ? `${input.file}: ` : "";
+    return `${name} ${file}"${truncate(input.content, 40)}"`;
+  }
+
+  // Default: tool_name key=val key=val
+  const pairs = Object.entries(input).map(([k, v]) => {
+    const s = typeof v === "string" ? v : JSON.stringify(v);
+    return `${k}=${truncate(s, 40)}`;
+  });
+  return pairs.length ? `${name} ${pairs.join(" ")}` : name;
 }
 
 // ==================== MCP Tool Bridge ====================
@@ -126,7 +132,7 @@ export async function runSdkAgent(
 
     // 1. Connect MCP for context tools
     const mcp = await createMCPToolBridge(ctx.mcpUrl, ctx.name);
-    log(`[${ctx.name}] MCP connected, ${Object.keys(mcp.tools).length} context tools`);
+    log(`MCP connected, ${Object.keys(mcp.tools).length} context tools`);
 
     // 2. Create model
     const model = await createModelAsync(ctx.agent.model!);
@@ -136,9 +142,7 @@ export async function runSdkAgent(
 
     // 4. Build prompt and run
     const prompt = buildAgentPrompt(ctx);
-    log(
-      `[${ctx.name}] Prompt (${prompt.length} chars) → sdk with ${Object.keys(tools).length} tools`,
-    );
+    log(`Prompt (${prompt.length} chars) → sdk with ${Object.keys(tools).length} tools`);
 
     let stepNum = 0;
     const result = await generateText({
@@ -152,20 +156,20 @@ export async function runSdkAgent(
         stepNum++;
         if (step.toolCalls?.length) {
           for (const tc of step.toolCalls) {
-            log(`[${ctx.name}] Step ${stepNum}: ${formatToolCall(tc)}`);
+            log(`▸ ${formatToolCall(tc)}`);
           }
         }
       },
     });
 
     const totalToolCalls = result.steps.reduce((n, s) => n + s.toolCalls.length, 0);
-    log(`[${ctx.name}] Done: ${result.steps.length} steps, ${totalToolCalls} tool calls`);
+    log(`✓ ${result.steps.length} steps, ${totalToolCalls} tool calls`);
 
     await mcp.close();
     return { success: true, duration: Date.now() - startTime, content: result.text };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    log(`[${ctx.name}] Error: ${errorMsg}`);
+    log(`✗ ${errorMsg}`);
     return { success: false, error: errorMsg, duration: Date.now() - startTime };
   }
 }

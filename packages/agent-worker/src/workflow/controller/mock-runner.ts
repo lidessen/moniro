@@ -82,7 +82,7 @@ export async function runMockAgent(
 
     // 1. Connect to MCP
     const mcp = await createMCPToolBridge(ctx.mcpUrl, ctx.name);
-    log(`[${ctx.name}] MCP connected, ${Object.keys(mcp.tools).length} tools`);
+    log(`MCP connected, ${Object.keys(mcp.tools).length} tools`);
 
     // 2. Build scripted mock model
     const inboxSummary = ctx.inbox
@@ -121,7 +121,7 @@ export async function runMockAgent(
 
     // 3. Build prompt and run
     const prompt = buildAgentPrompt(ctx);
-    log(`[${ctx.name}] Prompt (${prompt.length} chars): ${prompt.slice(0, 150)}...`);
+    log(`Prompt (${prompt.length} chars)`);
 
     const result = await generateText({
       model: mockModel,
@@ -131,16 +131,14 @@ export async function runMockAgent(
       stopWhen: stepCountIs(3),
     });
 
-    log(`[${ctx.name}] Completed: ${result.text || "(tool calls only)"}`);
-    log(
-      `[${ctx.name}] Steps: ${result.steps.length}, Tool calls: ${result.steps.reduce((n, s) => n + s.toolCalls.length, 0)}`,
-    );
+    const totalToolCalls = result.steps.reduce((n, s) => n + s.toolCalls.length, 0);
+    log(`✓ ${result.steps.length} steps, ${totalToolCalls} tool calls`);
 
     await mcp.close();
     return { success: true, duration: Date.now() - startTime };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    log(`[${ctx.name}] Error: ${errorMsg}`);
+    log(`✗ ${errorMsg}`);
     return { success: false, error: errorMsg, duration: Date.now() - startTime };
   }
 }
