@@ -36,7 +36,7 @@ export function interpolate(
   return template.replace(VARIABLE_PATTERN, (match, expression) => {
     const value = resolveExpression(expression.trim(), context);
     if (value === undefined && warn) {
-      warn(`Unresolved variable: ${{ ${expression.trim()} }} — no setup task defines it`);
+      warn("Unresolved variable: ${{ " + expression.trim() + " }} — no setup task defines it");
     }
     return value ?? match; // Keep original if not found
   });
