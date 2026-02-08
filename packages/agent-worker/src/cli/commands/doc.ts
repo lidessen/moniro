@@ -5,11 +5,15 @@ export function registerDocCommands(program: Command) {
   const docCmd = program.command("doc").description("Read/write workflow documents");
 
   docCmd
-    .command("read")
+    .command("read <target>")
     .description("Read the workflow document")
-    .requiredOption("-w, --workflow <name>", "Workflow name")
-    .action(async (options) => {
-      const dir = await resolveDir(options.workflow);
+    .addHelpText('after', `
+Examples:
+  $ agent-worker doc read @review            # Read @review:main document
+  $ agent-worker doc read @review:pr-123     # Read specific workflow:tag document
+    `)
+    .action(async (targetInput: string) => {
+      const dir = await resolveDir(targetInput);
       const { createFileContextProvider } = await import("@/workflow/context/index.ts");
       const provider = createFileContextProvider(dir, []);
       const content = await provider.readDocument();
@@ -17,24 +21,28 @@ export function registerDocCommands(program: Command) {
     });
 
   docCmd
-    .command("write")
+    .command("write <target>")
     .description("Write content to the workflow document")
-    .requiredOption("-w, --workflow <name>", "Workflow name")
     .option("--content <text>", "Content to write")
     .option("--file <path>", "Read content from file")
-    .action(async (options) => {
+    .addHelpText('after', `
+Examples:
+  $ agent-worker doc write @review --content "Document content"
+  $ agent-worker doc write @review:pr-123 --file content.txt
+    `)
+    .action(async (targetInput: string, options) => {
       let content = options.content;
       if (options.file) {
         content = readFileSync(options.file, "utf-8");
       }
       if (!content) {
         console.error("Provide --content or --file");
-        console.error("Example: agent-worker doc write -w my-workflow --content 'Document content'");
-        console.error("Or:      agent-worker doc write -w my-workflow --file content.txt");
+        console.error("Example: agent-worker doc write @review --content 'Document content'");
+        console.error("Or:      agent-worker doc write @review --file content.txt");
         process.exit(1);
       }
 
-      const dir = await resolveDir(options.workflow);
+      const dir = await resolveDir(targetInput);
       const { createFileContextProvider } = await import("@/workflow/context/index.ts");
       const provider = createFileContextProvider(dir, []);
       await provider.writeDocument(content);
@@ -42,24 +50,28 @@ export function registerDocCommands(program: Command) {
     });
 
   docCmd
-    .command("append")
+    .command("append <target>")
     .description("Append content to the workflow document")
-    .requiredOption("-w, --workflow <name>", "Workflow name")
     .option("--content <text>", "Content to append (use $'...' for newlines in bash)")
     .option("--file <path>", "Read content from file")
-    .action(async (options) => {
+    .addHelpText('after', `
+Examples:
+  $ agent-worker doc append @review --content $'\\nNew line'
+  $ agent-worker doc append @review:pr-123 --file content.txt
+    `)
+    .action(async (targetInput: string, options) => {
       let content = options.content;
       if (options.file) {
         content = readFileSync(options.file, "utf-8");
       }
       if (!content) {
         console.error("Provide --content or --file");
-        console.error("Example: agent-worker doc append -w my-workflow --content $'\\nNew line'");
-        console.error("Or:      agent-worker doc append -w my-workflow --file content.txt");
+        console.error("Example: agent-worker doc append @review --content $'\\nNew line'");
+        console.error("Or:      agent-worker doc append @review --file content.txt");
         process.exit(1);
       }
 
-      const dir = await resolveDir(options.workflow);
+      const dir = await resolveDir(targetInput);
       const { createFileContextProvider } = await import("@/workflow/context/index.ts");
       const provider = createFileContextProvider(dir, []);
       await provider.appendDocument(content);
@@ -67,14 +79,12 @@ export function registerDocCommands(program: Command) {
     });
 }
 
-async function resolveDir(workflowInput: string): Promise<string> {
+async function resolveDir(targetInput: string): Promise<string> {
   const { getDefaultContextDir } = await import("@/workflow/context/file-provider.ts");
-  const { DEFAULT_TAG } = await import("../target.ts");
+  const { parseTarget } = await import("../target.ts");
 
-  // Parse workflow:tag format
-  const colonIndex = workflowInput.indexOf(":");
-  const workflow = colonIndex === -1 ? workflowInput : workflowInput.slice(0, colonIndex);
-  const tag = colonIndex === -1 ? DEFAULT_TAG : workflowInput.slice(colonIndex + 1);
+  // Parse target identifier (should be @workflow:tag format)
+  const target = parseTarget(targetInput);
 
-  return getDefaultContextDir(workflow, tag);
+  return getDefaultContextDir(target.workflow, target.tag);
 }

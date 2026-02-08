@@ -134,7 +134,7 @@ Examples:
         console.log(`Context: ${contextDir}`);
         console.log(`\nTo monitor:`);
         console.log(`  agent-worker ls -w ${options.workflow}`);
-        console.log(`  agent-worker peek -w ${options.workflow}`);
+        console.log(`  agent-worker peek @${options.workflow}`);
         console.log(`\nTo stop:`);
         console.log(`  agent-worker stop -w ${options.workflow}`);
         return;

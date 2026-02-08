@@ -244,8 +244,8 @@ agent-worker ls                             # All workflows
 agent-worker ls -w review:pr-123            # Specific workflow:tag
 
 # Send messages
-agent-worker send "@coder fix the bug" -w review:pr-123
-agent-worker send "@all sync up" -w review:pr-123
+agent-worker send coder@review:pr-123 "fix the bug"
+agent-worker send @review:pr-123 "@all sync up"
 
 # Schedule commands
 agent-worker schedule alice set 30s                   # alice@global:main

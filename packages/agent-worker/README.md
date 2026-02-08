@@ -34,7 +34,7 @@ Perfect for: testing, prototyping, interactive Q&A, code assistance.
 agent-worker new alice -m anthropic/claude-sonnet-4-5
 
 # Send a message
-agent-worker send "@alice Analyze this codebase"
+agent-worker send alice "Analyze this codebase"
 
 # View conversation
 agent-worker peek
@@ -53,7 +53,7 @@ agent-worker new reviewer -m anthropic/claude-sonnet-4-5 -w review
 agent-worker new coder -m anthropic/claude-sonnet-4-5 -w review
 
 # Send to specific agent
-agent-worker send "@reviewer Check this code" -w review
+agent-worker send reviewer@review "Check this code"
 ```
 
 ### Multiple Instances (workflow:tag)
@@ -66,8 +66,8 @@ agent-worker new reviewer -w review:pr-123
 agent-worker new reviewer -w review:pr-456
 
 # Each has its own conversation history
-agent-worker send "@reviewer LGTM" -w review:pr-123
-agent-worker peek -w review:pr-123  # Only sees pr-123 messages
+agent-worker send reviewer@review:pr-123 "LGTM"
+agent-worker peek @review:pr-123  # Only sees pr-123 messages
 ```
 
 **Tag syntax**:
@@ -85,8 +85,8 @@ agent-worker ls [-w workflow]            # List agents
 agent-worker status <target>             # Check agent status
 
 # Interaction
-agent-worker send <message> [-w workflow:tag]
-agent-worker peek [-w workflow:tag] [--all] [--find <text>]
+agent-worker send <target> <message>     # Send to agent or workflow
+agent-worker peek [target] [options]     # View messages (default: @global)
 
 # Scheduling (periodic wakeup when idle)
 agent-worker schedule <target> set <interval> [--prompt "Task"]
@@ -94,9 +94,9 @@ agent-worker schedule <target> get
 agent-worker schedule <target> clear
 
 # Shared documents
-agent-worker doc read -w <workflow:tag>
-agent-worker doc write -w <workflow:tag> --content "..."
-agent-worker doc append -w <workflow:tag> --file notes.txt
+agent-worker doc read <target>
+agent-worker doc write <target> --content "..."
+agent-worker doc append <target> --file notes.txt
 
 # Tools (for testing/mocking)
 agent-worker tool mock <tool-name> <response-json>
@@ -117,12 +117,21 @@ agent-worker new alice -b mock                         # Testing (no API)
 **Quick testing without API keys:**
 ```bash
 agent-worker new -b mock
-agent-worker send "@a0 Hello"
+agent-worker send a0 "Hello"
 ```
 
 **Scheduled agent (runs every 30s when idle):**
 ```bash
 agent-worker new monitor -w ci --wakeup 30s --prompt "Check CI status"
+```
+
+**Send to workflow (broadcast or @mention):**
+```bash
+# Broadcast to entire workflow
+agent-worker send @review "Status update"
+
+# @mention specific agents in workflow
+agent-worker send @review "@alice @bob discuss this"
 ```
 
 **Feedback-enabled agent (reports observations):**
@@ -240,12 +249,12 @@ kickoff: |
 agent-worker run <file> [-w workflow:tag] [--json]    # Run once
 agent-worker start <file> [-w workflow:tag]           # Keep alive
 agent-worker start <file> --background                # Daemon mode
-agent-worker stop -w <workflow:tag>                   # Stop workflow
+agent-worker stop @<workflow:tag>                     # Stop workflow
 
 # Monitoring
 agent-worker ls -w <workflow:tag>        # List agents in workflow
-agent-worker peek -w <workflow:tag>      # View channel messages
-agent-worker doc read -w <workflow:tag>  # Read shared document
+agent-worker peek @<workflow:tag>        # View channel messages
+agent-worker doc read @<workflow:tag>    # Read shared document
 
 # Debug
 agent-worker run <file> --debug          # Show internal logs

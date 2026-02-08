@@ -41,14 +41,14 @@ agent-worker new -m anthropic/claude-sonnet-4-5
 # → a0
 
 # Send a message
-agent-worker send "@a0 What is 2+2?"
+agent-worker send a0 "What is 2+2?"
 
 # View conversation
 agent-worker peek
 
 # Create a second agent (shares channel)
 agent-worker new coder
-agent-worker send "@a0 review the code, then @coder fix issues"
+agent-worker send @global "@a0 @coder collaborate on this"
 
 # Stop agents
 agent-worker stop a0 coder
@@ -63,16 +63,16 @@ Group agents into **workflows** for context isolation:
 agent-worker new reviewer -w review
 agent-worker new coder -w review
 
-# Send to specific workflow
-agent-worker send "@reviewer Check this code" -w review
+# Send to specific agent in workflow
+agent-worker send reviewer@review "Check this code"
 
 # Multiple isolated instances (tags)
 agent-worker new reviewer -w review:pr-123
 agent-worker new reviewer -w review:pr-456
 
 # Each tag has independent context
-agent-worker send "@reviewer LGTM" -w review:pr-123
-agent-worker peek -w review:pr-123  # Only sees pr-123 messages
+agent-worker send reviewer@review:pr-123 "LGTM"
+agent-worker peek @review:pr-123  # Only sees pr-123 messages
 ```
 
 **Tag syntax**:
@@ -99,8 +99,8 @@ agent-worker stop <target>               # Stop agent
 agent-worker stop -w <workflow:tag>      # Stop all in workflow
 
 # Interaction
-agent-worker send <message> [-w workflow:tag]
-agent-worker peek [-w workflow:tag] [--all] [--find <text>]
+agent-worker send <target> <message>
+agent-worker peek [target] [--all] [--find <text>]
 
 # Per-agent operations
 agent-worker stats <target>              # Statistics
@@ -113,9 +113,9 @@ agent-worker schedule <target> get
 agent-worker schedule <target> clear
 
 # Shared documents
-agent-worker doc read -w <workflow:tag>
-agent-worker doc write -w <workflow:tag> --content "..."
-agent-worker doc append -w <workflow:tag> --file notes.txt
+agent-worker doc read <target>
+agent-worker doc write <target> --content "..."
+agent-worker doc append <target> --file notes.txt
 ```
 
 ### Backend Options
@@ -134,7 +134,7 @@ agent-worker new -b mock                         # Testing (no API)
 **Quick testing without API keys:**
 ```bash
 agent-worker new -b mock
-agent-worker send "@a0 Hello"
+agent-worker send a0 "Hello"
 ```
 
 **Scheduled monitoring agent:**
@@ -146,9 +146,9 @@ agent-worker new monitor -w ci:staging --wakeup 30s --prompt "Check CI status"
 ```bash
 agent-worker new reviewer -w review:pr-123
 agent-worker new coder -w review:pr-123
-agent-worker send "@reviewer Review recent changes" -w review:pr-123
+agent-worker send reviewer@review:pr-123 "Review recent changes"
 # Reviewer responds, mentions @coder
-agent-worker peek -w review:pr-123
+agent-worker peek @review:pr-123
 ```
 
 ---
@@ -414,13 +414,13 @@ All agents in a workflow share a channel. Messages route via `@mentions`:
 
 ```bash
 # Route to specific agent
-agent-worker send "@alice analyze this"
+agent-worker send alice "analyze this"
 
-# Route to multiple agents
-agent-worker send "@alice @bob collaborate on this"
+# Route to multiple agents (workflow broadcast with @mentions)
+agent-worker send @review "@alice @bob collaborate on this"
 
-# Broadcast (no @mention)
-agent-worker send "Status update"
+# Broadcast to workflow (no @mention)
+agent-worker send @review "Status update"
 ```
 
 **Available tools** (in agent's system prompt):
@@ -434,9 +434,9 @@ Agents can read/write to a shared document:
 
 ```bash
 # Manual document management
-agent-worker doc read -w review:pr-123
-agent-worker doc write -w review:pr-123 --content "Analysis complete"
-agent-worker doc append -w review:pr-123 --file results.txt
+agent-worker doc read @review:pr-123
+agent-worker doc write @review:pr-123 --content "Analysis complete"
+agent-worker doc append @review:pr-123 --file results.txt
 ```
 
 **Available tools** (in agent's system prompt):
@@ -550,7 +550,7 @@ agent-worker tool list
 For tools marked `needsApproval`:
 
 ```bash
-agent-worker send "@a0 Delete /tmp/test.txt"
+agent-worker send a0 "Delete /tmp/test.txt"
 agent-worker pending
 agent-worker approve <id>
 agent-worker deny <id> -r "Path not allowed"
@@ -665,11 +665,16 @@ agent-worker stop <target>           Stop agent
   -w, --workflow <workflow:tag>      Stop all in workflow
 
 # Communication
-agent-worker send <message>          Send to channel
-  -w, --workflow <workflow:tag>      Target workflow:tag
+agent-worker send <target> <message> Send to agent or workflow
+  Target examples:
+    alice                            Send to alice@global:main
+    alice@review                     Send to alice@review:main
+    alice@review:pr-123              Send to specific workflow:tag
+    @review                          Broadcast to review workflow
+    @review:pr-123                   Broadcast to workflow:tag
 
-agent-worker peek                    View channel messages
-  -w, --workflow <workflow:tag>      Target workflow:tag
+agent-worker peek [target]           View channel messages
+  Target: agent@workflow:tag or @workflow:tag (default: @global)
   --all                              Show all messages
   -n, --last <count>                 Show last N messages
   --find <text>                      Search messages
@@ -685,9 +690,10 @@ agent-worker schedule <target> get
 agent-worker schedule <target> clear
 
 # Documents
-agent-worker doc read -w <workflow:tag>
-agent-worker doc write -w <workflow:tag> --content <text>
-agent-worker doc append -w <workflow:tag> --file <path>
+agent-worker doc read <target>
+agent-worker doc write <target> --content <text>
+agent-worker doc append <target> --file <path>
+  Target: @workflow:tag (e.g., @review:pr-123)
 
 # Tools (SDK Backend Only)
 agent-worker tool add <name>         Add tool
