@@ -52,7 +52,6 @@ const C = {
   // Status colors (background-agnostic)
   yellow: isTTY ? chalk.yellow : (s: string) => s,
   red: isTTY ? chalk.red : (s: string) => s,
-  green: isTTY ? chalk.green : (s: string) => s,
 
   // Agent colors — cycle through distinct hues
   agents: isTTY
@@ -111,7 +110,11 @@ export function createDisplayContext(
 function getAgentColor(name: string, agentNames: string[]): (s: string) => string {
   if (name === "system" || name === "user") return C.system;
   const idx = agentNames.indexOf(name);
-  if (idx < 0) return C.agents[0]!;
+  if (idx < 0) {
+    // Hash agent name to consistent color for unknown agents
+    const hash = name.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    return C.agents[hash % C.agents.length]!;
+  }
   return C.agents[idx % C.agents.length]!;
 }
 
@@ -135,10 +138,11 @@ export function formatChannelEntry(entry: Message, context: DisplayContext): str
   }
 
   // Normal mode: timeline-style for visual clarity
-  // Determine if we should show time (first message from this agent in this minute)
-  const showTime = shouldGroup(entry.from, entry.timestamp, context.grouping, false) === false;
+  // Show time for first message from this agent in this minute
+  // (shouldGroup with enableGrouping=false checks if this is first message)
+  const isFirstMessage = !shouldGroup(entry.from, entry.timestamp, context.grouping, false);
 
-  return formatTimelineLog(entry, context.layout, showTime);
+  return formatTimelineLog(entry, context.layout, isFirstMessage);
 }
 
 /**

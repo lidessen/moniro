@@ -26,10 +26,10 @@ describe("Layout System", () => {
       });
 
       expect(layout.terminalWidth).toBe(80);
-      expect(layout.timeWidth).toBe(5); // MM:SS
+      expect(layout.timeWidth).toBe(8); // HH:MM:SS (always full format)
       expect(layout.nameWidth).toBeGreaterThanOrEqual(6); // At least 6 for "system"
       expect(layout.maxContentWidth).toBeLessThanOrEqual(80);
-      expect(layout.compactTime).toBe(true);
+      expect(layout.compactTime).toBe(false); // Always use full time format
     });
 
     it("should adapt to long agent names", () => {
@@ -58,13 +58,13 @@ describe("Layout System", () => {
       expect(narrowLayout.maxContentWidth).toBeGreaterThanOrEqual(40); // Minimum content width
     });
 
-    it("should use compact time format by default", () => {
+    it("should use full time format (HH:MM:SS) by default", () => {
       const layout = calculateLayout({
         agentNames: ["test"],
       });
 
-      expect(layout.compactTime).toBe(true);
-      expect(layout.timeWidth).toBe(5); // MM:SS
+      expect(layout.compactTime).toBe(false); // Always use HH:MM:SS for precision
+      expect(layout.timeWidth).toBe(8); // HH:MM:SS
     });
   });
 
