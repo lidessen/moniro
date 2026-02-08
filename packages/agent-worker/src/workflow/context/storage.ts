@@ -13,6 +13,10 @@ import {
   writeFileSync,
   appendFileSync,
   readdirSync,
+  openSync,
+  readSync,
+  closeSync,
+  statSync,
 } from "node:fs";
 import { dirname, join, relative } from "node:path";
 
@@ -24,6 +28,9 @@ import { dirname, join, relative } from "node:path";
 export interface StorageBackend {
   /** Read content by key. Returns null if not found. */
   read(key: string): Promise<string | null>;
+
+  /** Read content starting from a byte/char offset. Returns new content and updated offset. */
+  readFrom(key: string, offset: number): Promise<{ content: string; offset: number }>;
 
   /** Write content by key (creates or overwrites). */
   write(key: string, content: string): Promise<void>;
@@ -51,6 +58,12 @@ export class MemoryStorage implements StorageBackend {
 
   async read(key: string): Promise<string | null> {
     return this.data.get(key) ?? null;
+  }
+
+  async readFrom(key: string, offset: number): Promise<{ content: string; offset: number }> {
+    const data = this.data.get(key) ?? "";
+    if (offset >= data.length) return { content: "", offset };
+    return { content: data.slice(offset), offset: data.length };
   }
 
   async write(key: string, content: string): Promise<void> {
@@ -131,6 +144,26 @@ export class FileStorage implements StorageBackend {
       return null;
     } catch {
       return null;
+    }
+  }
+
+  async readFrom(key: string, offset: number): Promise<{ content: string; offset: number }> {
+    const filePath = this.resolve(key);
+    try {
+      if (!existsSync(filePath)) return { content: "", offset };
+      const size = statSync(filePath).size;
+      if (offset >= size) return { content: "", offset };
+      const fd = openSync(filePath, "r");
+      try {
+        const length = size - offset;
+        const buffer = Buffer.alloc(length);
+        readSync(fd, buffer, 0, length, offset);
+        return { content: buffer.toString("utf-8"), offset: size };
+      } finally {
+        closeSync(fd);
+      }
+    } catch {
+      return { content: "", offset };
     }
   }
 

@@ -174,19 +174,16 @@ export function startChannelWatcher(config: ChannelWatcherConfig): ChannelWatche
     pollInterval = 500,
   } = config;
 
-  let processedCount = 0;
+  let offset = 0;
   let running = true;
 
   const poll = async () => {
     while (running) {
       try {
-        // Read all entries and skip already-processed ones by index.
-        // Timestamp-based dedup silently drops entries that share a timestamp
-        // with a skipped debug entry (e.g. agent channel_send messages).
-        const entries = await contextProvider.readChannel();
-        for (let i = processedCount; i < entries.length; i++) {
-          const entry = entries[i]!;
-
+        // Incremental read: only parse bytes appended since last poll.
+        // JSONL's line-per-entry format makes byte-offset tailing safe.
+        const tail = await contextProvider.tailChannel(offset);
+        for (const entry of tail.entries) {
           // Filter: skip debug entries unless --debug
           if (entry.kind === "debug" && !showDebug) {
             continue;
@@ -194,7 +191,7 @@ export function startChannelWatcher(config: ChannelWatcherConfig): ChannelWatche
 
           log(formatChannelEntry(entry, agentNames));
         }
-        processedCount = entries.length;
+        offset = tail.offset;
       } catch {
         // Ignore errors during polling
       }

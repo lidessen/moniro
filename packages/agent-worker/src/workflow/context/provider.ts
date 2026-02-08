@@ -39,10 +39,20 @@ export interface ReadOptions {
  * Context Provider interface
  * Provides domain operations for workflow context (channel, inbox, documents, resources).
  */
+/** Result of an incremental channel read */
+export interface TailResult {
+  /** New entries since last offset */
+  entries: Message[];
+  /** Updated byte offset for next call */
+  offset: number;
+}
+
 export interface ContextProvider {
   // Channel
   appendChannel(from: string, content: string, options?: SendOptions): Promise<Message>;
   readChannel(options?: ReadOptions): Promise<Message[]>;
+  /** Read new channel entries incrementally from a byte offset */
+  tailChannel(offset: number): Promise<TailResult>;
 
   // Inbox
   getInbox(agent: string): Promise<InboxMessage[]>;
@@ -143,6 +153,12 @@ export class ContextProviderImpl implements ContextProvider {
     }
 
     return entries;
+  }
+
+  async tailChannel(offset: number): Promise<TailResult> {
+    const result = await this.storage.readFrom(KEYS.channel, offset);
+    if (!result.content) return { entries: [], offset };
+    return { entries: parseJsonl<Message>(result.content), offset: result.offset };
   }
 
   // ==================== Inbox ====================
