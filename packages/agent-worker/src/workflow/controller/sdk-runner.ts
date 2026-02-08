@@ -18,6 +18,37 @@ import { createModelAsync } from "@/agent/models.ts";
 import type { AgentRunContext, AgentRunResult } from "./types.ts";
 import { buildAgentPrompt } from "./prompt.ts";
 
+// ==================== Debug Formatting ====================
+
+/** Format a tool call for single-line debug output */
+function formatToolCall(tc: { toolName: string } & Record<string, unknown>): string {
+  const input = (tc.input ?? tc.args ?? {}) as Record<string, unknown>;
+  const name = tc.toolName;
+
+  // bash: show just the command
+  if (name === "bash" && typeof input.command === "string") {
+    const cmd = input.command.replace(/\n/g, " ").trim();
+    return `$ ${cmd.length > 80 ? cmd.slice(0, 80) + "..." : cmd}`;
+  }
+
+  // channel_send: already visible in channel output, just note it
+  if (name === "channel_send") {
+    const msg = String(input.message ?? "");
+    const preview = msg.replace(/\n/g, " ").slice(0, 50);
+    return `channel_send: "${preview}..."`;
+  }
+
+  // Other tools: key=value pairs, compact
+  const pairs = Object.entries(input)
+    .map(([k, v]) => {
+      const s = typeof v === "string" ? v : JSON.stringify(v);
+      const flat = s.replace(/\n/g, " ");
+      return `${k}=${flat.length > 40 ? flat.slice(0, 40) + "..." : flat}`;
+    })
+    .join(", ");
+  return `${name}(${pairs})`;
+}
+
 // ==================== MCP Tool Bridge ====================
 
 /**
@@ -121,23 +152,14 @@ export async function runSdkAgent(
         stepNum++;
         if (step.toolCalls?.length) {
           for (const tc of step.toolCalls) {
-            const input = (tc as Record<string, unknown>).input ?? (tc as Record<string, unknown>).args ?? {};
-            const inputStr = JSON.stringify(input);
-            const preview = inputStr.length > 120 ? inputStr.slice(0, 120) + "..." : inputStr;
-            log(`[${ctx.name}] Step ${stepNum}: ${tc.toolName}(${preview})`);
+            log(`[${ctx.name}] Step ${stepNum}: ${formatToolCall(tc)}`);
           }
-        }
-        if (step.text) {
-          const textPreview = step.text.length > 120 ? step.text.slice(0, 120) + "..." : step.text;
-          log(`[${ctx.name}] Step ${stepNum}: text="${textPreview}"`);
         }
       },
     });
 
-    log(`[${ctx.name}] Completed: ${result.text?.slice(0, 100) || "(tool calls only)"}`);
-    log(
-      `[${ctx.name}] Steps: ${result.steps.length}, Tool calls: ${result.steps.reduce((n, s) => n + s.toolCalls.length, 0)}`,
-    );
+    const totalToolCalls = result.steps.reduce((n, s) => n + s.toolCalls.length, 0);
+    log(`[${ctx.name}] Done: ${result.steps.length} steps, ${totalToolCalls} tool calls`);
 
     await mcp.close();
     return { success: true, duration: Date.now() - startTime, content: result.text };
