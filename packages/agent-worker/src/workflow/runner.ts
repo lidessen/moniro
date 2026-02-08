@@ -146,7 +146,7 @@ export function createWorkflowProvider(
   if (resolvedContext.provider === "memory") {
     return {
       contextProvider: createMemoryContextProvider(agentNames),
-      contextDir: join(tmpdir(), `agent-worker-${workflow.name}-${instance}`),
+      contextDir: join(tmpdir(), `agent-worker-${workflow.name}-${tag}`),
       persistent: false,
     };
   }
