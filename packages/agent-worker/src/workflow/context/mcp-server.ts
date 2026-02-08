@@ -122,9 +122,12 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
 
   // ==================== Channel Tools ====================
 
+  const CHANNEL_MSG_LIMIT = 2000;
+
   server.tool(
     "channel_send",
-    'Send a message to the shared channel. Use @agent to mention/notify. Use "to" for private DMs.',
+    `Send a message to the shared channel. Use @agent to mention/notify. Use "to" for private DMs. ` +
+      `Max ${CHANNEL_MSG_LIMIT} chars — for longer content, use resource_create first then reference the resource ID in your message.`,
     {
       message: z
         .string()
@@ -137,6 +140,20 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
     async ({ message, to }, extra) => {
       const from = getAgentId(extra) || "anonymous";
       logTool("channel_send", from, { message, to });
+
+      if (message.length > CHANNEL_MSG_LIMIT) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text" as const,
+              text: `Message too long (${message.length} chars, max ${CHANNEL_MSG_LIMIT}). ` +
+                `Use resource_create to store the full content, then send a short message referencing the resource ID.`,
+            },
+          ],
+        };
+      }
+
       const sendOpts: SendOptions | undefined = to ? { to } : undefined;
       const msg = await provider.appendChannel(from, message, sendOpts);
 
