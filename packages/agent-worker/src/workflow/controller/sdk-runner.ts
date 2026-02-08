@@ -119,10 +119,12 @@ export async function runSdkAgent(
       stopWhen: stepCountIs(ctx.agent.max_steps ?? 30),
       onStepFinish: (step) => {
         stepNum++;
-        for (const tc of step.toolCalls) {
-          const argsStr = JSON.stringify(tc.args);
-          const preview = argsStr.length > 120 ? argsStr.slice(0, 120) + "..." : argsStr;
-          log(`[${ctx.name}] Step ${stepNum}: ${tc.toolName}(${preview})`);
+        if (step.toolCalls?.length) {
+          for (const tc of step.toolCalls) {
+            const argsStr = JSON.stringify(tc.args ?? {});
+            const preview = argsStr.length > 120 ? argsStr.slice(0, 120) + "..." : argsStr;
+            log(`[${ctx.name}] Step ${stepNum}: ${tc.toolName}(${preview})`);
+          }
         }
         if (step.text) {
           const textPreview = step.text.length > 120 ? step.text.slice(0, 120) + "..." : step.text;
