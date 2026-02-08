@@ -144,10 +144,10 @@ async function resolveAgent(agent: AgentDefinition, workflowDir: string): Promis
   let resolvedSystemPrompt = agent.system_prompt;
 
   // Check if system_prompt is a file path
-  if (agent.system_prompt.endsWith(".txt") || agent.system_prompt.endsWith(".md")) {
-    const promptPath = agent.system_prompt.startsWith("/")
-      ? agent.system_prompt
-      : join(workflowDir, agent.system_prompt);
+  if (resolvedSystemPrompt?.endsWith(".txt") || resolvedSystemPrompt?.endsWith(".md")) {
+    const promptPath = resolvedSystemPrompt.startsWith("/")
+      ? resolvedSystemPrompt
+      : join(workflowDir, resolvedSystemPrompt);
 
     if (existsSync(promptPath)) {
       resolvedSystemPrompt = readFileSync(promptPath, "utf-8");
@@ -315,10 +315,10 @@ function validateAgent(name: string, agent: unknown, errors: ValidationError[]):
     });
   }
 
-  if (!a.system_prompt || typeof a.system_prompt !== "string") {
+  if (a.system_prompt !== undefined && typeof a.system_prompt !== "string") {
     errors.push({
       path: `${path}.system_prompt`,
-      message: 'Required field "system_prompt" must be a string',
+      message: 'Optional field "system_prompt" must be a string',
     });
   }
 

@@ -50,8 +50,8 @@ export interface AgentDefinition {
   /** Model identifier (e.g., 'anthropic/claude-sonnet-4-5'). Optional for CLI backends that have defaults. */
   model?: string;
 
-  /** System prompt - inline string or file path */
-  system_prompt: string;
+  /** System prompt - inline string or file path (optional) */
+  system_prompt?: string;
 
   /** Tool names to enable */
   tools?: string[];
@@ -92,7 +92,7 @@ export interface ParsedWorkflow {
 
 export interface ResolvedAgent extends AgentDefinition {
   /** Resolved system prompt content */
-  resolvedSystemPrompt: string;
+  resolvedSystemPrompt?: string;
 }
 
 /** Resolved context configuration */
