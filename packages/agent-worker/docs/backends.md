@@ -52,7 +52,7 @@ getBackendByType() → Backend
 | Option | Default | Description |
 |--------|---------|-------------|
 | `model` | `sonnet-4.5` | Model identifier |
-| `timeout` | 300s | Command timeout |
+| `timeout` | 300s | Idle timeout (resets on output) |
 | `workspace` | - | Contains `.cursor/mcp.json` |
 
 **MCP config**: JSON at `<workspace>/.cursor/mcp.json`
@@ -62,6 +62,7 @@ getBackendByType() → Backend
 **Gotchas**:
 - stdin must be `'ignore'` — cursor-agent hangs otherwise
 - No system prompt flag; embedded in message
+- Timeout is idle-based: resets whenever the process produces output
 - Response is plain text only
 
 ### Claude Code (`claude`)
@@ -127,7 +128,7 @@ agents:
 | MCP config location | `.cursor/mcp.json` | `--mcp-config <path>` | `.codex/config.yaml` | N/A |
 | System prompt | (in message) | `--append-system-prompt` | (in message) | `system` param |
 | Session resume | No | `--continue` / `--resume` | `--resume` | N/A |
-| Default timeout | 300s | 300s | 300s | N/A |
+| Default idle timeout | 300s | 300s | 300s | N/A |
 
 ---
 

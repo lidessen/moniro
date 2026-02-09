@@ -24,6 +24,8 @@ const command = args[0]
 const delay = parseInt(process.env.MOCK_DELAY_MS || '100', 10)
 const shouldFail = process.env.MOCK_FAIL === '1'
 const shouldTimeout = process.env.MOCK_TIMEOUT === '1'
+const slowOutputChunks = parseInt(process.env.MOCK_SLOW_OUTPUT_CHUNKS || '0', 10)
+const slowOutputIntervalMs = parseInt(process.env.MOCK_SLOW_OUTPUT_INTERVAL_MS || '50', 10)
 const exitCode = parseInt(process.env.MOCK_EXIT_CODE || '0', 10)
 const customResponse = process.env.MOCK_RESPONSE
 
@@ -47,6 +49,17 @@ if (args.includes('--help')) {
 if (shouldTimeout) {
   // Do nothing, just hang
   await new Promise(() => {})
+}
+
+// Simulate slow output (chunks of text with delays between them)
+// Used to test idle timeout reset behavior
+if (slowOutputChunks > 0) {
+  for (let i = 0; i < slowOutputChunks; i++) {
+    process.stdout.write(`chunk ${i + 1}\n`)
+    await new Promise(resolve => setTimeout(resolve, slowOutputIntervalMs))
+  }
+  process.stdout.write('done\n')
+  process.exit(0)
 }
 
 // Extract message from args

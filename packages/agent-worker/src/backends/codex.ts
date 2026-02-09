@@ -9,11 +9,12 @@
  * @see https://github.com/openai/codex
  */
 
-import { execa, ExecaError } from "execa";
+import { execa } from "execa";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { stringify as yamlStringify } from "yaml";
 import type { Backend, BackendResponse } from "./types.ts";
+import { execWithIdleTimeout, IdleTimeoutError } from "./idle-timeout.ts";
 
 export interface CodexOptions {
   /** Model to use (e.g., 'gpt-5.2-codex') */
@@ -30,7 +31,7 @@ export interface CodexOptions {
   approvalMode?: "suggest" | "auto-edit" | "full-auto";
   /** Resume a previous session */
   resume?: string;
-  /** Timeout in milliseconds */
+  /** Idle timeout in milliseconds — kills process if no output for this duration */
   timeout?: number;
   /** Debug log function (for workflow diagnostics) */
   debugLog?: (message: string) => void;
@@ -75,10 +76,11 @@ export class CodexBackend implements Backend {
     const cwd = this.options.workspace || this.options.cwd;
 
     try {
-      const { stdout } = await execa("codex", args, {
+      const { stdout } = await execWithIdleTimeout({
+        command: "codex",
+        args,
         cwd,
-        stdin: "ignore",
-        timeout: this.options.timeout,
+        timeout: this.options.timeout!,
       });
 
       // Parse response based on output format
@@ -103,9 +105,15 @@ export class CodexBackend implements Backend {
 
       return { content: stdout.trim() };
     } catch (error) {
-      if (error instanceof ExecaError) {
+      if (error instanceof IdleTimeoutError) {
         throw new Error(
-          `codex failed (exit ${error.exitCode}): ${error.stderr || error.shortMessage}`,
+          `codex timed out after ${this.options.timeout}ms of inactivity`,
+        );
+      }
+      if (error && typeof error === "object" && "exitCode" in error) {
+        const execError = error as { exitCode?: number; stderr?: string; shortMessage?: string };
+        throw new Error(
+          `codex failed (exit ${execError.exitCode}): ${execError.stderr || execError.shortMessage}`,
         );
       }
       throw error;

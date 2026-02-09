@@ -9,10 +9,11 @@
  * @see https://docs.cursor.com/context/model-context-protocol
  */
 
-import { execa, ExecaError } from "execa";
+import { execa } from "execa";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Backend, BackendResponse } from "./types.ts";
+import { execWithIdleTimeout, IdleTimeoutError } from "./idle-timeout.ts";
 
 export interface CursorOptions {
   /** Model to use */
@@ -21,7 +22,7 @@ export interface CursorOptions {
   cwd?: string;
   /** Workspace directory for agent isolation (contains .cursor/mcp.json) */
   workspace?: string;
-  /** Timeout in milliseconds */
+  /** Idle timeout in milliseconds — kills process if no output for this duration */
   timeout?: number;
   /** Debug log function (for workflow diagnostics) */
   debugLog?: (message: string) => void;
@@ -62,22 +63,24 @@ export class CursorBackend implements Backend {
     const cwd = this.options.workspace || this.options.cwd;
 
     try {
-      // IMPORTANT: stdin must be 'ignore' to prevent cursor-agent from hanging
-      // See: https://forum.cursor.com/t/node-js-spawn-with-cursor-agent-hangs-and-exits-with-code-143-after-timeout/133709
-      const { stdout } = await execa(command, args, {
+      const { stdout } = await execWithIdleTimeout({
+        command,
+        args,
         cwd,
-        stdin: "ignore",
-        timeout: this.options.timeout,
+        timeout: this.options.timeout!,
       });
 
       return { content: stdout.trim() };
     } catch (error) {
-      if (error instanceof ExecaError) {
-        if (error.timedOut) {
-          throw new Error(`cursor-agent timed out after ${this.options.timeout}ms`);
-        }
+      if (error instanceof IdleTimeoutError) {
         throw new Error(
-          `cursor-agent failed (exit ${error.exitCode}): ${error.stderr || error.shortMessage}`,
+          `cursor-agent timed out after ${this.options.timeout}ms of inactivity`,
+        );
+      }
+      if (error && typeof error === "object" && "exitCode" in error) {
+        const execError = error as { exitCode?: number; stderr?: string; shortMessage?: string };
+        throw new Error(
+          `cursor-agent failed (exit ${execError.exitCode}): ${execError.stderr || execError.shortMessage}`,
         );
       }
       throw error;
