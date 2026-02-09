@@ -1,39 +1,40 @@
 name: Changeset Agent
 
-# Automatically generates changesets for merged PRs and manages the release PR.
-# Note: During 0.x development, breaking changes use 'minor' version bumps (not 'major')
-# to keep versions in 0.x range (e.g., 0.4.0 -> 0.5.0, not 1.0.0)
-#
 # Flow:
-# 1. Agent analyzes merged PR → writes /tmp/changeset-result.json
-# 2. Action reads JSON, creates changeset file
-# 3. Checks for existing release/next PR
-#    - If none: create fresh branch, run version, create PR
-#    - If exists: rebuild from main with all accumulated changesets, force push
+# 1. Agent analyzes merged PR → /tmp/changeset-result.json
+# 2. If needed: create .changeset/auto-pr-{N}.md, commit to main
+# 3. Create release/next from main, run `bun run version`
+# 4. Force push release/next, create/update release PR
+#
+# Changeset files on main are the single source of truth.
+# `changeset version` on the release branch consumes them;
+# merging the release PR brings the deletions back to main.
+# No extra tracking files needed.
 
 on:
   pull_request:
     types: [closed]
-    branches:
-      - main
+    branches: [main]
+
+# Serialize runs — prevents races on main and release/next
+concurrency:
+  group: changeset-release
+  cancel-in-progress: false
 
 jobs:
   generate-changeset:
-    # Only run if PR was merged (not just closed) and is NOT a release PR
     if: github.event.pull_request.merged == true && !startsWith(github.event.pull_request.head.ref, 'release/')
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
     steps:
-      - name: Checkout main branch
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
@@ -54,10 +55,10 @@ jobs:
 
       - name: Configure git
         run: |
-          git config --global user.name "Changeset Bot"
-          git config --global user.email "changeset-bot@users.noreply.github.com"
+          git config user.name "Changeset Bot"
+          git config user.email "changeset-bot@users.noreply.github.com"
 
-      - name: Run changeset analysis
+      - name: Analyze PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -66,180 +67,79 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          set -e
-          bun packages/agent-worker/src/cli/index.ts run .workflows/agent-changeset.yaml || {
-            echo "::warning::Changeset analysis failed"
-            exit 1
-          }
+          bun packages/agent-worker/src/cli/index.ts run .workflows/agent-changeset.yaml
 
-      - name: Read analysis result
-        id: analysis
+      - name: Check result
+        id: result
         run: |
-          if [ ! -f /tmp/changeset-result.json ]; then
-            echo "::warning::No changeset result file found"
+          if [ ! -f /tmp/changeset-result.json ] || ! jq empty /tmp/changeset-result.json 2>/dev/null; then
             echo "needed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          echo "needed=$(jq -r '.needed // false' /tmp/changeset-result.json)" >> "$GITHUB_OUTPUT"
 
-          if ! jq empty /tmp/changeset-result.json 2>/dev/null; then
-            echo "::error::Invalid JSON in changeset result"
-            exit 1
-          fi
-
-          NEEDED=$(jq -r '.needed // false' /tmp/changeset-result.json)
-          echo "needed=$NEEDED" >> "$GITHUB_OUTPUT"
-
-          if [ "$NEEDED" = "true" ]; then
-            echo "description=$(jq -r '.description // ""' /tmp/changeset-result.json)" >> "$GITHUB_OUTPUT"
-            # Store packages JSON for later use
-            jq -c '.packages // {}' /tmp/changeset-result.json > /tmp/changeset-packages.json
-          else
-            REASON=$(jq -r '.reason // "unknown"' /tmp/changeset-result.json)
-            echo "Changeset not needed: $REASON"
-          fi
-
-      - name: Check for existing release PR
-        if: steps.analysis.outputs.needed == 'true'
-        id: existing
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Check if there's an open PR from release/next
-          EXISTING_PR=$(gh pr list --head release/next --state open --json number --jq '.[0].number // empty' 2>/dev/null || true)
-          echo "pr_number=${EXISTING_PR}" >> "$GITHUB_OUTPUT"
-
-          if [ -n "$EXISTING_PR" ]; then
-            echo "Found existing release PR: #${EXISTING_PR}"
-
-            # Fetch _pending.json from the existing release branch
-            git fetch origin release/next 2>/dev/null || true
-            git show origin/release/next:_pending.json > /tmp/existing-pending.json 2>/dev/null || echo '[]' > /tmp/existing-pending.json
-            echo "Loaded existing pending changesets"
-          else
-            echo "No existing release PR found"
-            echo '[]' > /tmp/existing-pending.json
-          fi
-
-      - name: Build pending changesets
-        if: steps.analysis.outputs.needed == 'true'
+      - name: Commit changeset to main
+        if: steps.result.outputs.needed == 'true'
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          # Add current PR's changeset to pending list
-          # Use jq to merge: append new entry, deduplicate by PR number
-          NEW_ENTRY=$(jq -n \
-            --arg pr "$PR_NUMBER" \
-            --arg title "$PR_TITLE" \
-            --arg desc "$(jq -r '.description // ""' /tmp/changeset-result.json)" \
-            --argjson packages "$(cat /tmp/changeset-packages.json)" \
-            '{pr: ($pr | tonumber), title: $title, description: $desc, packages: $packages}')
+          CHANGESET_ID="auto-pr-${PR_NUMBER}"
+          DESC=$(jq -r '.description // "update"' /tmp/changeset-result.json)
+          {
+            echo "---"
+            jq -r '.packages | to_entries[] | "\"\(.key)\": \(.value)"' /tmp/changeset-result.json
+            echo "---"
+            echo ""
+            echo "$DESC"
+          } > ".changeset/${CHANGESET_ID}.md"
 
-          # Merge: remove any existing entry for this PR, then append
-          jq --argjson new "$NEW_ENTRY" \
-            '[.[] | select(.pr != $new.pr)] + [$new]' \
-            /tmp/existing-pending.json > /tmp/pending.json
+          git add ".changeset/${CHANGESET_ID}.md"
+          git commit -m "chore: add changeset for PR #${PR_NUMBER}"
+          git push origin main
 
-          echo "Pending changesets:"
-          jq '.' /tmp/pending.json
-
-      - name: Create release branch and version
-        if: steps.analysis.outputs.needed == 'true'
+      - name: Version and create release PR
+        if: steps.result.outputs.needed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -e
+          # Collect pending changeset info before version consumes them
+          PENDING=$(ls .changeset/auto-pr-*.md 2>/dev/null || true)
+          if [ -z "$PENDING" ]; then
+            echo "No pending changesets"
+            exit 0
+          fi
 
-          # Always start fresh from main
-          git checkout main
-          git pull origin main
+          PR_BODY="## Pending Changes"
+          for f in $PENDING; do
+            PR_NUM=$(basename "$f" .md | sed 's/auto-pr-//')
+            DESC=$(tail -1 "$f")
+            PR_BODY="${PR_BODY}"$'\n'"- #${PR_NUM}: ${DESC}"
+          done
+          PR_BODY="${PR_BODY}"$'\n\n---\nMerge to publish packages to npm.'
+
+          # Fresh release branch from current main
           git branch -D release/next 2>/dev/null || true
           git checkout -b release/next
 
-          # Create changeset files for ALL pending PRs
-          jq -c '.[]' /tmp/pending.json | while read -r entry; do
-            PR_NUM=$(echo "$entry" | jq -r '.pr')
-            DESC=$(echo "$entry" | jq -r '.description')
-            PACKAGES=$(echo "$entry" | jq -r '.packages')
-
-            CHANGESET_ID="auto-pr-${PR_NUM}"
-
-            # Build changeset frontmatter
-            {
-              echo "---"
-              echo "$PACKAGES" | jq -r 'to_entries[] | "\"\(.key)\": \(.value)"'
-              echo "---"
-              echo ""
-              echo "$DESC"
-            } > ".changeset/${CHANGESET_ID}.md"
-
-            echo "Created .changeset/${CHANGESET_ID}.md"
-          done
-
-          # Save _pending.json to track accumulated changesets
-          cp /tmp/pending.json _pending.json
-
-          # Commit changesets + pending tracker
-          git add .changeset/ _pending.json
-          git commit -m "chore: add changesets for pending PRs"
-
-          # Run version to consume changesets and bump packages
           bun run version
 
-          # Commit version updates (changeset files are consumed/deleted by version)
           git add -A
-          git commit -m "chore: version packages" || echo "No version changes to commit"
+          git commit -m "chore: version packages" || { echo "No version changes"; exit 0; }
+          git push -f -u origin release/next
 
-          # Force push (we always rebuild from main)
-          git push --force-with-lease -u origin release/next
-
-      - name: Create or update release PR
-        if: steps.analysis.outputs.needed == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          EXISTING_PR: ${{ steps.existing.outputs.pr_number }}
-        run: |
-          # Build PR body with all source PRs listed
-          SOURCE_PRS=$(jq -r '.[] | "- #\(.pr): \(.title)"' /tmp/pending.json)
-          PR_COUNT=$(jq '. | length' /tmp/pending.json)
-          PACKAGES_AFFECTED=$(jq -r '[.[].packages | keys[]] | unique | join(", ")' /tmp/pending.json)
-
-          PR_BODY=$(cat <<EOF
-          ## Release
-
-          **Packages**: ${PACKAGES_AFFECTED}
-          **Source PRs** (${PR_COUNT}):
-          ${SOURCE_PRS}
-
-          Merge this PR to publish updated packages to npm.
-
-          ---
-          *Auto-generated by changeset-agent*
-          EOF
-          )
-
-          if [ -n "$EXISTING_PR" ]; then
-            # Update existing PR body (branch was force-pushed, so diff is already updated)
-            gh pr edit "$EXISTING_PR" \
-              --title "chore: release packages" \
-              --body "$PR_BODY"
-            echo "✅ Updated release PR #${EXISTING_PR}"
+          # Create or update PR
+          EXISTING=$(gh pr list --head release/next --state open --json number --jq '.[0].number // empty' 2>/dev/null || true)
+          if [ -n "$EXISTING" ]; then
+            gh pr edit "$EXISTING" --body "$PR_BODY"
+            echo "Updated release PR #${EXISTING}"
           else
-            # Create new PR
-            gh pr create \
-              --title "chore: release packages" \
-              --body "$PR_BODY" \
-              --base main \
-              --head release/next
-            echo "✅ Created new release PR"
+            gh pr create --title "chore: release packages" --body "$PR_BODY" --base main --head release/next
+            echo "Created release PR"
           fi
 
       - name: Summary
         run: |
-          echo "### Changeset Analysis Complete" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Analyzed PR #${{ github.event.pull_request.number }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Title: ${{ github.event.pull_request.title }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Author: @${{ github.event.pull_request.user.login }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Changeset needed: ${{ steps.analysis.outputs.needed }}" >> $GITHUB_STEP_SUMMARY
+          echo "### Changeset Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "- PR: #${{ github.event.pull_request.number }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Changeset needed: ${{ steps.result.outputs.needed }}" >> $GITHUB_STEP_SUMMARY
