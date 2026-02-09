@@ -76,13 +76,14 @@ export class ClaudeCodeBackend implements Backend {
     const cwd = this.options.workspace || this.options.cwd;
     const debugLog = this.options.debugLog;
     const outputFormat = this.options.outputFormat ?? "stream-json";
+    const timeout = this.options.timeout ?? 300000;
 
     try {
       const { stdout } = await execWithIdleTimeout({
         command: "claude",
         args,
         cwd,
-        timeout: this.options.timeout!,
+        timeout,
         onStdout:
           outputFormat === "stream-json" && debugLog
             ? createStreamParser(debugLog, "Claude", claudeAdapter)
@@ -111,7 +112,7 @@ export class ClaudeCodeBackend implements Backend {
     } catch (error) {
       if (error instanceof IdleTimeoutError) {
         throw new Error(
-          `claude timed out after ${this.options.timeout}ms of inactivity`,
+          `claude timed out after ${timeout}ms of inactivity`,
         );
       }
       if (error && typeof error === "object" && "exitCode" in error) {

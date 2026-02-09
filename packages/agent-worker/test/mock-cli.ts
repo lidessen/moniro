@@ -4,6 +4,7 @@
  *
  * Usage:
  *   bun test/mock-cli.ts cursor-agent -p "hello"
+ *   bun test/mock-cli.ts cursor agent -p "hello"
  *   bun test/mock-cli.ts claude -p "hello"
  *   bun test/mock-cli.ts codex "hello"
  *
@@ -17,8 +18,13 @@
 
 const args = process.argv.slice(2)
 
-// Parse command name (cursor-agent, claude, codex)
-const command = args[0]
+// Parse command name (cursor-agent, cursor agent, claude, codex)
+// Normalize "cursor agent" → "cursor-agent"
+let command = args[0]
+if (command === 'cursor' && args[1] === 'agent') {
+  command = 'cursor-agent'
+  args.splice(1, 1) // remove 'agent' so arg parsing stays consistent
+}
 
 // Environment configuration
 const delay = parseInt(process.env.MOCK_DELAY_MS || '100', 10)

@@ -70,13 +70,14 @@ export class CodexBackend implements Backend {
     // Use workspace as cwd if set
     const cwd = this.options.workspace || this.options.cwd;
     const debugLog = this.options.debugLog;
+    const timeout = this.options.timeout ?? 300000;
 
     try {
       const { stdout } = await execWithIdleTimeout({
         command: "codex",
         args,
         cwd,
-        timeout: this.options.timeout!,
+        timeout,
         onStdout: debugLog ? createStreamParser(debugLog, "Codex", codexAdapter) : undefined,
       });
 
@@ -84,7 +85,7 @@ export class CodexBackend implements Backend {
     } catch (error) {
       if (error instanceof IdleTimeoutError) {
         throw new Error(
-          `codex timed out after ${this.options.timeout}ms of inactivity`,
+          `codex timed out after ${timeout}ms of inactivity`,
         );
       }
       if (error && typeof error === "object" && "exitCode" in error) {

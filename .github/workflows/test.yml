@@ -1,4 +1,4 @@
-name: Test
+name: CI
 
 on:
   push:
@@ -7,7 +7,43 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Lint
+        working-directory: packages/agent-worker
+        run: bun run lint
+
+      - name: Format check
+        working-directory: packages/agent-worker
+        run: bun run format:check
+
+      - name: Type check
+        working-directory: packages/agent-worker
+        run: bun run typecheck
+
+  build:
+    name: Build & Test
     runs-on: ubuntu-latest
     permissions:
       contents: read

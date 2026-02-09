@@ -34,8 +34,12 @@ export interface IdleTimeoutResult {
  * The timeout resets every time the process writes to stdout or stderr.
  * If the process goes silent for longer than `timeout` ms, it's killed.
  */
+/** Minimum idle timeout to prevent accidental instant kills */
+const MIN_TIMEOUT_MS = 1000;
+
 export async function execWithIdleTimeout(options: IdleTimeoutOptions): Promise<IdleTimeoutResult> {
-  const { command, args, cwd, timeout, onStdout } = options;
+  const { command, args, cwd, onStdout } = options;
+  const timeout = Math.max(options.timeout, MIN_TIMEOUT_MS);
 
   let idleTimedOut = false;
   let timer: ReturnType<typeof setTimeout>;

@@ -1,6 +1,7 @@
 /**
  * Cursor CLI backend
- * Uses `cursor-agent -p` for non-interactive mode with stream-json output
+ * Uses `cursor agent -p` (preferred) or `cursor-agent -p` (fallback)
+ * for non-interactive mode with stream-json output
  *
  * MCP Configuration:
  * Cursor uses project-level MCP config via .cursor/mcp.json in the workspace.
@@ -32,6 +33,8 @@ export interface CursorOptions {
 export class CursorBackend implements Backend {
   readonly type = "cursor" as const;
   private options: CursorOptions;
+  /** Resolved command: "cursor" (subcommand style) or "cursor-agent" (standalone) */
+  private resolvedCommand: string | null = null;
 
   constructor(options: CursorOptions = {}) {
     this.options = {
@@ -59,17 +62,18 @@ export class CursorBackend implements Backend {
   }
 
   async send(message: string, _options?: { system?: string }): Promise<BackendResponse> {
-    const { command, args } = this.buildCommand(message);
+    const { command, args } = await this.buildCommand(message);
     // Use workspace as cwd if set, otherwise fall back to cwd option
     const cwd = this.options.workspace || this.options.cwd;
     const debugLog = this.options.debugLog;
+    const timeout = this.options.timeout ?? 300000;
 
     try {
       const { stdout } = await execWithIdleTimeout({
         command,
         args,
         cwd,
-        timeout: this.options.timeout!,
+        timeout,
         onStdout: debugLog ? createStreamParser(debugLog, "Cursor", claudeAdapter) : undefined,
       });
 
@@ -77,13 +81,13 @@ export class CursorBackend implements Backend {
     } catch (error) {
       if (error instanceof IdleTimeoutError) {
         throw new Error(
-          `cursor-agent timed out after ${this.options.timeout}ms of inactivity`,
+          `cursor agent timed out after ${timeout}ms of inactivity`,
         );
       }
       if (error && typeof error === "object" && "exitCode" in error) {
         const execError = error as { exitCode?: number; stderr?: string; shortMessage?: string };
         throw new Error(
-          `cursor-agent failed (exit ${execError.exitCode}): ${execError.stderr || execError.shortMessage}`,
+          `cursor agent failed (exit ${execError.exitCode}): ${execError.stderr || execError.shortMessage}`,
         );
       }
       throw error;
@@ -91,19 +95,8 @@ export class CursorBackend implements Backend {
   }
 
   async isAvailable(): Promise<boolean> {
-    // Try both 'agent' and 'cursor-agent' commands
-    const commands = ["cursor-agent", "agent"];
-
-    for (const cmd of commands) {
-      try {
-        await execa(cmd, ["--version"], { stdin: "ignore", timeout: 2000 });
-        return true;
-      } catch {
-        // Try next command
-      }
-    }
-
-    return false;
+    const cmd = await this.resolveCommand();
+    return cmd !== null;
   }
 
   getInfo(): { name: string; version?: string; model?: string } {
@@ -113,12 +106,41 @@ export class CursorBackend implements Backend {
     };
   }
 
-  protected buildCommand(message: string): { command: string; args: string[] } {
-    // Use 'cursor-agent -p' command
+  /**
+   * Resolve which cursor command is available.
+   * Prefers `cursor agent` (subcommand), falls back to `cursor-agent` (standalone).
+   * Result is cached after first resolution.
+   */
+  private async resolveCommand(): Promise<string | null> {
+    if (this.resolvedCommand !== null) return this.resolvedCommand;
+
+    // 1. Prefer: cursor agent --version
+    try {
+      await execa("cursor", ["agent", "--version"], { stdin: "ignore", timeout: 2000 });
+      this.resolvedCommand = "cursor";
+      return "cursor";
+    } catch {
+      // Not available
+    }
+
+    // 2. Fallback: cursor-agent --version
+    try {
+      await execa("cursor-agent", ["--version"], { stdin: "ignore", timeout: 2000 });
+      this.resolvedCommand = "cursor-agent";
+      return "cursor-agent";
+    } catch {
+      // Not available
+    }
+
+    return null;
+  }
+
+  protected async buildCommand(message: string): Promise<{ command: string; args: string[] }> {
+    const cmd = await this.resolveCommand();
     // --force: auto-approve all operations (required for non-interactive)
     // --approve-mcps: auto-approve MCP servers (required for workflow MCP tools)
     // --output-format=stream-json: structured output for progress parsing
-    const args: string[] = [
+    const agentArgs: string[] = [
       "-p",
       "--force",
       "--approve-mcps",
@@ -127,9 +149,15 @@ export class CursorBackend implements Backend {
     ];
 
     if (this.options.model) {
-      args.push("--model", this.options.model);
+      agentArgs.push("--model", this.options.model);
     }
 
-    return { command: "cursor-agent", args };
+    if (cmd === "cursor") {
+      // Subcommand style: cursor agent -p ...
+      return { command: "cursor", args: ["agent", ...agentArgs] };
+    }
+
+    // Standalone style: cursor-agent -p ...
+    return { command: "cursor-agent", args: agentArgs };
   }
 }

@@ -158,14 +158,22 @@ describe('CursorBackend with Mock', () => {
 
 describe('Idle Timeout', () => {
   test('kills process that produces no output', async () => {
-    await expect(
-      execWithIdleTimeout({
-        command: 'bun',
-        args: [MOCK_CLI_PATH, 'cursor-agent', '-p', 'test'],
-        timeout: 100,
-      })
-    ).rejects.toThrow(IdleTimeoutError)
-  }, { env: { MOCK_TIMEOUT: '1' } })
+    const original = process.env.MOCK_TIMEOUT
+    process.env.MOCK_TIMEOUT = '1'
+
+    try {
+      await expect(
+        execWithIdleTimeout({
+          command: 'bun',
+          args: [MOCK_CLI_PATH, 'cursor-agent', '-p', 'test'],
+          timeout: 1500,
+        })
+      ).rejects.toThrow(IdleTimeoutError)
+    } finally {
+      if (original === undefined) delete process.env.MOCK_TIMEOUT
+      else process.env.MOCK_TIMEOUT = original
+    }
+  })
 
   test('resets timer on output — slow process completes', async () => {
     // Process outputs 5 chunks with 50ms between each
