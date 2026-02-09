@@ -37,6 +37,11 @@ jobs:
       - name: Build packages
         run: bun run build
 
+      - name: Configure npm authentication
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Publish packages
         run: bun run release
         env:
