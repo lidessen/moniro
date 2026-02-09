@@ -346,8 +346,14 @@ async function runSetupTask(
   logger.debug(`  $ ${displayCmd}`);
 
   try {
-    const { stdout } = await execAsync(command);
+    // Capture both stdout and stderr to prevent unwanted error output
+    const { stdout, stderr } = await execAsync(command);
     const result = stdout.trim();
+
+    // Log stderr as debug if present (not as error, since many commands write to stderr)
+    if (stderr && stderr.trim()) {
+      logger.debug(`  stderr: ${stderr.trim().slice(0, 100)}${stderr.length > 100 ? "..." : ""}`);
+    }
 
     if (task.as) {
       const displayResult = result.length > 60 ? result.slice(0, 60) + "..." : result;
