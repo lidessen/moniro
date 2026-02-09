@@ -39,6 +39,11 @@ setup:
 
   # Determine review type based on GitHub trigger (more reliable than content parsing)
   - shell: |
+      # Debug: show environment variables
+      echo "DEBUG: TRIGGER_TYPE='$TRIGGER_TYPE'"
+      echo "DEBUG: BEFORE_SHA='$BEFORE_SHA'"
+      echo "DEBUG: AFTER_SHA='$AFTER_SHA'"
+
       # synchronize = new commits pushed to existing PR = incremental
       # opened/reopened = initial review
       if [ "$TRIGGER_TYPE" = "synchronize" ] && [ -n "$BEFORE_SHA" ] && [ -n "$AFTER_SHA" ]; then
