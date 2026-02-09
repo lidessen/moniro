@@ -1,5 +1,11 @@
 # agent-worker
 
+## 0.5.0
+
+### Minor Changes
+
+- [`52128d1`](https://github.com/lidessen/moniro/commit/52128d1ecbc36568a08e6fa1daa0ab55958ead69) - Improve CLI backend timeouts and add streaming progress
+
 ## 0.4.0
 
 ### Minor Changes
