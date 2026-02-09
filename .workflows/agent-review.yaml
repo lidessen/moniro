@@ -25,15 +25,17 @@ setup:
 
   # Find existing review comment or create new one
   - shell: |
+      set -e  # Exit on error
+
       EXISTING=$(gh api repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments \
-        --jq '.[] | select(.body | startswith("<!-- agent-review -->")) | .id' | head -1)
+        --jq '.[] | select(.body | startswith("<!-- agent-review -->")) | .id' 2>/dev/null | head -1 || true)
 
       if [ -n "$EXISTING" ]; then
         echo "$EXISTING"
       else
         gh api repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments \
           -f body='<!-- agent-review -->
-      > ⏳ **Reviewing...**' --jq '.id'
+      > ⏳ **Reviewing...**' --jq '.id' 2>&1 || echo ""
       fi
     as: comment_id
 
@@ -53,7 +55,7 @@ setup:
       if [ "$TRIGGER_TYPE" = "synchronize" ] && [ -n "$BEFORE_SHA" ] && [ -n "$AFTER_SHA" ]; then
         # Format commits as markdown list
         gh api repos/$GITHUB_REPOSITORY/compare/$BEFORE_SHA...$AFTER_SHA \
-          --jq '.commits[] | "- `\(.sha[0:7])` \(.commit.message | split("\n")[0])"'
+          --jq '.commits[] | "- `\(.sha[0:7])` \(.commit.message | split("\n")[0])"' 2>/dev/null || echo ""
       else
         echo ""
       fi
@@ -61,12 +63,10 @@ setup:
 
   # Calculate file statistics
   - shell: |
-      FILES_COUNT=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json files --jq '.files | length')
-
-      # Get additions/deletions from PR info
+      # Get all stats in one call
       gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
-        --json additions,deletions \
-        --jq '"Files: \(.additions + .deletions) lines in " + (env.FILES_COUNT // "0") + " files (+\(.additions)/-\(.deletions))"'
+        --json additions,deletions,changedFiles \
+        --jq '"+\(.additions)/-\(.deletions) in \(.changedFiles) files"'
     as: file_stats
 
   # Get commit range for incremental reviews
