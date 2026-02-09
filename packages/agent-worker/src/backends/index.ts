@@ -9,6 +9,7 @@ export { CursorBackend, type CursorOptions } from "./cursor.ts";
 export { SdkBackend, type SdkBackendOptions } from "./sdk.ts";
 export { MockAIBackend, createMockBackend } from "./mock.ts";
 export { execWithIdleTimeout, IdleTimeoutError } from "./idle-timeout.ts";
+export { formatStreamEvent, createStreamParser, parseStreamResult } from "./stream-json.ts";
 
 import type { Backend, BackendType } from "./types.ts";
 import { getModelForBackend } from "./types.ts";

@@ -9,6 +9,7 @@ import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import { CursorBackend } from '../src/backends/cursor.ts'
 import { execWithIdleTimeout, IdleTimeoutError } from '../src/backends/idle-timeout.ts'
+import { formatStreamEvent, parseStreamResult } from '../src/backends/stream-json.ts'
 
 const MOCK_CLI_PATH = join(import.meta.dir, 'mock-cli.ts')
 
@@ -216,6 +217,67 @@ describe('Idle Timeout', () => {
       if (originalInterval === undefined) delete process.env.MOCK_SLOW_OUTPUT_INTERVAL_MS
       else process.env.MOCK_SLOW_OUTPUT_INTERVAL_MS = originalInterval
     }
+  })
+})
+
+describe('Stream-JSON Parsing', () => {
+  test('formats system/init event', () => {
+    const event = { type: 'system', subtype: 'init', model: 'Claude 4.5 Sonnet' }
+    expect(formatStreamEvent(event, 'Claude')).toBe('Claude initialized (model: Claude 4.5 Sonnet)')
+    expect(formatStreamEvent(event, 'Cursor')).toBe('Cursor initialized (model: Claude 4.5 Sonnet)')
+  })
+
+  test('formats tool call events', () => {
+    const event = {
+      type: 'assistant',
+      message: {
+        content: [
+          { type: 'tool_use', name: 'Read', input: { file_path: '/foo/bar.ts' } },
+        ],
+      },
+    }
+    const result = formatStreamEvent(event, 'Claude')
+    expect(result).toContain('CALL Read(')
+    expect(result).toContain('/foo/bar.ts')
+  })
+
+  test('formats result event with duration and cost', () => {
+    const event = { type: 'result', duration_ms: 2642, total_cost_usd: 0.0098785 }
+    expect(formatStreamEvent(event, 'Claude')).toBe('Claude completed (2.6s, $0.0099)')
+  })
+
+  test('formats result event without cost', () => {
+    const event = { type: 'result', duration_ms: 100 }
+    expect(formatStreamEvent(event, 'Cursor')).toBe('Cursor completed (0.1s)')
+  })
+
+  test('returns null for plain assistant text', () => {
+    const event = {
+      type: 'assistant',
+      message: { content: [{ type: 'text', text: 'hello' }] },
+    }
+    expect(formatStreamEvent(event, 'Claude')).toBeNull()
+  })
+
+  test('parseStreamResult extracts result', () => {
+    const stdout = [
+      '{"type":"system","subtype":"init","model":"test"}',
+      '{"type":"assistant","message":{"content":[{"type":"text","text":"hello"}]}}',
+      '{"type":"result","result":"hello","duration_ms":100}',
+    ].join('\n')
+    expect(parseStreamResult(stdout).content).toBe('hello')
+  })
+
+  test('parseStreamResult falls back to assistant message', () => {
+    const stdout = [
+      '{"type":"system","subtype":"init","model":"test"}',
+      '{"type":"assistant","message":{"content":[{"type":"text","text":"fallback answer"}]}}',
+    ].join('\n')
+    expect(parseStreamResult(stdout).content).toBe('fallback answer')
+  })
+
+  test('parseStreamResult falls back to raw stdout', () => {
+    expect(parseStreamResult('plain text output').content).toBe('plain text output')
   })
 })
 

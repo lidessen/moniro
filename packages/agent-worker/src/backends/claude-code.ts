@@ -14,6 +14,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Backend, BackendResponse } from "./types.ts";
 import { execWithIdleTimeout, IdleTimeoutError } from "./idle-timeout.ts";
+import { createStreamParser, parseStreamResult } from "./stream-json.ts";
 
 export interface ClaudeCodeOptions {
   /** Model to use (e.g., 'opus', 'sonnet') */
@@ -73,6 +74,8 @@ export class ClaudeCodeBackend implements Backend {
     const args = this.buildArgs(message, options);
     // Use workspace as cwd if set
     const cwd = this.options.workspace || this.options.cwd;
+    const debugLog = this.options.debugLog;
+    const outputFormat = this.options.outputFormat ?? "stream-json";
 
     try {
       const { stdout } = await execWithIdleTimeout({
@@ -80,10 +83,18 @@ export class ClaudeCodeBackend implements Backend {
         args,
         cwd,
         timeout: this.options.timeout!,
+        onStdout:
+          outputFormat === "stream-json" && debugLog
+            ? createStreamParser(debugLog, "Claude")
+            : undefined,
       });
 
       // Parse response based on output format
-      if (this.options.outputFormat === "json") {
+      if (outputFormat === "stream-json") {
+        return parseStreamResult(stdout);
+      }
+
+      if (outputFormat === "json") {
         try {
           const parsed = JSON.parse(stdout);
           return {
@@ -147,9 +158,9 @@ export class ClaudeCodeBackend implements Backend {
       args.push("--allowed-tools", this.options.allowedTools.join(","));
     }
 
-    if (this.options.outputFormat) {
-      args.push("--output-format", this.options.outputFormat);
-    }
+    // Default to stream-json for structured progress reporting
+    const outputFormat = this.options.outputFormat ?? "stream-json";
+    args.push("--output-format", outputFormat);
 
     if (this.options.continue) {
       args.push("--continue");
