@@ -43,7 +43,37 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Publish packages
-        run: bun run release
+        id: publish
+        run: |
+          TAGS_BEFORE=$(git tag --list)
+          bun run release
+          TAGS_AFTER=$(git tag --list)
+          NEW_TAGS=$(comm -13 <(echo "$TAGS_BEFORE" | sort) <(echo "$TAGS_AFTER" | sort) | tr '\n' ' ')
+          echo "new_tags=$NEW_TAGS" >> "$GITHUB_OUTPUT"
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push tags
+        if: steps.publish.outputs.new_tags != ''
+        run: git push --tags
+
+      - name: Create GitHub Releases
+        if: steps.publish.outputs.new_tags != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for TAG in ${{ steps.publish.outputs.new_tags }}; do
+            # Extract package name and version from tag (e.g., @skills/cli@0.1.2)
+            if [[ "$TAG" =~ ^(.+)@([0-9]+\..+)$ ]]; then
+              PKG="${BASH_REMATCH[1]}"
+              VER="${BASH_REMATCH[2]}"
+              gh release create "$TAG" --title "${PKG}@${VER}" --generate-notes --latest=false
+            fi
+          done
