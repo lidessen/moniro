@@ -8,7 +8,6 @@ import { describe, test, expect } from 'bun:test'
 import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import { CursorBackend } from '../src/backends/cursor.ts'
-import { CodexBackend } from '../src/backends/codex.ts'
 import { execWithIdleTimeout, IdleTimeoutError } from '../src/backends/idle-timeout.ts'
 import {
   formatEvent,
@@ -390,24 +389,7 @@ describe('Codex Adapter', () => {
   })
 })
 
-describe('CodexBackend with Mock', () => {
-  // Create a backend that uses our mock CLI
-  class MockCodexBackend extends CodexBackend {
-    private buildArgsMethod = (this as any).__proto__.__proto__; // access parent
-
-    send(message: string, options?: { system?: string }): Promise<import('../src/backends/types.ts').BackendResponse> {
-      // Monkey-patch: override the codex command to use mock CLI
-      const origBuildArgs = (this as any).buildArgs.bind(this);
-      (this as any).buildArgs = (msg: string) => {
-        const args = origBuildArgs(msg);
-        return args;
-      };
-      // We can't easily override the command in codex like cursor's buildCommand,
-      // so we use a different approach via the exec utility
-      return super.send(message, options);
-    }
-  }
-
+describe('Codex Mock CLI', () => {
   test('mock CLI outputs codex JSON format', async () => {
     const result = await runMockCli(['codex', 'exec', '--json', '--skip-git-repo-check', '2+2=?'])
     expect(result.exitCode).toBe(0)
