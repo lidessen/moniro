@@ -1221,7 +1221,6 @@ describe('CLI backend implementations', () => {
 
     const backend = new CodexBackend({
       model: 'o3',
-      approvalMode: 'full-auto',
     })
 
     expect(backend.type).toBe('codex')

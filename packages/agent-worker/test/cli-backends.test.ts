@@ -92,7 +92,7 @@ describe('Mock CLI', () => {
 describe('CursorBackend with Mock', () => {
   // Create a backend that uses our mock CLI (with stream-json format)
   class MockCursorBackend extends CursorBackend {
-    protected override buildCommand(message: string): { command: string; args: string[] } {
+    protected override async buildCommand(message: string): Promise<{ command: string; args: string[] }> {
       // Use bun to run mock-cli.ts instead of actual cursor-agent
       // Include --output-format=stream-json to match real buildCommand behavior
       return {
@@ -130,10 +130,8 @@ describe('CursorBackend with Mock', () => {
     // Create backend with very short timeout
     const backend = new MockCursorBackend({ timeout: 100 })
 
-    // Override to use timeout mock
-    const originalBuild = backend['buildCommand'].bind(backend)
-    backend['buildCommand'] = (message: string) => {
-      originalBuild(message)
+    // Override to use timeout mock (plain text, no stream-json)
+    backend['buildCommand'] = async (message: string) => {
       return {
         command: 'bun',
         args: [MOCK_CLI_PATH, 'cursor-agent', '-p', message],

@@ -42,7 +42,7 @@ export async function execWithIdleTimeout(options: IdleTimeoutOptions): Promise<
   const timeout = Math.max(options.timeout, MIN_TIMEOUT_MS);
 
   let idleTimedOut = false;
-  let timer: ReturnType<typeof setTimeout>;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   let stdout = "";
   let stderr = "";
 

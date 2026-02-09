@@ -8,11 +8,11 @@
 // In debug mode (--debug or -d), show everything for troubleshooting
 const originalStderrWrite = process.stderr.write.bind(process.stderr);
 
-process.stderr.write = function (chunk: string | Uint8Array, ...args: unknown[]): boolean {
+process.stderr.write = function (chunk: string | Uint8Array, ...rest: unknown[]): boolean {
   const isDebugMode = process.argv.includes("--debug") || process.argv.includes("-d");
   if (isDebugMode) {
     const message = typeof chunk === "string" ? chunk : chunk.toString();
-    return originalStderrWrite(message, ...args) as boolean;
+    return (originalStderrWrite as Function).call(process.stderr, message, ...rest) as boolean;
   }
   // Normal mode: suppress stderr completely
   return true;
