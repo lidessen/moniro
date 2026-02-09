@@ -305,8 +305,8 @@ export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> 
 
       logger.debug(`Kickoff: ${interpolatedKickoff.slice(0, 100)}...`);
 
-      // Send kickoff as 'system' to the channel
-      await contextProvider.appendChannel("system", interpolatedKickoff);
+      // Send kickoff as 'system' to the channel (smartSend auto-converts long messages to resources)
+      await contextProvider.smartSend("system", interpolatedKickoff);
     },
 
     async shutdown() {

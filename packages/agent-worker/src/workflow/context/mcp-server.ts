@@ -127,11 +127,11 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
   server.tool(
     "channel_send",
     `Send a message to the shared channel. Use @agent to mention/notify. Use "to" for private DMs. ` +
-      `Max ${CHANNEL_MSG_LIMIT} chars — for longer content, use resource_create first then reference the resource ID in your message.`,
+      `Long messages (> ${CHANNEL_MSG_LIMIT} chars) are automatically converted to resources.`,
     {
       message: z
         .string()
-        .describe("Message content, can include @mentions like @reviewer or @coder"),
+        .describe("Message content, can include @mentions like @reviewer or @coder. Long messages are auto-converted to resources."),
       to: z
         .string()
         .optional()
@@ -141,22 +141,10 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
       const from = getAgentId(extra) || "anonymous";
       logTool("channel_send", from, { message, to });
 
-      if (message.length > CHANNEL_MSG_LIMIT) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text" as const,
-              text:
-                `Message too long (${message.length} chars, max ${CHANNEL_MSG_LIMIT}). ` +
-                `Use resource_create to store the full content, then send a short message referencing the resource ID.`,
-            },
-          ],
-        };
-      }
-
       const sendOpts: SendOptions | undefined = to ? { to } : undefined;
-      const msg = await provider.appendChannel(from, message, sendOpts);
+
+      // Use smartSend for automatic resource conversion
+      const msg = await provider.smartSend(from, message, sendOpts);
 
       // Notify mentioned agents
       for (const target of msg.mentions) {

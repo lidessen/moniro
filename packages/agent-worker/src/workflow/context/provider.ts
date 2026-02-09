@@ -12,6 +12,8 @@ import {
   extractMentions,
   generateResourceId,
   createResourceRef,
+  MESSAGE_LENGTH_THRESHOLD,
+  shouldUseResource,
 } from "./types.ts";
 import type { StorageBackend } from "./storage.ts";
 
@@ -53,6 +55,8 @@ export interface ContextProvider {
   readChannel(options?: ReadOptions): Promise<Message[]>;
   /** Read new channel entries incrementally from an entry cursor */
   tailChannel(cursor: number): Promise<TailResult>;
+  /** Smart send: automatically converts long messages to resources */
+  smartSend(from: string, content: string, options?: SendOptions): Promise<Message>;
 
   // Inbox
   getInbox(agent: string): Promise<InboxMessage[]>;
@@ -191,6 +195,40 @@ export class ContextProviderImpl implements ContextProvider {
   async tailChannel(cursor: number): Promise<TailResult> {
     const entries = await this.syncChannel();
     return { entries: entries.slice(cursor), cursor: entries.length };
+  }
+
+  /**
+   * Smart send: automatically converts long messages to resources
+   *
+   * If content exceeds MESSAGE_LENGTH_THRESHOLD:
+   * 1. Creates a resource with the full content
+   * 2. Sends a short message referencing the resource
+   * 3. Logs the full content in debug channel for visibility
+   */
+  async smartSend(from: string, content: string, options?: SendOptions): Promise<Message> {
+    // Short message: send directly
+    if (!shouldUseResource(content)) {
+      return this.appendChannel(from, content, options);
+    }
+
+    // Long message: convert to resource
+    const resourceType: ResourceType =
+      content.startsWith("```") || content.includes("\n```") ? "markdown" : "text";
+
+    const resource = await this.createResource(content, from, resourceType);
+
+    // Log full content in debug channel (visible in logs but not to agents)
+    await this.appendChannel(
+      "system",
+      `Created resource ${resource.id} (${content.length} chars) for @${from}:\n${content.slice(0, 500)}${content.length > 500 ? "..." : ""}`,
+      { kind: "debug" }
+    );
+
+    // Send short reference message
+    const shortMessage =
+      `[Long content stored as resource]\n\nRead the full content: resource_read("${resource.id}")\n\nReference: ${resource.ref}`;
+
+    return this.appendChannel(from, shortMessage, options);
   }
 
   // ==================== Inbox ====================
