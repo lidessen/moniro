@@ -40,6 +40,7 @@ export async function handleRequest(
   resetIdleTimer: () => void,
   gracefulShutdown: () => Promise<void>,
   resetAllTimers?: () => void,
+  onRequestDone?: () => void,
 ): Promise<Response> {
   const state = getState();
   if (!state) {
@@ -77,9 +78,25 @@ export async function handleRequest(
         };
 
         if (isAsync) {
-          session.send(message, options).catch((error) => {
-            console.error("Background send error:", error);
-          });
+          // Track async send as a pending request so idle timer and
+          // shutdown wait for it to complete
+          state.pendingRequests++;
+          resetIdleTimer();
+          session
+            .send(message, options)
+            .catch((error) => {
+              console.error("Background send error:", error);
+            })
+            .finally(() => {
+              const s = getState();
+              if (s) {
+                s.pendingRequests--;
+                resetIdleTimer();
+                if (s.pendingRequests === 0 && onRequestDone) {
+                  onRequestDone();
+                }
+              }
+            });
 
           return {
             success: true,
@@ -266,8 +283,12 @@ export async function handleRequest(
         return { success: true };
 
       case "shutdown":
+        // Decrement before scheduling shutdown (we handle our own counter)
         state.pendingRequests--;
-        setTimeout(() => gracefulShutdown(), 100);
+        // Stop accepting new connections immediately to prevent race
+        state.server.close();
+        // Schedule graceful shutdown on next tick to allow this response to be sent
+        setImmediate(() => gracefulShutdown());
         return { success: true, data: "Shutting down" };
 
       default:
@@ -278,6 +299,10 @@ export async function handleRequest(
   } finally {
     if (getState() && req.action !== "shutdown") {
       state.pendingRequests--;
+      // Notify daemon that a request completed (used to drain queued inbox)
+      if (state.pendingRequests === 0 && onRequestDone) {
+        onRequestDone();
+      }
     }
   }
 }

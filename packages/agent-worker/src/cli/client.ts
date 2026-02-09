@@ -17,69 +17,17 @@ interface SendOptions {
   debug?: boolean;
 }
 
-/**
- * Send a request to a specific session
- * @param req - The request to send
- * @param target - Session ID or name (optional, uses default if not specified)
- * @param options - Additional options (debug mode, etc.)
- */
-export function sendRequest(
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 200;
+
+/** Attempt a single socket request. Rejects on connection errors. */
+function attemptRequest(
+  socketPath: string,
   req: Request,
-  target?: string,
-  options?: SendOptions,
-): Promise<Response>;
-export function sendRequest(
-  req: Request,
-  targetOrOptions?: string | SendOptions,
-  options?: SendOptions,
+  debug: boolean,
 ): Promise<Response> {
-  // Handle overloaded signatures
-  let target: string | undefined;
-  let opts: SendOptions = {};
-
-  if (typeof targetOrOptions === "string") {
-    target = targetOrOptions;
-    opts = options || {};
-  } else if (targetOrOptions) {
-    opts = targetOrOptions;
-    target = opts.target;
-  }
-  const debug = opts.debug || false;
-
   return new Promise((resolve, reject) => {
-    if (debug) {
-      console.error(`[DEBUG] Looking up session: ${target || "(default)"}`);
-    }
-
-    const info = getSessionInfo(target);
-
-    if (!info) {
-      if (target) {
-        resolve({ success: false, error: `Session not found: ${target}` });
-      } else {
-        resolve({
-          success: false,
-          error: "No active session. Start one with: agent-worker session start -m <model>",
-        });
-      }
-      return;
-    }
-
-    if (debug) {
-      console.error(`[DEBUG] Found session: ${info.id} (${info.backend})`);
-      console.error(`[DEBUG] Socket path: ${info.socketPath}`);
-    }
-
-    if (!isSessionRunning(target)) {
-      resolve({ success: false, error: `Session not running: ${target || info.id}` });
-      return;
-    }
-
-    if (debug) {
-      console.error(`[DEBUG] Connecting to socket...`);
-    }
-
-    const socket = createConnection(info.socketPath);
+    const socket = createConnection(socketPath);
     let buffer = "";
     const startTime = Date.now();
 
@@ -144,6 +92,97 @@ export function sendRequest(
       console.error(`[DEBUG] Waiting for response (60s timeout)...`);
     }
   });
+}
+
+/** Check if an error is transient and worth retrying (connection refused, reset, etc.) */
+function isRetryableError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    return code === "ECONNREFUSED" || code === "ECONNRESET" || code === "ENOENT";
+  }
+  return false;
+}
+
+/**
+ * Send a request to a specific session
+ * @param req - The request to send
+ * @param target - Session ID or name (optional, uses default if not specified)
+ * @param options - Additional options (debug mode, etc.)
+ */
+export function sendRequest(
+  req: Request,
+  target?: string,
+  options?: SendOptions,
+): Promise<Response>;
+export async function sendRequest(
+  req: Request,
+  targetOrOptions?: string | SendOptions,
+  options?: SendOptions,
+): Promise<Response> {
+  // Handle overloaded signatures
+  let target: string | undefined;
+  let opts: SendOptions = {};
+
+  if (typeof targetOrOptions === "string") {
+    target = targetOrOptions;
+    opts = options || {};
+  } else if (targetOrOptions) {
+    opts = targetOrOptions;
+    target = opts.target;
+  }
+  const debug = opts.debug || false;
+
+  if (debug) {
+    console.error(`[DEBUG] Looking up session: ${target || "(default)"}`);
+  }
+
+  const info = getSessionInfo(target);
+
+  if (!info) {
+    if (target) {
+      return { success: false, error: `Session not found: ${target}` };
+    }
+    return {
+      success: false,
+      error: "No active session. Start one with: agent-worker session start -m <model>",
+    };
+  }
+
+  if (debug) {
+    console.error(`[DEBUG] Found session: ${info.id} (${info.backend})`);
+    console.error(`[DEBUG] Socket path: ${info.socketPath}`);
+  }
+
+  if (!isSessionRunning(target)) {
+    return { success: false, error: `Session not running: ${target || info.id}` };
+  }
+
+  if (debug) {
+    console.error(`[DEBUG] Connecting to socket...`);
+  }
+
+  // Retry loop with exponential backoff for transient connection errors
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await attemptRequest(info.socketPath, req, debug);
+    } catch (error) {
+      lastError = error;
+      if (attempt < MAX_RETRIES && isRetryableError(error)) {
+        const delay = BASE_DELAY_MS * Math.pow(2, attempt);
+        if (debug) {
+          console.error(`[DEBUG] Retry ${attempt + 1}/${MAX_RETRIES} after ${delay}ms`);
+        }
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      } else {
+        break;
+      }
+    }
+  }
+
+  // All retries exhausted
+  const message = lastError instanceof Error ? lastError.message : String(lastError);
+  return { success: false, error: `Connection failed: ${message}` };
 }
 
 /**

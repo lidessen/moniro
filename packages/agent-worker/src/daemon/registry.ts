@@ -127,6 +127,57 @@ export function ensureDirs(): void {
   mkdirSync(SESSIONS_DIR, { recursive: true });
 }
 
+/**
+ * Clean up stale sessions left behind by crashed daemons.
+ * Should be called once at startup before registering a new session.
+ * Checks each registered session — if its process is dead, removes all artifacts.
+ */
+export function cleanupStaleSessions(): number {
+  ensureDirs();
+  let cleaned = 0;
+  for (const session of readAllSessions()) {
+    try {
+      process.kill(session.pid, 0);
+      // Process alive — leave it
+    } catch {
+      // Process dead — clean up artifacts
+      for (const path of [session.socketPath, session.pidFile, session.readyFile]) {
+        if (path && existsSync(path)) {
+          try {
+            unlinkSync(path);
+          } catch {
+            // Best-effort cleanup
+          }
+        }
+      }
+      try {
+        unlinkSync(sessionFile(session.id));
+      } catch {
+        // Already removed
+      }
+      cleaned++;
+    }
+  }
+  // Update default if it pointed to a stale session
+  if (cleaned > 0) {
+    const defaultId = readDefault();
+    if (defaultId) {
+      const remaining = readAllSessions();
+      const defaultAlive = remaining.some((s) => s.id === defaultId);
+      if (!defaultAlive) {
+        if (remaining.length > 0) {
+          writeFileSync(DEFAULT_FILE, remaining[0]!.id);
+        } else {
+          try {
+            unlinkSync(DEFAULT_FILE);
+          } catch {}
+        }
+      }
+    }
+  }
+  return cleaned;
+}
+
 /** Path to a session's metadata file */
 function sessionFile(id: string): string {
   return join(SESSIONS_DIR, `${id}.json`);
