@@ -1,4 +1,3 @@
-import type { Server } from "bun";
 import { tool, jsonSchema } from "ai";
 import type { AgentSession } from "../agent/session.ts";
 import type { SkillImporter } from "../agent/skills/index.ts";
@@ -9,7 +8,7 @@ import { parseCron } from "./cron.ts";
 
 export interface ServerState {
   session: AgentSession; // Always non-null: unified session for all backends
-  server: Server<unknown>;
+  server: { stop(closeActiveConnections?: boolean): void };
   info: SessionInfo;
   lastActivity: number;
   pendingRequests: number;

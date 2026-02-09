@@ -13,8 +13,6 @@ import { handleRequest, type ServerState } from '../../src/daemon/handler.ts'
 import { AgentSession } from '../../src/agent/session.ts'
 import type { Backend } from '../../src/backends/types.ts'
 import type { SessionInfo } from '../../src/daemon/registry.ts'
-import type { Server } from 'bun'
-
 // ==================== Test Setup ====================
 
 function createTestState(overrides?: Partial<ServerState>): ServerState {
@@ -49,7 +47,7 @@ function createTestState(overrides?: Partial<ServerState>): ServerState {
 
   return {
     session,
-    server: { stop: () => {} } as unknown as Server<unknown>,
+    server: { stop: () => {} },
     info,
     lastActivity: Date.now(),
     pendingRequests: 0,

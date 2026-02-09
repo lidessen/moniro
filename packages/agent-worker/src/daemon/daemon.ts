@@ -1,6 +1,7 @@
-import type { Server } from "bun";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { createBunWebSocket } from "hono/bun";
+import type { WSContext } from "hono/ws";
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -22,7 +23,7 @@ import {
 } from "./registry.ts";
 import type { SessionInfo, ScheduleConfig } from "./registry.ts";
 import { handleRequest } from "./handler.ts";
-import type { ServerState, Request } from "./handler.ts";
+import type { ServerState, Response as DaemonResponse } from "./handler.ts";
 import { msUntilNextCron } from "./cron.ts";
 import {
   createFileContextProvider,
@@ -543,42 +544,239 @@ export async function startDaemon(config: {
     schedule: config.schedule,
   };
 
-  // Create Hono app
+  // Helper: dispatch an action through the transport-agnostic handler
+  async function callHandler(action: string, payload?: unknown): Promise<DaemonResponse> {
+    const resetActivity = () => {
+      resetIdleTimer();
+      resetScheduleTimers();
+    };
+    const resetAll = () => {
+      resetIdleTimer();
+      resetIntervalSchedule();
+      startCronSchedule();
+    };
+    return handleRequest(
+      () => state,
+      { action, payload },
+      resetActivity,
+      gracefulShutdown,
+      resetAll,
+      drainInbox,
+    );
+  }
+
+  // Helper: JSON error response with appropriate status code
+  function errorResponse(c: { json: Function }, result: DaemonResponse) {
+    const status = result.error === "No active session" ? 503 : 400;
+    return (c as any).json(result, status);
+  }
+
+  // Create Hono app + WebSocket
+  const { upgradeWebSocket, websocket } = createBunWebSocket();
   const app = new Hono();
   app.use("*", cors());
 
-  app.post("/", async (c) => {
-    try {
-      const request: Request = await c.req.json();
-      const resetActivity = () => {
-        resetIdleTimer();
-        resetScheduleTimers();
-      };
-      const resetAll = () => {
-        resetIdleTimer();
-        resetIntervalSchedule();
-        startCronSchedule();
-      };
-      const result = await handleRequest(
-        () => state,
-        request,
-        resetActivity,
-        gracefulShutdown,
-        resetAll,
-        drainInbox,
-      );
-      return c.json(result);
-    } catch (error) {
-      return c.json(
-        { success: false, error: error instanceof Error ? error.message : "Invalid request" },
-        400,
-      );
+  // ── Health check (bypasses handleRequest) ──
+  app.get("/health", (c) => {
+    if (!state) {
+      return c.json({ status: "unavailable" }, 503);
     }
+    return c.json({
+      status: "ok",
+      session: state.info.id,
+      model: state.info.model,
+      backend: state.info.backend,
+      pendingRequests: state.pendingRequests,
+      uptime: Date.now() - new Date(state.info.createdAt).getTime(),
+    });
   });
 
+  // ── Session routes ──
+  app.get("/session", async (c) => {
+    const result = await callHandler("ping");
+    return result.success ? c.json(result) : errorResponse(c, result);
+  });
+
+  app.post("/session/send", async (c) => {
+    const body = await c.req.json();
+    const result = await callHandler("send", body);
+    return result.success ? c.json(result) : errorResponse(c, result);
+  });
+
+  app.get("/session/history", async (c) => {
+    const result = await callHandler("history");
+    return result.success ? c.json(result) : errorResponse(c, result);
+  });
+
+  app.get("/session/stats", async (c) => {
+    const result = await callHandler("stats");
+    return result.success ? c.json(result) : errorResponse(c, result);
+  });
+
+  app.get("/session/export", async (c) => {
+    const result = await callHandler("export");
+    return result.success ? c.json(result) : errorResponse(c, result);
+  });
+
+  app.post("/session/clear", async (c) => {
+    const result = await callHandler("clear");
+    return result.success ? c.json(result) : errorResponse(c, result);
+  });
+
+  app.post("/session/shutdown", async (c) => {
+    const result = await callHandler("shutdown");
+    return c.json(result);
+  });
+
+  // ── Tool routes ──
+  app.get("/tools", async (c) => {
+    const result = await callHandler("tool_list");
+    return result.success ? c.json(result) : errorResponse(c, result);
+  });
+
+  app.post("/tools", async (c) => {
+    const body = await c.req.json();
+    const result = await callHandler("tool_add", body);
+    return result.success ? c.json(result, 201) : errorResponse(c, result);
+  });
+
+  app.post("/tools/import", async (c) => {
+    const body = await c.req.json();
+    const result = await callHandler("tool_import", body);
+    return result.success ? c.json(result) : errorResponse(c, result);
+  });
+
+  app.post("/tools/mock", async (c) => {
+    const body = await c.req.json();
+    const result = await callHandler("tool_mock", body);
+    return result.success ? c.json(result) : errorResponse(c, result);
+  });
+
+  // ── Approval routes ──
+  app.get("/approvals", async (c) => {
+    const result = await callHandler("pending");
+    return result.success ? c.json(result) : errorResponse(c, result);
+  });
+
+  app.post("/approvals/:id/approve", async (c) => {
+    const result = await callHandler("approve", { id: c.req.param("id") });
+    return result.success ? c.json(result) : errorResponse(c, result);
+  });
+
+  app.post("/approvals/:id/deny", async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    const result = await callHandler("deny", { id: c.req.param("id"), ...body });
+    return result.success ? c.json(result) : errorResponse(c, result);
+  });
+
+  // ── Feedback route ──
+  app.get("/feedback", async (c) => {
+    const result = await callHandler("feedback_list");
+    return result.success ? c.json(result) : errorResponse(c, result);
+  });
+
+  // ── Schedule routes ──
+  app.get("/schedule", async (c) => {
+    const result = await callHandler("schedule_get");
+    return result.success ? c.json(result) : errorResponse(c, result);
+  });
+
+  app.put("/schedule", async (c) => {
+    const body = await c.req.json();
+    const result = await callHandler("schedule_set", body);
+    return result.success ? c.json(result) : errorResponse(c, result);
+  });
+
+  app.delete("/schedule", async (c) => {
+    const result = await callHandler("schedule_clear");
+    return result.success ? c.json(result) : errorResponse(c, result);
+  });
+
+  // ── WebSocket endpoint for streaming ──
+  const wsClients = new Set<WSContext>();
+
+  app.get(
+    "/ws",
+    upgradeWebSocket(() => ({
+      onOpen(_evt, ws) {
+        wsClients.add(ws);
+      },
+
+      onClose(_evt, ws) {
+        wsClients.delete(ws);
+      },
+
+      async onMessage(evt, ws) {
+        if (!state) {
+          ws.send(JSON.stringify({ type: "error", error: "No active session" }));
+          return;
+        }
+
+        let msg: { action: string; [key: string]: unknown };
+        try {
+          msg = JSON.parse(typeof evt.data === "string" ? evt.data : new TextDecoder().decode(evt.data as ArrayBuffer));
+        } catch {
+          ws.send(JSON.stringify({ type: "error", error: "Invalid JSON" }));
+          return;
+        }
+
+        // Streaming send — yields token chunks
+        if (msg.action === "send_stream") {
+          const message = msg.message as string;
+          const options = msg.options as { autoApprove?: boolean } | undefined;
+
+          if (!message || typeof message !== "string") {
+            ws.send(JSON.stringify({ type: "error", error: "Message is required" }));
+            return;
+          }
+
+          state.pendingRequests++;
+          resetIdleTimer();
+          resetScheduleTimers();
+
+          try {
+            const gen = state.session.sendStream(message, options);
+            let finalResponse;
+            while (true) {
+              const { value, done } = await gen.next();
+              if (done) {
+                finalResponse = value;
+                break;
+              }
+              ws.send(JSON.stringify({ type: "chunk", data: value }));
+            }
+            ws.send(JSON.stringify({ type: "done", data: finalResponse }));
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            ws.send(JSON.stringify({ type: "error", error: errorMsg }));
+          } finally {
+            if (state) {
+              state.pendingRequests--;
+              resetIdleTimer();
+              if (state.pendingRequests === 0) {
+                drainInbox();
+              }
+            }
+          }
+          return;
+        }
+
+        // All other actions: dispatch through handler and send response
+        try {
+          const result = await callHandler(msg.action, msg.payload);
+          ws.send(JSON.stringify({ type: "response", action: msg.action, ...result }));
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          ws.send(JSON.stringify({ type: "error", error: errorMsg }));
+        }
+      },
+    })),
+  );
+
   // Start HTTP server via Bun.serve
-  const server: Server<unknown> = Bun.serve({
+  const server = Bun.serve({
     fetch: app.fetch,
+    websocket,
     port: config.port ?? 0,
     hostname: host,
     error(error) {
