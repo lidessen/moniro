@@ -1,14 +1,19 @@
 /**
  * Stream-JSON event parsing for CLI backends
  *
- * Both cursor-agent and claude CLI support --output-format=stream-json,
- * which outputs newline-delimited JSON events. This module provides shared
- * parsing for progress reporting and result extraction.
+ * Cursor/Claude use --output-format=stream-json, Codex uses --json.
+ * All output newline-delimited JSON events but with different schemas.
  *
- * Event types:
+ * Cursor/Claude events:
  *   system/init  → agent initialized with model info
  *   assistant    → model response (may include tool_use content)
  *   result       → final result with duration and cost
+ *
+ * Codex events:
+ *   thread.started  → session initialized
+ *   turn.started    → new turn begins
+ *   item.completed  → agent_message (text) or function_call (tool)
+ *   turn.completed  → turn done with usage stats
  */
 
 import type { BackendResponse } from "./types.ts";
@@ -57,6 +62,37 @@ export function formatStreamEvent(
     if (cost) details.push(`$${cost.toFixed(4)}`);
     if (details.length > 0) parts.push(`(${details.join(", ")})`);
     return parts.join(" ");
+  }
+
+  // ---- Codex events ----
+
+  if (type === "thread.started") {
+    const threadId = event.thread_id as string | undefined;
+    return `${backendName} initialized${threadId ? ` (thread: ${threadId.slice(0, 8)}...)` : ""}`;
+  }
+
+  if (type === "item.completed") {
+    const item = event.item as Record<string, unknown> | undefined;
+    if (!item) return null;
+
+    // Tool call
+    if (item.type === "function_call") {
+      const name = (item.name as string) || "unknown";
+      const args = item.arguments as string | undefined;
+      const truncated = args && args.length > 100 ? args.slice(0, 100) + "..." : (args ?? "");
+      return `CALL ${name}(${truncated})`;
+    }
+
+    // Skip agent_message — will be extracted by parseStreamResult
+    return null;
+  }
+
+  if (type === "turn.completed") {
+    const usage = event.usage as { input_tokens?: number; output_tokens?: number } | undefined;
+    if (usage) {
+      return `${backendName} turn completed (${usage.input_tokens ?? 0} in, ${usage.output_tokens ?? 0} out)`;
+    }
+    return `${backendName} turn completed`;
   }
 
   return null;
@@ -112,17 +148,19 @@ export function createStreamParser(
 
 /**
  * Parse stream-json output to extract the final result.
+ * Handles both Cursor/Claude and Codex event formats.
  * Falls back to raw stdout if parsing fails.
  *
- * Searches for:
- * 1. A result event with type=result and a result field
- * 2. The last assistant message with text content
- * 3. Raw stdout as final fallback
+ * Searches for (in priority order):
+ * 1. Cursor/Claude: type=result with result field
+ * 2. Codex: item.completed with item.type=agent_message (last one)
+ * 3. Cursor/Claude: last assistant message with text content
+ * 4. Raw stdout as final fallback
  */
 export function parseStreamResult(stdout: string): BackendResponse {
   const lines = stdout.trim().split("\n");
 
-  // Find the result event (last line with type=result)
+  // 1. Cursor/Claude: find result event
   for (let i = lines.length - 1; i >= 0; i--) {
     try {
       const event = JSON.parse(lines[i]!);
@@ -134,7 +172,19 @@ export function parseStreamResult(stdout: string): BackendResponse {
     }
   }
 
-  // Fallback: find last assistant message
+  // 2. Codex: find last agent_message item
+  for (let i = lines.length - 1; i >= 0; i--) {
+    try {
+      const event = JSON.parse(lines[i]!);
+      if (event.type === "item.completed" && event.item?.type === "agent_message" && event.item?.text) {
+        return { content: event.item.text };
+      }
+    } catch {
+      // Not JSON — skip
+    }
+  }
+
+  // 3. Cursor/Claude: find last assistant message
   for (let i = lines.length - 1; i >= 0; i--) {
     try {
       const event = JSON.parse(lines[i]!);
@@ -151,6 +201,6 @@ export function parseStreamResult(stdout: string): BackendResponse {
     }
   }
 
-  // Final fallback: return raw stdout
+  // 4. Final fallback: return raw stdout
   return { content: stdout.trim() };
 }

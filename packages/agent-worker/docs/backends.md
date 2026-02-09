@@ -67,13 +67,13 @@ getBackendByType() → Backend
 
 ### Claude Code (`claude`)
 
-**Command**: `claude -p --dangerously-skip-permissions <message> [--model <model>] [--mcp-config <path>] [--append-system-prompt <text>]`
+**Command**: `claude -p --dangerously-skip-permissions --output-format stream-json <message> [--model <model>] [--mcp-config <path>] [--append-system-prompt <text>]`
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | `model` | `sonnet` | Model identifier |
-| `timeout` | 300s | Command timeout |
-| `outputFormat` | `text` | `text` \| `json` \| `stream-json` |
+| `timeout` | 300s | Idle timeout (resets on output) |
+| `outputFormat` | `stream-json` | `text` \| `json` \| `stream-json` |
 | `mcpConfigPath` | - | MCP config file path |
 
 **MCP config**: JSON via `--mcp-config <path>` flag (per-invocation, not project-level)
@@ -83,17 +83,17 @@ getBackendByType() → Backend
 **Gotchas**:
 - MCP via flag, not project-level config (unlike Cursor/Codex)
 - System prompt via `--append-system-prompt` (appends, doesn't replace)
-- JSON response: tries `content` then `result` then raw
+- Timeout is idle-based: resets whenever the process produces output
+- Default stream-json output enables real-time progress (tool calls, cost)
 
 ### Codex (`codex exec`)
 
-**Command**: `codex exec --dangerously-bypass-approvals-and-sandbox <message> [--model <model>] [--json]`
+**Command**: `codex exec --full-auto --json --skip-git-repo-check <message> [--model <model>]`
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | `model` | `gpt-5.2-codex` | Model identifier |
-| `timeout` | 300s | Command timeout |
-| `json` | false | Output as NDJSON events |
+| `timeout` | 300s | Idle timeout (resets on output) |
 
 **MCP config**: YAML at `<workspace>/.codex/config.yaml` (key: `mcp_servers`, snake_case)
 
@@ -104,6 +104,9 @@ getBackendByType() → Backend
 - Only backend using YAML for MCP config
 - Config key is `mcp_servers` (snake_case), not `mcpServers`
 - JSON mode returns NDJSON (newline-delimited), not single object
+- Event types differ from Cursor/Claude: `thread.started`, `item.completed`, `turn.completed`
+- Timeout is idle-based: resets whenever the process produces output
+- `--skip-git-repo-check` enables running in workspace dirs without git init
 
 ### Mock Backend
 

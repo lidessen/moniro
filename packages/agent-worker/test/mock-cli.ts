@@ -86,8 +86,19 @@ if (command === 'cursor-agent') {
     message = args[pIndex + 1]!
   }
 } else if (command === 'codex') {
-  // codex "message"
-  message = args[1] || ''
+  // codex exec "message" [--flags]
+  // Find first non-flag arg after "exec"
+  const execIdx = args.indexOf('exec')
+  if (execIdx !== -1) {
+    for (let i = execIdx + 1; i < args.length; i++) {
+      if (!args[i]?.startsWith('-')) {
+        message = args[i] ?? ''
+        break
+      }
+    }
+  } else {
+    message = args[1] || ''
+  }
 }
 
 // Simulate delay
@@ -118,14 +129,22 @@ if (customResponse) {
 
 // Check output format
 const outputFormat = args.find(a => a.startsWith('--output-format='))?.split('=')[1]
+const jsonFlag = args.includes('--json')
 
 if (outputFormat === 'stream-json') {
-  // Output JSON format like cursor-agent does
+  // Cursor/Claude stream-json format
   const sessionId = crypto.randomUUID()
   console.log(JSON.stringify({ type: 'system', subtype: 'init', model: 'Mock Model', session_id: sessionId }))
   console.log(JSON.stringify({ type: 'user', message: { role: 'user', content: [{ type: 'text', text: message }] }, session_id: sessionId }))
   console.log(JSON.stringify({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: response }] }, session_id: sessionId }))
   console.log(JSON.stringify({ type: 'result', subtype: 'success', result: response, duration_ms: delay, session_id: sessionId }))
+} else if (jsonFlag) {
+  // Codex JSONL format
+  const threadId = crypto.randomUUID()
+  console.log(JSON.stringify({ type: 'thread.started', thread_id: threadId }))
+  console.log(JSON.stringify({ type: 'turn.started' }))
+  console.log(JSON.stringify({ type: 'item.completed', item: { id: 'item_0', type: 'agent_message', text: response } }))
+  console.log(JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 100, cached_input_tokens: 50, output_tokens: 10 } }))
 } else {
   // Plain text output
   console.log(response)

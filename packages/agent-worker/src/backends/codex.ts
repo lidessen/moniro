@@ -1,6 +1,6 @@
 /**
  * OpenAI Codex CLI backend
- * Uses `codex exec` for non-interactive mode
+ * Uses `codex exec` for non-interactive mode with JSON event output
  *
  * MCP Configuration:
  * Codex uses project-level MCP config. Use setWorkspace() to set up
@@ -15,20 +15,15 @@ import { join } from "node:path";
 import { stringify as yamlStringify } from "yaml";
 import type { Backend, BackendResponse } from "./types.ts";
 import { execWithIdleTimeout, IdleTimeoutError } from "./idle-timeout.ts";
+import { createStreamParser, parseStreamResult } from "./stream-json.ts";
 
 export interface CodexOptions {
   /** Model to use (e.g., 'gpt-5.2-codex') */
   model?: string;
-  /** Output as JSON events */
-  json?: boolean;
   /** Working directory (defaults to workspace if set) */
   cwd?: string;
   /** Workspace directory for agent isolation */
   workspace?: string;
-  /** Skip git repo check */
-  skipGitRepoCheck?: boolean;
-  /** Approval mode: 'suggest' | 'auto-edit' | 'full-auto' */
-  approvalMode?: "suggest" | "auto-edit" | "full-auto";
   /** Resume a previous session */
   resume?: string;
   /** Idle timeout in milliseconds — kills process if no output for this duration */
@@ -74,6 +69,7 @@ export class CodexBackend implements Backend {
     const args = this.buildArgs(message);
     // Use workspace as cwd if set
     const cwd = this.options.workspace || this.options.cwd;
+    const debugLog = this.options.debugLog;
 
     try {
       const { stdout } = await execWithIdleTimeout({
@@ -81,29 +77,10 @@ export class CodexBackend implements Backend {
         args,
         cwd,
         timeout: this.options.timeout!,
+        onStdout: debugLog ? createStreamParser(debugLog, "Codex") : undefined,
       });
 
-      // Parse response based on output format
-      if (this.options.json) {
-        try {
-          // Codex outputs newline-delimited JSON events
-          const lines = stdout.trim().split("\n");
-          const lastLine = lines[lines.length - 1];
-          if (!lastLine) {
-            return { content: stdout.trim() };
-          }
-          const lastEvent = JSON.parse(lastLine);
-          return {
-            content: lastEvent.message || lastEvent.content || stdout,
-            toolCalls: lastEvent.toolCalls,
-            usage: lastEvent.usage,
-          };
-        } catch {
-          return { content: stdout.trim() };
-        }
-      }
-
-      return { content: stdout.trim() };
+      return parseStreamResult(stdout);
     } catch (error) {
       if (error instanceof IdleTimeoutError) {
         throw new Error(
@@ -138,23 +115,19 @@ export class CodexBackend implements Backend {
 
   private buildArgs(message: string): string[] {
     // exec: non-interactive mode
-    // --dangerously-bypass-approvals-and-sandbox: auto-approve all operations (required for workflow MCP tools)
-    const args: string[] = ["exec", "--dangerously-bypass-approvals-and-sandbox", message];
+    // --full-auto: auto-approve with workspace-write sandbox
+    // --json: JSONL event output for progress parsing
+    // --skip-git-repo-check: allow running outside git repos (workspace dirs)
+    const args: string[] = [
+      "exec",
+      "--full-auto",
+      "--json",
+      "--skip-git-repo-check",
+      message,
+    ];
 
     if (this.options.model) {
       args.push("--model", this.options.model);
-    }
-
-    if (this.options.json) {
-      args.push("--json");
-    }
-
-    if (this.options.skipGitRepoCheck) {
-      args.push("--skip-git-repo-check");
-    }
-
-    if (this.options.approvalMode) {
-      args.push("--approval-mode", this.options.approvalMode);
     }
 
     if (this.options.resume) {

@@ -8,6 +8,7 @@ import { describe, test, expect } from 'bun:test'
 import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import { CursorBackend } from '../src/backends/cursor.ts'
+import { CodexBackend } from '../src/backends/codex.ts'
 import { execWithIdleTimeout, IdleTimeoutError } from '../src/backends/idle-timeout.ts'
 import { formatStreamEvent, parseStreamResult } from '../src/backends/stream-json.ts'
 
@@ -278,6 +279,83 @@ describe('Stream-JSON Parsing', () => {
 
   test('parseStreamResult falls back to raw stdout', () => {
     expect(parseStreamResult('plain text output').content).toBe('plain text output')
+  })
+
+  // Codex event format
+  test('formats codex thread.started event', () => {
+    const event = { type: 'thread.started', thread_id: '019c4173-117f-75b0-afa9-3b1affdec150' }
+    expect(formatStreamEvent(event, 'Codex')).toBe('Codex initialized (thread: 019c4173...)')
+  })
+
+  test('formats codex function_call event', () => {
+    const event = {
+      type: 'item.completed',
+      item: { type: 'function_call', name: 'shell', arguments: '{"command":"ls -la"}' },
+    }
+    const result = formatStreamEvent(event, 'Codex')
+    expect(result).toContain('CALL shell(')
+    expect(result).toContain('ls -la')
+  })
+
+  test('formats codex turn.completed event', () => {
+    const event = { type: 'turn.completed', usage: { input_tokens: 8133, output_tokens: 5 } }
+    expect(formatStreamEvent(event, 'Codex')).toBe('Codex turn completed (8133 in, 5 out)')
+  })
+
+  test('parseStreamResult extracts codex agent_message', () => {
+    const stdout = [
+      '{"type":"thread.started","thread_id":"abc"}',
+      '{"type":"turn.started"}',
+      '{"type":"item.completed","item":{"type":"agent_message","text":"4"}}',
+      '{"type":"turn.completed","usage":{"input_tokens":100,"output_tokens":5}}',
+    ].join('\n')
+    expect(parseStreamResult(stdout).content).toBe('4')
+  })
+
+  test('skips codex agent_message in formatStreamEvent', () => {
+    const event = { type: 'item.completed', item: { type: 'agent_message', text: '4' } }
+    expect(formatStreamEvent(event, 'Codex')).toBeNull()
+  })
+})
+
+describe('CodexBackend with Mock', () => {
+  // Create a backend that uses our mock CLI
+  class MockCodexBackend extends CodexBackend {
+    private buildArgsMethod = (this as any).__proto__.__proto__; // access parent
+
+    send(message: string, options?: { system?: string }): Promise<import('../src/backends/types.ts').BackendResponse> {
+      // Monkey-patch: override the codex command to use mock CLI
+      const origBuildArgs = (this as any).buildArgs.bind(this);
+      (this as any).buildArgs = (msg: string) => {
+        const args = origBuildArgs(msg);
+        return args;
+      };
+      // We can't easily override the command in codex like cursor's buildCommand,
+      // so we use a different approach via the exec utility
+      return super.send(message, options);
+    }
+  }
+
+  test('mock CLI outputs codex JSON format', async () => {
+    const result = await runMockCli(['codex', 'exec', '--json', '--skip-git-repo-check', '2+2=?'])
+    expect(result.exitCode).toBe(0)
+    const lines = result.stdout.split('\n')
+    expect(lines.length).toBeGreaterThanOrEqual(4)
+
+    const firstLine = JSON.parse(lines[0]!)
+    expect(firstLine.type).toBe('thread.started')
+
+    const messageLine = JSON.parse(lines[2]!)
+    expect(messageLine.type).toBe('item.completed')
+    expect(messageLine.item.text).toBe('4')
+  })
+
+  test('mock CLI parses codex exec message correctly', async () => {
+    const result = await runMockCli(['codex', 'exec', '--full-auto', '--json', '--skip-git-repo-check', 'hello'])
+    expect(result.exitCode).toBe(0)
+    const lines = result.stdout.split('\n')
+    const messageLine = JSON.parse(lines[2]!)
+    expect(messageLine.item.text).toContain('Hello')
   })
 })
 
