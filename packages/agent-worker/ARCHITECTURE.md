@@ -2,214 +2,230 @@
 
 ## Overview
 
-agent-worker provides programmatic control over AI agent conversations — both single-agent sessions and multi-agent workflows.
+agent-worker is a daemon service that manages AI agent workflows. The daemon is the single long-lived process — all other interfaces (CLI, Web UI, AI tools) are clients that connect to it.
+
+```
+                ┌─────────────────────────────┐
+                │          Daemon             │
+                │                             │
+   REST ───────►│  ┌───────────────────────┐  │
+                │  │    Service Layer      │  │
+   MCP ────────►│  │  (one interface,      │  │
+                │  │   multiple protocols) │  │
+   WebSocket ──►│  └───────┬───────────────┘  │
+                │          │                  │
+                │          ▼                  │
+                │  ┌───────────────────────┐  │
+                │  │   Workflow Manager    │  │
+                │  │                       │  │
+                │  │  @global              │  │
+                │  │   ├── my-bot          │  │
+                │  │   └── assistant       │  │
+                │  │                       │  │
+                │  │  @review:pr-123       │  │
+                │  │   ├── reviewer        │  │
+                │  │   └── coder           │  │
+                │  └───────┬───────────────┘  │
+                │          │                  │
+                │     ┌────┴────┐             │
+                │     ▼         ▼             │
+                │  Agent     Context          │
+                │  Service   Service          │
+                └─────────────────────────────┘
+
+  CLI ─────── REST ──────────► Daemon
+  Web UI ──── REST + WS ─────► Daemon
+  AI Tool ─── MCP ───────────► Daemon
+```
+
+## Core Concepts
+
+### Daemon — The Service
+
+The daemon is the top-level service process. It owns everything: HTTP server, workflow instances, agent lifecycles, context storage. There is exactly one daemon process.
+
+Discovery is minimal: the daemon writes `~/.agent-worker/daemon.json` with `{ pid, host, port }`. Clients read this file to find the daemon. Nothing else is stored on the filesystem for service coordination.
+
+### Service Layer — One Interface, Two Protocols
+
+REST and MCP expose the **same operations** through different protocols:
+
+```
+REST:  POST /workflows/global/agents/bot/send  { message: "..." }
+MCP:   tool "agent_send" { workflow: "global", agent: "bot", message: "..." }
+WS:    { action: "send_stream", workflow: "global", agent: "bot", message: "..." }
+```
+
+All three call the same underlying service function. Adding a new operation means implementing it once in the service layer, then exposing it through both REST and MCP.
+
+This matters because different clients speak different protocols:
+- **CLI, Web UI, scripts** → REST (request/response) + WebSocket (streaming)
+- **AI tools** (Claude Code, Cursor, etc.) → MCP (tool calling)
+
+### Workflow — The Execution Model
+
+Every agent runs inside a workflow. A workflow is a named group of agents with shared context.
+
+- **`@global`** — The default workflow. Standalone agents live here. `agent new --name bot` creates an agent under `@global`.
+- **Named workflows** — Created from YAML definitions or API calls. `@review:pr-123` is a workflow named `review` with tag `pr-123`.
+
+There is no distinction between "single-agent mode" and "multi-agent mode" at the runtime level. A single agent is a workflow with one agent.
+
+```
+Workflow Manager
+  └── Workflow (@global, @review:pr-123, ...)
+        └── AgentSupervisor  (lifecycle: when to run, retry, inbox polling)
+              └── AgentRuntime   (execution: LLM conversation, tool loop, streaming)
+```
+
+### AgentRuntime — How to Think
+
+The execution engine for a single agent. It owns:
+
+- Conversation history (messages)
+- Model configuration (model ID, system prompt)
+- Tool registry (AI SDK tools)
+- Approval mechanism
+- `send(message)` → LLM reasoning → tool loop → response
+- `sendStream(message)` → same, with token-level streaming
+
+AgentRuntime does not know _why_ it is asked to send. It does not know about inboxes, channels, or workflows. It is a pure execution primitive.
+
+(Currently `AgentSession` in `src/agent/session.ts`)
+
+### AgentSupervisor — When to Think
+
+The lifecycle manager for a single agent within a workflow. It decides when to run the AgentRuntime and what to do with the results:
+
+1. Poll inbox for @mentions → build prompt → `runtime.send()` → write response to channel → ack inbox
+2. On failure → retry with exponential backoff
+3. External `wake()` → check inbox immediately
+4. State machine: `stopped → idle → running → idle → ...`
+
+AgentSupervisor wraps AgentRuntime. The daemon does not do inbox polling or timer management directly — it delegates to supervisors.
+
+(Currently `AgentController` in `src/workflow/controller/controller.ts`)
+
+### Context — Shared Storage
+
+Context provides the collaboration substrate for agents within a workflow. Each workflow has its own context:
+
+| Primitive | Purpose |
+|-----------|---------|
+| **Channel** | Append-only message log with @mentions |
+| **Inbox** | Per-agent filtered view of channel |
+| **Resources** | Content-addressed large content storage |
+| **Documents** | Shared team workspace files |
+| **Proposals** | Voting system for collaborative decisions |
+
+Context is exposed to agents via MCP tools (channel_send, channel_read, my_inbox, team_doc_*, resource_*, etc.). The same MCP tools are also available through the daemon's REST API.
+
+Context is backend-agnostic: `ContextProvider` interface with `FileContextProvider` (production) and `MemoryContextProvider` (testing).
 
 ## Module Structure
 
 ```
 src/
-├── index.ts                    # Public API (library usage)
+├── daemon/                     # The service
+│   ├── daemon.ts               # Process lifecycle: start, shutdown, signals
+│   ├── server.ts               # Hono app: REST routes + MCP endpoint + WebSocket
+│   ├── service.ts              # Service layer: the actual operations
+│   └── discovery.ts            # Read/write daemon.json
 │
-├── agent/                      # Agent core: session, models, tools, skills
-│   ├── index.ts                # Re-exports
-│   ├── types.ts                # Core types (AgentMessage, SessionConfig, ToolInfo, etc.)
-│   ├── session.ts              # AgentSession — SDK-based agentic loop
+├── workflow/                   # Execution model
+│   ├── manager.ts              # Manages workflow instances (create, list, destroy)
+│   ├── runner.ts               # Single workflow execution
+│   ├── supervisor.ts           # Agent lifecycle (poll → run → ack → retry)
+│   ├── parser.ts               # YAML workflow definition → typed config
+│   ├── interpolate.ts          # Variable interpolation (${{ }})
+│   └── prompt.ts               # Agent prompt building from context
+│
+├── agent/                      # Execution engine
+│   ├── runtime.ts              # AgentRuntime: LLM conversation + tool loop
 │   ├── models.ts               # Model creation, provider registry
+│   ├── types.ts                # Core types
 │   ├── tools/                  # Built-in tool factories
-│   │   ├── index.ts            # Re-exports
-│   │   ├── bash.ts             # Bash/readFile/writeFile (sandboxed)
-│   │   └── skills.ts           # Skills tool (createSkillsTool)
-│   └── skills/                 # Skills system (scan/load/import)
-│       ├── index.ts            # Re-exports
-│       ├── provider.ts         # SkillsProvider (scan/load)
+│   │   ├── bash.ts             # Sandboxed bash/readFile/writeFile
+│   │   └── skills.ts           # Skills tool
+│   └── skills/                 # Skill loading + importing
+│       ├── provider.ts         # SkillsProvider
 │       ├── importer.ts         # Git-based skill import
 │       └── import-spec.ts      # Import spec parsing
 │
+├── context/                    # Shared storage (extracted from workflow/context/)
+│   ├── provider.ts             # ContextProvider interface + implementation
+│   ├── storage.ts              # StorageBackend interface
+│   ├── file-provider.ts        # File-based storage
+│   ├── memory-provider.ts      # In-memory storage (testing)
+│   ├── mcp-tools.ts            # Context MCP tool definitions
+│   ├── proposals.ts            # Proposal/voting system
+│   └── types.ts                # Channel, inbox, document types
+│
 ├── backends/                   # AI provider adapters
-│   ├── types.ts                # Backend interface (send + run + isAvailable)
+│   ├── types.ts                # Backend interface
 │   ├── index.ts                # Factory + availability checks
-│   ├── model-maps.ts           # Model name translation (single source of truth)
-│   ├── sdk.ts                  # Vercel AI SDK backend
-│   ├── claude-code.ts          # Claude Code CLI backend
-│   ├── codex.ts                # Codex CLI backend
-│   ├── cursor.ts               # Cursor CLI backend
-│   └── mock.ts                 # Mock backend (testing)
+│   ├── model-maps.ts           # Model name translation
+│   ├── sdk.ts                  # Vercel AI SDK
+│   ├── claude-code.ts          # Claude Code CLI
+│   ├── codex.ts                # Codex CLI
+│   ├── cursor.ts               # Cursor CLI
+│   └── mock.ts                 # Mock (testing)
 │
-├── daemon/                     # Central process manager
-│   ├── index.ts                # Re-exports
-│   ├── daemon.ts               # Daemon: manages agents, MCP, lifecycle
-│   ├── server.ts               # Unix socket server
-│   ├── registry.ts             # Persistent agent registry (~/.agent-worker/)
-│   └── handler.ts              # Request → Response dispatch
-│
-├── workflow/                   # Agent orchestration + collaboration
-│   ├── types.ts                # Workflow schema types
-│   ├── parser.ts               # YAML workflow parser
-│   ├── interpolate.ts          # Variable interpolation (${{ }})
-│   ├── runner.ts               # Workflow runtime (init + run)
-│   ├── display.ts              # Channel output formatting (ANSI)
-│   ├── logger.ts               # Structured logger
-│   ├── backend-config.ts       # Backend/MCP config generation
-│   ├── context/                # Agent collaboration (channel, inbox, docs)
-│   │   ├── index.ts            # Re-exports
-│   │   ├── types.ts            # Channel, inbox, document types
-│   │   ├── provider.ts         # ContextProvider interface + implementation
-│   │   ├── storage.ts          # StorageBackend interface
-│   │   ├── file-provider.ts    # File-based storage
-│   │   ├── memory-provider.ts  # In-memory storage (testing)
-│   │   ├── mcp-server.ts       # MCP server exposing context tools
-│   │   ├── http-transport.ts   # HTTP transport for MCP
-│   │   └── proposals.ts        # Proposal/voting system
-│   └── controller/             # Agent lifecycle management
-│       ├── controller.ts       # Poll + retry + wake loop
-│       ├── backend.ts          # Backend selection + factories
-│       ├── prompt.ts           # Agent prompt building
-│       ├── send.ts             # Send target parsing
-│       └── types.ts            # Controller types
-│
-└── cli/                        # Thin presentation layer
-    ├── index.ts                # Entry: setup program, import commands
-    ├── client.ts               # Unix socket IPC client
-    ├── instance.ts             # Agent@instance naming utilities
+└── cli/                        # Independent client (NOT under daemon)
+    ├── client.ts               # HTTP client → daemon REST API
     └── commands/               # One file per command group
-        ├── agent.ts            # new, list, status, use, end
+        ├── agent.ts            # new, list, stop, info
         ├── send.ts             # send, peek, stats, export, clear
         ├── tool.ts             # tool add, import, mock, list
-        ├── workflow.ts         # run, start, stop
+        ├── workflow.ts         # run, start, stop, list
         ├── approval.ts         # pending, approve, deny
-        ├── context.ts          # context channel/document commands
         └── info.ts             # providers, backends
 ```
 
-## Responsibility Boundaries
+## Dependency Graph
 
-### agent/ — Agent Core
-
-Session management, model creation, tools, and skills.
-
-- `session.ts`: Stateful agentic loop using Vercel AI SDK's ToolLoopAgent
-- `models.ts`: Create LanguageModel from model identifiers (gateway/direct)
-- `tools/bash.ts`: Sandboxed bash/readFile/writeFile as AI SDK tool() objects
-- `tools/skills.ts`: Skills access as AI SDK tool()
-- `skills/`: Scan, load, and import agent skills
-
-Tools are AI SDK `tool()` objects stored as `Record<name, tool()>`. No custom
-abstraction — session passes them directly to ToolLoopAgent. Approval is
-configured separately via `Record<name, ApprovalCheck>` on SessionConfig.
-
-### backends/ — AI Provider Adapters
-
-Each backend wraps one AI tool/API behind a unified interface:
-
-```typescript
-interface Backend {
-  readonly type: BackendType
-  send(message: string, options?: SendOptions): Promise<BackendResponse>
-  run(ctx: AgentRunContext): Promise<AgentRunResult>
-  isAvailable(): Promise<boolean>
-}
+```
+cli/ ──── HTTP ────► daemon/
+                       │
+                       ├──► workflow/
+                       │       │
+                       │       ├──► agent/     (AgentRuntime)
+                       │       └──► context/   (ContextProvider)
+                       │
+                       ├──► context/           (MCP tool definitions)
+                       └──► backends/          (backend factory)
 ```
 
-- `send()` — Simple request/response (single-agent CLI mode)
-- `run()` — Full workflow context (inbox, channel, MCP tools)
-- Both methods on every backend, no adapter layers needed
-
-### daemon/ — Central Process Manager
-
-The daemon is the heart of agent-worker. One daemon process manages:
-
-- **Agent lifecycle**: Create, monitor, destroy agents
-- **MCP servers**: Shared context MCP servers for workflows
-- **Registry**: Track active agents in `~/.agent-worker/registry.json`
-- **IPC**: Unix socket server for CLI communication
-- **Health**: Idle timeouts, process monitoring, cleanup
-
-Key design: the daemon is the only long-lived process. CLI commands are
-short-lived — they connect, send a request, print the response, and exit.
-
-### workflow/context/ — Agent Collaboration
-
-A collaboration system nested under workflow:
-
-- **Channel**: Append-only message log with @mentions
-- **Inbox**: Per-agent filtered view of channel (mentions + DMs)
-- **Documents**: Shared team workspace files
-- **Resources**: Content-addressed blob storage
-- **Proposals**: Voting system for collaborative decisions
-- **MCP Server**: Exposes all above via Model Context Protocol
-
-### workflow/ — Multi-Agent Orchestration
-
-Declarative YAML-defined multi-agent workflows:
-
-- **Parser**: YAML → typed workflow definition
-- **Runner**: Initialize runtime (context + MCP + setup commands)
-- **Controller**: Per-agent polling loop (check inbox → run → ack → wait)
-- **Prompt**: Build structured prompts from workflow context
-
-### cli/ — Thin Presentation Layer
-
-CLI does three things:
-1. Parse arguments (commander)
-2. Send IPC request to daemon
-3. Format and print response
-
-No business logic. No state management. If the daemon isn't running,
-start it. Everything else is the daemon's job.
+Rules:
+- `cli/` imports nothing from `daemon/` except discovery (reading daemon.json)
+- `daemon/` imports from `workflow/`, `context/`, `agent/`, `backends/`
+- `workflow/` imports from `agent/`, `context/`, `backends/`
+- `agent/` imports from `backends/` (types only)
+- `context/` imports nothing from other app modules (pure domain)
+- No circular dependencies. No upward imports.
 
 ## Key Design Decisions
 
-### Single agent = 1-agent workflow (NEXT)
+### Why daemon as the top-level service?
 
-The fundamental insight: single-agent mode and multi-agent workflows
-should be THE SAME runtime. A "session" is just a workflow with one agent.
+Without a daemon, each agent is its own process. N agents = N processes, N sockets, stale registry files when processes crash. With one daemon, there's one process, one HTTP server, one MCP endpoint. Agent lifecycle, health checks, context — all centralized.
 
-```
-Workflow (core abstraction)
-├── 1 agent  →  "session" (simplified CLI + programmatic API)
-├── N agents →  "workflow" (YAML config, full collaboration)
-└── Shared infrastructure (daemon, MCP, context, backend)
-```
+### Why one interface, two protocols?
 
-This eliminates:
-- handler.ts `if(backend)/if(session)` branching
-- Two separate lifecycle managers (AgentSession vs controller)
-- Two backend interfaces (Backend.send vs AgentBackend.run)
-- Inconsistent tool/skill delivery across modes
+CLI and Web UI speak REST. AI tools (Claude Code, Cursor) speak MCP. Both need the same operations (send message, read channel, manage workflows). Implementing the operations once in the service layer and exposing them through both protocols eliminates duplication and keeps behavior consistent.
 
-CLI stays simple: `agent-worker new -m model` creates a 1-agent workflow
-implicitly. User doesn't need to think about workflows.
+### Why all agents live in workflows?
 
-Programmatic API stays simple: `AgentSession` becomes a facade over a
-1-agent workflow runtime. Context/MCP initializes lazily.
+Eliminates the split between "single-agent daemon" and "multi-agent workflow" code paths. `agent new` creates an agent under `@global` — it's just a 1-agent workflow with simplified CLI ergonomics. The runtime doesn't know or care.
 
-**Implementation path:**
-1. AgentSession internally creates 1-agent workflow runtime (lazy)
-2. handler.ts processes all requests through workflow runtime
-3. CLI `agent new` creates 1-agent workflow (not a separate process)
-4. Delete AgentSession's own agentic loop, delegate to controller
+### Why AgentRuntime vs AgentSupervisor?
 
-### Why a daemon?
+Separation of concerns:
+- **Runtime** answers "how to talk to an LLM" — stateful conversation, tool loop, streaming
+- **Supervisor** answers "when to talk and what to do with results" — inbox polling, retry, error recovery
 
-Without a daemon, each agent is its own process with its own socket server.
-This means N processes for N agents, stale registry entries when processes
-crash, no shared state, and complex process management in the CLI.
+The supervisor calls `runtime.send()` when it decides the agent should act. The daemon doesn't do inbox polling — supervisors do.
 
-With a daemon, there's ONE process managing everything. The CLI is stateless.
-Agent lifecycle, MCP servers, health checks — all centralized.
+### Why Context is a separate module?
 
-### Why unified Backend interface?
-
-Previously there were two hierarchies:
-- `backends/Backend.send()` for single-agent
-- `workflow/controller/AgentBackend.run()` for workflows
-
-Both wrapped the same CLI tools. The adapter layer (`CLIAdapterBackend`)
-existed only to bridge them. With one interface, no adapter needed.
-
-### Why unified skills via tools?
-
-Skills are always loaded by agent-worker and exposed as tools, regardless
-of backend. The transport mechanism (direct SDK tool vs MCP) is a
-backend detail. This eliminates the per-backend filesystem path guessing
-that was in `skills-compatibility.ts`.
+Context (channel, inbox, documents, resources) is used by both daemon (to expose via MCP/REST) and workflow (for agent collaboration). If it lives under `workflow/`, the daemon has an awkward reverse dependency. As a top-level module, both can import it cleanly.
