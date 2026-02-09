@@ -28,13 +28,14 @@ import { registerInfoCommands } from "./commands/info.ts";
 import { registerDocCommands } from "./commands/doc.ts";
 import { registerMockCommands } from "./commands/mock.ts";
 import { registerFeedbackCommand } from "./commands/feedback.ts";
+import packageJson from "../../package.json" with { type: "json" };
 
 const program = new Command();
 
 program
   .name("agent-worker")
   .description("CLI for creating and managing AI agents")
-  .version("0.0.1");
+  .version(packageJson.version);
 
 registerAgentCommands(program);
 registerSendCommands(program);
