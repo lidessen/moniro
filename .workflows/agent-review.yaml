@@ -14,8 +14,13 @@ config:
   review_mode: ${REVIEW_MODE:-incremental}
 
 setup:
-  - shell: gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json title,body,baseRefName,headRefName,author,additions,deletions,changedFiles
-    as: pr_info
+  # Write PR info to file instead of loading into context
+  - shell: |
+      gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
+        --json title,body,baseRefName,headRefName,author,additions,deletions,changedFiles \
+        > /tmp/pr-info.json
+      echo "/tmp/pr-info.json"
+    as: pr_info_file
 
   # DON'T load pr_diff here - it's too large and causes context overflow
   # Agent will fetch diffs on-demand using gh pr diff commands
@@ -81,9 +86,13 @@ setup:
 kickoff: |
   @reviewer Review code changes for PR #$PR_NUMBER in repository $GITHUB_REPOSITORY.
 
-  ## PR Info
-  ```json
-  ${{ pr_info }}
+  ## PR Information (on-demand)
+
+  **PR info is available at**: `${{ pr_info_file }}`
+
+  Read it when needed:
+  ```bash
+  cat ${{ pr_info_file }} | jq .
   ```
 
   ## Changed Files
@@ -93,9 +102,12 @@ kickoff: |
 
   ## How to Review
 
-  **Use Bash tool to view diffs as needed**:
+  **Fetch information on-demand using Bash tool**:
 
   ```bash
+  # Read PR info (title, description, stats)
+  cat ${{ pr_info_file }} | jq .
+
   # View full PR diff
   gh pr diff $PR_NUMBER --repo $GITHUB_REPOSITORY
 
