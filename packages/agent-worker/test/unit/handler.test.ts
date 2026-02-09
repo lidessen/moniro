@@ -13,7 +13,7 @@ import { handleRequest, type ServerState } from '../../src/daemon/handler.ts'
 import { AgentSession } from '../../src/agent/session.ts'
 import type { Backend } from '../../src/backends/types.ts'
 import type { SessionInfo } from '../../src/daemon/registry.ts'
-import type { Server } from 'node:net'
+import type { Server } from 'bun'
 
 // ==================== Test Setup ====================
 
@@ -37,7 +37,7 @@ function createTestState(overrides?: Partial<ServerState>): ServerState {
     workflow: 'test',
     tag: 'main',
     contextDir: '/tmp/test',
-    socketPath: '/tmp/test.sock',
+    port: 0,
     pid: process.pid,
     backend: 'claude',
     model: 'test/model',
@@ -49,7 +49,7 @@ function createTestState(overrides?: Partial<ServerState>): ServerState {
 
   return {
     session,
-    server: { close: () => {} } as unknown as Server,
+    server: { stop: () => {} } as unknown as Server<unknown>,
     info,
     lastActivity: Date.now(),
     pendingRequests: 0,

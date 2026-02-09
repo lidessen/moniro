@@ -1,4 +1,4 @@
-import type { Server } from "node:net";
+import type { Server } from "bun";
 import { tool, jsonSchema } from "ai";
 import type { AgentSession } from "../agent/session.ts";
 import type { SkillImporter } from "../agent/skills/index.ts";
@@ -9,7 +9,7 @@ import { parseCron } from "./cron.ts";
 
 export interface ServerState {
   session: AgentSession; // Always non-null: unified session for all backends
-  server: Server;
+  server: Server<unknown>;
   info: SessionInfo;
   lastActivity: number;
   pendingRequests: number;
@@ -286,7 +286,7 @@ export async function handleRequest(
         // Decrement before scheduling shutdown (we handle our own counter)
         state.pendingRequests--;
         // Stop accepting new connections immediately to prevent race
-        state.server.close();
+        state.server.stop();
         // Schedule graceful shutdown on next tick to allow this response to be sent
         setImmediate(() => gracefulShutdown());
         return { success: true, data: "Shutting down" };

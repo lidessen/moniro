@@ -18,7 +18,7 @@ describe('Server Session Management', () => {
   const testSessionInfo: SessionInfo = {
     id: testSessionId,
     name: `test-agent-${Date.now()}`,
-    socketPath: `/tmp/test-${testSessionId}.sock`,
+    port: 0,
     pid: process.pid,
     backend: 'sdk',
     model: 'test-model',
@@ -172,7 +172,7 @@ describe('CLI Command Logic', () => {
       const testId = `ps-test-${Date.now()}`
       const info: SessionInfo = {
         id: testId,
-        socketPath: `/tmp/${testId}.sock`,
+        port: 0,
         pid: process.pid,
         backend: 'sdk',
         model: 'test',
@@ -205,7 +205,7 @@ describe('CLI Command Logic', () => {
 
       registerSession({
         id: id1,
-        socketPath: `/tmp/${id1}.sock`,
+        port: 0,
         pid: process.pid,
         backend: 'sdk',
         model: 'test',
@@ -220,7 +220,7 @@ describe('CLI Command Logic', () => {
 
       registerSession({
         id: id2,
-        socketPath: `/tmp/${id2}.sock`,
+        port: 0,
         pid: process.pid,
         backend: 'claude',
         model: 'test',
