@@ -49,7 +49,7 @@ function createTestState(overrides?: Partial<ServerState>): ServerState {
 
   return {
     session,
-    server: {} as Server,
+    server: { close: () => {} } as unknown as Server,
     info,
     lastActivity: Date.now(),
     pendingRequests: 0,

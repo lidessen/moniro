@@ -11,6 +11,7 @@ import type { FeedbackEntry } from "../agent/tools/feedback.ts";
 import {
   SESSIONS_DIR,
   ensureDirs,
+  cleanupStaleSessions,
   registerSession,
   unregisterSession,
   resolveSchedule,
@@ -264,10 +265,72 @@ function resetScheduleTimers(): void {
 }
 
 const INBOX_POLL_MS = 2000; // Poll inbox every 2 seconds
+let inboxQueued = false; // Whether inbox has pending messages to process
+
+/**
+ * Drain queued inbox messages. Called after a request completes
+ * to ensure inbox messages aren't starved by busy agents.
+ */
+async function drainInbox(): Promise<void> {
+  if (!inboxQueued || !state?.contextProvider || !state?.agentDisplayName) return;
+  if (state.pendingRequests > 0) return; // Another request is active, wait
+  inboxQueued = false;
+
+  const provider = state.contextProvider;
+  const agentName = state.agentDisplayName;
+
+  try {
+    const inbox = await provider.getInbox(agentName);
+    if (inbox.length === 0) return;
+
+    await processInbox(provider, agentName, inbox);
+  } catch (error) {
+    console.error("[inbox] Drain error:", error instanceof Error ? error.message : error);
+  }
+}
+
+/**
+ * Process inbox messages — shared between polling and drain.
+ */
+async function processInbox(
+  provider: NonNullable<typeof state>["contextProvider"],
+  agentName: string,
+  inbox: Awaited<ReturnType<NonNullable<NonNullable<typeof state>["contextProvider"]>["getInbox"]>>,
+): Promise<void> {
+  if (!state || !provider) return;
+
+  const latestId = inbox[inbox.length - 1]!.entry.id;
+  const prompt = inbox.map((m) => `[${m.entry.from}]: ${m.entry.content}`).join("\n\n");
+
+  state.pendingRequests++;
+  resetIdleTimer();
+  resetScheduleTimers();
+
+  const senders = [...new Set(inbox.map((m) => m.entry.from))];
+  await provider.appendChannel(
+    agentName,
+    `read ${inbox.length} message(s) from ${senders.join(", ")}`,
+    { kind: "log" },
+  );
+
+  try {
+    const response = await state.session.send(prompt);
+    await provider.appendChannel(agentName, response.content);
+    await provider.ackInbox(agentName, latestId);
+  } finally {
+    if (state) {
+      state.pendingRequests--;
+      resetIdleTimer();
+    }
+  }
+}
 
 /**
  * Start inbox polling — checks channel for @mentions and processes them via the LLM.
  * This is how agents receive messages from `send` (which posts to the channel).
+ *
+ * When the agent is busy (pendingRequests > 0), inbox messages are queued
+ * and drained after the current request completes, preventing starvation.
  */
 function startInboxPolling(): void {
   if (!state?.contextProvider || !state?.agentDisplayName) return;
@@ -276,48 +339,31 @@ function startInboxPolling(): void {
   const agentName = state.agentDisplayName;
 
   state.inboxPollTimer = setInterval(async () => {
-    if (!state || state.pendingRequests > 0) return;
+    if (!state) return;
+
+    // If busy, mark that inbox needs draining after current request
+    if (state.pendingRequests > 0) {
+      inboxQueued = true;
+      return;
+    }
 
     try {
       const inbox = await provider.getInbox(agentName);
       if (inbox.length === 0) return;
 
-      const latestId = inbox[inbox.length - 1]!.entry.id;
-
-      // Build prompt from inbox messages
-      const prompt = inbox.map((m) => `[${m.entry.from}]: ${m.entry.content}`).join("\n\n");
-
-      state.pendingRequests++;
-      resetIdleTimer();
-      resetScheduleTimers();
-
-      // Log: agent received messages
-      const senders = [...new Set(inbox.map((m) => m.entry.from))];
-      await provider.appendChannel(
-        agentName,
-        `read ${inbox.length} message(s) from ${senders.join(", ")}`,
-        { kind: "log" },
-      );
-
-      try {
-        const response = await state.session.send(prompt);
-        // Post response back to channel
-        await provider.appendChannel(agentName, response.content);
-        // Ack inbox
-        await provider.ackInbox(agentName, latestId);
-      } finally {
-        if (state) {
-          state.pendingRequests--;
-          resetIdleTimer();
-        }
-      }
+      await processInbox(provider, agentName, inbox);
     } catch (error) {
       console.error("[inbox] Poll error:", error instanceof Error ? error.message : error);
     }
   }, INBOX_POLL_MS);
 }
 
+let shuttingDown = false;
+
 async function gracefulShutdown(): Promise<void> {
+  if (shuttingDown) return; // Prevent double shutdown
+  shuttingDown = true;
+
   if (!state) {
     process.exit(0);
     return;
@@ -389,6 +435,12 @@ export async function startDaemon(config: {
   schedule?: ScheduleConfig;
 }): Promise<void> {
   ensureDirs();
+
+  // Clean up stale sessions from previously crashed daemons
+  const staleCount = cleanupStaleSessions();
+  if (staleCount > 0) {
+    console.log(`Cleaned up ${staleCount} stale session(s)`);
+  }
 
   const backendType = config.backend || "sdk";
   const sessionId = crypto.randomUUID();
@@ -521,6 +573,7 @@ export async function startDaemon(config: {
             resetActivity,
             gracefulShutdown,
             resetAll,
+            drainInbox,
           );
           socket.write(JSON.stringify(res) + "\n");
         } catch (error) {
@@ -606,15 +659,13 @@ export async function startDaemon(config: {
     process.exit(1);
   });
 
-  // Handle signals
+  // Handle signals — use graceful shutdown to wait for pending requests
   process.on("SIGINT", () => {
     console.log("\nShutting down...");
-    cleanup();
-    process.exit(0);
+    gracefulShutdown();
   });
 
   process.on("SIGTERM", () => {
-    cleanup();
-    process.exit(0);
+    gracefulShutdown();
   });
 }
