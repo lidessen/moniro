@@ -9,10 +9,11 @@
  * @see https://docs.anthropic.com/en/docs/claude-code
  */
 
-import { execa, ExecaError } from "execa";
+import { execa } from "execa";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Backend, BackendResponse } from "./types.ts";
+import { execWithIdleTimeout, IdleTimeoutError } from "./idle-timeout.ts";
 
 export interface ClaudeCodeOptions {
   /** Model to use (e.g., 'opus', 'sonnet') */
@@ -31,7 +32,7 @@ export interface ClaudeCodeOptions {
   cwd?: string;
   /** Workspace directory for agent isolation */
   workspace?: string;
-  /** Timeout in milliseconds */
+  /** Idle timeout in milliseconds — kills process if no output for this duration */
   timeout?: number;
   /** MCP config file path (for workflow context) */
   mcpConfigPath?: string;
@@ -74,10 +75,11 @@ export class ClaudeCodeBackend implements Backend {
     const cwd = this.options.workspace || this.options.cwd;
 
     try {
-      const { stdout } = await execa("claude", args, {
+      const { stdout } = await execWithIdleTimeout({
+        command: "claude",
+        args,
         cwd,
-        stdin: "ignore",
-        timeout: this.options.timeout,
+        timeout: this.options.timeout!,
       });
 
       // Parse response based on output format
@@ -96,9 +98,15 @@ export class ClaudeCodeBackend implements Backend {
 
       return { content: stdout.trim() };
     } catch (error) {
-      if (error instanceof ExecaError) {
+      if (error instanceof IdleTimeoutError) {
         throw new Error(
-          `claude failed (exit ${error.exitCode}): ${error.stderr || error.shortMessage}`,
+          `claude timed out after ${this.options.timeout}ms of inactivity`,
+        );
+      }
+      if (error && typeof error === "object" && "exitCode" in error) {
+        const execError = error as { exitCode?: number; stderr?: string; shortMessage?: string };
+        throw new Error(
+          `claude failed (exit ${execError.exitCode}): ${execError.stderr || execError.shortMessage}`,
         );
       }
       throw error;
