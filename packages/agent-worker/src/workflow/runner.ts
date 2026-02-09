@@ -594,6 +594,7 @@ export async function runWorkflowWithControllers(
         backend = getBackendByType(agentDef.backend, {
           model: agentDef.model,
           debugLog: backendDebugLog,
+          timeout: agentDef.timeout,
         });
       } else if (agentDef.model) {
         backend = getBackendForModel(agentDef.model, { debugLog: backendDebugLog });

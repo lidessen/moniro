@@ -16,15 +16,24 @@ import { createMockBackend } from "@/backends/mock.ts";
  */
 export function getBackendByType(
   backendType: "sdk" | "claude" | "cursor" | "codex" | "mock",
-  options?: { model?: string; debugLog?: (msg: string) => void },
+  options?: { model?: string; debugLog?: (msg: string) => void; timeout?: number },
 ): Backend {
   if (backendType === "mock") {
     return createMockBackend(options?.debugLog);
   }
 
+  const backendOptions: Record<string, unknown> = {};
+  if (options?.timeout) {
+    backendOptions.timeout = options.timeout;
+  }
+  if (options?.debugLog) {
+    backendOptions.debugLog = options.debugLog;
+  }
+
   return createBackend({
     type: backendType,
     model: options?.model,
+    ...(Object.keys(backendOptions).length > 0 ? { options: backendOptions } : {}),
   } as Parameters<typeof createBackend>[0]);
 }
 

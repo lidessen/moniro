@@ -52,7 +52,7 @@ getBackendByType() → Backend
 | Option | Default | Description |
 |--------|---------|-------------|
 | `model` | `sonnet-4.5` | Model identifier |
-| `timeout` | 120s | Command timeout |
+| `timeout` | 300s | Command timeout |
 | `workspace` | - | Contains `.cursor/mcp.json` |
 
 **MCP config**: JSON at `<workspace>/.cursor/mcp.json`
@@ -127,7 +127,7 @@ agents:
 | MCP config location | `.cursor/mcp.json` | `--mcp-config <path>` | `.codex/config.yaml` | N/A |
 | System prompt | (in message) | `--append-system-prompt` | (in message) | `system` param |
 | Session resume | No | `--continue` / `--resume` | `--resume` | N/A |
-| Default timeout | 120s | 300s | 300s | N/A |
+| Default timeout | 300s | 300s | 300s | N/A |
 
 ---
 

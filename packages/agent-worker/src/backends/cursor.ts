@@ -33,7 +33,7 @@ export class CursorBackend implements Backend {
 
   constructor(options: CursorOptions = {}) {
     this.options = {
-      timeout: 120000, // 2 minute default
+      timeout: 300000, // 5 minute default (matches claude/codex)
       ...options,
     };
   }

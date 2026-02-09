@@ -61,6 +61,9 @@ export interface AgentDefinition {
 
   /** Maximum tool call steps per turn */
   max_steps?: number;
+
+  /** Backend timeout in milliseconds (overrides backend default) */
+  timeout?: number;
 }
 
 // ==================== Setup Task ====================
