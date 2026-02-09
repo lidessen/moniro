@@ -62,7 +62,7 @@ export const RESOURCES_DIR = "resources";
 export const RESOURCE_THRESHOLD = 500;
 
 /** Message length threshold for channel messages - content longer than this should use resources or documents */
-export const MESSAGE_LENGTH_THRESHOLD = 2000;
+export const MESSAGE_LENGTH_THRESHOLD = 1200;
 
 /**
  * Generate a unique resource ID
