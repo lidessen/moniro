@@ -1,4 +1,6 @@
-import { createServer } from "node:net";
+import type { Server } from "bun";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -370,7 +372,7 @@ async function gracefulShutdown(): Promise<void> {
   }
 
   // Stop accepting new connections
-  state.server.close();
+  state.server.stop();
 
   // Wait for pending requests (max 10s)
   const maxWait = 10000;
@@ -402,14 +404,11 @@ function cleanup(): void {
     if (state.inboxPollTimer) {
       clearInterval(state.inboxPollTimer);
     }
-    if (existsSync(state.info.socketPath)) {
-      unlinkSync(state.info.socketPath);
-    }
-    if (existsSync(state.info.pidFile)) {
-      unlinkSync(state.info.pidFile);
-    }
-    if (existsSync(state.info.readyFile)) {
-      unlinkSync(state.info.readyFile);
+    // Clean up file artifacts (socketPath is optional — old sessions only)
+    for (const path of [state.info.socketPath, state.info.pidFile, state.info.readyFile]) {
+      if (path && existsSync(path)) {
+        try { unlinkSync(path); } catch { /* best-effort */ }
+      }
     }
     unregisterSession(state.info.id);
   }
@@ -427,6 +426,10 @@ export async function startDaemon(config: {
   instance?: string;
   idleTimeout?: number;
   backend?: BackendType;
+  /** HTTP port to listen on (0 = auto-assign) */
+  port?: number;
+  /** Host to bind to (default: "127.0.0.1", use "0.0.0.0" for remote access) */
+  host?: string;
   skills?: string[];
   skillDirs?: string[];
   importSkills?: string[];
@@ -505,16 +508,11 @@ export async function startDaemon(config: {
   });
 
   const effectiveId = session.id;
+  const host = config.host ?? "127.0.0.1";
 
   // Generate paths
-  const socketPath = join(SESSIONS_DIR, `${effectiveId}.sock`);
   const pidFile = join(SESSIONS_DIR, `${effectiveId}.pid`);
   const readyFile = join(SESSIONS_DIR, `${effectiveId}.ready`);
-
-  // Clean up any existing socket
-  if (existsSync(socketPath)) {
-    unlinkSync(socketPath);
-  }
 
   // Setup workflow:tag context (shared channel + documents)
   const contextDir = getDefaultContextDir(workflow, tag);
@@ -524,6 +522,7 @@ export async function startDaemon(config: {
   const allAgentNames = [...new Set([...existingAgentNames, agentDisplayName, "user"])];
   const contextProvider = createFileContextProvider(contextDir, allAgentNames);
 
+  // SessionInfo — port is filled after server starts listening
   const info: SessionInfo = {
     id: effectiveId,
     name: config.name,
@@ -534,7 +533,8 @@ export async function startDaemon(config: {
     model: config.model,
     system: config.system,
     backend: backendType,
-    socketPath,
+    port: 0, // Updated after listen
+    host,
     pidFile,
     readyFile,
     pid: process.pid,
@@ -543,121 +543,112 @@ export async function startDaemon(config: {
     schedule: config.schedule,
   };
 
-  // Create Unix socket server
-  const server = createServer((socket) => {
-    let buffer = "";
+  // Create Hono app
+  const app = new Hono();
+  app.use("*", cors());
 
-    socket.on("data", async (data) => {
-      buffer += data.toString();
-
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-
-      for (const line of lines) {
-        if (!line.trim()) continue;
-
-        try {
-          const req: Request = JSON.parse(line);
-          const resetActivity = () => {
-            resetIdleTimer();
-            resetScheduleTimers();
-          };
-          const resetAll = () => {
-            resetIdleTimer();
-            resetIntervalSchedule();
-            startCronSchedule();
-          };
-          const res = await handleRequest(
-            () => state,
-            req,
-            resetActivity,
-            gracefulShutdown,
-            resetAll,
-            drainInbox,
-          );
-          socket.write(JSON.stringify(res) + "\n");
-        } catch (error) {
-          socket.write(
-            JSON.stringify({
-              success: false,
-              error: error instanceof Error ? error.message : "Parse error",
-            }) + "\n",
-          );
-        }
-      }
-    });
-
-    socket.on("error", () => {
-      // Ignore client errors
-    });
-  });
-
-  server.listen(socketPath, () => {
-    // Write PID file
-    writeFileSync(pidFile, process.pid.toString());
-
-    // Register session
-    registerSession(info);
-
-    // Initialize state
-    state = {
-      session,
-      server,
-      info,
-      lastActivity: Date.now(),
-      pendingRequests: 0,
-      importer,
-      getFeedback,
-      contextProvider,
-      agentDisplayName,
-    };
-
-    // Write ready file (signals CLI that server is ready)
-    writeFileSync(readyFile, effectiveId);
-
-    // Start idle timer
-    resetIdleTimer();
-
-    // Start schedule timers if configured
-    resetIntervalSchedule();
-    startCronSchedule();
-
-    // Start inbox polling (listens for @mentions in channel)
-    startInboxPolling();
-
-    const nameStr = config.name ? ` (${config.name})` : "";
-    const workflowDisplay = buildTargetDisplay(undefined, workflow, tag);
-    console.log(`Session started: ${effectiveId}${nameStr}`);
-    console.log(`Model: ${config.model}`);
-    console.log(`Backend: ${backendType}`);
-    console.log(`Workflow: ${workflowDisplay}`);
-    if (config.schedule) {
-      try {
-        const resolved = resolveSchedule(config.schedule);
-        if (resolved.type === "interval") {
-          console.log(`Wakeup: every ${resolved.ms! / 1000}s when idle`);
-          // Warn if idle timeout would fire before wakeup interval
-          const idleMs = config.idleTimeout ?? DEFAULT_IDLE_TIMEOUT;
-          if (idleMs > 0 && resolved.ms! > idleMs) {
-            console.warn(
-              `Warning: idle timeout (${idleMs / 1000}s) is shorter than wakeup interval (${resolved.ms! / 1000}s). ` +
-                `Session will shut down before wakeup fires. Use --idle-timeout 0 to disable.`,
-            );
-          }
-        } else {
-          console.log(`Wakeup: cron ${resolved.expr}`);
-        }
-      } catch (error) {
-        console.error("Invalid wakeup schedule:", error);
-      }
+  app.post("/", async (c) => {
+    try {
+      const request: Request = await c.req.json();
+      const resetActivity = () => {
+        resetIdleTimer();
+        resetScheduleTimers();
+      };
+      const resetAll = () => {
+        resetIdleTimer();
+        resetIntervalSchedule();
+        startCronSchedule();
+      };
+      const result = await handleRequest(
+        () => state,
+        request,
+        resetActivity,
+        gracefulShutdown,
+        resetAll,
+        drainInbox,
+      );
+      return c.json(result);
+    } catch (error) {
+      return c.json(
+        { success: false, error: error instanceof Error ? error.message : "Invalid request" },
+        400,
+      );
     }
   });
 
-  server.on("error", (error) => {
-    console.error("Server error:", error);
-    cleanup();
-    process.exit(1);
+  // Start HTTP server via Bun.serve
+  const server: Server<unknown> = Bun.serve({
+    fetch: app.fetch,
+    port: config.port ?? 0,
+    hostname: host,
+    error(error) {
+      console.error("Server error:", error);
+      cleanup();
+      process.exit(1);
+    },
   });
+
+  info.port = server.port ?? 0;
+
+  // Write PID file
+  writeFileSync(pidFile, process.pid.toString());
+
+  // Register session
+  registerSession(info);
+
+  // Initialize state
+  state = {
+    session,
+    server,
+    info,
+    lastActivity: Date.now(),
+    pendingRequests: 0,
+    importer,
+    getFeedback,
+    contextProvider,
+    agentDisplayName,
+  };
+
+  // Write ready file (signals CLI that server is ready)
+  writeFileSync(readyFile, effectiveId);
+
+  // Start idle timer
+  resetIdleTimer();
+
+  // Start schedule timers if configured
+  resetIntervalSchedule();
+  startCronSchedule();
+
+  // Start inbox polling (listens for @mentions in channel)
+  startInboxPolling();
+
+  const nameStr = config.name ? ` (${config.name})` : "";
+  const workflowDisplay = buildTargetDisplay(undefined, workflow, tag);
+  console.log(`Session started: ${effectiveId}${nameStr}`);
+  console.log(`Model: ${config.model}`);
+  console.log(`Backend: ${backendType}`);
+  console.log(`Workflow: ${workflowDisplay}`);
+  console.log(`Listening: http://${host}:${server.port}`);
+  if (config.schedule) {
+    try {
+      const resolved = resolveSchedule(config.schedule);
+      if (resolved.type === "interval") {
+        console.log(`Wakeup: every ${resolved.ms! / 1000}s when idle`);
+        // Warn if idle timeout would fire before wakeup interval
+        const idleMs = config.idleTimeout ?? DEFAULT_IDLE_TIMEOUT;
+        if (idleMs > 0 && resolved.ms! > idleMs) {
+          console.warn(
+            `Warning: idle timeout (${idleMs / 1000}s) is shorter than wakeup interval (${resolved.ms! / 1000}s). ` +
+              `Session will shut down before wakeup fires. Use --idle-timeout 0 to disable.`,
+          );
+        }
+      } else {
+        console.log(`Wakeup: cron ${resolved.expr}`);
+      }
+    } catch (error) {
+      console.error("Invalid wakeup schedule:", error);
+    }
+  }
 
   // Handle signals — use graceful shutdown to wait for pending requests
   process.on("SIGINT", () => {

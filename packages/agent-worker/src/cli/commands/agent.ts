@@ -33,6 +33,8 @@ async function createAgentAction(
     system?: string;
     systemFile?: string;
     idleTimeout?: string;
+    port?: string;
+    host?: string;
     skill?: string[];
     skillDir?: string[];
     importSkill?: string[];
@@ -87,6 +89,8 @@ async function createAgentAction(
       instance, // Backward compat
       idleTimeout,
       backend,
+      port: options.port ? parseInt(options.port, 10) : undefined,
+      host: options.host,
       skills: options.skill,
       skillDirs: options.skillDir,
       importSkills: options.importSkill,
@@ -135,6 +139,12 @@ async function createAgentAction(
     }
     if (options.wakeupPrompt) {
       args.push("--wakeup-prompt", options.wakeupPrompt);
+    }
+    if (options.port) {
+      args.push("--port", options.port);
+    }
+    if (options.host) {
+      args.push("--host", options.host);
     }
 
     const child = spawn(process.execPath, args, {
@@ -318,6 +328,8 @@ function addNewCommandOptions(cmd: Command): Command {
     .option("--feedback", "Enable feedback tool (agent can report tool/workflow observations)")
     .option("--wakeup <value>", "Scheduled wakeup: ms number, duration (30s/5m/2h), or cron expr")
     .option("--wakeup-prompt <prompt>", "Custom prompt for scheduled wakeup")
+    .option("--port <port>", "HTTP port to listen on (0 = auto-assign, default: 0)")
+    .option("--host <host>", "Host to bind to (default: 127.0.0.1, use 0.0.0.0 for remote access)")
     .option("--foreground", "Run in foreground")
     .option("--json", "Output as JSON");
 }

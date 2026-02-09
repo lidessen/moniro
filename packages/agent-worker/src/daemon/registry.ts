@@ -114,7 +114,12 @@ export interface SessionInfo {
   model: string;
   system: string;
   backend: BackendType;
-  socketPath: string;
+  /** HTTP port the daemon listens on */
+  port: number;
+  /** Host the daemon binds to (default: 127.0.0.1) */
+  host?: string;
+  /** @deprecated Replaced by HTTP port. Kept for backward compat cleanup. */
+  socketPath?: string;
   pidFile: string;
   readyFile: string;
   pid: number;
@@ -300,14 +305,10 @@ export function isSessionRunning(idOrName?: string): boolean {
     return true;
   } catch {
     // Process doesn't exist, clean up
-    if (existsSync(info.socketPath)) {
-      unlinkSync(info.socketPath);
-    }
-    if (existsSync(info.pidFile)) {
-      unlinkSync(info.pidFile);
-    }
-    if (info.readyFile && existsSync(info.readyFile)) {
-      unlinkSync(info.readyFile);
+    for (const path of [info.socketPath, info.pidFile, info.readyFile]) {
+      if (path && existsSync(path)) {
+        try { unlinkSync(path); } catch { /* best-effort */ }
+      }
     }
     unregisterSession(info.id);
     return false;
