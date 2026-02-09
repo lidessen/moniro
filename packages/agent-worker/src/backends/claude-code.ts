@@ -172,6 +172,11 @@ export class ClaudeCodeBackend implements Backend {
     const outputFormat = this.options.outputFormat ?? "stream-json";
     args.push("--output-format", outputFormat);
 
+    // stream-json requires --verbose when using -p (print mode)
+    if (outputFormat === "stream-json") {
+      args.push("--verbose");
+    }
+
     if (this.options.continue) {
       args.push("--continue");
     }
