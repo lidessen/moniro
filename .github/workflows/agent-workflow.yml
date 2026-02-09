@@ -164,6 +164,8 @@ jobs:
         if: always() && steps.parse.outputs.command == 'agent-review' && steps.resolve.outputs.file != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BEFORE_SHA: ${{ steps.pr.outputs.before_sha }}
+          AFTER_SHA: ${{ steps.pr.outputs.after_sha }}
         run: |
           PR_NUMBER="${{ steps.pr.outputs.pr_number }}"
           REPO="${{ github.repository }}"
@@ -204,6 +206,19 @@ jobs:
           ERROR_COUNT=$(jq '[.issues // [] | .[] | select(.severity == "error")] | length' /tmp/review-result.json)
           WARNING_COUNT=$(jq '[.issues // [] | .[] | select(.severity == "warning")] | length' /tmp/review-result.json)
           SUGGESTION_COUNT=$(jq '[.issues // [] | .[] | select(.severity == "suggestion")] | length' /tmp/review-result.json)
+
+          # Fetch commits included in this review
+          if [ "$REVIEW_TYPE" = "synchronize" ] && [ -n "$BEFORE_SHA" ] && [ -n "$AFTER_SHA" ]; then
+            # Re-review: show only new commits since last review
+            COMMITS=$(gh api "repos/$REPO/compare/${BEFORE_SHA}...${AFTER_SHA}" \
+              --jq '.commits[] | "\(.sha[0:7]) \(.commit.message | split("\n") | .[0])"' 2>/dev/null || true)
+            COMMIT_LABEL="New commits"
+          else
+            # Initial review: show all PR commits
+            COMMITS=$(gh api "repos/$REPO/pulls/$PR_NUMBER/commits" --paginate \
+              --jq '.[] | "\(.sha[0:7]) \(.commit.message | split("\n") | .[0])"' 2>/dev/null || true)
+            COMMIT_LABEL="Commits"
+          fi
 
           # Build review comment
           {
@@ -250,6 +265,16 @@ jobs:
             echo "- **Timestamp**: ${TIMESTAMP}"
             echo "- **Stats**: ${FILE_STATS}"
             echo ''
+            if [ -n "$COMMITS" ]; then
+              echo "**${COMMIT_LABEL}:**"
+              echo ''
+              echo "$COMMITS" | while IFS= read -r line; do
+                SHA="${line%% *}"
+                MSG="${line#* }"
+                echo "- \`${SHA}\` ${MSG}"
+              done
+              echo ''
+            fi
             echo '</details>'
           } > /tmp/review-comment.md
 
