@@ -354,6 +354,99 @@ describe('MemoryContextProvider', () => {
     })
   })
 
+  describe('smartSend', () => {
+    test('sends short message directly without conversion', async () => {
+      const shortContent = 'This is a short message'
+      const msg = await provider.smartSend('agent1', shortContent)
+
+      expect(msg.content).toBe(shortContent)
+      expect(msg.from).toBe('agent1')
+
+      // Should not create any resource
+      const entries = await provider.readChannel()
+      expect(entries).toHaveLength(1)
+      expect(entries[0]!.content).toBe(shortContent)
+    })
+
+    test('converts long message to resource', async () => {
+      // Create message exceeding MESSAGE_LENGTH_THRESHOLD (1200 chars)
+      const longContent = 'A'.repeat(1500)
+      const msg = await provider.smartSend('agent1', longContent)
+
+      // Should create short reference message
+      expect(msg.content).toContain('[Long content stored as resource]')
+      expect(msg.content).toContain('resource_read')
+      expect(msg.content).toMatch(/resource:res_/)
+
+      // Extract resource ID from message
+      const resourceMatch = msg.content.match(/resource:res_[a-z0-9]+/)
+      expect(resourceMatch).toBeDefined()
+      const resourceRef = resourceMatch![0]
+      const resourceId = resourceRef.replace('resource:', '')
+
+      // Verify resource was created with full content
+      const retrieved = await provider.readResource(resourceId)
+      expect(retrieved).toBe(longContent)
+    })
+
+    test('logs full content in debug channel for long messages', async () => {
+      const longContent = 'B'.repeat(1500)
+      await provider.smartSend('agent1', longContent)
+
+      // Check channel entries - should have 2: debug log + reference message
+      const entries = await provider.readChannel()
+      expect(entries.length).toBeGreaterThanOrEqual(2)
+
+      // Find debug entry (kind='debug', from='system')
+      const debugEntry = entries.find(e => e.kind === 'debug' && e.from === 'system')
+      expect(debugEntry).toBeDefined()
+      expect(debugEntry!.content).toContain('Created resource')
+      expect(debugEntry!.content).toContain('(1500 chars)')
+      expect(debugEntry!.content).toContain('@agent1')
+      expect(debugEntry!.content).toContain(longContent) // Full content in debug
+    })
+
+    test('detects markdown content for resource type', async () => {
+      const markdownContent = '```typescript\n' + 'const x = 1;\n'.repeat(100) + '```'
+      await provider.smartSend('agent1', markdownContent)
+
+      const entries = await provider.readChannel()
+      const refMessage = entries.find(e => e.from === 'agent1' && e.content.includes('resource:'))
+      expect(refMessage).toBeDefined()
+
+      // Extract and verify resource was created as markdown
+      const resourceMatch = refMessage!.content.match(/resource:(res_[a-z0-9]+)/)
+      const resourceId = resourceMatch![1]
+      const retrieved = await provider.readResource(resourceId)
+      expect(retrieved).toBe(markdownContent)
+    })
+
+    test('works with DM option', async () => {
+      const longContent = 'C'.repeat(1500)
+      const msg = await provider.smartSend('agent1', longContent, { to: 'agent2' })
+
+      expect(msg.to).toBe('agent2')
+      expect(msg.content).toContain('[Long content stored as resource]')
+    })
+
+    test('threshold boundary: 1200 chars sends directly', async () => {
+      const content = 'D'.repeat(1200)
+      const msg = await provider.smartSend('agent1', content)
+
+      // Exactly 1200 should send directly (threshold is >1200)
+      expect(msg.content).toBe(content)
+    })
+
+    test('threshold boundary: 1201 chars converts to resource', async () => {
+      const content = 'E'.repeat(1201)
+      const msg = await provider.smartSend('agent1', content)
+
+      // 1201 should convert to resource
+      expect(msg.content).toContain('[Long content stored as resource]')
+      expect(msg.content).toContain('resource:')
+    })
+  })
+
   describe('test helpers', () => {
     test('clear removes all data', async () => {
       const msg = await provider.appendChannel('agent1', 'Message')
@@ -599,6 +692,97 @@ describe('FileContextProvider', () => {
 
       const entries = await provider.readChannel()
       expect(entries[0]!.content).toContain('resource:res_')
+    })
+  })
+
+  describe('smartSend', () => {
+    test('sends short message directly without conversion', async () => {
+      const shortContent = 'This is a short message for file provider'
+      const msg = await provider.smartSend('agent1', shortContent)
+
+      expect(msg.content).toBe(shortContent)
+      expect(msg.from).toBe('agent1')
+
+      // Should not create any resource files
+      const resourcesDir = join(testDir, 'resources')
+      if (existsSync(resourcesDir)) {
+        const files = await provider.getStorage().list('resources/')
+        // Should have no resource files (or only debug log resources from other tests)
+        const thisMessageResources = files.filter(f => {
+          const content = provider.getStorage().read(f)
+          return content && typeof content === 'string' && content.includes(shortContent)
+        })
+        expect(thisMessageResources.length).toBe(0)
+      }
+    })
+
+    test('converts long message to resource file', async () => {
+      const longContent = 'F'.repeat(1500)
+      const msg = await provider.smartSend('agent1', longContent)
+
+      // Should create short reference message
+      expect(msg.content).toContain('[Long content stored as resource]')
+      expect(msg.content).toContain('resource_read')
+      expect(msg.content).toMatch(/resource:res_/)
+
+      // Extract resource ID
+      const resourceMatch = msg.content.match(/resource:res_[a-z0-9]+/)
+      expect(resourceMatch).toBeDefined()
+      const resourceRef = resourceMatch![0]
+      const resourceId = resourceRef.replace('resource:', '')
+
+      // Verify resource file was created
+      const retrieved = await provider.readResource(resourceId)
+      expect(retrieved).toBe(longContent)
+
+      // Verify file exists in resources directory
+      const resourcesDir = join(testDir, 'resources')
+      expect(existsSync(resourcesDir)).toBe(true)
+    })
+
+    test('logs full content in debug channel', async () => {
+      const longContent = 'G'.repeat(1500)
+      await provider.smartSend('agent1', longContent)
+
+      const entries = await provider.readChannel()
+
+      // Find debug entry
+      const debugEntry = entries.find(e => e.kind === 'debug' && e.from === 'system')
+      expect(debugEntry).toBeDefined()
+      expect(debugEntry!.content).toContain('Created resource')
+      expect(debugEntry!.content).toContain('(1500 chars)')
+      expect(debugEntry!.content).toContain('@agent1')
+      expect(debugEntry!.content).toContain(longContent)
+    })
+
+    test('persists across provider instances', async () => {
+      const longContent = 'H'.repeat(1500)
+      await provider.smartSend('agent1', longContent)
+
+      // Create new provider instance
+      const newProvider = createFileContextProvider(testDir, ['agent1', 'agent2'])
+
+      // Should be able to read the resource
+      const entries = await newProvider.readChannel()
+      const refMessage = entries.find(e => e.from === 'agent1' && e.content.includes('resource:'))
+      expect(refMessage).toBeDefined()
+
+      const resourceMatch = refMessage!.content.match(/resource:(res_[a-z0-9]+)/)
+      const resourceId = resourceMatch![1]
+      const retrieved = await newProvider.readResource(resourceId)
+      expect(retrieved).toBe(longContent)
+    })
+
+    test('threshold boundary behavior', async () => {
+      // Exactly 1200 should send directly
+      const at1200 = 'I'.repeat(1200)
+      const msg1200 = await provider.smartSend('agent1', at1200)
+      expect(msg1200.content).toBe(at1200)
+
+      // 1201 should convert
+      const at1201 = 'J'.repeat(1201)
+      const msg1201 = await provider.smartSend('agent1', at1201)
+      expect(msg1201.content).toContain('[Long content stored as resource]')
     })
   })
 })
