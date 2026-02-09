@@ -55,14 +55,7 @@ const C = {
 
   // Agent colors — cycle through distinct hues
   agents: isTTY
-    ? [
-        chalk.cyan,
-        chalk.yellow,
-        chalk.magenta,
-        chalk.green,
-        chalk.blue,
-        chalk.redBright,
-      ]
+    ? [chalk.cyan, chalk.yellow, chalk.magenta, chalk.green, chalk.blue, chalk.redBright]
     : Array(6).fill((s: string) => s),
 
   // System messages

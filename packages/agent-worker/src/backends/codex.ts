@@ -84,9 +84,7 @@ export class CodexBackend implements Backend {
       return extractCodexResult(stdout);
     } catch (error) {
       if (error instanceof IdleTimeoutError) {
-        throw new Error(
-          `codex timed out after ${timeout}ms of inactivity`,
-        );
+        throw new Error(`codex timed out after ${timeout}ms of inactivity`);
       }
       if (error && typeof error === "object" && "exitCode" in error) {
         const execError = error as { exitCode?: number; stderr?: string; shortMessage?: string };
@@ -119,13 +117,7 @@ export class CodexBackend implements Backend {
     // --full-auto: auto-approve with workspace-write sandbox
     // --json: JSONL event output for progress parsing
     // --skip-git-repo-check: allow running outside git repos (workspace dirs)
-    const args: string[] = [
-      "exec",
-      "--full-auto",
-      "--json",
-      "--skip-git-repo-check",
-      message,
-    ];
+    const args: string[] = ["exec", "--full-auto", "--json", "--skip-git-repo-check", message];
 
     if (this.options.model) {
       args.push("--model", this.options.model);

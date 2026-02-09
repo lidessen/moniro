@@ -80,9 +80,7 @@ export class CursorBackend implements Backend {
       return extractClaudeResult(stdout);
     } catch (error) {
       if (error instanceof IdleTimeoutError) {
-        throw new Error(
-          `cursor agent timed out after ${timeout}ms of inactivity`,
-        );
+        throw new Error(`cursor agent timed out after ${timeout}ms of inactivity`);
       }
       if (error && typeof error === "object" && "exitCode" in error) {
         const execError = error as { exitCode?: number; stderr?: string; shortMessage?: string };

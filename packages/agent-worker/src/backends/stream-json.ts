@@ -45,10 +45,7 @@ export type EventAdapter = (raw: Record<string, unknown>) => StreamEvent | null;
  * backend-specific raw JSON. Format-specific conversion is handled
  * by the EventAdapter.
  */
-export function formatEvent(
-  event: StreamEvent,
-  backendName: string,
-): string | null {
+export function formatEvent(event: StreamEvent, backendName: string): string | null {
   switch (event.kind) {
     case "init": {
       const details: string[] = [];
@@ -59,10 +56,7 @@ export function formatEvent(
 
     case "tool_call": {
       // CALL prefix causes the runner to promote this to always-visible
-      const truncated =
-        event.args.length > 100
-          ? event.args.slice(0, 100) + "..."
-          : event.args;
+      const truncated = event.args.length > 100 ? event.args.slice(0, 100) + "..." : event.args;
       return `CALL ${event.name}(${truncated})`;
     }
 
@@ -100,9 +94,7 @@ export const claudeAdapter: EventAdapter = (raw) => {
   }
 
   if (type === "assistant") {
-    const message = raw.message as
-      | { content?: Array<Record<string, unknown>> }
-      | undefined;
+    const message = raw.message as { content?: Array<Record<string, unknown>> } | undefined;
     if (!message?.content) return null;
 
     // Extract tool calls
@@ -217,9 +209,7 @@ export const codexAdapter: EventAdapter = (raw) => {
   }
 
   if (type === "turn.completed") {
-    const usage = raw.usage as
-      | { input_tokens?: number; output_tokens?: number }
-      | undefined;
+    const usage = raw.usage as { input_tokens?: number; output_tokens?: number } | undefined;
     return {
       kind: "completed",
       usage: usage

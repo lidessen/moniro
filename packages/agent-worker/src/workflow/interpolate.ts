@@ -11,7 +11,11 @@
 
 export interface VariableContext {
   /** Task output variables */
-  [key: string]: string | undefined | Record<string, string | undefined> | { name: string; tag: string; instance?: string };
+  [key: string]:
+    | string
+    | undefined
+    | Record<string, string | undefined>
+    | { name: string; tag: string; instance?: string };
 
   /** Environment variables (accessed via env.VAR) */
   env?: Record<string, string | undefined>;

@@ -111,9 +111,7 @@ export class ClaudeCodeBackend implements Backend {
       return { content: stdout.trim() };
     } catch (error) {
       if (error instanceof IdleTimeoutError) {
-        throw new Error(
-          `claude timed out after ${timeout}ms of inactivity`,
-        );
+        throw new Error(`claude timed out after ${timeout}ms of inactivity`);
       }
       if (error && typeof error === "object" && "exitCode" in error) {
         const execError = error as { exitCode?: number; stderr?: string; shortMessage?: string };

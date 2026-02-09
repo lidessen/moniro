@@ -138,12 +138,12 @@ export function formatTimelineLog(
 
   // Agent colors - cycle through distinct colors
   const agentColors = [
-    chalk.cyan,     // workflow, system
-    chalk.yellow,   // agent 1
-    chalk.magenta,  // agent 2
-    chalk.green,    // agent 3
-    chalk.blue,     // agent 4
-    chalk.redBright,// agent 5
+    chalk.cyan, // workflow, system
+    chalk.yellow, // agent 1
+    chalk.magenta, // agent 2
+    chalk.green, // agent 3
+    chalk.blue, // agent 4
+    chalk.redBright, // agent 5
   ];
 
   // Assign color based on common agent names
@@ -219,8 +219,7 @@ export function recommendLogStyle(useCase: {
   avgMessageLength?: number;
   isInteractive?: boolean;
 }): LogLayoutStyle {
-  const { messageCount = 0, agentCount = 0, avgMessageLength = 0, isInteractive = true } =
-    useCase;
+  const { messageCount = 0, agentCount = 0, avgMessageLength = 0, isInteractive = true } = useCase;
 
   // Many messages from few agents → timeline
   if (messageCount > 50 && agentCount <= 3) {
