@@ -2,20 +2,12 @@ agents:
   changeset_analyzer:
     model: deepseek:deepseek-chat
     system_prompt: |
-      You are a changeset analyzer and release manager for a monorepo using changesets.
+      You are a changeset analyzer for a monorepo using changesets.
+      You analyze merged PRs and determine which packages need version bumps.
+      You produce structured JSON output — you do NOT create branches, PRs, or run git commands.
 
-      Your task is to:
-      1. Analyze PR changes to determine which packages are affected
-      2. Determine the appropriate version bump type (patch/minor/major) based on:
-         - Commit messages (conventional commits: fix/feat/BREAKING CHANGE)
-         - PR description and title
-         - Code changes (API changes, breaking changes)
-      3. Generate changeset file
-      4. Run `bun run version` to update package versions and CHANGELOGs
-      5. Create a Version PR with all changes ready for review and merge
-
-      Guidelines:
-      - patch: bug fixes, documentation, internal refactors
+      Version bump guidelines:
+      - patch: bug fixes, documentation updates, internal refactors
       - minor: new features, new exports (backward compatible)
       - major: breaking changes, removed APIs, changed behavior
 
@@ -23,45 +15,23 @@ agents:
       - This project is in 0.x development (pre-1.0)
       - During 0.x: ALWAYS use "minor" for breaking changes (NOT "major")
       - This keeps versions in 0.x range (e.g., 0.4.0 -> 0.5.0, NOT 1.0.0)
-      - Breaking changes in 0.x are expected and acceptable
 
-      - Look for keywords: "BREAKING", "breaking change", "feat:", "fix:", etc.
-      - Multiple packages can be affected by one PR
-      - If no changeset is needed (e.g., docs only, config only), say so explicitly
-
-      Output format:
-      1. Analysis summary (which packages, what type of change)
-      2. Bash commands to create changeset, update versions, and create PR
-
-      Important:
-      - Only generate changeset if code changes affect published packages
-      - Skip if changes are only in .github/, docs/, or config files
-      - Use the standard changeset format
-      - After creating changeset, run `bun run version` to consume it and update versions
-      - Create a PR with version updates ready for review
-      - When this PR is merged, packages will be published automatically
+      Look for keywords: "BREAKING", "breaking change", "feat:", "fix:", etc.
+      Multiple packages can be affected by one PR.
 
 context:
   provider: memory
 
 setup:
-  # Get repository default branch
-  - shell: |
-      gh repo view "$GITHUB_REPOSITORY" --json defaultBranchRef --jq '.defaultBranchRef.name'
-    as: default_branch
-
-  # Get the merged PR number (passed from GitHub Actions)
-  - shell: |
-      if [ -z "$PR_NUMBER" ]; then
-        echo "Error: PR_NUMBER environment variable is required"
-        exit 1
-      fi
-      echo "$PR_NUMBER"
+  - shell: echo "$PR_NUMBER"
     as: pr_number
+
+  - shell: echo "$GITHUB_REPOSITORY"
+    as: repo
 
   # Get PR information
   - shell: |
-      gh pr view "${{ pr_number }}" --repo "$GITHUB_REPOSITORY" \
+      gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
         --json title,body,author,labels,commits \
         --jq '{
           title: .title,
@@ -74,43 +44,33 @@ setup:
 
   # Get changed files
   - shell: |
-      gh pr view "${{ pr_number }}" --repo "$GITHUB_REPOSITORY" \
+      gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
         --json files --jq '.files[].path'
     as: changed_files
 
   # Check for existing changesets in the merged PR
   - shell: |
-      CHANGESETS=$(gh pr view "${{ pr_number }}" --repo "$GITHUB_REPOSITORY" \
-        --json files --jq '.files[] | select(.path | startswith(".changeset/")) | .path')
-
-      if [ -n "$CHANGESETS" ]; then
-        echo "Existing changesets found:"
-        echo "$CHANGESETS"
-        echo "has_changeset=true"
+      CHANGESETS=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
+        --json files --jq '[.files[] | select(.path | startswith(".changeset/")) | .path] | length')
+      if [ "$CHANGESETS" -gt 0 ]; then
+        echo "true"
       else
-        echo "No changesets found in PR"
-        echo "has_changeset=false"
+        echo "false"
       fi
-    as: existing_changesets
+    as: has_existing_changeset
 
-  # List packages in monorepo (dynamically from workspaces)
+  # List packages in monorepo
   - shell: |
       if [ ! -f "package.json" ]; then
         echo "No package.json found"
         exit 0
       fi
-
-      # Get workspace patterns from package.json
       WORKSPACE_PATTERNS=$(jq -r '.workspaces // [] | if type == "array" then .[] else .packages[]? end' package.json 2>/dev/null)
-
       if [ -z "$WORKSPACE_PATTERNS" ]; then
         echo "No workspaces configured"
         exit 0
       fi
-
-      # Find and list all packages
       echo "$WORKSPACE_PATTERNS" | while read -r pattern; do
-        # Expand glob pattern (e.g., "packages/*" -> packages/agent-worker, etc.)
         for pkg_json in ${pattern}/package.json; do
           if [ -f "$pkg_json" ]; then
             jq -r '.name // empty' "$pkg_json" 2>/dev/null
@@ -120,13 +80,11 @@ setup:
     as: packages
 
 kickoff: |
-  @changeset_analyzer Analyze merged PR #${{ pr_number }} to determine if a changeset should be generated.
+  @changeset_analyzer Analyze merged PR #${{ pr_number }} and determine if a changeset is needed.
 
   ## Context
 
-  **Repository**: $GITHUB_REPOSITORY
-  **PR Number**: ${{ pr_number }}
-  **Default Branch**: ${{ default_branch }}
+  **Has existing changeset in PR**: ${{ has_existing_changeset }}
 
   ## PR Information
   ```json
@@ -138,111 +96,48 @@ kickoff: |
   ${{ changed_files }}
   ```
 
-  ## Existing Changesets
-  ```
-  ${{ existing_changesets }}
-  ```
-
   ## Available Packages
   ```
   ${{ packages }}
   ```
 
-  ## How to Analyze
+  ## Instructions
 
-  **Use Bash tool to view diffs as needed**:
-
-  ```bash
-  # View full PR diff
-  gh pr diff ${{ pr_number }} --repo $GITHUB_REPOSITORY
-
-  # View specific file diff
-  gh pr diff ${{ pr_number }} --repo $GITHUB_REPOSITORY -- path/to/file.ts
-
-  # View commit messages in detail
-  gh pr view ${{ pr_number }} --repo $GITHUB_REPOSITORY --json commits --jq '.commits[].commit.message'
-  ```
-
-  This gives you access to full, untruncated diffs with complete context.
-
-  ## Task
-
-  1. **Check if changeset is needed**:
-     - If `has_changeset=true` in existing changesets, STOP - changeset already exists
-     - If changes only affect non-package code (.github/, docs/, root config), STOP - no changeset needed
-     - Otherwise, proceed to generate changeset
-
-  2. **Analyze the changes**:
-     - Which packages are affected? (check changed_files against packages/)
-     - What type of change? (patch/minor/major)
-     - Evidence: commit messages, PR title/body, code diff
-
-  3. **Generate changeset and update versions** (if needed):
-     - Create a properly formatted changeset file
-     - Run `bun run version` to consume changeset and update package.json/CHANGELOG.md
-     - Create a PR with all version updates
-
-  4. **Execute commands** (if changeset is needed):
+  1. If `has_existing_changeset` is `true`, the PR already included a changeset. Write:
      ```bash
-     # Generate a unique changeset ID
-     CHANGESET_ID="auto-$(date +%Y%m%d-%H%M%S)"
-
-     # Create changeset file with proper format
-     cat > .changeset/${CHANGESET_ID}.md << 'EOF'
-     ---
-     "package-name": patch|minor|major
-     ---
-
-     Brief description of the change (from PR title/commits)
+     cat > /tmp/changeset-result.json << 'EOF'
+     { "needed": false, "reason": "PR already contains a changeset" }
      EOF
-
-     # Create a new branch for version PR
-     git checkout -b release/auto-${{ pr_number }}
-
-     # Commit the changeset
-     git add .changeset/${CHANGESET_ID}.md
-     git commit -m "chore: add changeset for PR #${{ pr_number }}"
-
-     # Run version to update package.json and CHANGELOG.md
-     bun run version
-
-     # Commit version updates (changeset file will be deleted by `bun run version`)
-     git add -A
-     git commit -m "chore: version packages"
-
-     # Push the branch
-     git push -u origin release/auto-${{ pr_number }}
-
-     # Create PR with analysis details
-     gh pr create \
-       --title "chore: release packages (from PR #${{ pr_number }})" \
-       --body "🤖 Auto-generated version bump for merged PR #${{ pr_number }}
-
-     ## Analysis
-     - **Affected packages**: [list the packages]
-     - **Version bump**: [patch/minor/major]
-     - **Reason**: [brief explanation based on commits/PR]
-
-     ## Changes
-     - Updated package.json versions
-     - Updated CHANGELOG.md files
-     - Changeset has been consumed
-
-     ## Next Steps
-     Merge this PR to publish packages to npm.
-
-     ---
-     *Generated by changeset-agent*
-     *Source: #${{ pr_number }}*" \
-       --base ${{ default_branch }}
      ```
 
-  **Important**:
-  - Only proceed if changeset is actually needed (no existing changeset + package code changed)
-  - Use correct package names from the packages list
-  - Provide detailed reasoning in your analysis
-  - Include the PR title/description context in the changeset
-  - Execute all bash commands using the Bash tool
-  - `bun run version` will consume the changeset and delete it
-  - The created PR will be ready to merge for publishing
-  - If any command fails, report the error clearly and stop
+  2. If changes only affect non-package files (.github/, docs/, root config, .memory/), write:
+     ```bash
+     cat > /tmp/changeset-result.json << 'EOF'
+     { "needed": false, "reason": "Changes don't affect any published packages" }
+     EOF
+     ```
+
+  3. Otherwise, analyze the changes. View the diff if needed:
+     ```bash
+     gh pr diff ${{ pr_number }} --repo ${{ repo }}
+     ```
+
+     Then write your analysis:
+     ```bash
+     cat > /tmp/changeset-result.json << 'EOF'
+     {
+       "needed": true,
+       "packages": {
+         "package-name": "patch|minor"
+       },
+       "description": "Brief description of the change for CHANGELOG"
+     }
+     EOF
+     ```
+
+  Rules:
+  - The `packages` field must use exact package names from the "Available Packages" list
+  - The `description` field should be a concise CHANGELOG entry (one line)
+  - Remember: during 0.x, use "minor" for breaking changes (not "major")
+  - The JSON must be valid — the CI will parse it to create the changeset
+  - You ONLY write JSON. The CI handles branch creation, versioning, and PR creation.

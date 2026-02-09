@@ -96,6 +96,34 @@ jobs:
           gh api repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions \
             -f content='eyes'
 
+      # Create placeholder comment for agent-review (shows "reviewing..." while agent works)
+      - name: Create review placeholder
+        if: steps.parse.outputs.command == 'agent-review' && steps.resolve.outputs.file != ''
+        id: placeholder
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ steps.pr.outputs.pr_number }}"
+          REPO="${{ github.repository }}"
+
+          # Find existing review comment
+          COMMENT_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.body | startswith("<!-- agent-review -->")) | .id' 2>/dev/null | head -1 || true)
+
+          if [ -n "$COMMENT_ID" ]; then
+            # Update existing comment with "reviewing" status
+            gh api "repos/$REPO/issues/comments/$COMMENT_ID" \
+              -X PATCH -f body='<!-- agent-review -->
+          > ⏳ **Re-reviewing** (new changes detected)...'
+            echo "comment_id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
+          else
+            # Create new placeholder
+            COMMENT_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+              -f body='<!-- agent-review -->
+          > ⏳ **Reviewing...**' --jq '.id')
+            echo "comment_id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -130,6 +158,110 @@ jobs:
           AFTER_SHA: ${{ steps.pr.outputs.after_sha }}
         run: |
           bun packages/agent-worker/src/cli/index.ts run ${{ steps.resolve.outputs.file }}
+
+      # Post-processing: publish agent-review results from JSON
+      - name: Publish review
+        if: always() && steps.parse.outputs.command == 'agent-review' && steps.resolve.outputs.file != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ steps.pr.outputs.pr_number }}"
+          REPO="${{ github.repository }}"
+          COMMENT_ID="${{ steps.placeholder.outputs.comment_id }}"
+          REVIEW_TYPE="${{ steps.parse.outputs.trigger_type }}"
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M UTC")
+
+          # Check if review result exists and is valid JSON
+          if [ ! -f /tmp/review-result.json ]; then
+            echo "::warning::No review result file found — agent may have failed"
+            # Update placeholder with error
+            if [ -n "$COMMENT_ID" ]; then
+              gh api "repos/$REPO/issues/comments/$COMMENT_ID" \
+                -X PATCH -f body="<!-- agent-review -->
+          > ⚠️ **Review failed** — agent did not produce results. Check [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})."
+            fi
+            exit 0
+          fi
+
+          if ! jq empty /tmp/review-result.json 2>/dev/null; then
+            echo "::warning::Invalid JSON in review result"
+            if [ -n "$COMMENT_ID" ]; then
+              gh api "repos/$REPO/issues/comments/$COMMENT_ID" \
+                -X PATCH -f body="<!-- agent-review -->
+          > ⚠️ **Review failed** — invalid output. Check [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})."
+            fi
+            exit 0
+          fi
+
+          # Get file stats
+          FILE_STATS=$(gh pr view "$PR_NUMBER" --repo "$REPO" \
+            --json additions,deletions,changedFiles \
+            --jq '"+\(.additions)/-\(.deletions) in \(.changedFiles) files"' 2>/dev/null || echo "unknown")
+
+          # Extract review data
+          SUMMARY=$(jq -r '.summary // "No summary provided"' /tmp/review-result.json)
+          ISSUE_COUNT=$(jq '[.issues // [] | .[]] | length' /tmp/review-result.json)
+          ERROR_COUNT=$(jq '[.issues // [] | .[] | select(.severity == "error")] | length' /tmp/review-result.json)
+          WARNING_COUNT=$(jq '[.issues // [] | .[] | select(.severity == "warning")] | length' /tmp/review-result.json)
+          SUGGESTION_COUNT=$(jq '[.issues // [] | .[] | select(.severity == "suggestion")] | length' /tmp/review-result.json)
+
+          # Build review comment
+          {
+            echo '<!-- agent-review -->'
+            echo '### 🤖 Automated Code Review'
+            echo ''
+            echo "**${SUMMARY}**"
+            echo ''
+
+            if [ "$ISSUE_COUNT" -gt 0 ]; then
+              echo "#### Issues (${ERROR_COUNT} errors, ${WARNING_COUNT} warnings, ${SUGGESTION_COUNT} suggestions)"
+              echo ''
+
+              # Group by severity
+              for sev in error warning suggestion; do
+                COUNT=$(jq "[.issues // [] | .[] | select(.severity == \"$sev\")] | length" /tmp/review-result.json)
+                if [ "$COUNT" -gt 0 ]; then
+                  case "$sev" in
+                    error) ICON="🔴" ;;
+                    warning) ICON="🟡" ;;
+                    suggestion) ICON="🔵" ;;
+                  esac
+                  jq -r ".issues // [] | .[] | select(.severity == \"$sev\") | \"- ${ICON} **\(.file):\(.line // \"?\")** — \(.message)\"" /tmp/review-result.json
+                fi
+              done
+              echo ''
+            else
+              echo '✅ **No issues found.**'
+              echo ''
+            fi
+
+            HIGHLIGHT_COUNT=$(jq '[.highlights // [] | .[]] | length' /tmp/review-result.json)
+            if [ "$HIGHLIGHT_COUNT" -gt 0 ]; then
+              echo '#### Highlights'
+              jq -r '.highlights // [] | .[] | "- ✨ \(.)"' /tmp/review-result.json
+              echo ''
+            fi
+
+            echo '---'
+            echo '<details>'
+            echo '<summary>📋 Review Details</summary>'
+            echo ''
+            echo "- **Type**: ${REVIEW_TYPE:-initial}"
+            echo "- **Timestamp**: ${TIMESTAMP}"
+            echo "- **Stats**: ${FILE_STATS}"
+            echo ''
+            echo '</details>'
+          } > /tmp/review-comment.md
+
+          # Post or update comment
+          if [ -n "$COMMENT_ID" ]; then
+            gh api "repos/$REPO/issues/comments/$COMMENT_ID" \
+              -X PATCH -F body=@/tmp/review-comment.md
+          else
+            gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file /tmp/review-comment.md
+          fi
+
+          echo "✅ Review published (${ISSUE_COUNT} issues)"
 
       - name: Report unknown command
         if: steps.parse.outputs.command != '' && steps.resolve.outputs.file == ''

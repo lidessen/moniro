@@ -1,27 +1,22 @@
 agents:
   reviewer:
     model: deepseek:deepseek-chat
-    system_prompt: prompts/reviewer.md
+    system_prompt: |
+      You are a precise code reviewer. You analyze diffs and produce structured JSON output.
+      Focus on: bugs, security issues, logic errors, bad patterns, and notable improvements.
+      Be constructive. Reference specific files and line numbers.
 
 context:
   provider: memory
 
-# Configuration (can be overridden via environment variables)
-config:
-  # Maximum number of commits to show in incremental reviews
-  max_commits_display: ${MAX_COMMITS_DISPLAY:-10}
-  # Review focus: 'incremental' (new changes only) or 'full' (always review all changes)
-  review_mode: ${REVIEW_MODE:-incremental}
-
 setup:
-  # Capture environment variables for use in kickoff
   - shell: echo "$PR_NUMBER"
     as: pr_number
 
   - shell: echo "$GITHUB_REPOSITORY"
     as: repo
 
-  # Write PR info to file instead of loading into context
+  # Write PR metadata to file (avoids context overflow)
   - shell: |
       gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
         --json title,body,baseRefName,headRefName,author,additions,deletions,changedFiles \
@@ -29,145 +24,94 @@ setup:
       echo "/tmp/pr-info.json"
     as: pr_info_file
 
-  # DON'T load pr_diff here - it's too large and causes context overflow
-  # Agent will fetch diffs on-demand using gh pr diff commands
-
   - shell: gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json files --jq '.files[].path'
     as: changed_files
 
-  # Find existing review comment or create new one
+  # Write the appropriate diff to file
+  # Incremental: only changes between BEFORE_SHA and AFTER_SHA
+  # Initial: full PR diff
   - shell: |
-      set -e  # Exit on error
-
-      EXISTING=$(gh api repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments \
-        --jq '.[] | select(.body | startswith("<!-- agent-review -->")) | .id' 2>/dev/null | head -1 || true)
-
-      if [ -n "$EXISTING" ]; then
-        echo "$EXISTING"
-      else
-        gh api repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments \
-          -f body='<!-- agent-review -->
-      > ⏳ **Reviewing...**' --jq '.id' 2>&1 || echo ""
-      fi
-    as: comment_id
-
-  # Determine review type based on GitHub trigger (more reliable than content parsing)
-  - shell: |
-      # synchronize = new commits pushed to existing PR = incremental
-      # opened/reopened = initial review
       if [ "$TRIGGER_TYPE" = "synchronize" ] && [ -n "$BEFORE_SHA" ] && [ -n "$AFTER_SHA" ]; then
+        gh api "repos/$GITHUB_REPOSITORY/compare/$BEFORE_SHA...$AFTER_SHA" \
+          -H "Accept: application/vnd.github.v3.diff" > /tmp/review-diff.txt 2>/dev/null || true
         echo "incremental"
       else
+        gh pr diff "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" > /tmp/review-diff.txt 2>/dev/null || true
         echo "initial"
       fi
     as: review_type
 
-  # Extract and format commit info for incremental reviews
+  # New commits list (incremental only, for context)
   - shell: |
       if [ "$TRIGGER_TYPE" = "synchronize" ] && [ -n "$BEFORE_SHA" ] && [ -n "$AFTER_SHA" ]; then
-        # Format commits as markdown list
-        gh api repos/$GITHUB_REPOSITORY/compare/$BEFORE_SHA...$AFTER_SHA \
+        gh api "repos/$GITHUB_REPOSITORY/compare/$BEFORE_SHA...$AFTER_SHA" \
           --jq '.commits[] | "- `\(.sha[0:7])` \(.commit.message | split("\n")[0])"' 2>/dev/null || echo ""
       else
         echo ""
       fi
-    as: formatted_commits
-
-  # Calculate file statistics
-  - shell: |
-      # Get all stats in one call
-      gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
-        --json additions,deletions,changedFiles \
-        --jq '"+\(.additions)/-\(.deletions) in \(.changedFiles) files"'
-    as: file_stats
-
-  # Get commit range for incremental reviews
-  - shell: |
-      if [ "$TRIGGER_TYPE" = "synchronize" ] && [ -n "$BEFORE_SHA" ] && [ -n "$AFTER_SHA" ]; then
-        echo "$BEFORE_SHA...$AFTER_SHA"
-      else
-        echo ""
-      fi
-    as: commit_range
+    as: new_commits
 
 kickoff: |
-  @reviewer Review code changes for PR #${{ pr_number }} in repository ${{ repo }}.
+  @reviewer Review PR #${{ pr_number }} in ${{ repo }}.
 
-  ## PR Information (on-demand)
-
-  **PR info is available at**: `${{ pr_info_file }}`
-
-  Read it when needed:
-  ```bash
-  cat ${{ pr_info_file }} | jq .
-  ```
+  ## Review Type: ${{ review_type }}
 
   ## Changed Files
   ```
   ${{ changed_files }}
   ```
 
-  ## How to Review
-
-  **Fetch information on-demand using Bash tool**:
-
-  ```bash
-  # Read PR info (title, description, stats)
-  cat ${{ pr_info_file }} | jq .
-
-  # View full PR diff
-  gh pr diff ${{ pr_number }} --repo ${{ repo }}
-
-  # View specific file diff
-  gh pr diff ${{ pr_number }} --repo ${{ repo }} -- path/to/file.ts
+  ## New Commits
+  ```
+  ${{ new_commits }}
   ```
 
-  **Your Task**:
-  1. Use Bash tool to view relevant diffs (you'll see full context, not truncated)
-  2. Analyze code quality, potential bugs, and best practices
-  3. Provide specific feedback with file:line references
-  4. Be constructive and actionable
+  ## Instructions
 
-  Write your analysis to /tmp/review-content.md with:
-  - **Summary**: Brief overview
-  - **Issues Found**: List with severity and locations
-  - **Good Practices**: Positive highlights (if any)
+  1. Read the PR metadata:
+     ```bash
+     cat ${{ pr_info_file }} | jq .
+     ```
 
-  Then run this script to format and post the review:
-  ```bash
-  # Generate timestamp
-  TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M UTC")
+  2. Read the diff to review:
+     ```bash
+     cat /tmp/review-diff.txt
+     ```
 
-  # Get file stats
-  FILE_STATS=$(gh pr view ${{ pr_number }} --repo ${{ repo }} --json additions,deletions,changedFiles --jq '"+\(.additions)/-\(.deletions) in \(.changedFiles) files"')
+  3. If the diff is large, read specific files:
+     ```bash
+     # View a specific file's changes from the diff
+     grep -A 100 "^diff --git a/path/to/file" /tmp/review-diff.txt
+     ```
 
-  # Build review comment (avoid sed with multiline content)
-  {
-    echo '<!-- agent-review -->'
-    echo '🤖 **Automated Code Review**'
-    echo "*Generated by agent-worker for PR #${{ pr_number }} • [View workflow](https://github.com/${{ repo }}/blob/main/.workflows/agent-review.yaml)*"
-    echo ''
-    echo '---'
-    echo ''
-    cat /tmp/review-content.md
-    echo ''
-    echo '---'
-    echo '<details>'
-    echo '<summary>📋 Review Details</summary>'
-    echo ''
-    echo "- **PR**: #${{ pr_number }}"
-    echo "- **Timestamp**: $TIMESTAMP"
-    echo "- **Stats**: $FILE_STATS"
-    echo ''
-    echo '</details>'
-  } > /tmp/review.md
+  4. Write your analysis as JSON to `/tmp/review-result.json`:
+     ```bash
+     cat > /tmp/review-result.json << 'REVIEW_EOF'
+     {
+       "summary": "Brief overview of the changes and their quality",
+       "issues": [
+         {
+           "severity": "error|warning|suggestion",
+           "file": "path/to/file.ts",
+           "line": 42,
+           "message": "Description of the issue"
+         }
+       ],
+       "highlights": [
+         "Positive things worth mentioning"
+       ]
+     }
+     REVIEW_EOF
+     ```
 
-  # Post or update the comment
-  COMMENT_ID="${{ comment_id }}"
-  if [ -n "$COMMENT_ID" ] && [ "$COMMENT_ID" != "" ]; then
-    gh api repos/${{ repo }}/issues/comments/$COMMENT_ID \
-      -X PATCH -F body=@/tmp/review.md
-  else
-    gh pr comment ${{ pr_number }} --repo ${{ repo }} --body-file /tmp/review.md
-  fi
-  ```
+  Severity guide:
+  - **error**: bugs, security issues, broken logic, data loss risks
+  - **warning**: potential problems, bad patterns, missing edge cases
+  - **suggestion**: style improvements, readability, minor optimizations
+
+  Rules:
+  - If no issues found, use `"issues": []`
+  - Always include file paths and line numbers for issues
+  - For incremental reviews, focus ONLY on the new changes in the diff
+  - Be specific and actionable — vague feedback is not helpful
+  - The JSON must be valid — the CI will parse it to post the review
