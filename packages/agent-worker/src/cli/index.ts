@@ -10,7 +10,13 @@ const originalStderrWrite = process.stderr.write.bind(process.stderr);
 process.stderr.write = function(chunk: string | Uint8Array, ...args: unknown[]): boolean {
   const message = typeof chunk === "string" ? chunk : chunk.toString();
 
-  // Filter out known harmless error messages
+  // In debug mode, show everything (check for --debug or -d flag)
+  const isDebugMode = process.argv.includes("--debug") || process.argv.includes("-d");
+  if (isDebugMode) {
+    return originalStderrWrite(message, ...args) as boolean;
+  }
+
+  // Filter out known harmless error messages in normal mode
   if (message.includes("accepts at most")) return true; // Commander.js errors from git/gh subcommands
   if (message.includes("fatal: bad revision")) return true; // Git errors for non-existent revisions
   if (message.match(/^warning:/i)) return true; // Generic warnings

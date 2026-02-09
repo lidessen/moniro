@@ -551,7 +551,14 @@ export async function runWorkflowWithControllers(
           logger.debug(`@mention: ${from} → @${target} (no controller found!)`);
         }
       },
-      debugLog: (msg) => logger.debug(msg),
+      // Tool calls are important - show them in normal mode (not just debug)
+      debugLog: (msg) => {
+        if (msg.startsWith("CALL ")) {
+          logger.info(msg); // Tool calls → always visible
+        } else {
+          logger.debug(msg); // Other debug info → debug only
+        }
+      },
       feedback: feedbackEnabled,
     });
 
@@ -572,7 +579,14 @@ export async function runWorkflowWithControllers(
       });
 
       // Get backend for this agent
-      const backendDebugLog = (msg: string) => logger.debug(msg);
+      // Tool calls are shown in normal mode, other debug info only in debug mode
+      const backendDebugLog = (msg: string) => {
+        if (msg.startsWith("CALL ")) {
+          logger.info(msg); // Tool calls → always visible
+        } else {
+          logger.debug(msg); // Other debug info → debug only
+        }
+      };
       let backend: Backend;
       if (createBackend) {
         backend = createBackend(agentName, agentDef);
