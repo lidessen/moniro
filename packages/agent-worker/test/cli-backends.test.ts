@@ -10,7 +10,13 @@ import { join } from 'node:path'
 import { CursorBackend } from '../src/backends/cursor.ts'
 import { CodexBackend } from '../src/backends/codex.ts'
 import { execWithIdleTimeout, IdleTimeoutError } from '../src/backends/idle-timeout.ts'
-import { formatStreamEvent, parseStreamResult } from '../src/backends/stream-json.ts'
+import {
+  formatEvent,
+  claudeAdapter,
+  codexAdapter,
+  extractClaudeResult,
+  extractCodexResult,
+} from '../src/backends/stream-json.ts'
 
 const MOCK_CLI_PATH = join(import.meta.dir, 'mock-cli.ts')
 
@@ -221,15 +227,24 @@ describe('Idle Timeout', () => {
   })
 })
 
-describe('Stream-JSON Parsing', () => {
-  test('formats system/init event', () => {
-    const event = { type: 'system', subtype: 'init', model: 'Claude 4.5 Sonnet' }
-    expect(formatStreamEvent(event, 'Claude')).toBe('Claude initialized (model: Claude 4.5 Sonnet)')
-    expect(formatStreamEvent(event, 'Cursor')).toBe('Cursor initialized (model: Claude 4.5 Sonnet)')
+describe('Claude/Cursor Adapter', () => {
+  test('converts system/init event', () => {
+    const raw = { type: 'system', subtype: 'init', model: 'Claude 4.5 Sonnet' }
+    const event = claudeAdapter(raw)
+    expect(event!.kind).toBe('init')
+    if (event!.kind === 'init') {
+      expect(event!.model).toBe('Claude 4.5 Sonnet')
+    }
   })
 
-  test('formats tool call events', () => {
-    const event = {
+  test('formats init event with backend name', () => {
+    const event = claudeAdapter({ type: 'system', subtype: 'init', model: 'Claude 4.5 Sonnet' })!
+    expect(formatEvent(event, 'Claude')).toBe('Claude initialized (model: Claude 4.5 Sonnet)')
+    expect(formatEvent(event, 'Cursor')).toBe('Cursor initialized (model: Claude 4.5 Sonnet)')
+  })
+
+  test('converts tool call events', () => {
+    const raw = {
       type: 'assistant',
       message: {
         content: [
@@ -237,84 +252,141 @@ describe('Stream-JSON Parsing', () => {
         ],
       },
     }
-    const result = formatStreamEvent(event, 'Claude')
+    const event = claudeAdapter(raw)
+    expect(event).not.toBeNull()
+    expect(event!.kind).toBe('tool_call')
+    if (event!.kind === 'tool_call') {
+      expect(event!.name).toBe('Read')
+      expect(event!.args).toContain('/foo/bar.ts')
+    }
+  })
+
+  test('formats tool call event', () => {
+    const raw = {
+      type: 'assistant',
+      message: {
+        content: [
+          { type: 'tool_use', name: 'Read', input: { file_path: '/foo/bar.ts' } },
+        ],
+      },
+    }
+    const event = claudeAdapter(raw)!
+    const result = formatEvent(event, 'Claude')
     expect(result).toContain('CALL Read(')
     expect(result).toContain('/foo/bar.ts')
   })
 
-  test('formats result event with duration and cost', () => {
-    const event = { type: 'result', duration_ms: 2642, total_cost_usd: 0.0098785 }
-    expect(formatStreamEvent(event, 'Claude')).toBe('Claude completed (2.6s, $0.0099)')
+  test('converts result event with duration and cost', () => {
+    const raw = { type: 'result', duration_ms: 2642, total_cost_usd: 0.0098785 }
+    const event = claudeAdapter(raw)
+    expect(event).toEqual({ kind: 'completed', durationMs: 2642, costUsd: 0.0098785 })
+  })
+
+  test('formats result event', () => {
+    const event = claudeAdapter({ type: 'result', duration_ms: 2642, total_cost_usd: 0.0098785 })!
+    expect(formatEvent(event, 'Claude')).toBe('Claude completed (2.6s, $0.0099)')
   })
 
   test('formats result event without cost', () => {
-    const event = { type: 'result', duration_ms: 100 }
-    expect(formatStreamEvent(event, 'Cursor')).toBe('Cursor completed (0.1s)')
+    const event = claudeAdapter({ type: 'result', duration_ms: 100 })!
+    expect(formatEvent(event, 'Cursor')).toBe('Cursor completed (0.1s)')
   })
 
   test('returns null for plain assistant text', () => {
-    const event = {
+    const raw = {
       type: 'assistant',
       message: { content: [{ type: 'text', text: 'hello' }] },
     }
-    expect(formatStreamEvent(event, 'Claude')).toBeNull()
+    expect(claudeAdapter(raw)).toBeNull()
   })
 
-  test('parseStreamResult extracts result', () => {
+  test('extractClaudeResult extracts result', () => {
     const stdout = [
       '{"type":"system","subtype":"init","model":"test"}',
       '{"type":"assistant","message":{"content":[{"type":"text","text":"hello"}]}}',
       '{"type":"result","result":"hello","duration_ms":100}',
     ].join('\n')
-    expect(parseStreamResult(stdout).content).toBe('hello')
+    expect(extractClaudeResult(stdout).content).toBe('hello')
   })
 
-  test('parseStreamResult falls back to assistant message', () => {
+  test('extractClaudeResult falls back to assistant message', () => {
     const stdout = [
       '{"type":"system","subtype":"init","model":"test"}',
       '{"type":"assistant","message":{"content":[{"type":"text","text":"fallback answer"}]}}',
     ].join('\n')
-    expect(parseStreamResult(stdout).content).toBe('fallback answer')
+    expect(extractClaudeResult(stdout).content).toBe('fallback answer')
   })
 
-  test('parseStreamResult falls back to raw stdout', () => {
-    expect(parseStreamResult('plain text output').content).toBe('plain text output')
+  test('extractClaudeResult falls back to raw stdout', () => {
+    expect(extractClaudeResult('plain text output').content).toBe('plain text output')
+  })
+})
+
+describe('Codex Adapter', () => {
+  test('converts thread.started event', () => {
+    const raw = { type: 'thread.started', thread_id: '019c4173-117f-75b0-afa9-3b1affdec150' }
+    const event = codexAdapter(raw)
+    expect(event).toEqual({ kind: 'init', sessionId: '019c4173...' })
   })
 
-  // Codex event format
-  test('formats codex thread.started event', () => {
-    const event = { type: 'thread.started', thread_id: '019c4173-117f-75b0-afa9-3b1affdec150' }
-    expect(formatStreamEvent(event, 'Codex')).toBe('Codex initialized (thread: 019c4173...)')
+  test('formats thread.started event', () => {
+    const event = codexAdapter({ type: 'thread.started', thread_id: '019c4173-117f-75b0-afa9-3b1affdec150' })!
+    expect(formatEvent(event, 'Codex')).toBe('Codex initialized (session: 019c4173...)')
   })
 
-  test('formats codex function_call event', () => {
-    const event = {
+  test('converts function_call event', () => {
+    const raw = {
       type: 'item.completed',
       item: { type: 'function_call', name: 'shell', arguments: '{"command":"ls -la"}' },
     }
-    const result = formatStreamEvent(event, 'Codex')
+    const event = codexAdapter(raw)
+    expect(event).not.toBeNull()
+    expect(event!.kind).toBe('tool_call')
+    if (event!.kind === 'tool_call') {
+      expect(event!.name).toBe('shell')
+      expect(event!.args).toContain('ls -la')
+    }
+  })
+
+  test('formats function_call event', () => {
+    const raw = {
+      type: 'item.completed',
+      item: { type: 'function_call', name: 'shell', arguments: '{"command":"ls -la"}' },
+    }
+    const event = codexAdapter(raw)!
+    const result = formatEvent(event, 'Codex')
     expect(result).toContain('CALL shell(')
     expect(result).toContain('ls -la')
   })
 
-  test('formats codex turn.completed event', () => {
-    const event = { type: 'turn.completed', usage: { input_tokens: 8133, output_tokens: 5 } }
-    expect(formatStreamEvent(event, 'Codex')).toBe('Codex turn completed (8133 in, 5 out)')
+  test('converts turn.completed event', () => {
+    const raw = { type: 'turn.completed', usage: { input_tokens: 8133, output_tokens: 5 } }
+    const event = codexAdapter(raw)
+    expect(event).toEqual({ kind: 'completed', usage: { input: 8133, output: 5 } })
   })
 
-  test('parseStreamResult extracts codex agent_message', () => {
+  test('formats turn.completed event', () => {
+    const event = codexAdapter({ type: 'turn.completed', usage: { input_tokens: 8133, output_tokens: 5 } })!
+    expect(formatEvent(event, 'Codex')).toBe('Codex completed (8133 in, 5 out)')
+  })
+
+  test('skips agent_message (returns null)', () => {
+    const raw = { type: 'item.completed', item: { type: 'agent_message', text: '4' } }
+    expect(codexAdapter(raw)).toBeNull()
+  })
+
+  test('extractCodexResult extracts agent_message', () => {
     const stdout = [
       '{"type":"thread.started","thread_id":"abc"}',
       '{"type":"turn.started"}',
       '{"type":"item.completed","item":{"type":"agent_message","text":"4"}}',
       '{"type":"turn.completed","usage":{"input_tokens":100,"output_tokens":5}}',
     ].join('\n')
-    expect(parseStreamResult(stdout).content).toBe('4')
+    expect(extractCodexResult(stdout).content).toBe('4')
   })
 
-  test('skips codex agent_message in formatStreamEvent', () => {
-    const event = { type: 'item.completed', item: { type: 'agent_message', text: '4' } }
-    expect(formatStreamEvent(event, 'Codex')).toBeNull()
+  test('extractCodexResult falls back to raw stdout', () => {
+    expect(extractCodexResult('plain text output').content).toBe('plain text output')
   })
 })
 

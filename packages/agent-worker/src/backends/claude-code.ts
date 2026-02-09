@@ -14,7 +14,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Backend, BackendResponse } from "./types.ts";
 import { execWithIdleTimeout, IdleTimeoutError } from "./idle-timeout.ts";
-import { createStreamParser, parseStreamResult } from "./stream-json.ts";
+import { createStreamParser, claudeAdapter, extractClaudeResult } from "./stream-json.ts";
 
 export interface ClaudeCodeOptions {
   /** Model to use (e.g., 'opus', 'sonnet') */
@@ -85,13 +85,13 @@ export class ClaudeCodeBackend implements Backend {
         timeout: this.options.timeout!,
         onStdout:
           outputFormat === "stream-json" && debugLog
-            ? createStreamParser(debugLog, "Claude")
+            ? createStreamParser(debugLog, "Claude", claudeAdapter)
             : undefined,
       });
 
       // Parse response based on output format
       if (outputFormat === "stream-json") {
-        return parseStreamResult(stdout);
+        return extractClaudeResult(stdout);
       }
 
       if (outputFormat === "json") {

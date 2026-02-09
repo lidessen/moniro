@@ -15,7 +15,7 @@ import { join } from "node:path";
 import { stringify as yamlStringify } from "yaml";
 import type { Backend, BackendResponse } from "./types.ts";
 import { execWithIdleTimeout, IdleTimeoutError } from "./idle-timeout.ts";
-import { createStreamParser, parseStreamResult } from "./stream-json.ts";
+import { createStreamParser, codexAdapter, extractCodexResult } from "./stream-json.ts";
 
 export interface CodexOptions {
   /** Model to use (e.g., 'gpt-5.2-codex') */
@@ -77,10 +77,10 @@ export class CodexBackend implements Backend {
         args,
         cwd,
         timeout: this.options.timeout!,
-        onStdout: debugLog ? createStreamParser(debugLog, "Codex") : undefined,
+        onStdout: debugLog ? createStreamParser(debugLog, "Codex", codexAdapter) : undefined,
       });
 
-      return parseStreamResult(stdout);
+      return extractCodexResult(stdout);
     } catch (error) {
       if (error instanceof IdleTimeoutError) {
         throw new Error(
