@@ -734,7 +734,7 @@ export async function runWorkflowWithControllers(
 /**
  * Gracefully shutdown all controllers
  */
-async function shutdownControllers(
+export async function shutdownControllers(
   controllers: Map<string, AgentController>,
   logger: Logger,
 ): Promise<void> {

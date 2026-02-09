@@ -213,6 +213,11 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
       log(`Stopping`);
       state = "stopped";
 
+      // Abort any running backend operations
+      if (backend.abort) {
+        backend.abort();
+      }
+
       // Clear pending timeout
       if (pollTimeout) {
         clearTimeout(pollTimeout);

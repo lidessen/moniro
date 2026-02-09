@@ -33,6 +33,35 @@ Note: Workflow name is inferred from YAML 'name' field or filename
       });
       const workflowName = parsedWorkflow.name;
 
+      let controllers: Map<string, any> | undefined;
+      let runtime: { shutdown: () => Promise<void> } | undefined;
+      let isCleaningUp = false;
+
+      // Setup graceful shutdown for run mode
+      const cleanup = async () => {
+        if (isCleaningUp) return;
+        isCleaningUp = true;
+
+        console.log("\nInterrupted, cleaning up...");
+
+        // Stop all controllers (which will abort backends)
+        if (controllers) {
+          const { shutdownControllers } = await import("@/workflow/index.ts");
+          const logger = { debug: () => {}, info: () => {}, error: () => {} };
+          await shutdownControllers(controllers, logger);
+        }
+
+        // Shutdown runtime resources
+        if (runtime) {
+          await runtime.shutdown();
+        }
+
+        process.exit(130); // 130 = 128 + SIGINT(2)
+      };
+
+      process.on("SIGINT", cleanup);
+      process.on("SIGTERM", cleanup);
+
       try {
         // In JSON mode, route logs to stderr to keep stdout clean
         const log = options.json ? console.error : console.log;
@@ -47,6 +76,13 @@ Note: Workflow name is inferred from YAML 'name' field or filename
           mode: "run",
           feedback: options.feedback,
         });
+
+        // Store references for cleanup (though run mode completes automatically)
+        controllers = result.controllers;
+
+        // Remove signal handlers after successful completion
+        process.off("SIGINT", cleanup);
+        process.off("SIGTERM", cleanup);
 
         if (!result.success) {
           console.error("Workflow failed:", result.error);
@@ -83,6 +119,8 @@ Note: Workflow name is inferred from YAML 'name' field or filename
           }
         }
       } catch (error) {
+        process.off("SIGINT", cleanup);
+        process.off("SIGTERM", cleanup);
         console.error("Error:", error instanceof Error ? error.message : String(error));
         process.exit(1);
       }

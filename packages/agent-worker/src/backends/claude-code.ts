@@ -13,7 +13,7 @@ import { execa } from "execa";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Backend, BackendResponse } from "./types.ts";
-import { execWithIdleTimeout, IdleTimeoutError } from "./idle-timeout.ts";
+import { execWithIdleTimeoutAbortable, IdleTimeoutError } from "./idle-timeout.ts";
 import { createStreamParser, claudeAdapter, extractClaudeResult } from "./stream-json.ts";
 
 export interface ClaudeCodeOptions {
@@ -44,6 +44,7 @@ export interface ClaudeCodeOptions {
 export class ClaudeCodeBackend implements Backend {
   readonly type = "claude" as const;
   private options: ClaudeCodeOptions;
+  private currentAbort?: () => void;
 
   constructor(options: ClaudeCodeOptions = {}) {
     this.options = {
@@ -79,7 +80,7 @@ export class ClaudeCodeBackend implements Backend {
     const timeout = this.options.timeout ?? 300000;
 
     try {
-      const { stdout } = await execWithIdleTimeout({
+      const { promise, abort } = execWithIdleTimeoutAbortable({
         command: "claude",
         args,
         cwd,
@@ -89,6 +90,14 @@ export class ClaudeCodeBackend implements Backend {
             ? createStreamParser(debugLog, "Claude", claudeAdapter)
             : undefined,
       });
+
+      // Store abort function for external cleanup
+      this.currentAbort = abort;
+
+      const { stdout } = await promise;
+
+      // Clear abort after completion
+      this.currentAbort = undefined;
 
       // Parse response based on output format
       if (outputFormat === "stream-json") {
@@ -110,6 +119,8 @@ export class ClaudeCodeBackend implements Backend {
 
       return { content: stdout.trim() };
     } catch (error) {
+      this.currentAbort = undefined;
+
       if (error instanceof IdleTimeoutError) {
         throw new Error(`claude timed out after ${timeout}ms of inactivity`);
       }
@@ -181,5 +192,15 @@ export class ClaudeCodeBackend implements Backend {
    */
   setMcpConfigPath(path: string): void {
     this.options.mcpConfigPath = path;
+  }
+
+  /**
+   * Abort any running claude process
+   */
+  abort(): void {
+    if (this.currentAbort) {
+      this.currentAbort();
+      this.currentAbort = undefined;
+    }
   }
 }

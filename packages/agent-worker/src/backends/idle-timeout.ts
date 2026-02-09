@@ -26,6 +26,8 @@ export interface IdleTimeoutOptions {
 export interface IdleTimeoutResult {
   stdout: string;
   stderr: string;
+  /** Function to abort the running process */
+  abort?: () => void;
 }
 
 /**
@@ -45,6 +47,7 @@ export async function execWithIdleTimeout(options: IdleTimeoutOptions): Promise<
   let timer: ReturnType<typeof setTimeout> | undefined;
   let stdout = "";
   let stderr = "";
+  let isAborted = false;
 
   // IMPORTANT: stdin must be 'ignore' to prevent CLI agents from hanging
   // See: https://forum.cursor.com/t/node-js-spawn-with-cursor-agent-hangs-and-exits-with-code-143-after-timeout/133709
@@ -80,12 +83,31 @@ export async function execWithIdleTimeout(options: IdleTimeoutOptions): Promise<
   // Start initial timer
   resetTimer();
 
+  // Abort function to kill the subprocess
+  const abort = () => {
+    if (!isAborted) {
+      isAborted = true;
+      clearTimeout(timer);
+      subprocess.kill("SIGTERM");
+      // Fallback: force kill after 1 second
+      setTimeout(() => {
+        if (!subprocess.killed) {
+          subprocess.kill("SIGKILL");
+        }
+      }, 1000);
+    }
+  };
+
   try {
     await subprocess;
     clearTimeout(timer);
     return { stdout: stdout.trimEnd(), stderr: stderr.trimEnd() };
   } catch (error) {
     clearTimeout(timer);
+
+    if (isAborted) {
+      throw new Error("Process aborted by user");
+    }
 
     if (idleTimedOut) {
       throw new IdleTimeoutError(timeout, stdout, stderr);
@@ -94,6 +116,87 @@ export async function execWithIdleTimeout(options: IdleTimeoutOptions): Promise<
     // Re-throw original error
     throw error;
   }
+}
+
+/**
+ * Execute a command with idle timeout and return abort controller
+ * This version returns both the promise and an abort function for external control
+ */
+export function execWithIdleTimeoutAbortable(options: IdleTimeoutOptions): {
+  promise: Promise<IdleTimeoutResult>;
+  abort: () => void;
+} {
+  const { command, args, cwd, onStdout } = options;
+  const timeout = Math.max(options.timeout, MIN_TIMEOUT_MS);
+
+  let idleTimedOut = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let stdout = "";
+  let stderr = "";
+  let isAborted = false;
+
+  const subprocess: ResultPromise = execa(command, args, {
+    cwd,
+    stdin: "ignore",
+    buffer: false,
+  });
+
+  const resetTimer = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      idleTimedOut = true;
+      subprocess.kill();
+    }, timeout);
+  };
+
+  subprocess.stdout?.on("data", (chunk: Buffer) => {
+    const text = chunk.toString();
+    stdout += text;
+    if (onStdout) onStdout(text);
+    resetTimer();
+  });
+
+  subprocess.stderr?.on("data", (chunk: Buffer) => {
+    stderr += chunk.toString();
+    resetTimer();
+  });
+
+  resetTimer();
+
+  const abort = () => {
+    if (!isAborted) {
+      isAborted = true;
+      clearTimeout(timer);
+      subprocess.kill("SIGTERM");
+      setTimeout(() => {
+        if (!subprocess.killed) {
+          subprocess.kill("SIGKILL");
+        }
+      }, 1000);
+    }
+  };
+
+  const promise = (async () => {
+    try {
+      await subprocess;
+      clearTimeout(timer);
+      return { stdout: stdout.trimEnd(), stderr: stderr.trimEnd() };
+    } catch (error) {
+      clearTimeout(timer);
+
+      if (isAborted) {
+        throw new Error("Process aborted by user");
+      }
+
+      if (idleTimedOut) {
+        throw new IdleTimeoutError(timeout, stdout, stderr);
+      }
+
+      throw error;
+    }
+  })();
+
+  return { promise, abort };
 }
 
 /**
