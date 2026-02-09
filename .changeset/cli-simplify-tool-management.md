@@ -1,5 +1,5 @@
 ---
-"agent-worker": major
+"agent-worker": minor
 ---
 
 **BREAKING CHANGE**: Simplify tool management in CLI
