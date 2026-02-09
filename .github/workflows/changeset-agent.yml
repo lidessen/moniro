@@ -1,5 +1,9 @@
 name: Changeset Agent
 
+# Automatically generates changesets for merged PRs
+# Note: During 0.x development, breaking changes use 'minor' version bumps (not 'major')
+# to keep versions in 0.x range (e.g., 0.4.0 -> 0.5.0, not 1.0.0)
+
 on:
   pull_request:
     types: [closed]
