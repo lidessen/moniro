@@ -54,13 +54,11 @@ export function buildAgentPrompt(ctx: AgentRunContext): string {
   sections.push(formatInbox(ctx.inbox));
 
   // Recent activity hint (use tool instead of injecting messages)
-  if (ctx.recentChannel.length > 0) {
-    sections.push("");
-    sections.push("## Recent Activity");
-    sections.push(
-      `There are ${ctx.recentChannel.length} recent channel messages. Use channel_read tool to view them if needed.`,
-    );
-  }
+  sections.push("");
+  sections.push("## Recent Activity");
+  sections.push(
+    "Use channel_read tool to view recent channel messages and conversation context if needed.",
+  );
 
   // Shared document section
   if (ctx.documentContent) {

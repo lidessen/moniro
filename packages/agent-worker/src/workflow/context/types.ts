@@ -61,6 +61,9 @@ export const RESOURCES_DIR = "resources";
 /** Resource threshold in characters - content longer than this should use resources */
 export const RESOURCE_THRESHOLD = 500;
 
+/** Message length threshold for channel messages - content longer than this should use resources or documents */
+export const MESSAGE_LENGTH_THRESHOLD = 2000;
+
 /**
  * Generate a unique resource ID
  */
@@ -94,6 +97,13 @@ export function parseResourceRef(ref: string): string | null {
  */
 export function isResourceId(str: string): boolean {
   return str.startsWith(RESOURCE_PREFIX);
+}
+
+/**
+ * Check if content should be stored as a resource instead of inline
+ */
+export function shouldUseResource(content: string): boolean {
+  return content.length > MESSAGE_LENGTH_THRESHOLD;
 }
 
 /** Inbox message (unread @mention or DM) */
