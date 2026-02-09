@@ -83,27 +83,40 @@ describe('Mock CLI', () => {
 })
 
 describe('CursorBackend with Mock', () => {
-  // Create a backend that uses our mock CLI
+  // Create a backend that uses our mock CLI (with stream-json format)
   class MockCursorBackend extends CursorBackend {
     protected override buildCommand(message: string): { command: string; args: string[] } {
       // Use bun to run mock-cli.ts instead of actual cursor-agent
+      // Include --output-format=stream-json to match real buildCommand behavior
       return {
         command: 'bun',
-        args: [MOCK_CLI_PATH, 'cursor-agent', '-p', message],
+        args: [MOCK_CLI_PATH, 'cursor-agent', '-p', message, '--output-format=stream-json'],
       }
     }
   }
 
-  test('sends message and gets response', async () => {
+  test('sends message and parses stream-json result', async () => {
     const backend = new MockCursorBackend({ timeout: 5000 })
     const response = await backend.send('2+2=?')
     expect(response.content).toBe('4')
   })
 
-  test('sends hello message', async () => {
+  test('sends hello message and parses result', async () => {
     const backend = new MockCursorBackend({ timeout: 5000 })
     const response = await backend.send('hello')
     expect(response.content).toContain('Hello')
+  })
+
+  test('reports progress via debugLog', async () => {
+    const progress: string[] = []
+    const backend = new MockCursorBackend({
+      timeout: 5000,
+      debugLog: (msg) => progress.push(msg),
+    })
+    await backend.send('2+2=?')
+    // Should have parsed stream-json events and reported progress
+    expect(progress.some(p => p.includes('Cursor initialized'))).toBe(true)
+    expect(progress.some(p => p.includes('Cursor completed'))).toBe(true)
   })
 
   test('handles idle timeout (no output)', async () => {

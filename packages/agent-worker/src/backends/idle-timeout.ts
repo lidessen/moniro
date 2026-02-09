@@ -19,6 +19,8 @@ export interface IdleTimeoutOptions {
   cwd?: string;
   /** Idle timeout in ms — kill process if no output for this duration */
   timeout: number;
+  /** Callback for each stdout chunk (for progress reporting) */
+  onStdout?: (chunk: string) => void;
 }
 
 export interface IdleTimeoutResult {
@@ -33,7 +35,7 @@ export interface IdleTimeoutResult {
  * If the process goes silent for longer than `timeout` ms, it's killed.
  */
 export async function execWithIdleTimeout(options: IdleTimeoutOptions): Promise<IdleTimeoutResult> {
-  const { command, args, cwd, timeout } = options;
+  const { command, args, cwd, timeout, onStdout } = options;
 
   let idleTimedOut = false;
   let timer: ReturnType<typeof setTimeout>;
@@ -60,7 +62,9 @@ export async function execWithIdleTimeout(options: IdleTimeoutOptions): Promise<
 
   // Collect output and reset timer on each chunk
   subprocess.stdout?.on("data", (chunk: Buffer) => {
-    stdout += chunk.toString();
+    const text = chunk.toString();
+    stdout += text;
+    if (onStdout) onStdout(text);
     resetTimer();
   });
 

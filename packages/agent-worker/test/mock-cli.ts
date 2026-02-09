@@ -122,10 +122,10 @@ const outputFormat = args.find(a => a.startsWith('--output-format='))?.split('='
 if (outputFormat === 'stream-json') {
   // Output JSON format like cursor-agent does
   const sessionId = crypto.randomUUID()
-  console.log(JSON.stringify({ type: 'system', subtype: 'init', session_id: sessionId }))
+  console.log(JSON.stringify({ type: 'system', subtype: 'init', model: 'Mock Model', session_id: sessionId }))
   console.log(JSON.stringify({ type: 'user', message: { role: 'user', content: [{ type: 'text', text: message }] }, session_id: sessionId }))
   console.log(JSON.stringify({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: response }] }, session_id: sessionId }))
-  console.log(JSON.stringify({ type: 'result', subtype: 'success', result: response, session_id: sessionId }))
+  console.log(JSON.stringify({ type: 'result', subtype: 'success', result: response, duration_ms: delay, session_id: sessionId }))
 } else {
   // Plain text output
   console.log(response)

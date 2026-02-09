@@ -65,6 +65,8 @@ export interface AgentControllerConfig {
   onRunComplete?: (result: AgentRunResult) => void;
   /** Log function (debug level — only shown with --debug) */
   log?: (message: string) => void;
+  /** Info log function (always shown — for key lifecycle events) */
+  infoLog?: (message: string) => void;
   /** Error log function (always shown — for failures, missing API keys, etc.) */
   errorLog?: (message: string) => void;
   /** Enable feedback tool in agent prompts */

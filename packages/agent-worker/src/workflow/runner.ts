@@ -621,6 +621,7 @@ export async function runWorkflowWithControllers(
         backend,
         pollInterval,
         log: (msg) => controllerLogger.debug(msg),
+        infoLog: (msg) => controllerLogger.info(msg),
         errorLog: (msg) => controllerLogger.error(msg),
         feedback: feedbackEnabled,
       });

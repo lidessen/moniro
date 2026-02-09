@@ -50,6 +50,7 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
     feedback,
   } = config;
 
+  const infoLog = config.infoLog ?? log;
   const errorLog = config.errorLog ?? log;
 
   const pollInterval = config.pollInterval ?? CONTROLLER_DEFAULTS.pollInterval;
@@ -95,9 +96,9 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
         continue;
       }
 
-      // Log inbox contents for debugging
+      // Log inbox summary (always visible) and details (debug only)
       const senders = inbox.map((m) => m.entry.from);
-      log(`Inbox: ${inbox.length} message(s) from [${senders.join(", ")}]`);
+      infoLog(`Inbox: ${inbox.length} message(s) from [${senders.join(", ")}]`);
       for (const msg of inbox) {
         const preview =
           msg.entry.content.length > 120
@@ -120,7 +121,7 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
         attempt++;
         state = "running";
 
-        log(`Running (attempt ${attempt}/${retryConfig.maxAttempts})`);
+        infoLog(`Running (attempt ${attempt}/${retryConfig.maxAttempts})`);
 
         // Build run context
         const runContext: AgentRunContext = {
@@ -140,13 +141,13 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
         };
 
         // Orchestrate: build prompt → configure workspace → send
-        lastResult = await runAgent(backend, runContext, log);
+        lastResult = await runAgent(backend, runContext, log, infoLog);
 
         if (lastResult.success) {
           const detail = lastResult.steps
             ? `${lastResult.steps} steps, ${lastResult.toolCalls} tool calls, ${lastResult.duration}ms`
             : `${lastResult.duration}ms`;
-          log(`DONE ${detail}`);
+          infoLog(`DONE ${detail}`);
 
           // Write agent's final response to channel (so it's visible to user)
           if (lastResult.content) {
@@ -199,7 +200,7 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
       }
 
       state = "idle";
-      log(`Starting`);
+      infoLog(`Starting`);
 
       // Start loop (don't await - runs in background)
       runLoop().catch((error) => {
@@ -258,7 +259,10 @@ async function runAgent(
   backend: Backend,
   ctx: AgentRunContext,
   log: (msg: string) => void,
+  infoLog?: (msg: string) => void,
 ): Promise<AgentRunResult> {
+  const info = infoLog ?? log;
+
   // Mock backend: scripted tool calls for integration testing
   if (backend.type === "mock") {
     return runMockAgent(ctx, (msg) => log(msg));
@@ -281,7 +285,7 @@ async function runAgent(
 
     // Build prompt from context
     const prompt = buildAgentPrompt(ctx);
-    log(`Prompt (${prompt.length} chars) → ${backend.type} backend`);
+    info(`Prompt (${prompt.length} chars) → ${backend.type} backend`);
 
     // Send via backend
     await backend.send(prompt, { system: ctx.agent.resolvedSystemPrompt });
