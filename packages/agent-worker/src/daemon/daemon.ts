@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { createBunWebSocket } from "hono/bun";
 import type { WSContext } from "hono/ws";
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { AgentSession } from "../agent/session.ts";
@@ -30,6 +31,9 @@ import {
   getDefaultContextDir,
 } from "../workflow/context/file-provider.ts";
 import { buildTargetDisplay } from "../cli/target.ts";
+import { createContextMCPServer } from "../workflow/context/mcp-server.ts";
+import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 const DEFAULT_SKILL_DIRS = [
   ".agents/skills",
@@ -361,6 +365,11 @@ function startInboxPolling(): void {
   }, INBOX_POLL_MS);
 }
 
+let mcpSessions: Map<
+  string,
+  { transport: WebStandardStreamableHTTPServerTransport; agentId: string }
+> | null = null;
+
 let shuttingDown = false;
 
 async function gracefulShutdown(): Promise<void> {
@@ -385,6 +394,16 @@ async function gracefulShutdown(): Promise<void> {
   // Cleanup imported skills
   if (state.importer) {
     await state.importer.cleanup();
+  }
+
+  // Close MCP sessions
+  if (mcpSessions) {
+    for (const [, session] of mcpSessions) {
+      try {
+        await session.transport.close();
+      } catch { /* best-effort */ }
+    }
+    mcpSessions.clear();
   }
 
   cleanup();
@@ -692,6 +711,81 @@ export async function startDaemon(config: {
     return result.success ? c.json(result) : errorResponse(c, result);
   });
 
+  // ── MCP endpoint (context tools via Model Context Protocol) ──
+  mcpSessions = new Map();
+
+  function createMCPServerInstance(): McpServer {
+    return createContextMCPServer({
+      provider: contextProvider,
+      validAgents: allAgentNames,
+      name: `${workflow}-context`,
+      version: "1.0.0",
+      feedback: config.feedback,
+    }).server;
+  }
+
+  app.all("/mcp", async (c) => {
+    if (!mcpSessions) return c.json({ error: "MCP not initialized" }, 503);
+
+    const req = c.req.raw;
+    const sessionId = req.headers.get("mcp-session-id");
+    const sessions = mcpSessions; // Narrow type for closures below
+
+    // Route to existing session
+    if (sessionId && sessions.has(sessionId)) {
+      const session = sessions.get(sessionId)!;
+
+      if (req.method === "DELETE") {
+        await session.transport.close();
+        sessions.delete(sessionId);
+        return new Response(null, { status: 200 });
+      }
+
+      return session.transport.handleRequest(req);
+    }
+
+    // New session — only POST with initialize is valid
+    if (req.method === "POST") {
+      const body = await req.json();
+
+      // Check for initialize method
+      const isInit = Array.isArray(body)
+        ? body.some((m: { method?: string }) => m?.method === "initialize")
+        : (body as { method?: string })?.method === "initialize";
+
+      if (!isInit) {
+        return c.json({ error: "Bad request: session required" }, 400);
+      }
+
+      // Resolve agent identity from query param or daemon's own name
+      const url = new URL(req.url);
+      const agentName = url.searchParams.get("agent") || agentDisplayName;
+
+      const transport = new WebStandardStreamableHTTPServerTransport({
+        sessionIdGenerator: () => `${agentName}-${randomUUID().slice(0, 8)}`,
+        onsessioninitialized: (sid: string) => {
+          sessions.set(sid, { transport, agentId: agentName });
+        },
+        onsessionclosed: (sid: string) => {
+          sessions.delete(sid);
+        },
+        enableJsonResponse: true,
+      });
+
+      const mcpServer = createMCPServerInstance();
+      await mcpServer.connect(transport);
+
+      return transport.handleRequest(req, { parsedBody: body });
+    }
+
+    // GET without session (SSE stream) — need session ID
+    if (req.method === "GET") {
+      return c.json({ error: "Session ID required for GET requests" }, 400);
+    }
+
+    return c.json({ error: "Method not allowed" }, 405);
+  });
+
   // ── WebSocket endpoint for streaming ──
   const wsClients = new Set<WSContext>();
 
@@ -827,6 +921,7 @@ export async function startDaemon(config: {
   console.log(`Backend: ${backendType}`);
   console.log(`Workflow: ${workflowDisplay}`);
   console.log(`Listening: http://${host}:${server.port}`);
+  console.log(`MCP: http://${host}:${server.port}/mcp`);
   if (config.schedule) {
     try {
       const resolved = resolveSchedule(config.schedule);
