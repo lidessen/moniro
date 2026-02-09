@@ -131,7 +131,9 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
     {
       message: z
         .string()
-        .describe("Message content, can include @mentions like @reviewer or @coder. Long messages are auto-converted to resources."),
+        .describe(
+          "Message content, can include @mentions like @reviewer or @coder. Long messages are auto-converted to resources.",
+        ),
       to: z
         .string()
         .optional()

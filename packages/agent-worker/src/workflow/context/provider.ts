@@ -221,16 +221,15 @@ export class ContextProviderImpl implements ContextProvider {
     await this.appendChannel(
       "system",
       `Created resource ${resource.id} (${content.length} chars) for @${from}:\n${content}`,
-      { kind: "debug" }
+      { kind: "debug" },
     );
 
     // Extract @mentions from original content to preserve them in short message
     const mentions = extractMentions(content, this.validAgents);
-    const mentionPrefix = mentions.length > 0 ? mentions.map(m => `@${m}`).join(" ") + " " : "";
+    const mentionPrefix = mentions.length > 0 ? mentions.map((m) => `@${m}`).join(" ") + " " : "";
 
     // Send short reference message with preserved @mentions
-    const shortMessage =
-      `${mentionPrefix}[Long content stored as resource]\n\nRead the full content: resource_read("${resource.id}")\n\nReference: ${resource.ref}`;
+    const shortMessage = `${mentionPrefix}[Long content stored as resource]\n\nRead the full content: resource_read("${resource.id}")\n\nReference: ${resource.ref}`;
 
     return this.appendChannel(from, shortMessage, options);
   }
