@@ -4,23 +4,35 @@
 // These are noise for end users — the SDK works correctly in compatibility mode
 (globalThis as Record<string, unknown>).AI_SDK_LOG_WARNINGS = false;
 
-// Filter noisy stderr output from child processes
-// Captures common harmless errors that clutter the output
+// Capture stderr output for logging instead of direct output
+// In normal mode: suppress from terminal but save for logging
+// In debug mode: show everything immediately
+const stderrBuffer: string[] = [];
 const originalStderrWrite = process.stderr.write.bind(process.stderr);
+
 process.stderr.write = function(chunk: string | Uint8Array, ...args: unknown[]): boolean {
   const message = typeof chunk === "string" ? chunk : chunk.toString();
 
-  // In debug mode, show everything (check for --debug or -d flag)
+  // In debug mode, show everything immediately
   const isDebugMode = process.argv.includes("--debug") || process.argv.includes("-d");
   if (isDebugMode) {
     return originalStderrWrite(message, ...args) as boolean;
   }
 
-  // In normal mode, suppress all stderr noise
-  // Important errors will still surface through exit codes and exceptions
-  // Use --debug to see all stderr output
+  // In normal mode, buffer stderr for logging (don't output to terminal)
+  // This keeps output clean while preserving all information for debugging
+  stderrBuffer.push(message);
   return true;
 } as typeof process.stderr.write;
+
+// Export stderr buffer for workflow logger to consume
+export function getStderrBuffer(): string[] {
+  return stderrBuffer;
+}
+
+export function clearStderrBuffer(): void {
+  stderrBuffer.length = 0;
+}
 
 import { Command } from "commander";
 import { registerAgentCommands } from "./commands/agent.ts";
