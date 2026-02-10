@@ -18,64 +18,137 @@ import type { BackendResponse } from "./types.ts";
  * Claude/Claude Code event format
  * @see https://docs.anthropic.com/en/docs/claude-code
  */
-export interface ClaudeEvent {
-  type: "system" | "assistant" | "user" | "result";
-  subtype?: "init" | "hook_started" | "hook_response" | "success";
-  model?: string;
-  session_id?: string;
-  message?: {
-    content?: Array<
-      | { type: "text"; text: string }
-      | { type: "tool_use"; id: string; name: string; input: unknown }
-    >;
-  };
-  result?: string;
-  duration_ms?: number;
-  total_cost_usd?: number;
-}
+export type ClaudeEvent =
+  | {
+      type: "system";
+      subtype: "init" | "hook_started" | "hook_response";
+      model?: string;
+      session_id?: string;
+      hook_id?: string;
+      hook_name?: string;
+      output?: string;
+    }
+  | {
+      type: "assistant";
+      message: {
+        content: Array<
+          | { type: "text"; text: string }
+          | { type: "tool_use"; id: string; name: string; input: unknown }
+        >;
+      };
+    }
+  | {
+      type: "user";
+      message: {
+        role: "user";
+        content: unknown[];
+      };
+    }
+  | {
+      type: "result";
+      subtype: "success";
+      result?: string;
+      duration_ms?: number;
+      total_cost_usd?: number;
+    };
 
 /**
  * Cursor Agent event format
  * @see https://docs.cursor.com/
  */
-export interface CursorEvent {
-  type: "system" | "user" | "assistant" | "tool_call" | "result";
-  subtype?: "init" | "started" | "completed" | "success";
-  model?: string;
-  session_id?: string;
-  call_id?: string;
-  message?: {
-    role?: string;
-    content?: Array<{ type: "text"; text: string }>;
-  };
-  tool_call?: {
-    shellToolCall?: {
-      args?: { command?: string; toolCallId?: string };
-      result?: unknown;
+export type CursorEvent =
+  | {
+      type: "system";
+      subtype: "init";
+      model?: string;
+      session_id?: string;
+    }
+  | {
+      type: "user";
+      message: {
+        role: "user";
+        content: Array<{ type: "text"; text: string }>;
+      };
+    }
+  | {
+      type: "assistant";
+      message: {
+        role: "assistant";
+        content: Array<{ type: "text"; text: string }>;
+      };
+    }
+  | {
+      type: "tool_call";
+      subtype: "started" | "completed";
+      call_id?: string;
+      tool_call?: {
+        shellToolCall?: {
+          args?: { command?: string; toolCallId?: string };
+          result?: unknown;
+        };
+      };
+    }
+  | {
+      type: "result";
+      subtype: "success";
+      duration_ms?: number;
     };
-  };
-  duration_ms?: number;
-}
 
 /**
  * OpenAI Codex event format
  * @see https://github.com/openai/codex
  */
-export interface CodexEvent {
-  type: "thread.started" | "turn.started" | "item.started" | "item.completed" | "turn.completed";
-  thread_id?: string;
-  item?: {
-    id?: string;
-    type?: "reasoning" | "agent_message" | "function_call" | "command_execution";
-    text?: string;
-    name?: string;
-    arguments?: string;
-  };
-  usage?: {
-    input_tokens?: number;
-    output_tokens?: number;
-  };
-}
+export type CodexEvent =
+  | {
+      type: "thread.started";
+      thread_id: string;
+    }
+  | {
+      type: "turn.started";
+    }
+  | {
+      type: "item.started";
+      item: {
+        id: string;
+        type: "command_execution" | "reasoning";
+      };
+    }
+  | {
+      type: "item.completed";
+      item:
+        | {
+            id: string;
+            type: "reasoning";
+            text: string;
+          }
+        | {
+            id: string;
+            type: "agent_message";
+            text: string;
+          }
+        | {
+            id: string;
+            type: "function_call";
+            name: string;
+            arguments: string;
+          }
+        | {
+            id: string;
+            type: "command_execution";
+            command: string;
+            aggregated_output: string;
+            exit_code: number;
+            status: "completed" | "in_progress";
+          };
+    }
+  | {
+      type: "turn.completed";
+      usage: {
+        input_tokens: number;
+        cached_input_tokens?: number;
+        output_tokens: number;
+      };
+    };
 
 // ==================== Standard Event Types ====================
 
@@ -162,10 +235,9 @@ export function formatEvent(event: StreamEvent, backendName: string): string | n
  *   { type: "result", duration_ms: N, total_cost_usd: N }
  */
 export const claudeAdapter: EventAdapter = (raw) => {
-  const event = raw as Partial<ClaudeEvent>;
-  const type = event.type;
+  const event = raw as ClaudeEvent;
 
-  if (type === "system" && event.subtype === "init") {
+  if (event.type === "system" && event.subtype === "init") {
     return {
       kind: "init",
       model: event.model,
@@ -173,19 +245,16 @@ export const claudeAdapter: EventAdapter = (raw) => {
     };
   }
 
-  if (type === "assistant") {
-    const message = event.message;
-    if (!message?.content) return null;
-
+  if (event.type === "assistant") {
     // Extract tool calls
-    const toolCalls = message.content.filter((c) => c.type === "tool_use");
+    const toolCalls = event.message.content.filter((c) => c.type === "tool_use");
     if (toolCalls.length > 0) {
       // Return first tool call as a StreamEvent
       // (multiple tool calls in one message are rare; formatEvent is called per event)
       const tc = toolCalls[0]!;
       return {
         kind: "tool_call",
-        name: (tc.name as string) || "unknown",
+        name: tc.name,
         args: formatToolInput(tc.input),
       };
     }
@@ -194,7 +263,7 @@ export const claudeAdapter: EventAdapter = (raw) => {
     return null;
   }
 
-  if (type === "result") {
+  if (event.type === "result") {
     return {
       kind: "completed",
       durationMs: event.duration_ms,
@@ -261,10 +330,9 @@ export function extractClaudeResult(stdout: string): BackendResponse {
  *   { type: "result", duration_ms: N }
  */
 export const cursorAdapter: EventAdapter = (raw) => {
-  const event = raw as Partial<CursorEvent>;
-  const type = event.type;
+  const event = raw as CursorEvent;
 
-  if (type === "system" && event.subtype === "init") {
+  if (event.type === "system" && event.subtype === "init") {
     return {
       kind: "init",
       model: event.model,
@@ -272,27 +340,23 @@ export const cursorAdapter: EventAdapter = (raw) => {
     };
   }
 
-  if (type === "tool_call") {
-    const subtype = event.subtype;
-    const callId = event.call_id;
-    const toolCall = event.tool_call;
-
-    if (subtype === "started" && toolCall) {
+  if (event.type === "tool_call") {
+    if (event.subtype === "started" && event.tool_call) {
       // Extract tool name from shellToolCall
-      const shellToolCall = toolCall.shellToolCall;
+      const shellToolCall = event.tool_call.shellToolCall;
       if (shellToolCall) {
         // For shell tools, use "bash" as the name
         return {
           kind: "tool_call_started",
           name: "bash",
-          callId,
+          callId: event.call_id,
         };
       }
       // For other tool types, extract name if available
       return {
         kind: "tool_call_started",
         name: "tool",
-        callId,
+        callId: event.call_id,
       };
     }
 
@@ -300,7 +364,7 @@ export const cursorAdapter: EventAdapter = (raw) => {
     return null;
   }
 
-  if (type === "result") {
+  if (event.type === "result") {
     return {
       kind: "completed",
       durationMs: event.duration_ms,
@@ -322,44 +386,36 @@ export const cursorAdapter: EventAdapter = (raw) => {
  *   { type: "turn.completed", usage: { input_tokens, output_tokens } }
  */
 export const codexAdapter: EventAdapter = (raw) => {
-  const event = raw as Partial<CodexEvent>;
-  const type = event.type;
+  const event = raw as CodexEvent;
 
-  if (type === "thread.started") {
-    const threadId = event.thread_id;
+  if (event.type === "thread.started") {
     return {
       kind: "init",
-      sessionId: threadId ? `${threadId.slice(0, 8)}...` : undefined,
+      sessionId: `${event.thread_id.slice(0, 8)}...`,
     };
   }
 
-  if (type === "item.completed") {
-    const item = event.item;
-    if (!item) return null;
-
+  if (event.type === "item.completed") {
     // Tool call
-    if (item.type === "function_call") {
+    if (event.item.type === "function_call") {
       return {
         kind: "tool_call",
-        name: item.name || "unknown",
-        args: item.arguments ?? "",
+        name: event.item.name,
+        args: event.item.arguments,
       };
     }
 
-    // agent_message — skip (extracted by result extractor)
+    // agent_message, reasoning, command_execution — skip (extracted by result extractor)
     return null;
   }
 
-  if (type === "turn.completed") {
-    const usage = event.usage;
+  if (event.type === "turn.completed") {
     return {
       kind: "completed",
-      usage: usage
-        ? {
-            input: usage.input_tokens ?? 0,
-            output: usage.output_tokens ?? 0,
-          }
-        : undefined,
+      usage: {
+        input: event.usage.input_tokens,
+        output: event.usage.output_tokens,
+      },
     };
   }
 
