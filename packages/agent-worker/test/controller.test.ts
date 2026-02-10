@@ -151,6 +151,11 @@ describe('buildAgentPrompt', () => {
     resolvedSystemPrompt: 'You are a helpful assistant',
   }
 
+  // Mock provider for tests
+  const mockProvider = {
+    appendChannel: async () => {},
+  } as any
+
   test('builds complete prompt with all sections', () => {
     const ctx: AgentRunContext = {
       name: 'reviewer',
@@ -182,6 +187,7 @@ describe('buildAgentPrompt', () => {
       workspaceDir: '/tmp/workspaces/reviewer',
       projectDir: '/home/user/myproject',
       retryAttempt: 1,
+      provider: mockProvider,
     }
 
     const result = buildAgentPrompt(ctx)
@@ -217,6 +223,7 @@ describe('buildAgentPrompt', () => {
       workspaceDir: '/tmp/workspaces/reviewer',
       projectDir: '/home/user/myproject',
       retryAttempt: 2,
+      provider: mockProvider,
     }
 
     const result = buildAgentPrompt(ctx)
@@ -246,6 +253,7 @@ describe('buildAgentPrompt', () => {
       workspaceDir: '/tmp/workspaces/reviewer',
       projectDir: '/home/user/myproject',
       retryAttempt: 1,
+      provider: mockProvider,
     }
 
     const result = buildAgentPrompt(ctx)

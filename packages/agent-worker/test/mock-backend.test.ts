@@ -117,6 +117,7 @@ describe('agent identity via MCP transport', () => {
         workspaceDir: '/tmp/test-workspace',
         projectDir: '/tmp/test-project',
         retryAttempt: 1,
+        provider: contextProvider,
       }
 
       const result = await runMockAgent(ctx)
@@ -171,6 +172,7 @@ describe('agent identity via MCP transport', () => {
         workspaceDir: '/tmp/test-workspace-1',
         projectDir: '/tmp/test-project',
         retryAttempt: 1,
+        provider: contextProvider,
       })
       expect(result1.success).toBe(true)
 
@@ -186,6 +188,7 @@ describe('agent identity via MCP transport', () => {
         workspaceDir: '/tmp/test-workspace-2',
         projectDir: '/tmp/test-project',
         retryAttempt: 1,
+        provider: contextProvider,
       })
       expect(result2.success).toBe(true)
 

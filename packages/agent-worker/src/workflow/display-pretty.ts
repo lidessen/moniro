@@ -110,9 +110,12 @@ function processEntry(entry: Message, state: PrettyDisplayState, agentNames: str
       const args = toolCall.args ? pc.dim(`(${toolCall.args})`) : pc.dim("()");
       p.log.message(`${color(caller)} called ${tool}${args}`, { symbol: pc.cyan("▶") });
     } else {
-      p.log.message(`called ${pc.cyan(pc.bold(toolCall.name))}${pc.dim(`(${toolCall.args || ""})`)}`, {
-        symbol: pc.cyan("▶"),
-      });
+      p.log.message(
+        `called ${pc.cyan(pc.bold(toolCall.name))}${pc.dim(`(${toolCall.args || ""})`)}`,
+        {
+          symbol: pc.cyan("▶"),
+        },
+      );
     }
     return;
   }
