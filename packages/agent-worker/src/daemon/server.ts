@@ -7,4 +7,4 @@ export {
   type DaemonInfo,
 } from "./registry.ts";
 export { startDaemon } from "./daemon.ts";
-export type { AgentState, DaemonState } from "./daemon.ts";
+export type { DaemonState } from "./daemon.ts";
