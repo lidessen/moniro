@@ -1,11 +1,10 @@
 /**
  * Pretty display mode using @clack/prompts
  *
- * This provides a clean, interactive CLI experience for non-debug mode:
- * - Spinners for long-running operations
- * - Colored status messages
- * - Grouped agent messages
- * - Summary boxes
+ * Clean, step-based CLI output:
+ * - Each message/event is a step
+ * - Uses clack's native symbols
+ * - Minimal decoration, maximum clarity
  */
 
 import * as p from "@clack/prompts";
@@ -31,12 +30,10 @@ export interface PrettyDisplayConfig {
 interface PrettyDisplayState {
   /** Current spinner */
   spinner: ReturnType<typeof p.spinner> | null;
-  /** Last active agent (for grouping) */
-  lastAgent: string | null;
-  /** Message buffer for grouping */
-  messageBuffer: Array<{ from: string; content: string }>;
   /** Workflow phase */
   phase: "init" | "running" | "complete" | "error";
+  /** Has shown agents started */
+  hasShownAgentsStarted: boolean;
 }
 
 // ==================== Agent Colors ====================
@@ -70,21 +67,30 @@ function processEntry(entry: Message, state: PrettyDisplayState, agentNames: str
     if (content.includes("Running workflow:")) {
       state.phase = "running";
       const workflowName = content.split(":")[1]?.trim();
-      p.log.info(pc.dim(`Workflow: ${workflowName}`));
+      p.log.step(pc.dim(`Workflow: ${workflowName}`));
+    } else if (content.includes("Agents:") && content.includes(",")) {
+      const agents = content.split(":")[1]?.trim();
+      p.log.step(pc.dim(`Agents: ${agents}`));
     } else if (content.includes("Starting agents")) {
-      if (state.spinner) state.spinner.stop("Initialized");
+      if (state.spinner) {
+        state.spinner.stop("Initialized");
+      }
       state.spinner = p.spinner();
-      state.spinner.start("Starting agents...");
+      state.spinner.start("Starting agents");
     } else if (content.includes("Workflow complete")) {
       if (state.spinner) {
-        state.spinner.stop(pc.green("✓ Complete"));
+        state.spinner.stop("Complete");
         state.spinner = null;
+      }
+      const match = content.match(/\(([0-9.]+)s\)/);
+      if (match) {
+        p.log.success(`Completed in ${match[1]}s`);
       }
       state.phase = "complete";
     } else if (content.startsWith("CALL ")) {
-      // Tool calls - show as info
+      // Tool calls - show as step
       const toolCall = content.replace("CALL ", "");
-      p.log.step(pc.dim(`  ↳ ${toolCall}`));
+      p.log.step(pc.dim(toolCall));
     } else if (content.startsWith("[ERROR]")) {
       p.log.error(content.replace("[ERROR] ", ""));
       state.phase = "error";
@@ -95,26 +101,23 @@ function processEntry(entry: Message, state: PrettyDisplayState, agentNames: str
   }
 
   // Agent messages (kind=undefined)
-  // Show in grouped format with agent colors
   const color = getAgentColor(from, agentNames);
 
   // Stop spinner when first agent message arrives
-  if (state.spinner && state.phase === "running") {
-    state.spinner.stop(pc.green("✓ Agents started"));
+  if (state.spinner && state.phase === "running" && !state.hasShownAgentsStarted) {
+    state.spinner.stop("Agents started");
     state.spinner = null;
+    state.hasShownAgentsStarted = true;
   }
 
-  // If different agent or first message, flush buffer and show new header
-  if (state.lastAgent !== from) {
-    state.lastAgent = from;
-    p.log.message(color(pc.bold(`${from}:`)));
-  }
-
-  // Show message content with indent
-  const lines = content.split("\n");
-  for (const line of lines) {
-    if (line.trim()) {
-      p.log.message(color(`  ${line}`));
+  // Show each message as a step with agent prefix
+  const lines = content.split("\n").filter((line) => line.trim());
+  if (lines.length === 1) {
+    p.log.message(`${color(from)}: ${lines[0]}`);
+  } else {
+    p.log.step(color(from));
+    for (const line of lines) {
+      p.log.message(`  ${line}`);
     }
   }
 }
@@ -133,9 +136,8 @@ export function startPrettyDisplay(config: PrettyDisplayConfig): PrettyDisplayWa
 
   const state: PrettyDisplayState = {
     spinner: null,
-    lastAgent: null,
-    messageBuffer: [],
     phase: "init",
+    hasShownAgentsStarted: false,
   };
 
   // Show intro
@@ -143,7 +145,7 @@ export function startPrettyDisplay(config: PrettyDisplayConfig): PrettyDisplayWa
 
   // Start initial spinner
   state.spinner = p.spinner();
-  state.spinner.start("Initializing workflow...");
+  state.spinner.start("Initializing workflow");
 
   let cursor = initialCursor;
   let running = true;
@@ -183,11 +185,7 @@ export function showWorkflowSummary(options: {
   document?: string;
   feedback?: Array<{ type: string; target: string; description: string }>;
 }): void {
-  const { duration, document, feedback } = options;
-
-  // Show duration
-  const seconds = (duration / 1000).toFixed(1);
-  p.log.success(`Completed in ${seconds}s`);
+  const { document, feedback } = options;
 
   // Show document if present
   if (document && document.trim()) {
@@ -196,11 +194,11 @@ export function showWorkflowSummary(options: {
 
   // Show feedback if present
   if (feedback && feedback.length > 0) {
-    const feedbackLines = feedback.map((f) => `  [${f.type}] ${f.target}: ${f.description}`);
+    const feedbackLines = feedback.map((f) => `[${f.type}] ${f.target}: ${f.description}`);
     p.note(feedbackLines.join("\n"), `Feedback (${feedback.length})`);
   }
 
-  p.outro(pc.dim("Done"));
+  p.outro("Done");
 }
 
 // ==================== Helpers ====================
