@@ -624,7 +624,14 @@ export async function runWorkflowWithControllers(
         projectDir: runtime.projectDir,
         backend,
         pollInterval,
-        log: (msg) => controllerLogger.debug(msg),
+        log: (msg) => {
+          // Tool calls are important - show in normal mode (not just debug)
+          if (msg.startsWith("CALL ") || msg.startsWith("Step finished")) {
+            controllerLogger.info(msg);
+          } else {
+            controllerLogger.debug(msg);
+          }
+        },
         infoLog: (msg) => controllerLogger.info(msg),
         errorLog: (msg) => controllerLogger.error(msg),
         feedback: feedbackEnabled,
