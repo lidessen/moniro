@@ -1,5 +1,11 @@
 # agent-worker
 
+## 0.7.0
+
+### Minor Changes
+
+- [`cdc3e23`](https://github.com/lidessen/moniro/commit/cdc3e23c43cb518e411e240d1e12379eee742ef3) - feat: add pretty display mode with @clack/prompts and refactor tool call type system
+
 ## 0.6.0
 
 ### Minor Changes
