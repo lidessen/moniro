@@ -38,7 +38,7 @@ export class CodexBackend implements Backend {
 
   constructor(options: CodexOptions = {}) {
     this.options = {
-      timeout: 300000, // 5 minute default
+      timeout: 600000, // 10 minute default
       ...options,
     };
   }
@@ -70,7 +70,7 @@ export class CodexBackend implements Backend {
     // Use workspace as cwd if set
     const cwd = this.options.workspace || this.options.cwd;
     const debugLog = this.options.debugLog;
-    const timeout = this.options.timeout ?? 300000;
+    const timeout = this.options.timeout ?? 600000;
 
     try {
       const { stdout } = await execWithIdleTimeout({
