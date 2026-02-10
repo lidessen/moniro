@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 import { mkdirSync } from "node:fs";
 import { outputJson } from "../output.ts";
-import { getInstanceAgentNames } from "@/daemon/index.ts";
+import { listAgents, isDaemonActive } from "../client.ts";
 import {
   createFileContextProvider,
   getDefaultContextDir,
@@ -9,12 +9,30 @@ import {
 import { DEFAULT_WORKFLOW, parseTarget } from "../target.ts";
 
 /**
+ * Get agent names for a workflow from the daemon.
+ * Falls back to ["user"] if daemon is not running.
+ */
+async function getWorkflowAgentNames(workflow: string, tag: string): Promise<string[]> {
+  if (!isDaemonActive()) return ["user"];
+  try {
+    const res = await listAgents();
+    const agents = (res.agents ?? []) as Array<{ name: string; workflow: string; tag: string }>;
+    const names = agents
+      .filter((a) => a.workflow === workflow && a.tag === tag)
+      .map((a) => a.name);
+    return [...new Set([...names, "user"])];
+  } catch {
+    return ["user"];
+  }
+}
+
+/**
  * Get a context provider for the given workflow:tag.
  */
-function getContextProvider(workflow: string, tag: string) {
+async function getContextProvider(workflow: string, tag: string) {
   const dir = getDefaultContextDir(workflow, tag);
   mkdirSync(dir, { recursive: true });
-  const agentNames = [...getInstanceAgentNames(workflow), "user"];
+  const agentNames = await getWorkflowAgentNames(workflow, tag);
   return createFileContextProvider(dir, agentNames);
 }
 
@@ -35,7 +53,7 @@ Examples:
     )
     .action(async (targetInput: string, message: string, options) => {
       const target = parseTarget(targetInput);
-      const provider = getContextProvider(target.workflow, target.tag);
+      const provider = await getContextProvider(target.workflow, target.tag);
 
       const entry = await provider.appendChannel("user", message);
 
@@ -72,7 +90,7 @@ Examples:
     )
     .action(async (targetInput: string | undefined, options) => {
       const target = parseTarget(targetInput || `@${DEFAULT_WORKFLOW}`);
-      const provider = getContextProvider(target.workflow, target.tag);
+      const provider = await getContextProvider(target.workflow, target.tag);
 
       const limit = options.all ? undefined : (options.last ?? 10);
       let messages = await provider.readChannel({ limit });

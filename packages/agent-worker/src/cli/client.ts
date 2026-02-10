@@ -139,17 +139,24 @@ export async function run(
   body: { agent: string; message: string },
   onChunk?: (data: { agent: string; text: string }) => void,
 ): Promise<ApiResponse> {
-  const baseUrl = requireDaemon();
-
-  const res = await fetch(`${baseUrl}/run`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok || !res.body) {
-    return (await res.json()) as ApiResponse;
+  let baseUrl: string;
+  try {
+    baseUrl = requireDaemon();
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false, error: msg };
   }
+
+  try {
+    const res = await fetch(`${baseUrl}/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok || !res.body) {
+      return (await res.json()) as ApiResponse;
+    }
 
   // Parse SSE stream
   const reader = res.body.getReader();
@@ -188,7 +195,11 @@ export async function run(
     }
   }
 
-  return finalResponse;
+    return finalResponse;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false, error: `Connection failed: ${msg}` };
+  }
 }
 
 /** Check if daemon is running */

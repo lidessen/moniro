@@ -21,7 +21,7 @@ import { mkdirSync } from "node:fs";
 import { AgentWorker } from "../agent/worker.ts";
 import type { BackendType } from "../backends/types.ts";
 import { createBackend } from "../backends/index.ts";
-import { DEFAULT_PORT, writeDaemonInfo, removeDaemonInfo } from "./registry.ts";
+import { DEFAULT_PORT, writeDaemonInfo, removeDaemonInfo, isDaemonRunning } from "./registry.ts";
 import { createContextMCPServer } from "../workflow/context/mcp-server.ts";
 import {
   createFileContextProvider,
@@ -97,6 +97,13 @@ export async function startDaemon(config: {
   port?: number;
   host?: string;
 } = {}): Promise<void> {
+  // Prevent starting multiple daemons
+  const existing = isDaemonRunning();
+  if (existing) {
+    console.error(`Daemon already running: pid=${existing.pid} port=${existing.port}`);
+    process.exit(1);
+  }
+
   const host = config.host ?? "127.0.0.1";
   const app = new Hono();
   app.use("*", cors());
