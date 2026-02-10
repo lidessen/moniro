@@ -15,7 +15,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Backend, BackendResponse } from "./types.ts";
 import { execWithIdleTimeout, IdleTimeoutError } from "./idle-timeout.ts";
-import { createStreamParser, claudeAdapter, extractClaudeResult } from "./stream-json.ts";
+import { createStreamParser, cursorAdapter, extractClaudeResult } from "./stream-json.ts";
 
 export interface CursorOptions {
   /** Model to use */
@@ -74,7 +74,7 @@ export class CursorBackend implements Backend {
         args,
         cwd,
         timeout,
-        onStdout: debugLog ? createStreamParser(debugLog, "Cursor", claudeAdapter) : undefined,
+        onStdout: debugLog ? createStreamParser(debugLog, "Cursor", cursorAdapter) : undefined,
       });
 
       return extractClaudeResult(stdout);

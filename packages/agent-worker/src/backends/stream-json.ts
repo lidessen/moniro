@@ -20,6 +20,7 @@ import type { BackendResponse } from "./types.ts";
  */
 export type StreamEvent =
   | { kind: "init"; model?: string; sessionId?: string }
+  | { kind: "tool_call_started"; name: string; callId?: string }
   | { kind: "tool_call"; name: string; args: string }
   | {
       kind: "completed";
@@ -53,6 +54,12 @@ export function formatEvent(event: StreamEvent, backendName: string): string | n
       if (event.model) details.push(`model: ${event.model}`);
       if (event.sessionId) details.push(`session: ${event.sessionId}`);
       return `${backendName} initialized${details.length > 0 ? ` (${details.join(", ")})` : ""}`;
+    }
+
+    case "tool_call_started": {
+      // Show tool execution start (Cursor format)
+      const callIdSuffix = event.callId ? ` [${event.callId.slice(0, 8)}]` : "";
+      return `STARTING ${event.name}${callIdSuffix}`;
     }
 
     case "tool_call": {
@@ -175,6 +182,66 @@ export function extractClaudeResult(stdout: string): BackendResponse {
   // 3. Raw stdout
   return { content: stdout.trim() };
 }
+
+// ==================== Cursor Adapter ====================
+
+/**
+ * Adapter for Cursor stream-json format.
+ *
+ * Events:
+ *   { type: "system", subtype: "init", model: "..." }
+ *   { type: "tool_call", subtype: "started", call_id: "...", tool_call: { shellToolCall: {...} } }
+ *   { type: "tool_call", subtype: "completed", call_id: "..." }
+ *   { type: "result", duration_ms: N }
+ */
+export const cursorAdapter: EventAdapter = (raw) => {
+  const type = raw.type as string;
+
+  if (type === "system" && raw.subtype === "init") {
+    return {
+      kind: "init",
+      model: (raw.model as string) || undefined,
+      sessionId: raw.session_id as string | undefined,
+    };
+  }
+
+  if (type === "tool_call") {
+    const subtype = raw.subtype as string;
+    const callId = raw.call_id as string | undefined;
+    const toolCall = raw.tool_call as Record<string, unknown> | undefined;
+
+    if (subtype === "started" && toolCall) {
+      // Extract tool name from shellToolCall
+      const shellToolCall = toolCall.shellToolCall as Record<string, unknown> | undefined;
+      if (shellToolCall) {
+        // For shell tools, use "bash" as the name
+        return {
+          kind: "tool_call_started",
+          name: "bash",
+          callId,
+        };
+      }
+      // For other tool types, extract name if available
+      return {
+        kind: "tool_call_started",
+        name: "tool",
+        callId,
+      };
+    }
+
+    // completed events are not shown (result is in assistant message)
+    return null;
+  }
+
+  if (type === "result") {
+    return {
+      kind: "completed",
+      durationMs: raw.duration_ms as number | undefined,
+    };
+  }
+
+  return null;
+};
 
 // ==================== Codex Adapter ====================
 
