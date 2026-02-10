@@ -20,7 +20,7 @@ describe('Server Session Management', () => {
     name: `test-agent-${Date.now()}`,
     port: 0,
     pid: process.pid,
-    backend: 'sdk',
+    backend: 'default',
     model: 'test-model',
     pidFile: `/tmp/test-${testSessionId}.pid`,
     workflow: 'test',
@@ -45,7 +45,7 @@ describe('Server Session Management', () => {
     const info = getSessionInfo(testSessionId)
     expect(info).not.toBeNull()
     expect(info?.id).toBe(testSessionId)
-    expect(info?.backend).toBe('sdk')
+    expect(info?.backend).toBe('default')
   })
 
   test('getSessionInfo returns session by id', () => {
@@ -174,7 +174,7 @@ describe('CLI Command Logic', () => {
         id: testId,
         port: 0,
         pid: process.pid,
-        backend: 'sdk',
+        backend: 'default',
         model: 'test',
         pidFile: `/tmp/${testId}.pid`,
         workflow: 'test',
@@ -192,7 +192,7 @@ describe('CLI Command Logic', () => {
         const found = sessions.find(s => s.id === testId)
         expect(found).toBeDefined()
         expect(found?.id).toBe(testId)
-        expect(found?.backend).toBe('sdk')
+        expect(found?.backend).toBe('default')
         expect(found?.pid).toBe(process.pid)
       } finally {
         unregisterSession(testId)
@@ -207,7 +207,7 @@ describe('CLI Command Logic', () => {
         id: id1,
         port: 0,
         pid: process.pid,
-        backend: 'sdk',
+        backend: 'default',
         model: 'test',
         pidFile: `/tmp/${id1}.pid`,
         workflow: 'test',
@@ -240,7 +240,7 @@ describe('CLI Command Logic', () => {
 
         expect(found1).toBeDefined()
         expect(found2).toBeDefined()
-        expect(found1?.backend).toBe('sdk')
+        expect(found1?.backend).toBe('default')
         expect(found2?.backend).toBe('claude')
       } finally {
         unregisterSession(id1)

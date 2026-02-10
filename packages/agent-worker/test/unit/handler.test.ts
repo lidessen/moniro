@@ -10,7 +10,7 @@
 
 import { describe, test, expect, beforeEach } from 'bun:test'
 import { handleRequest, type ServerState } from '../../src/daemon/handler.ts'
-import { AgentSession } from '../../src/agent/session.ts'
+import { AgentWorker } from '../../src/agent/worker.ts'
 import type { Backend } from '../../src/backends/types.ts'
 import type { SessionInfo } from '../../src/daemon/registry.ts'
 // ==================== Test Setup ====================
@@ -23,7 +23,7 @@ function createTestState(overrides?: Partial<ServerState>): ServerState {
     },
   }
 
-  const session = new AgentSession({
+  const session = new AgentWorker({
     model: 'test/model',
     system: 'Test system prompt',
     backend,
@@ -159,7 +159,7 @@ describe('handleRequest', () => {
       }
 
       const failState = createTestState({
-        session: new AgentSession({
+        session: new AgentWorker({
           model: 'test/model',
           system: 'Test',
           backend: failingBackend,
@@ -185,7 +185,7 @@ describe('handleRequest', () => {
     test('adds tool to SDK session', async () => {
       // Need SDK session (no backend) for tool management
       const sdkState = createTestState({
-        session: new AgentSession({
+        session: new AgentWorker({
           model: 'test/model',
           system: 'Test',
           // no backend → SDK session
@@ -221,7 +221,7 @@ describe('handleRequest', () => {
 
     test('tool_add with needsApproval', async () => {
       const sdkState = createTestState({
-        session: new AgentSession({
+        session: new AgentWorker({
           model: 'test/model',
           system: 'Test',
         }),
@@ -273,7 +273,7 @@ describe('handleRequest', () => {
   describe('tool_mock', () => {
     test('sets mock response for existing tool', async () => {
       const sdkState = createTestState({
-        session: new AgentSession({
+        session: new AgentWorker({
           model: 'test/model',
           system: 'Test',
         }),
@@ -313,7 +313,7 @@ describe('handleRequest', () => {
 
     test('tool_mock fails for non-existent tool', async () => {
       const sdkState = createTestState({
-        session: new AgentSession({
+        session: new AgentWorker({
           model: 'test/model',
           system: 'Test',
         }),
@@ -349,7 +349,7 @@ describe('handleRequest', () => {
 
     test('returns tools after adding', async () => {
       const sdkState = createTestState({
-        session: new AgentSession({
+        session: new AgentWorker({
           model: 'test/model',
           system: 'Test',
         }),
@@ -400,7 +400,7 @@ describe('handleRequest', () => {
 
     test('rejects missing filePath', async () => {
       const sdkState = createTestState({
-        session: new AgentSession({
+        session: new AgentWorker({
           model: 'test/model',
           system: 'Test',
         }),
@@ -422,7 +422,7 @@ describe('handleRequest', () => {
 
     test('handles import failure gracefully', async () => {
       const sdkState = createTestState({
-        session: new AgentSession({
+        session: new AgentWorker({
           model: 'test/model',
           system: 'Test',
         }),

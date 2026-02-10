@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { AgentSession } from "../agent/session.ts";
+import { AgentWorker } from "../agent/worker.ts";
 import type { BackendType } from "../backends/types.ts";
 import { createBackend } from "../backends/index.ts";
 import { SkillsProvider, createSkillsTool, SkillImporter } from "../agent/skills/index.ts";
@@ -30,7 +30,7 @@ import {
   createFileContextProvider,
   getDefaultContextDir,
 } from "../workflow/context/file-provider.ts";
-import { buildTargetDisplay } from "../cli/target.ts";
+// Inline workflow display formatting (avoids daemon → CLI dependency)
 import { createContextMCPServer } from "../workflow/context/mcp-server.ts";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -465,7 +465,7 @@ export async function startDaemon(config: {
     console.log(`Cleaned up ${staleCount} stale session(s)`);
   }
 
-  const backendType = config.backend || "sdk";
+  const backendType = config.backend || "default";
   const sessionId = crypto.randomUUID();
 
   // Support both new (workflow/tag) and old (instance) parameters
@@ -511,16 +511,16 @@ export async function startDaemon(config: {
   // Build system prompt (append feedback instructions if enabled)
   const system = config.feedback ? `${config.system}\n\n${FEEDBACK_PROMPT}` : config.system;
 
-  // Create unified AgentSession (with CLI backend for non-SDK types)
+  // Create unified AgentWorker (with CLI backend for non-default types)
   const cliBackend =
-    backendType !== "sdk"
+    backendType !== "default"
       ? createBackend({
           type: backendType,
           model: config.model,
         } as Parameters<typeof createBackend>[0])
       : undefined;
 
-  const session = new AgentSession({
+  const session = new AgentWorker({
     model: config.model,
     system,
     tools,
@@ -915,7 +915,7 @@ export async function startDaemon(config: {
   startInboxPolling();
 
   const nameStr = config.name ? ` (${config.name})` : "";
-  const workflowDisplay = buildTargetDisplay(undefined, workflow, tag);
+  const workflowDisplay = tag === "main" ? `@${workflow}` : `@${workflow}:${tag}`;
   console.log(`Session started: ${effectiveId}${nameStr}`);
   console.log(`Model: ${config.model}`);
   console.log(`Backend: ${backendType}`);

@@ -1,5 +1,5 @@
 import { tool, jsonSchema } from "ai";
-import type { AgentSession } from "../agent/session.ts";
+import type { AgentWorker } from "../agent/worker.ts";
 import type { SkillImporter } from "../agent/skills/index.ts";
 import type { FeedbackEntry } from "../agent/tools/feedback.ts";
 import type { ContextProvider } from "../workflow/context/provider.ts";
@@ -7,7 +7,7 @@ import { resolveSchedule, type SessionInfo, type ScheduleConfig } from "./regist
 import { parseCron } from "./cron.ts";
 
 export interface ServerState {
-  session: AgentSession; // Always non-null: unified session for all backends
+  session: AgentWorker; // Always non-null: unified worker for all backends
   server: { stop(closeActiveConnections?: boolean): void };
   info: SessionInfo;
   lastActivity: number;

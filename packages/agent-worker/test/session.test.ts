@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'bun:test'
 import { MockLanguageModelV3 } from 'ai/test'
 import { generateText, tool, jsonSchema } from 'ai'
-import { AgentSession } from '../src/agent/session.ts'
+import { AgentWorker } from '../src/agent/worker.ts'
 
 // Helper to create V3 format response
 function mockResponse(text: string, inputTokens = 10, outputTokens = 5) {
@@ -16,7 +16,7 @@ function mockResponse(text: string, inputTokens = 10, outputTokens = 5) {
   }
 }
 
-describe('AgentSession', () => {
+describe('AgentWorker', () => {
   describe('basic messaging', () => {
     test('sends message and receives response', async () => {
       const mockModel = new MockLanguageModelV3({
@@ -150,7 +150,7 @@ describe('AgentSession', () => {
 
   describe('session export', () => {
     test('exports transcript with correct structure', () => {
-      const session = new AgentSession({
+      const session = new AgentWorker({
         model: 'anthropic/claude-sonnet-4-5',
         system: 'Test system prompt',
       })
@@ -168,7 +168,7 @@ describe('AgentSession', () => {
 
   describe('session stats', () => {
     test('returns initial stats', () => {
-      const session = new AgentSession({
+      const session = new AgentWorker({
         model: 'openai/gpt-5.2',
         system: 'Test',
       })
@@ -182,7 +182,7 @@ describe('AgentSession', () => {
 
   describe('session history', () => {
     test('history starts empty', () => {
-      const session = new AgentSession({
+      const session = new AgentWorker({
         model: 'openai/gpt-5.2',
         system: 'Test',
       })
@@ -193,7 +193,7 @@ describe('AgentSession', () => {
 
   describe('session clear', () => {
     test('clear resets state', () => {
-      const session = new AgentSession({
+      const session = new AgentWorker({
         model: 'openai/gpt-5.2',
         system: 'Test',
       })
@@ -377,9 +377,9 @@ describe('createModel', () => {
   })
 })
 
-describe('AgentSession advanced', () => {
+describe('AgentWorker advanced', () => {
   test('addTool adds tool to session', () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'openai/gpt-5.2',
       system: 'Test',
     })
@@ -400,7 +400,7 @@ describe('AgentSession advanced', () => {
   })
 
   test('mockTool updates existing tool execute function', () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'openai/gpt-5.2',
       system: 'Test',
       tools: {
@@ -419,7 +419,7 @@ describe('AgentSession advanced', () => {
   })
 
   test('mockTool throws for non-existent tool', () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'openai/gpt-5.2',
       system: 'Test',
     })
@@ -430,7 +430,7 @@ describe('AgentSession advanced', () => {
   })
 
   test('session with custom maxTokens', () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'openai/gpt-5.2',
       system: 'Test',
       maxTokens: 8192,
@@ -440,7 +440,7 @@ describe('AgentSession advanced', () => {
   })
 
   test('session with initial tools', () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'openai/gpt-5.2',
       system: 'Test',
       tools: {
@@ -459,8 +459,8 @@ describe('AgentSession advanced', () => {
   })
 
   test('session id is unique UUID format', () => {
-    const session1 = new AgentSession({ model: 'test', system: '' })
-    const session2 = new AgentSession({ model: 'test', system: '' })
+    const session1 = new AgentWorker({ model: 'test', system: '' })
+    const session2 = new AgentWorker({ model: 'test', system: '' })
 
     expect(session1.id).not.toBe(session2.id)
     // UUID format check
@@ -470,13 +470,13 @@ describe('AgentSession advanced', () => {
   })
 
   test('createdAt is valid ISO timestamp', () => {
-    const session = new AgentSession({ model: 'test', system: '' })
+    const session = new AgentWorker({ model: 'test', system: '' })
     const date = new Date(session.createdAt)
     expect(date.toISOString()).toBe(session.createdAt)
   })
 
   test('getState returns session state for persistence', () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'openai/gpt-5.2',
       system: 'Test',
     })
@@ -490,7 +490,7 @@ describe('AgentSession advanced', () => {
   })
 
   test('restores session from state', () => {
-    const originalSession = new AgentSession({
+    const originalSession = new AgentWorker({
       model: 'openai/gpt-5.2',
       system: 'Test system',
     })
@@ -508,7 +508,7 @@ describe('AgentSession advanced', () => {
     }
 
     // Restore session
-    const restoredSession = new AgentSession(
+    const restoredSession = new AgentWorker(
       { model: 'openai/gpt-5.2', system: 'Test system' },
       savedState
     )
@@ -521,7 +521,7 @@ describe('AgentSession advanced', () => {
   })
 
   test('configurable maxSteps', () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'openai/gpt-5.2',
       system: 'Test',
       maxSteps: 5,
@@ -690,14 +690,14 @@ describe('bash-tools integration', () => {
     expect((tools.writeFile as any).description).toContain('Write')
   })
 
-  test('tools work with AgentSession', async () => {
+  test('tools work with AgentWorker', async () => {
     const { createBashTools } = await import('../src/agent/tools/bash.ts')
 
     const { tools } = await createBashTools({
       files: { 'data.json': '{"key": "value"}' },
     })
 
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'openai/gpt-5.2',
       system: 'You are a coding assistant with file system access.',
       tools,
@@ -710,7 +710,7 @@ describe('bash-tools integration', () => {
 
 describe('tool approval workflow', () => {
   test('needsApproval via approval config', () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'openai/gpt-5.2',
       system: 'Test',
       tools: {
@@ -733,7 +733,7 @@ describe('tool approval workflow', () => {
   })
 
   test('needsApproval function for conditional approval', () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'openai/gpt-5.2',
       system: 'Test',
       tools: {
@@ -758,7 +758,7 @@ describe('tool approval workflow', () => {
   })
 
   test('getPendingApprovals returns empty array initially', () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'openai/gpt-5.2',
       system: 'Test',
     })
@@ -767,7 +767,7 @@ describe('tool approval workflow', () => {
   })
 
   test('approve throws for non-existent approval', async () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'openai/gpt-5.2',
       system: 'Test',
     })
@@ -778,7 +778,7 @@ describe('tool approval workflow', () => {
   })
 
   test('deny throws for non-existent approval', () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'openai/gpt-5.2',
       system: 'Test',
     })
@@ -787,7 +787,7 @@ describe('tool approval workflow', () => {
   })
 
   test('getState includes pendingApprovals', () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'openai/gpt-5.2',
       system: 'Test',
     })
@@ -797,7 +797,7 @@ describe('tool approval workflow', () => {
   })
 
   test('clear resets pendingApprovals', () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'openai/gpt-5.2',
       system: 'Test',
     })
@@ -824,7 +824,7 @@ describe('tool approval workflow', () => {
       ],
     }
 
-    const session = new AgentSession(
+    const session = new AgentWorker(
       { model: 'openai/gpt-5.2', system: 'Test' },
       savedState
     )
@@ -834,7 +834,7 @@ describe('tool approval workflow', () => {
   })
 
   test('getTools returns tool info without execute', () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'openai/gpt-5.2',
       system: 'Test',
       tools: {
@@ -862,7 +862,7 @@ describe('tool approval workflow', () => {
   })
 
   test('setMockResponse sets static response for tool', () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'openai/gpt-5.2',
       system: 'Test',
       tools: {
@@ -881,7 +881,7 @@ describe('tool approval workflow', () => {
   })
 
   test('setMockResponse throws for non-existent tool', () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'openai/gpt-5.2',
       system: 'Test',
     })
@@ -925,7 +925,7 @@ describe('tool approval workflow', () => {
       ],
     }
 
-    const session = new AgentSession(
+    const session = new AgentWorker(
       { model: 'openai/gpt-5.2', system: 'Test' },
       savedState
     )
@@ -953,7 +953,7 @@ describe('tool approval workflow', () => {
       ],
     }
 
-    const session = new AgentSession(
+    const session = new AgentWorker(
       { model: 'openai/gpt-5.2', system: 'Test' },
       savedState
     )
@@ -981,7 +981,7 @@ describe('tool approval workflow', () => {
       ],
     }
 
-    const session = new AgentSession(
+    const session = new AgentWorker(
       { model: 'openai/gpt-5.2', system: 'Test' },
       savedState
     )
@@ -1009,7 +1009,7 @@ describe('tool approval workflow', () => {
       ],
     }
 
-    const session = new AgentSession(
+    const session = new AgentWorker(
       {
         model: 'openai/gpt-5.2',
         system: 'Test',
@@ -1050,7 +1050,7 @@ describe('tool approval workflow', () => {
       ],
     }
 
-    const session = new AgentSession(
+    const session = new AgentWorker(
       {
         model: 'openai/gpt-5.2',
         system: 'Test',
@@ -1091,7 +1091,7 @@ describe('tool approval workflow', () => {
       ],
     }
 
-    const session = new AgentSession(
+    const session = new AgentWorker(
       {
         model: 'openai/gpt-5.2',
         system: 'Test',
@@ -1127,7 +1127,7 @@ describe('tool approval workflow', () => {
       ],
     }
 
-    const session = new AgentSession(
+    const session = new AgentWorker(
       { model: 'openai/gpt-5.2', system: 'Test' },
       savedState
     )
@@ -1139,13 +1139,20 @@ describe('tool approval workflow', () => {
 })
 
 describe('Backend factory', () => {
-  test('createBackend creates SDK backend', async () => {
+  test('createBackend creates default backend', async () => {
     const { createBackend } = await import('../src/backends/index.ts')
 
-    const backend = createBackend({ type: 'sdk', model: 'openai/gpt-5.2' })
-    expect(backend.type).toBe('sdk')
+    const backend = createBackend({ type: 'default', model: 'openai/gpt-5.2' })
+    expect(backend.type).toBe('default')
     expect(backend.getInfo?.().name).toBe('Vercel AI SDK')
     expect(backend.getInfo?.().model).toBe('openai/gpt-5.2')
+  })
+
+  test('createBackend accepts deprecated "sdk" type', async () => {
+    const { createBackend } = await import('../src/backends/index.ts')
+
+    const backend = createBackend({ type: 'sdk' as any, model: 'openai/gpt-5.2' })
+    expect(backend.type).toBe('default')
   })
 
   test('createBackend creates Claude CLI backend', async () => {
@@ -1177,7 +1184,7 @@ describe('Backend factory', () => {
     const { createBackend } = await import('../src/backends/index.ts')
 
     expect(() =>
-      createBackend({ type: 'invalid' as 'sdk', model: 'test' })
+      createBackend({ type: 'invalid' as 'default', model: 'test' })
     ).toThrow('Unknown backend type: invalid')
   })
 
@@ -1185,11 +1192,11 @@ describe('Backend factory', () => {
     const { checkBackends } = await import('../src/backends/index.ts')
 
     const availability = await checkBackends()
-    expect(availability).toHaveProperty('sdk')
+    expect(availability).toHaveProperty('default')
     expect(availability).toHaveProperty('claude')
     expect(availability).toHaveProperty('codex')
     expect(availability).toHaveProperty('cursor')
-    expect(availability.sdk).toBe(true) // SDK is always available
+    expect(availability.default).toBe(true) // Default backend is always available
   })
 
   test('listBackends returns backend info array', async () => {
@@ -1197,7 +1204,7 @@ describe('Backend factory', () => {
 
     const backends = await listBackends()
     expect(backends).toHaveLength(4)
-    expect(backends.map((b) => b.type)).toEqual(['sdk', 'claude', 'codex', 'cursor'])
+    expect(backends.map((b) => b.type)).toEqual(['default', 'claude', 'codex', 'cursor'])
     expect(backends[0]!.name).toBe('Vercel AI SDK')
   })
 })
@@ -1258,7 +1265,7 @@ describe('getModelForBackend', () => {
     expect(getModelForBackend(undefined, 'cursor')).toBe(BACKEND_DEFAULT_MODELS.cursor)
     expect(getModelForBackend(undefined, 'claude')).toBe(BACKEND_DEFAULT_MODELS.claude)
     expect(getModelForBackend(undefined, 'codex')).toBe(BACKEND_DEFAULT_MODELS.codex)
-    expect(getModelForBackend(undefined, 'sdk')).toBe(BACKEND_DEFAULT_MODELS.sdk)
+    expect(getModelForBackend(undefined, 'default')).toBe(BACKEND_DEFAULT_MODELS.default)
   })
 
   test('translates model names for cursor backend', async () => {
@@ -1292,16 +1299,16 @@ describe('getModelForBackend', () => {
     expect(getModelForBackend('opus-4.5', 'claude')).toBe('opus')
   })
 
-  test('translates model names for sdk backend', async () => {
+  test('translates model names for default backend', async () => {
     const { getModelForBackend } = await import('../src/backends/types.ts')
 
     // Generic names -> full model ID
-    expect(getModelForBackend('sonnet', 'sdk')).toBe('claude-sonnet-4-5-20250514')
-    expect(getModelForBackend('opus', 'sdk')).toBe('claude-opus-4-20250514')
-    expect(getModelForBackend('haiku', 'sdk')).toBe('claude-haiku-3-5-20250514')
+    expect(getModelForBackend('sonnet', 'default')).toBe('claude-sonnet-4-5-20250514')
+    expect(getModelForBackend('opus', 'default')).toBe('claude-opus-4-20250514')
+    expect(getModelForBackend('haiku', 'default')).toBe('claude-haiku-3-5-20250514')
 
     // Short names -> full model ID
-    expect(getModelForBackend('claude-sonnet-4-5', 'sdk')).toBe('claude-sonnet-4-5-20250514')
+    expect(getModelForBackend('claude-sonnet-4-5', 'default')).toBe('claude-sonnet-4-5-20250514')
   })
 
   test('passes through unknown models unchanged', async () => {

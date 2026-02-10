@@ -1,5 +1,5 @@
 /**
- * AgentSession.send() Tests
+ * AgentWorker.send() Tests
  *
  * Tests the core user flow: create session → send message → get response.
  * This is the BIGGEST gap in current test coverage.
@@ -19,19 +19,19 @@ import type { Backend } from '../../src/backends/types.ts'
 // ==================== Backend Delegation Path ====================
 // When session has a backend, send() delegates to backend.send()
 
-describe('AgentSession.send() via backend', () => {
+describe('AgentWorker.send() via backend', () => {
   // Lazy import to allow mock.module to take effect
-  let AgentSession: typeof import('../../src/agent/session.ts').AgentSession
+  let AgentWorker: typeof import('../../src/agent/worker.ts').AgentWorker
 
   beforeEach(async () => {
-    const mod = await import('../../src/agent/session.ts')
-    AgentSession = mod.AgentSession
+    const mod = await import('../../src/agent/worker.ts')
+    AgentWorker = mod.AgentWorker
   })
 
   test('basic send: message forwarded to backend, response returned', async () => {
     const backend = recordingBackend({ content: 'Hello from backend!' })
 
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'test/model',
       system: 'You are helpful.',
       backend,
@@ -61,7 +61,7 @@ describe('AgentSession.send() via backend', () => {
       },
     }
 
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'test/model',
       system: 'Test',
       backend,
@@ -96,7 +96,7 @@ describe('AgentSession.send() via backend', () => {
       },
     }
 
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'test/model',
       system: 'Test',
       backend,
@@ -129,7 +129,7 @@ describe('AgentSession.send() via backend', () => {
       },
     }
 
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'test/model',
       system: 'Test',
       backend,
@@ -149,7 +149,7 @@ describe('AgentSession.send() via backend', () => {
       },
     }
 
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'test/model',
       system: 'Test',
       backend,
@@ -171,7 +171,7 @@ describe('AgentSession.send() via backend', () => {
       },
     }
 
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'test/model',
       system: 'Test',
       backend,
@@ -191,7 +191,7 @@ describe('AgentSession.send() via backend', () => {
       },
     }
 
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'test/model',
       system: 'Test',
       backend,
@@ -215,12 +215,12 @@ describe('AgentSession.send() via backend', () => {
 
 // ==================== Session State Management ====================
 
-describe('AgentSession state management', () => {
-  let AgentSession: typeof import('../../src/agent/session.ts').AgentSession
+describe('AgentWorker state management', () => {
+  let AgentWorker: typeof import('../../src/agent/worker.ts').AgentWorker
 
   beforeEach(async () => {
-    const mod = await import('../../src/agent/session.ts')
-    AgentSession = mod.AgentSession
+    const mod = await import('../../src/agent/worker.ts')
+    AgentWorker = mod.AgentWorker
   })
 
   test('clear resets all state', async () => {
@@ -231,7 +231,7 @@ describe('AgentSession state management', () => {
       },
     }
 
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'test/model',
       system: 'Test',
       backend,
@@ -257,7 +257,7 @@ describe('AgentSession state management', () => {
       },
     }
 
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'test/model',
       system: 'You are helpful.',
       backend,
@@ -281,7 +281,7 @@ describe('AgentSession state management', () => {
       },
     }
 
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'test/model',
       system: 'Test',
       backend,
@@ -294,7 +294,7 @@ describe('AgentSession state management', () => {
     expect(state.messages).toHaveLength(2)
 
     // Restore from state
-    const restored = new AgentSession(
+    const restored = new AgentWorker(
       { model: 'test/model', system: 'Test', backend },
       state,
     )
@@ -314,7 +314,7 @@ describe('AgentSession state management', () => {
       },
     }
 
-    const session1 = new AgentSession({
+    const session1 = new AgentWorker({
       model: 'test/model',
       system: 'Test',
       backend,
@@ -324,7 +324,7 @@ describe('AgentSession state management', () => {
     const state = session1.getState()
 
     // Restore and continue
-    const session2 = new AgentSession(
+    const session2 = new AgentWorker(
       { model: 'test/model', system: 'Test', backend },
       state,
     )
@@ -341,7 +341,7 @@ describe('AgentSession state management', () => {
 // ==================== SDK Path (with module mocking) ====================
 // When no backend, session uses ToolLoopAgent with createModelAsync
 
-describe('AgentSession.send() via SDK (mock model)', () => {
+describe('AgentWorker.send() via SDK (mock model)', () => {
   // Mock createModelAsync to return our mock model
   let mockModel: MockLanguageModelV3
 
@@ -361,9 +361,9 @@ describe('AgentSession.send() via SDK (mock model)', () => {
     }))
 
     // Fresh import after mocking
-    const { AgentSession } = await import('../../src/agent/session.ts')
+    const { AgentWorker } = await import('../../src/agent/worker.ts')
 
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'anthropic/mock-model',
       system: 'You are helpful.',
     })
@@ -397,7 +397,7 @@ describe('AgentSession.send() via SDK (mock model)', () => {
       getDefaultModel: () => 'anthropic/mock-model',
     }))
 
-    const { AgentSession } = await import('../../src/agent/session.ts')
+    const { AgentWorker } = await import('../../src/agent/worker.ts')
 
     const weatherTool = tool<
       { location: string },
@@ -415,7 +415,7 @@ describe('AgentSession.send() via SDK (mock model)', () => {
       }),
     })
 
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'anthropic/mock-model',
       system: 'Test',
       tools: { get_weather: weatherTool },
@@ -440,9 +440,9 @@ describe('AgentSession.send() via SDK (mock model)', () => {
       getDefaultModel: () => 'anthropic/mock-model',
     }))
 
-    const { AgentSession } = await import('../../src/agent/session.ts')
+    const { AgentWorker } = await import('../../src/agent/worker.ts')
 
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'anthropic/mock-model',
       system: 'Test',
     })
@@ -469,9 +469,9 @@ describe('AgentSession.send() via SDK (mock model)', () => {
       getDefaultModel: () => 'anthropic/mock-model',
     }))
 
-    const { AgentSession } = await import('../../src/agent/session.ts')
+    const { AgentWorker } = await import('../../src/agent/worker.ts')
 
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'anthropic/mock-model',
       system: 'Test',
     })
@@ -503,7 +503,7 @@ describe('AgentSession.send() via SDK (mock model)', () => {
       getDefaultModel: () => 'anthropic/mock-model',
     }))
 
-    const { AgentSession } = await import('../../src/agent/session.ts')
+    const { AgentWorker } = await import('../../src/agent/worker.ts')
 
     const calcTool = tool<{ expression: string }, { result: number }>({
       description: 'Calculate expression',
@@ -515,7 +515,7 @@ describe('AgentSession.send() via SDK (mock model)', () => {
       execute: async (_args: { expression: string }) => ({ result: 4 }),
     })
 
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'anthropic/mock-model',
       system: 'Test',
     })
@@ -536,16 +536,16 @@ describe('AgentSession.send() via SDK (mock model)', () => {
 
 // ==================== Approval Workflow ====================
 
-describe('AgentSession approval workflow', () => {
-  let AgentSession: typeof import('../../src/agent/session.ts').AgentSession
+describe('AgentWorker approval workflow', () => {
+  let AgentWorker: typeof import('../../src/agent/worker.ts').AgentWorker
 
   beforeEach(async () => {
-    const mod = await import('../../src/agent/session.ts')
-    AgentSession = mod.AgentSession
+    const mod = await import('../../src/agent/worker.ts')
+    AgentWorker = mod.AgentWorker
   })
 
   test('setApproval configures tool approval', () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'test/model',
       system: 'Test',
     })
@@ -568,7 +568,7 @@ describe('AgentSession approval workflow', () => {
   })
 
   test('approve executes the tool', async () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'test/model',
       system: 'Test',
     })
@@ -606,7 +606,7 @@ describe('AgentSession approval workflow', () => {
   })
 
   test('deny marks approval as denied', () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'test/model',
       system: 'Test',
     })
@@ -645,7 +645,7 @@ describe('AgentSession approval workflow', () => {
   })
 
   test('approve non-existent approval throws', async () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'test/model',
       system: 'Test',
     })
@@ -654,7 +654,7 @@ describe('AgentSession approval workflow', () => {
   })
 
   test('deny non-existent approval throws', () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'test/model',
       system: 'Test',
     })
@@ -663,7 +663,7 @@ describe('AgentSession approval workflow', () => {
   })
 
   test('cannot approve already approved', async () => {
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'test/model',
       system: 'Test',
     })

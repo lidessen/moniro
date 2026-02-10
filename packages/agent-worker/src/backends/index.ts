@@ -21,14 +21,14 @@ export {
 } from "./stream-json.ts";
 
 import type { Backend, BackendType } from "./types.ts";
-import { getModelForBackend } from "./types.ts";
+import { getModelForBackend, normalizeBackendType } from "./model-maps.ts";
 import { ClaudeCodeBackend, type ClaudeCodeOptions } from "./claude-code.ts";
 import { CodexBackend, type CodexOptions } from "./codex.ts";
 import { CursorBackend, type CursorOptions } from "./cursor.ts";
 import { SdkBackend } from "./sdk.ts";
 
 export type BackendOptions =
-  | { type: "sdk"; model?: string; maxTokens?: number }
+  | { type: "default"; model?: string; maxTokens?: number }
   | { type: "claude"; model?: string; options?: Omit<ClaudeCodeOptions, "model"> }
   | { type: "codex"; model?: string; options?: Omit<CodexOptions, "model"> }
   | { type: "cursor"; model?: string; options?: Omit<CursorOptions, "model"> };
@@ -36,26 +36,29 @@ export type BackendOptions =
 /**
  * Create a backend instance
  * Model names are automatically translated to backend-specific format
+ * Accepts "sdk" as deprecated alias for "default"
  *
  * Examples:
- * - "sonnet" → cursor: "sonnet-4.5", claude: "sonnet", sdk: "claude-sonnet-4-5-20250514"
+ * - "sonnet" → cursor: "sonnet-4.5", claude: "sonnet", default: "claude-sonnet-4-5-20250514"
  * - "anthropic/claude-sonnet-4-5" → cursor: "sonnet-4.5", claude: "sonnet"
  */
-export function createBackend(config: BackendOptions): Backend {
+export function createBackend(config: BackendOptions | { type: "sdk"; model?: string; maxTokens?: number }): Backend {
+  // Normalize "sdk" → "default" for backward compatibility
+  const normalized = { ...config, type: normalizeBackendType(config.type) } as BackendOptions;
   // Translate model to backend-specific format
-  const model = getModelForBackend(config.model, config.type);
+  const model = getModelForBackend(normalized.model, normalized.type);
 
-  switch (config.type) {
-    case "sdk":
-      return new SdkBackend({ model, maxTokens: config.maxTokens });
+  switch (normalized.type) {
+    case "default":
+      return new SdkBackend({ model, maxTokens: (normalized as { maxTokens?: number }).maxTokens });
     case "claude":
-      return new ClaudeCodeBackend({ ...config.options, model });
+      return new ClaudeCodeBackend({ ...(normalized as { options?: Record<string, unknown> }).options, model });
     case "codex":
-      return new CodexBackend({ ...config.options, model });
+      return new CodexBackend({ ...(normalized as { options?: Record<string, unknown> }).options, model });
     case "cursor":
-      return new CursorBackend({ ...config.options, model });
+      return new CursorBackend({ ...(normalized as { options?: Record<string, unknown> }).options, model });
     default:
-      throw new Error(`Unknown backend type: ${(config as { type: string }).type}`);
+      throw new Error(`Unknown backend type: ${(normalized as { type: string }).type}`);
   }
 }
 
@@ -83,7 +86,7 @@ export async function checkBackends(): Promise<Record<BackendType, boolean>> {
   ]);
 
   return {
-    sdk: true, // Always available (depends on API keys at runtime)
+    default: true, // Always available (depends on API keys at runtime)
     claude: claudeAvailable,
     codex: codexAvailable,
     cursor: cursorAvailable,
@@ -100,7 +103,7 @@ export async function listBackends(): Promise<
   const availability = await checkBackends();
 
   return [
-    { type: "sdk", available: availability.sdk, name: "Vercel AI SDK" },
+    { type: "default", available: availability.default, name: "Vercel AI SDK" },
     { type: "claude", available: availability.claude, name: "Claude Code CLI" },
     { type: "codex", available: availability.codex, name: "OpenAI Codex CLI" },
     { type: "cursor", available: availability.cursor, name: "Cursor Agent CLI" },

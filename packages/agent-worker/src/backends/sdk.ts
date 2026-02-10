@@ -16,7 +16,7 @@ export interface SdkBackendOptions {
 }
 
 export class SdkBackend implements Backend {
-  readonly type = "sdk" as const;
+  readonly type = "default" as const;
   private modelId: string;
   private model: LanguageModel | null = null;
   private maxTokens: number;

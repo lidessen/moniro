@@ -315,15 +315,15 @@ function validateAgent(name: string, agent: unknown, errors: ValidationError[]):
   }
 
   const a = agent as Record<string, unknown>;
-  const backend = typeof a.backend === "string" ? a.backend : "sdk";
+  const backend = typeof a.backend === "string" ? a.backend : "default";
 
-  // model is required for SDK backend, optional for CLI backends (they have defaults)
+  // model is required for default backend, optional for CLI backends (they have defaults)
   if (a.model !== undefined && typeof a.model !== "string") {
     errors.push({ path: `${path}.model`, message: 'Field "model" must be a string' });
   } else if (!a.model && !CLI_BACKENDS.includes(backend)) {
     errors.push({
       path: `${path}.model`,
-      message: 'Required field "model" must be a string (required for sdk backend)',
+      message: 'Required field "model" must be a string (required for default backend)',
     });
   }
 

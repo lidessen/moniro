@@ -391,9 +391,9 @@ kickoff: |
 For programmatic control (TypeScript/JavaScript):
 
 ```typescript
-import { AgentSession } from 'agent-worker'
+import { AgentWorker } from 'agent-worker'
 
-const session = new AgentSession({
+const session = new AgentWorker({
   model: 'anthropic/claude-sonnet-4-5',
   system: 'You are a helpful assistant.',
   tools: [/* your tools */]
@@ -418,12 +418,12 @@ const state = session.getState()
 ### With Skills
 
 ```typescript
-import { AgentSession, SkillsProvider, createSkillsTool } from 'agent-worker'
+import { AgentWorker, SkillsProvider, createSkillsTool } from 'agent-worker'
 
 const skillsProvider = new SkillsProvider()
 await skillsProvider.scanDirectory('.agents/skills')
 
-const session = new AgentSession({
+const session = new AgentWorker({
   model: 'anthropic/claude-sonnet-4-5',
   system: 'You are a helpful assistant.',
   tools: [createSkillsTool(skillsProvider)]

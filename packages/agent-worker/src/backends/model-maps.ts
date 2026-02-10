@@ -8,14 +8,20 @@
 // ==================== Backend Type ====================
 
 /** Backend type (union of all supported backends) */
-export type BackendType = "sdk" | "claude" | "cursor" | "codex" | "mock";
+export type BackendType = "default" | "claude" | "cursor" | "codex" | "mock";
+
+/** Normalize backend type, mapping deprecated "sdk" to "default" */
+export function normalizeBackendType(type: string): BackendType {
+  if (type === "sdk") return "default";
+  return type as BackendType;
+}
 
 // ==================== Model Configuration ====================
 
 /** Default model per backend */
 export const BACKEND_DEFAULT_MODELS: Record<BackendType, string> = {
   mock: "mock-model",
-  sdk: "claude-sonnet-4-5",
+  default: "claude-sonnet-4-5",
   claude: "sonnet",
   cursor: "sonnet-4.5",
   codex: "gpt-5.2-codex",
@@ -106,8 +112,8 @@ export function getModelForBackend(model: string | undefined, backend: BackendTy
   const normalizedModel = model.includes("/") ? model.split("/").pop()! : model;
 
   switch (backend) {
-    case "sdk":
-      // For SDK, try alias first, otherwise preserve original model string
+    case "default":
+      // For default backend, try alias first, otherwise preserve original model string
       return SDK_MODEL_ALIASES[normalizedModel] || model;
 
     case "cursor":

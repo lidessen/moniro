@@ -15,7 +15,7 @@ import { createMockBackend } from "@/backends/mock.ts";
  * from backends/index.ts. Mock backend is handled specially (no model needed).
  */
 export function getBackendByType(
-  backendType: "sdk" | "claude" | "cursor" | "codex" | "mock",
+  backendType: "default" | "claude" | "cursor" | "codex" | "mock",
   options?: {
     model?: string;
     debugLog?: (msg: string) => void;
@@ -59,7 +59,7 @@ export function getBackendForModel(
 
   switch (provider) {
     case "anthropic":
-      return getBackendByType("sdk", { ...options, model });
+      return getBackendByType("default", { ...options, model });
 
     case "claude":
       return getBackendByType("claude", { ...options, model });

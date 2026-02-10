@@ -44,11 +44,11 @@ describe('parser: mock backend validation', () => {
     expect(result.valid).toBe(true)
   })
 
-  test('rejects sdk backend without model field', () => {
+  test('rejects default backend without model field', () => {
     const result = validateWorkflow({
       agents: {
         alice: {
-          backend: 'sdk',
+          backend: 'default',
           system_prompt: 'You are Alice.',
         },
       },
