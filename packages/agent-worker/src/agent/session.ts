@@ -112,7 +112,7 @@ export class AgentSession {
     this.tools = config.tools ? { ...config.tools } : {};
     this.approval = config.approval ? { ...config.approval } : {};
     this.maxTokens = config.maxTokens ?? 4096;
-    this.maxSteps = config.maxSteps ?? 10;
+    this.maxSteps = config.maxSteps ?? 0; // 0 = no limit
     this.backend = config.backend ?? null;
   }
 
@@ -179,7 +179,7 @@ export class AgentSession {
         instructions: this.system,
         tools: this.buildTools(autoApprove),
         maxOutputTokens: this.maxTokens,
-        stopWhen: stepCountIs(this.maxSteps),
+        ...(this.maxSteps > 0 ? { stopWhen: stepCountIs(this.maxSteps) } : {}),
       });
       if (autoApprove) {
         this.toolsChanged = false;

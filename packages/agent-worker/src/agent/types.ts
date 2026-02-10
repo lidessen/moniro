@@ -98,7 +98,7 @@ export interface SessionConfig {
   approval?: Record<string, ApprovalCheck>;
   /** Maximum tokens for response (default: 4096) */
   maxTokens?: number;
-  /** Maximum tool call steps per turn (default: 10) */
+  /** Maximum tool call steps per turn (default: no limit) */
   maxSteps?: number;
 }
 

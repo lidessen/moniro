@@ -147,7 +147,7 @@ export async function runSdkAgent(
       system: ctx.agent.resolvedSystemPrompt,
       prompt,
       maxOutputTokens: ctx.agent.max_tokens ?? 8192,
-      stopWhen: stepCountIs(ctx.agent.max_steps ?? 30),
+      ...(ctx.agent.max_steps ? { stopWhen: stepCountIs(ctx.agent.max_steps) } : {}),
       onStepFinish: (step) => {
         _stepNum++;
         if (step.toolCalls?.length) {
