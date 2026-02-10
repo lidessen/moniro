@@ -48,7 +48,7 @@ export class ClaudeCodeBackend implements Backend {
 
   constructor(options: ClaudeCodeOptions = {}) {
     this.options = {
-      timeout: 300000, // 5 minute default
+      timeout: 600000, // 10 minute default
       ...options,
     };
   }
@@ -77,7 +77,7 @@ export class ClaudeCodeBackend implements Backend {
     const cwd = this.options.workspace || this.options.cwd;
     const debugLog = this.options.debugLog;
     const outputFormat = this.options.outputFormat ?? "stream-json";
-    const timeout = this.options.timeout ?? 300000;
+    const timeout = this.options.timeout ?? 600000;
 
     try {
       const { promise, abort } = execWithIdleTimeoutAbortable({
