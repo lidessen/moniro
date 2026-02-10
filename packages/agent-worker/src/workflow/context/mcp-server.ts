@@ -5,7 +5,7 @@
  * Tool Taxonomy:
  * - Channel:  channel_send, channel_read (public append-only log)
  * - Team:     team_members, team_doc_*, team_proposal_*, team_vote (shared workspace)
- * - My:       my_inbox, my_inbox_ack (personal agent tools)
+ * - My:       my_inbox, my_inbox_ack, my_status_set (personal agent tools)
  * - Resource: resource_create, resource_read (general-purpose reference mechanism)
  * - Feedback: feedback_submit (agent observations about tools/workflows, opt-in)
  */
@@ -79,7 +79,7 @@ function formatInbox(messages: InboxMessage[]): string {
  * - Team:     team_members, team_doc_read, team_doc_write, team_doc_append,
  *             team_doc_list, team_doc_create, team_proposal_create, team_vote,
  *             team_proposal_status, team_proposal_cancel
- * - My:       my_inbox, my_inbox_ack
+ * - My:       my_inbox, my_inbox_ack, my_status_set
  * - Resource: resource_create, resource_read
  */
 export function createContextMCPServer(options: ContextMCPServerOptions) {
@@ -324,14 +324,57 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
     },
   );
 
+  server.tool(
+    "my_status_set",
+    "Update your status and current task. Call when starting or completing work.",
+    {
+      task: z.string().optional().describe("Current task description (what you're working on)"),
+      state: z
+        .enum(["idle", "running"])
+        .optional()
+        .describe("Agent state (running = working, idle = available)"),
+      metadata: z
+        .record(z.unknown())
+        .optional()
+        .describe("Additional metadata (e.g., PR number, file path)"),
+    },
+    async (args, extra) => {
+      const agent = getAgentId(extra) || "anonymous";
+      logTool("my_status_set", agent, args);
+
+      const status: Partial<import("./types.ts").AgentStatus> = {};
+      if (args.task !== undefined) status.task = args.task;
+      if (args.state !== undefined) status.state = args.state;
+      if (args.metadata !== undefined) status.metadata = args.metadata;
+
+      await provider.setAgentStatus(agent, status);
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({
+              status: "updated",
+              agent,
+              ...status,
+            }),
+          },
+        ],
+      };
+    },
+  );
+
   // ==================== Team Tools ====================
 
   server.tool(
     "team_members",
-    "List all agents in this workflow. Use to discover who you can @mention.",
-    {},
-    async (_args, extra) => {
+    "List all agents in this workflow. Use to discover who you can @mention. Optionally includes agent status (state, current task).",
+    {
+      includeStatus: z.boolean().optional().describe("Include agent status information"),
+    },
+    async (args, extra) => {
       const currentAgent = getAgentId(extra) || "anonymous";
+      const includeStatus = args.includeStatus ?? false;
 
       const agents = validAgents.map((name) => ({
         name,
@@ -339,15 +382,27 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
         isYou: name === currentAgent,
       }));
 
+      const result: {
+        agents: typeof agents;
+        count: number;
+        status?: Record<string, unknown>;
+        hint: string;
+      } = {
+        agents,
+        count: agents.length,
+        hint: "Use @agent in channel_send to mention other agents",
+      };
+
+      if (includeStatus) {
+        const statuses = await provider.listAgentStatus();
+        result.status = statuses;
+      }
+
       return {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify({
-              agents,
-              count: agents.length,
-              hint: "Use @agent in channel_send to mention other agents",
-            }),
+            text: JSON.stringify(result),
           },
         ],
       };

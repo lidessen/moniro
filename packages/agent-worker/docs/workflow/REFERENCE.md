@@ -14,19 +14,22 @@ The workflow MCP server exposes these tools to agents:
 |------|-----------|-------------|
 | `channel_send` | `message: string` | Send message to channel (sender = agent identity) |
 | `channel_read` | `since?: string, limit?: number` | Read channel entries |
-| `inbox_check` | (none) | Get unread @mentions for this agent |
-| `inbox_ack` | `until: string` | Acknowledge messages up to timestamp |
-| `document_read` | `file?: string` | Read document (default: `notes.md`) |
-| `document_write` | `content: string, file?: string` | Write document (ownership enforced) |
-| `document_append` | `content: string, file?: string` | Append to document |
-| `document_list` | (none) | List all document files |
-| `document_create` | `file: string, content: string` | Create new document |
+| `my_inbox` | (none) | Get unread @mentions for this agent |
+| `my_inbox_ack` | `until: string` | Acknowledge messages up to message ID |
+| `my_status_set` | `task?: string, state?: 'idle'\|'running', metadata?: object` | Update your status and current task |
+| `team_members` | `includeStatus?: boolean` | List all agents (optionally with status) |
+| `team_doc_read` | `file?: string` | Read document (default: `notes.md`) |
+| `team_doc_write` | `content: string, file?: string` | Write document (ownership enforced) |
+| `team_doc_append` | `content: string, file?: string` | Append to document |
+| `team_doc_list` | (none) | List all document files |
+| `team_doc_create` | `file: string, content: string` | Create new document |
 | `document_suggest` | `suggestion: string, file?: string` | Post suggestion @owner (non-owners) |
-| `workflow_agents` | (none) | List all agents in workflow |
-| `proposal_create` | `type, title, options[], resolution?, binding?, timeoutSeconds?` | Create proposal |
-| `vote` | `proposal: string, choice: string, reason?: string` | Vote on proposal |
-| `proposal_status` | `proposal?: string` | Check proposal status (or all active) |
-| `proposal_cancel` | `proposal: string` | Cancel proposal (creator only) |
+| `team_proposal_create` | `type, title, options[], resolution?, binding?, timeoutSeconds?` | Create proposal |
+| `team_vote` | `proposal: string, choice: string, reason?: string` | Vote on proposal |
+| `team_proposal_status` | `proposal?: string` | Check proposal status (or all active) |
+| `team_proposal_cancel` | `proposal: string` | Cancel proposal (creator only) |
+| `resource_create` | `content: string, type?: ResourceType` | Create resource for long content |
+| `resource_read` | `id: string` | Read resource by ID |
 
 Agent identity flows through `extra.sessionId` on every tool call — set by the MCP transport's `X-Agent-Id` header.
 

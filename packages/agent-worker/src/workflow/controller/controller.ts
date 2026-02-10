@@ -93,6 +93,8 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
       const inbox = await contextProvider.getInbox(name);
       if (inbox.length === 0) {
         state = "idle";
+        // Update status to idle
+        await contextProvider.setAgentStatus(name, { state: "idle" });
         continue;
       }
 
@@ -120,6 +122,9 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
       while (attempt < retryConfig.maxAttempts && shouldContinue(state)) {
         attempt++;
         state = "running";
+
+        // Update status to running
+        await contextProvider.setAgentStatus(name, { state: "running" });
 
         infoLog(`Running (attempt ${attempt}/${retryConfig.maxAttempts})`);
 
@@ -157,6 +162,10 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
 
           // Acknowledge inbox on success
           await contextProvider.ackInbox(name, latestId);
+
+          // Update status to idle after successful completion
+          await contextProvider.setAgentStatus(name, { state: "idle" });
+
           break;
         }
 
@@ -183,6 +192,8 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
       }
 
       state = "idle";
+      // Update status after completing work
+      await contextProvider.setAgentStatus(name, { state: "idle" });
     }
   }
 
@@ -201,18 +212,27 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
       }
 
       state = "idle";
+      // Update status when starting
+      await contextProvider.setAgentStatus(name, { state: "idle" });
       infoLog(`Starting`);
 
       // Start loop (don't await - runs in background)
       runLoop().catch((error) => {
         errorLog(`ERROR ${error instanceof Error ? error.message : String(error)}`);
         state = "stopped";
+        // Update status on error
+        contextProvider.setAgentStatus(name, { state: "stopped" }).catch(() => {
+          // Ignore errors during error handling
+        });
       });
     },
 
     async stop() {
       log(`Stopping`);
       state = "stopped";
+
+      // Update status when stopping
+      await contextProvider.setAgentStatus(name, { state: "stopped" });
 
       // Abort any running backend operations
       if (backend.abort) {

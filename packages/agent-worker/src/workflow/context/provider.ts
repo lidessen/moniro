@@ -79,6 +79,14 @@ export interface ContextProvider {
   createResource(content: string, createdBy: string, type?: ResourceType): Promise<ResourceResult>;
   readResource(id: string): Promise<string | null>;
 
+  // Agent Status
+  /** Set agent status (updates state, task, metadata) */
+  setAgentStatus(agent: string, status: Partial<import("./types.ts").AgentStatus>): Promise<void>;
+  /** Get status for a specific agent */
+  getAgentStatus(agent: string): Promise<import("./types.ts").AgentStatus | null>;
+  /** List all agent statuses */
+  listAgentStatus(): Promise<Record<string, import("./types.ts").AgentStatus>>;
+
   // Lifecycle
   /** Record current channel position as run epoch. Inbox will ignore messages before this point. */
   markRunStart(): Promise<void>;
@@ -92,6 +100,7 @@ export interface ContextProvider {
 const KEYS = {
   channel: "channel.jsonl",
   inboxState: "_state/inbox.json",
+  agentStatus: "_state/agent-status.json",
   documentPrefix: "documents/",
   resourcePrefix: "resources/",
 } as const;
@@ -368,6 +377,63 @@ export class ContextProviderImpl implements ContextProvider {
       if (content !== null) return content;
     }
     return null;
+  }
+
+  // ==================== Agent Status ====================
+
+  private async loadAgentStatus(): Promise<Record<string, import("./types.ts").AgentStatus>> {
+    const raw = await this.storage.read(KEYS.agentStatus);
+    if (!raw) return {};
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return {};
+    }
+  }
+
+  private async saveAgentStatus(
+    statuses: Record<string, import("./types.ts").AgentStatus>,
+  ): Promise<void> {
+    await this.storage.write(KEYS.agentStatus, JSON.stringify(statuses, null, 2));
+  }
+
+  async setAgentStatus(
+    agent: string,
+    status: Partial<import("./types.ts").AgentStatus>,
+  ): Promise<void> {
+    const statuses = await this.loadAgentStatus();
+    const existing = statuses[agent] || { state: "idle", lastUpdate: new Date().toISOString() };
+
+    // Merge updates
+    statuses[agent] = {
+      ...existing,
+      ...status,
+      lastUpdate: new Date().toISOString(),
+    };
+
+    // Set startedAt when transitioning to running state
+    if (status.state === "running" && existing.state !== "running") {
+      statuses[agent]!.startedAt = new Date().toISOString();
+    }
+
+    // Clear startedAt and task when transitioning to idle
+    if (status.state === "idle") {
+      statuses[agent]!.startedAt = undefined;
+      if (!status.task) {
+        statuses[agent]!.task = undefined;
+      }
+    }
+
+    await this.saveAgentStatus(statuses);
+  }
+
+  async getAgentStatus(agent: string): Promise<import("./types.ts").AgentStatus | null> {
+    const statuses = await this.loadAgentStatus();
+    return statuses[agent] || null;
+  }
+
+  async listAgentStatus(): Promise<Record<string, import("./types.ts").AgentStatus>> {
+    return this.loadAgentStatus();
   }
 
   // ==================== Lifecycle ====================

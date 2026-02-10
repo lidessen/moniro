@@ -113,6 +113,22 @@ export function shouldUseResource(content: string): boolean {
   return content.length > MESSAGE_LENGTH_THRESHOLD;
 }
 
+// ==================== Agent Status ====================
+
+/** Agent status information for coordination */
+export interface AgentStatus {
+  /** Agent state */
+  state: "idle" | "running" | "stopped";
+  /** Current task description (what the agent is working on) */
+  task?: string;
+  /** When the agent started the current task */
+  startedAt?: string;
+  /** Last status update timestamp */
+  lastUpdate: string;
+  /** Additional metadata (e.g., PR number, commit hash) */
+  metadata?: Record<string, unknown>;
+}
+
 /** Inbox message (unread @mention or DM) */
 export interface InboxMessage {
   /** The message */
