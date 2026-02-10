@@ -114,16 +114,8 @@ function processEntry(entry: Message, state: PrettyDisplayState, agentNames: str
     state.hasShownAgentsStarted = true;
   }
 
-  // Show each message as a step with agent prefix
-  const lines = content.split("\n").filter((line) => line.trim());
-  if (lines.length === 1) {
-    p.log.message(`${color(from)}: ${lines[0]}`);
-  } else {
-    p.log.step(color(from));
-    for (const line of lines) {
-      p.log.message(line);
-    }
-  }
+  // Show message in a note box
+  p.note(content, color(from));
 }
 
 // ==================== Pretty Display Watcher ====================
