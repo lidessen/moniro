@@ -74,10 +74,10 @@ There is no distinction between "single-agent mode" and "multi-agent mode" at th
 Workflow Manager
   └── Workflow (@global, @review:pr-123, ...)
         └── AgentController  (lifecycle: when to run, retry, inbox polling)
-              └── AgentSession   (execution: LLM conversation, tool loop, streaming)
+              └── AgentWorker   (execution: LLM conversation, tool loop, streaming)
 ```
 
-### AgentSession — The ToolLoop
+### AgentWorker — The ToolLoop
 
 The execution engine for a single agent. It owns:
 
@@ -88,20 +88,20 @@ The execution engine for a single agent. It owns:
 - `send(message)` → LLM reasoning → tool loop → response
 - `sendStream(message)` → same, with token-level streaming
 
-AgentSession does not know _why_ it is asked to send. It does not know about inboxes, channels, or workflows. It is a pure execution primitive.
+AgentWorker does not know _why_ it is asked to send. It does not know about inboxes, channels, or workflows. It is a pure execution primitive.
 
-(`src/agent/session.ts`)
+(`src/agent/worker.ts`)
 
 ### AgentController — Lifecycle Management
 
-The lifecycle manager for a single agent within a workflow. It decides when to run the AgentSession and what to do with the results:
+The lifecycle manager for a single agent within a workflow. It decides when to run the AgentWorker and what to do with the results:
 
 1. Poll inbox for @mentions → build prompt → `session.send()` → write response to channel → ack inbox
 2. On failure → retry with exponential backoff
 3. External `wake()` → check inbox immediately
 4. State machine: `stopped → idle → running → idle → ...`
 
-AgentController wraps AgentSession. The daemon does not do inbox polling or timer management directly — it delegates to controllers.
+AgentController wraps AgentWorker. The daemon does not do inbox polling or timer management directly — it delegates to controllers.
 
 (`src/workflow/controller/controller.ts`)
 
@@ -161,7 +161,7 @@ src/
 │       └── proposals.ts           # Proposal/voting system
 │
 ├── agent/                         # Execution engine
-│   ├── session.ts                 # AgentSession: LLM conversation + tool loop
+│   ├── worker.ts                 # AgentWorker: LLM conversation + tool loop
 │   ├── models.ts                  # Model creation, provider registry
 │   ├── types.ts                   # Core types
 │   ├── tools/                     # Built-in tool factories
@@ -210,7 +210,7 @@ cli/ ──── HTTP ────► daemon/
                        ├──► workflow/
                        │       │
                        │       ├──► workflow/controller/  (AgentController)
-                       │       │       └──► agent/        (AgentSession)
+                       │       │       └──► agent/        (AgentWorker)
                        │       │
                        │       └──► workflow/context/     (ContextProvider)
                        │
@@ -239,7 +239,7 @@ CLI and Web UI speak REST. AI tools (Claude Code, Cursor) speak MCP. Both need t
 
 Eliminates the split between "single-agent daemon" and "multi-agent workflow" code paths. `agent new` creates an agent under `@global` — it's just a 1-agent workflow with simplified CLI ergonomics. The runtime doesn't know or care.
 
-### Why AgentSession vs AgentController?
+### Why AgentWorker vs AgentController?
 
 Separation of concerns:
 - **Session** answers "how to talk to an LLM" — stateful conversation, tool loop, streaming
@@ -344,14 +344,14 @@ All other concepts emerge from the four primitives:
 |-----------|----------------------|
 | **Message** | `ChannelMessage` in `workflow/context/types.ts` |
 | **Proposal** | Implicit, hardcoded in controller (inbox polling), approval mechanism, workflow YAML |
-| **Agent** | `AgentSession` in `agent/session.ts` |
+| **Agent** | `AgentWorker` in `agent/worker.ts` |
 | **System** | `Daemon` in `daemon/daemon.ts` |
 
 Evolution direction: make implicit Proposals explicit (schema + function).
 
 ### Evolution Path
 
-**Phase 1 (current)**: System = daemon. Proposal hardcoded in controller. Agent = AgentSession. Single process, file storage.
+**Phase 1 (current)**: System = daemon. Proposal hardcoded in controller. Agent = AgentWorker. Single process, file storage.
 
 **Phase 2**: Define `Proposal<T>` interface. Refactor controller inbox polling, approval mechanism, and workflow YAML parser into explicit Proposals.
 

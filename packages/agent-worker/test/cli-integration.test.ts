@@ -239,7 +239,7 @@ describe('CLI Integration', () => {
     test('lists available backends', async () => {
       const result = await runCli(['backends'], { timeout: 15000 })
       expect(result.exitCode).toBe(0)
-      expect(result.stdout).toContain('sdk')
+      expect(result.stdout).toContain('default')
     }, 20000) // Longer timeout: checkBackends spawns processes for each CLI backend
   })
 

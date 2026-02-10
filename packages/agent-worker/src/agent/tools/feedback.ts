@@ -9,7 +9,7 @@
  * ```typescript
  * const { tool, getFeedback } = createFeedbackTool();
  *
- * const session = new AgentSession({
+ * const session = new AgentWorker({
  *   model: 'anthropic/claude-sonnet-4-5',
  *   system: FEEDBACK_PROMPT + '\nYou are a coding assistant.',
  *   tools: { feedback: tool, bash: bashTool },
@@ -45,7 +45,7 @@ export interface FeedbackToolOptions {
 }
 
 export interface FeedbackToolResult {
-  /** AI SDK tool() object — pass to AgentSession as a tool */
+  /** AI SDK tool() object — pass to AgentWorker as a tool */
   tool: unknown;
   /** Retrieve all collected feedback entries */
   getFeedback(): FeedbackEntry[];

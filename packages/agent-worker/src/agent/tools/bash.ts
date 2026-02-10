@@ -11,7 +11,7 @@ export type { CreateBashToolOptions, BashToolkit };
 export { createBashTool };
 
 /**
- * Options for creating bash tools compatible with AgentSession
+ * Options for creating bash tools compatible with AgentWorker
  */
 export interface BashToolsOptions extends CreateBashToolOptions {
   /**
@@ -25,7 +25,7 @@ export interface BashToolsOptions extends CreateBashToolOptions {
 }
 
 /**
- * Create bash tools as AI SDK tool() objects for use with AgentSession
+ * Create bash tools as AI SDK tool() objects for use with AgentWorker
  *
  * @example
  * ```typescript
@@ -33,7 +33,7 @@ export interface BashToolsOptions extends CreateBashToolOptions {
  *   files: { 'src/index.ts': 'console.log("hello")' }
  * })
  *
- * const session = new AgentSession({
+ * const session = new AgentWorker({
  *   model: 'anthropic/claude-sonnet-4-5',
  *   system: 'You are a coding assistant.',
  *   tools

@@ -451,8 +451,8 @@ describe('Skills integration', () => {
     } catch {}
   })
 
-  test('works with AgentSession', async () => {
-    const { AgentSession } = await import('../src/agent/session.ts')
+  test('works with AgentWorker', async () => {
+    const { AgentWorker } = await import('../src/agent/worker.ts')
 
     const skillDir = join(testDir, 'session-skill')
     mkdirSync(skillDir)
@@ -469,7 +469,7 @@ description: Skill for session testing
     const provider = new SkillsProvider()
     await provider.addSkill(skillDir)
 
-    const session = new AgentSession({
+    const session = new AgentWorker({
       model: 'openai/gpt-5.2',
       system: 'You are a helpful assistant.',
       tools: { Skills: createSkillsTool(provider) as any },

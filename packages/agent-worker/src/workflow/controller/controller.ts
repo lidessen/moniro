@@ -294,8 +294,8 @@ async function runAgent(
     return runMockAgent(ctx, (msg) => log(msg));
   }
 
-  // SDK backend: real model with MCP tools + bash
-  if (backend.type === "sdk") {
+  // Default backend: real model with MCP tools + bash
+  if (backend.type === "default") {
     return runSdkAgent(ctx, (msg) => log(msg));
   }
 

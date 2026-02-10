@@ -108,7 +108,7 @@ function createBashTool() {
 /**
  * Run an SDK agent with real model + MCP tools + bash.
  *
- * Used by the controller when backend.type === 'sdk'.
+ * Used by the controller when backend.type === 'default'.
  * Unlike the simple SdkBackend.send() (text-only), this runner:
  * 1. Connects to MCP server for context tools (channel, document)
  * 2. Adds bash tool for shell access

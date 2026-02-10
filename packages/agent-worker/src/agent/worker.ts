@@ -15,11 +15,11 @@ import type {
 import type { Backend } from "../backends/types.ts";
 
 /**
- * Extended session config that supports both SDK and CLI backends.
+ * Extended worker config that supports both SDK and CLI backends.
  * When a backend is provided, send() delegates to it instead of ToolLoopAgent.
- * This enables unified session management regardless of backend type.
+ * This enables unified worker management regardless of backend type.
  */
-export interface AgentSessionConfig extends SessionConfig {
+export interface AgentWorkerConfig extends SessionConfig {
   /** CLI backend - when provided, send() delegates to this backend */
   backend?: Backend;
 }
@@ -44,7 +44,7 @@ export interface SendOptions {
 }
 
 /**
- * AgentSession - Stateful session for controlled agent testing
+ * AgentWorker - Stateful worker for controlled agent execution
  *
  * Uses ToolLoopAgent internally for multi-step reasoning loops.
  * Maintains conversation state across multiple send() calls,
@@ -54,7 +54,7 @@ export interface SendOptions {
  * Tools are AI SDK tool() objects passed as Record<name, tool()>.
  * Approval is configured separately via Record<name, check>.
  */
-export class AgentSession {
+export class AgentWorker {
   readonly id: string;
   readonly model: string;
   readonly system: string;
@@ -94,7 +94,7 @@ export class AgentSession {
       .map((m) => ({ role: m.role, content: m.content })) as ModelMessage[];
   }
 
-  constructor(config: AgentSessionConfig, restore?: SessionState) {
+  constructor(config: AgentWorkerConfig, restore?: SessionState) {
     // Restore from saved state or create new
     if (restore) {
       this.id = restore.id;

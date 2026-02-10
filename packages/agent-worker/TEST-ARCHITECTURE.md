@@ -6,8 +6,8 @@
 
 | Module | Unit | Integration | E2E | Notes |
 |--------|------|-------------|-----|-------|
-| **AgentSession** | Partial | None | None | Config/state tested; `send()` never called through session |
-| **AgentSession.sendStream()** | None | None | None | Completely untested |
+| **AgentWorker** | Partial | None | None | Config/state tested; `send()` never called through session |
+| **AgentWorker.sendStream()** | None | None | None | Completely untested |
 | **Backends (SDK/Claude/Codex/Cursor)** | Factory only | Mock CLI | CLI integration | `send()` never tested with mock models |
 | **Backend model mapping** | Good | - | - | `getModelForBackend()` well covered |
 | **Daemon handler** | None | None | CLI integration | Request dispatch never unit tested |
@@ -28,9 +28,9 @@
 
 ### Key Gaps
 
-1. **AgentSession.send() is never tested through the session** — tests use `generateText()` directly or just test session config. The core user-facing flow (create session → send message → get response with tool calls) is untested.
+1. **AgentWorker.send() is never tested through the session** — tests use `generateText()` directly or just test session config. The core user-facing flow (create session → send message → get response with tool calls) is untested.
 
-2. **AgentSession.sendStream() is completely untested** — no streaming tests at all.
+2. **AgentWorker.sendStream() is completely untested** — no streaming tests at all.
 
 3. **Daemon handler dispatch is untested** — the request routing logic in `handler.ts` that connects CLI commands to session methods is never unit tested. We only discover handler bugs through CLI integration tests.
 
@@ -80,8 +80,8 @@ test/
 │   └── setup-workflow.yaml    # Workflow with setup tasks
 │
 ├── unit/                      # Single module, mocked deps
-│   ├── session-send.test.ts   # AgentSession.send() with mock model
-│   ├── session-stream.test.ts # AgentSession.sendStream() with mock model
+│   ├── session-send.test.ts   # AgentWorker.send() with mock model
+│   ├── session-stream.test.ts # AgentWorker.sendStream() with mock model
 │   ├── session-tools.test.ts  # Tool calling through session.send()
 │   ├── session-approval.test.ts # Approval workflow through send()
 │   ├── handler.test.ts        # Daemon handler dispatch
@@ -403,7 +403,7 @@ Strategy: Direct import → call → assert. Already well tested.
 
 ### Layer 2: Stateful Logic (async, in-memory)
 
-Files: `session.ts`, `memory-provider.ts`, `proposals.ts`, `controller.ts`
+Files: `worker.ts`, `memory-provider.ts`, `proposals.ts`, `controller.ts`
 
 Strategy: Create instance → exercise API → verify state. Need `MockLanguageModelV3` for session.send(). Controller needs mock backend.
 
@@ -423,11 +423,11 @@ Strategy: In-process with mock backends for runner tests. Process-level for CLI 
 
 ## Mock Model Integration Pattern
 
-The biggest gap is testing `AgentSession.send()` → model → response. The pattern:
+The biggest gap is testing `AgentWorker.send()` → model → response. The pattern:
 
 ```typescript
 import { MockLanguageModelV3 } from 'ai/test'
-import { AgentSession } from '../src/agent/session'
+import { AgentWorker } from '../src/agent/session'
 
 // Override model creation to use mock
 // Option A: Pass mock model directly (requires API change)

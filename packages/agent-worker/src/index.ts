@@ -1,9 +1,11 @@
 export {
-  AgentSession,
-  type AgentSessionConfig,
+  AgentWorker,
+  AgentWorker as AgentSession, // deprecated alias
+  type AgentWorkerConfig,
+  type AgentWorkerConfig as AgentSessionConfig, // deprecated alias
   type SendOptions,
   type StepInfo,
-} from "./agent/session.ts";
+} from "./agent/worker.ts";
 export {
   createModel,
   createModelAsync,

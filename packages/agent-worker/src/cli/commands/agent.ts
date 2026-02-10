@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { getDefaultModel } from "@/agent/models.ts";
 import type { BackendType } from "@/backends/types.ts";
+import { normalizeBackendType } from "@/backends/model-maps.ts";
 import { sendRequest } from "../client.ts";
 import {
   startDaemon,
@@ -51,7 +52,7 @@ async function createAgentAction(
     system = readFileSync(options.systemFile, "utf-8");
   }
 
-  const backend = (options.backend ?? "sdk") as BackendType;
+  const backend = normalizeBackendType(options.backend ?? "default");
   const model = options.model || getDefaultModel();
   const idleTimeout = parseInt(options.idleTimeout ?? "1800000", 10);
 
@@ -315,8 +316,8 @@ function addNewCommandOptions(cmd: Command): Command {
     .option("-m, --model <model>", `Model identifier (default: ${getDefaultModel()})`)
     .addOption(
       new Option("-b, --backend <type>", "Backend type")
-        .choices(["sdk", "claude", "codex", "cursor", "mock"])
-        .default("sdk"),
+        .choices(["default", "sdk", "claude", "codex", "cursor", "mock"])
+        .default("default"),
     )
     .option("-s, --system <prompt>", "System prompt", "You are a helpful assistant.")
     .option("-f, --system-file <file>", "Read system prompt from file")
