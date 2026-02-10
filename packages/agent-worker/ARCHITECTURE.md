@@ -1,6 +1,263 @@
 # agent-worker Architecture
 
-## Four Primitives
+## Overview
+
+agent-worker is a daemon service that manages AI agent workflows. The daemon is the single long-lived process — all other interfaces (CLI, Web UI, AI tools) are clients that connect to it.
+
+```
+                ┌─────────────────────────────┐
+                │          Daemon             │
+                │                             │
+   REST ───────►│  ┌───────────────────────┐  │
+                │  │    Service Layer      │  │
+   MCP ────────►│  │  (one interface,      │  │
+                │  │   multiple protocols) │  │
+   WebSocket ──►│  └───────┬───────────────┘  │
+                │          │                  │
+                │          ▼                  │
+                │  ┌───────────────────────┐  │
+                │  │   Workflow Manager    │  │
+                │  │                       │  │
+                │  │  @global              │  │
+                │  │   ├── my-bot          │  │
+                │  │   └── assistant       │  │
+                │  │                       │  │
+                │  │  @review:pr-123       │  │
+                │  │   ├── reviewer        │  │
+                │  │   └── coder           │  │
+                │  └───────┬───────────────┘  │
+                │          │                  │
+                │     ┌────┴────┐             │
+                │     ▼         ▼             │
+                │  Agent     Context          │
+                │  Session   Provider         │
+                └─────────────────────────────┘
+
+  CLI ─────── REST ──────────► Daemon
+  Web UI ──── REST + WS ─────► Daemon
+  AI Tool ─── MCP ───────────► Daemon
+```
+
+## Core Concepts
+
+### Daemon — The Service
+
+The daemon is the top-level service process. It owns everything: HTTP server, workflow instances, agent lifecycles, context storage. There is exactly one daemon process.
+
+Discovery is minimal: the daemon writes `~/.agent-worker/daemon.json` with `{ pid, host, port }`. Clients read this file to find the daemon. Nothing else is stored on the filesystem for service coordination.
+
+### Service Layer — One Interface, Multiple Protocols
+
+REST and MCP expose the **same operations** through different protocols:
+
+```
+REST:  POST /session/send  { message: "..." }
+MCP:   tool "agent_send"   { message: "..." }
+WS:    { action: "send_stream", message: "..." }
+```
+
+All three call the same underlying handler. Adding a new operation means implementing it once, then exposing it through both REST and MCP.
+
+- **CLI, Web UI, scripts** → REST (request/response) + WebSocket (streaming)
+- **AI tools** (Claude Code, Cursor, etc.) → MCP (tool calling)
+
+### Workflow — The Execution Model
+
+Every agent runs inside a workflow. A workflow is a named group of agents with shared context.
+
+- **`@global`** — The default workflow. Standalone agents live here. `agent new --name bot` creates an agent under `@global`.
+- **Named workflows** — Created from YAML definitions or API calls. `@review:pr-123` is a workflow named `review` with tag `pr-123`.
+
+There is no distinction between "single-agent mode" and "multi-agent mode" at the runtime level. A single agent is a workflow with one agent.
+
+```
+Workflow Manager
+  └── Workflow (@global, @review:pr-123, ...)
+        └── AgentController  (lifecycle: when to run, retry, inbox polling)
+              └── AgentSession   (execution: LLM conversation, tool loop, streaming)
+```
+
+### AgentSession — The ToolLoop
+
+The execution engine for a single agent. It owns:
+
+- Conversation history (messages)
+- Model configuration (model ID, system prompt)
+- Tool registry (AI SDK tools)
+- Approval mechanism
+- `send(message)` → LLM reasoning → tool loop → response
+- `sendStream(message)` → same, with token-level streaming
+
+AgentSession does not know _why_ it is asked to send. It does not know about inboxes, channels, or workflows. It is a pure execution primitive.
+
+(`src/agent/session.ts`)
+
+### AgentController — Lifecycle Management
+
+The lifecycle manager for a single agent within a workflow. It decides when to run the AgentSession and what to do with the results:
+
+1. Poll inbox for @mentions → build prompt → `session.send()` → write response to channel → ack inbox
+2. On failure → retry with exponential backoff
+3. External `wake()` → check inbox immediately
+4. State machine: `stopped → idle → running → idle → ...`
+
+AgentController wraps AgentSession. The daemon does not do inbox polling or timer management directly — it delegates to controllers.
+
+(`src/workflow/controller/controller.ts`)
+
+### Context — Shared Storage
+
+Context provides the collaboration substrate for agents within a workflow. Each workflow has its own context:
+
+| Primitive | Purpose |
+|-----------|---------|
+| **Channel** | Append-only message log with @mentions |
+| **Inbox** | Per-agent filtered view of channel |
+| **Resources** | Content-addressed large content storage |
+| **Documents** | Shared team workspace files |
+| **Proposals** | Voting system for collaborative decisions |
+
+Context is exposed to agents via MCP tools (`channel_send`, `channel_read`, `my_inbox`, `team_doc_*`, `resource_*`, etc.). The same MCP tools are also available through the daemon's MCP endpoint.
+
+Context is backend-agnostic: `ContextProvider` interface with `FileContextProvider` (production) and `MemoryContextProvider` (testing).
+
+## Module Structure
+
+```
+src/
+├── daemon/                        # The service
+│   ├── daemon.ts                  # Process lifecycle: start, shutdown, signals, HTTP routes
+│   ├── handler.ts                 # Request handler: action dispatch
+│   ├── server.ts                  # Hono app: REST routes + MCP endpoint + WebSocket
+│   ├── registry.ts                # Read/write daemon.json for discovery
+│   └── cron.ts                    # Cron schedule management
+│
+├── workflow/                      # Execution model
+│   ├── runner.ts                  # Single workflow execution
+│   ├── parser.ts                  # YAML workflow definition → typed config
+│   ├── interpolate.ts             # Variable interpolation (${{ }})
+│   ├── types.ts                   # Workflow types
+│   ├── layout.ts                  # Layout management
+│   ├── display.ts                 # Workflow display formatting
+│   │
+│   ├── controller/                # Agent lifecycle management
+│   │   ├── controller.ts          # Poll → run → ack → retry loop
+│   │   ├── prompt.ts              # Agent prompt building from context
+│   │   ├── send.ts                # Message sending logic
+│   │   ├── sdk-runner.ts          # AI SDK backend runner
+│   │   ├── mock-runner.ts         # Mock backend runner (testing)
+│   │   ├── backend.ts             # Backend adapter
+│   │   ├── mcp-config.ts          # MCP tool configuration
+│   │   └── types.ts               # Controller types
+│   │
+│   └── context/                   # Shared storage
+│       ├── provider.ts            # ContextProvider interface + implementation
+│       ├── types.ts               # Channel, inbox, document types
+│       ├── storage.ts             # StorageBackend interface
+│       ├── file-provider.ts       # File-based storage
+│       ├── memory-provider.ts     # In-memory storage (testing)
+│       ├── mcp-server.ts          # Context MCP server (tool definitions)
+│       ├── http-transport.ts      # MCP HTTP transport
+│       └── proposals.ts           # Proposal/voting system
+│
+├── agent/                         # Execution engine
+│   ├── session.ts                 # AgentSession: LLM conversation + tool loop
+│   ├── models.ts                  # Model creation, provider registry
+│   ├── types.ts                   # Core types
+│   ├── tools/                     # Built-in tool factories
+│   │   ├── bash.ts                # Sandboxed bash/readFile/writeFile
+│   │   ├── skills.ts              # Skills tool
+│   │   └── feedback.ts            # Feedback tool
+│   └── skills/                    # Skill loading + importing
+│       ├── provider.ts            # SkillsProvider
+│       ├── importer.ts            # Git-based skill import
+│       └── import-spec.ts         # Import spec parsing
+│
+├── backends/                      # AI provider adapters
+│   ├── types.ts                   # Backend interface
+│   ├── index.ts                   # Factory + availability checks
+│   ├── model-maps.ts              # Model name translation
+│   ├── sdk.ts                     # Vercel AI SDK
+│   ├── claude-code.ts             # Claude Code CLI
+│   ├── codex.ts                   # Codex CLI
+│   ├── cursor.ts                  # Cursor CLI
+│   ├── mock.ts                    # Mock (testing)
+│   ├── idle-timeout.ts            # Idle timeout management
+│   └── stream-json.ts             # JSON streaming utilities
+│
+└── cli/                           # Independent client (NOT under daemon)
+    ├── client.ts                  # HTTP client → daemon REST API
+    ├── instance.ts                # CLI instance management
+    ├── output.ts                  # Output formatting
+    ├── target.ts                  # Target resolution
+    └── commands/                  # One file per command group
+        ├── agent.ts               # new, list, stop, info
+        ├── send.ts                # send, peek, stats, export, clear
+        ├── tool.ts                # tool add, import, mock, list
+        ├── workflow.ts            # run, start, stop, list
+        ├── approval.ts            # pending, approve, deny
+        ├── info.ts                # providers, backends
+        ├── doc.ts                 # document operations
+        ├── feedback.ts            # feedback commands
+        └── mock.ts                # mock commands
+```
+
+## Dependency Graph
+
+```
+cli/ ──── HTTP ────► daemon/
+                       │
+                       ├──► workflow/
+                       │       │
+                       │       ├──► workflow/controller/  (AgentController)
+                       │       │       └──► agent/        (AgentSession)
+                       │       │
+                       │       └──► workflow/context/     (ContextProvider)
+                       │
+                       └──► backends/                     (backend factory)
+```
+
+Rules:
+- `cli/` imports nothing from `daemon/` except registry (reading daemon.json)
+- `daemon/` imports from `workflow/`, `agent/`, `backends/`
+- `workflow/controller/` imports from `agent/`, `workflow/context/`, `backends/`
+- `agent/` imports from `backends/` (types only)
+- `workflow/context/` imports nothing from other app modules (pure domain)
+- No circular dependencies. No upward imports.
+
+## Key Design Decisions
+
+### Why daemon as the top-level service?
+
+Without a daemon, each agent is its own process. N agents = N processes, N sockets, stale registry files when processes crash. With one daemon, there's one process, one HTTP server, one MCP endpoint. Agent lifecycle, health checks, context — all centralized.
+
+### Why one interface, multiple protocols?
+
+CLI and Web UI speak REST. AI tools (Claude Code, Cursor) speak MCP. Both need the same operations (send message, read channel, manage workflows). Implementing the operations once and exposing through multiple protocols eliminates duplication and keeps behavior consistent.
+
+### Why all agents live in workflows?
+
+Eliminates the split between "single-agent daemon" and "multi-agent workflow" code paths. `agent new` creates an agent under `@global` — it's just a 1-agent workflow with simplified CLI ergonomics. The runtime doesn't know or care.
+
+### Why AgentSession vs AgentController?
+
+Separation of concerns:
+- **Session** answers "how to talk to an LLM" — stateful conversation, tool loop, streaming
+- **Controller** answers "when to talk and what to do with results" — inbox polling, retry, error recovery
+
+The controller calls `session.send()` when it decides the agent should act. The daemon doesn't do inbox polling — controllers do.
+
+### Why Context lives under workflow/?
+
+Context (channel, inbox, documents, resources) is the collaboration substrate within a workflow. It is exposed to agents via MCP tools and to the daemon for REST/MCP endpoints. The `ContextProvider` interface keeps it backend-agnostic.
+
+---
+
+## Target Architecture
+
+> The following describes the theoretical direction for the system's evolution. It is not the current implementation, but a guiding model that future work can evolve toward.
+
+### Four Primitives
 
 ```
 Message    — 数据
@@ -9,52 +266,20 @@ Agent      — 执行者（ToolLoop）
 System     — 运行时（提供 tools，驱动求值循环）
 ```
 
-Tool 是 System 暴露给 Agent 的接口。Agent 被沙箱化——它能做什么完全取决于 System 给了它什么 tools。
+Tool is the interface System exposes to Agent. Agent is sandboxed — what tools it gets determines what it can do.
 
-```
-                    ┌─── System ──────────────────────┐
-                    │                                  │
-  REST ────────────►│   Message ──► Proposal ──┐       │
-                    │                          │       │
-  MCP ─────────────►│              ┌───────────┘       │
-                    │              ▼                    │
-  WebSocket ───────►│   ┌─── Agent (ToolLoop) ───┐     │
-                    │   │                        │     │
-                    │   │   tool ──► System       │     │
-                    │   │   tool ──► World        │     │
-                    │   │                        │     │
-                    │   └────────────┬───────────┘     │
-                    │                │                  │
-                    │                ▼                  │
-                    │           new Message             │
-                    │                │                  │
-                    │                ▼                  │
-                    │           Proposal ...            │
-                    └──────────────────────────────────┘
-```
-
-## Core Rule
-
-系统的数学核心只有一条规则：
+### Core Rule
 
 ```
 message + proposal → message | task
 task = agent.execute(prompt, tools, message) → message
 ```
 
-Message 进入，Proposal（状态转移函数）求值，产出新的 Message 或 Task。Task 是 Agent 的一次执行，执行完产出 Message，回到循环。
+Message enters. Proposal (state transition function) evaluates. Produces new Message or Task. Task is one Agent execution. Result becomes Message. Cycle continues.
 
-### Message
+### Proposal — Schema + Function
 
-数据。系统中流动的一切信息。
-
-用户输入、agent 回复、@mention、cron 触发、webhook、task 完成通知——都是 Message。Message 是不可变的事实，append-only。
-
-### Proposal
-
-逻辑。Schema + Function。
-
-Proposal 是状态转移函数：接收 Message（符合 schema 定义），执行 function，产出新的 Message 或 Task。
+Proposal is a composable state transition function: receives Message (validated by schema), executes function, produces new Messages or Tasks.
 
 ```typescript
 interface Proposal<T> {
@@ -63,13 +288,13 @@ interface Proposal<T> {
 }
 ```
 
-Proposal 可组合——function 内部可以调用子 Proposal。YAML、JSON 只是 schema data 的序列化形式，数据进来经 schema 校验后由 function 处理。
+Proposals compose — function body can invoke sub-Proposals. YAML/JSON are serialization formats for schema data.
 
-**以 Workflow 为例**：
+**Workflow as Proposal composition**:
 
 ```typescript
 const WorkflowProposal = defineProposal({
-  schema: WorkflowSchema,     // YAML 结构的类型定义
+  schema: WorkflowSchema,
   execute(data, ctx) {
     for (const agent of data.agents) {
       ctx.propose(CreateAgentProposal, agent)
@@ -79,227 +304,57 @@ const WorkflowProposal = defineProposal({
     }
   }
 })
-
-const CreateAgentProposal = defineProposal({
-  schema: AgentSchema,
-  execute(config, ctx) {
-    const agent = createToolLoop(config)
-    ctx.register(agent)
-  }
-})
-
-const RegisterTriggerProposal = defineProposal({
-  schema: TriggerSchema,
-  execute(config, ctx) {
-    ctx.on(config.when, (message) => {
-      ctx.propose(CreateTaskProposal, {
-        agent: config.assign,
-        message
-      })
-    })
-  }
-})
-
-const CreateTaskProposal = defineProposal({
-  schema: TaskSchema,
-  execute(config, ctx) {
-    const agent = ctx.getAgent(config.agent)
-    const result = await agent.execute(config.message)
-    ctx.emit(result)   // result → new message → cycle continues
-  }
-})
 ```
 
-一次 workflow 执行就是 Proposal 的递归调用链：WorkflowProposal → CreateAgentProposal × N → RegisterTriggerProposal × N → (message arrives) → CreateTaskProposal → Agent executes → new Message → ...
+### Agent — ToolLoop
 
-### Agent
+Agent receives `(prompt, tools, message)`, runs LLM tool loop, returns result. Closed system — can only interact via tools. Does not know why it was invoked, what workflow it belongs to, or what happened before.
 
-执行者。ToolLoop。
+### System — Runtime
 
-Agent 接收 (prompt, tools, message)，跑 LLM tool loop 到完成，返回 result。Agent 不知道自己为什么被调用、属于什么 workflow、有什么历史。它是封闭的——唯一能做的事就是调 tool。
+Drives the Message + Proposal evaluation loop. Manages Agent lifecycle. Holds state. Exposes interface to Agents via Tools:
 
-```typescript
-interface Agent {
-  execute(config: {
-    systemPrompt: string;
-    tools: Tool[];
-    message: string;
-  }): AsyncGenerator<Chunk, Result>;
-}
-```
+| Tool category | Purpose |
+|---------------|---------|
+| `channel.*` | Message read/write |
+| `space.*` | Space/workflow management |
+| `proposal.*` | Proposal operations |
+| `auth.*` | Authorization operations |
 
-这个接口对任何 backend 成立：AI SDK tool loop、Claude Code CLI、Codex CLI、人类读消息然后操作。
+What tools an Agent gets = what it's authorized to do.
 
-### System
+### Emergent Concepts
 
-运行时。
+All other concepts emerge from the four primitives:
 
-System 驱动 Message + Proposal 的求值循环，管理 Agent 生命周期，持有状态（Messages、Documents、Resources），通过 Tools 暴露接口给 Agent。
+| Concept | Emerges from |
+|---------|-------------|
+| **Routing** | Proposal that routes Message to Agent |
+| **Workflow** | Chain of Proposals (each `when` references prior step's completion) |
+| **Permission** | Proposal that gates on authorization Message |
+| **Authorization** | Special Message type (agent grants a right) |
+| **Channel** | Messages accumulating in a Space |
+| **Inbox** | Proposal filtering Messages by @mention |
+| **Space** | Scoped binding of Proposals + Agents + Messages |
+| **Organization** | Space with fixed Proposals + fixed members |
 
-System 提供的 Tools 分四类：
+### Current System as Degenerate Case
 
-| Tool 类别 | 作用 | 示例 |
-|-----------|------|------|
-| `channel.*` | 消息读写 | `channel.send`, `channel.read` |
-| `space.*` | 空间/工作流管理 | `space.create`, `space.members` |
-| `proposal.*` | 提案操作 | `proposal.define`, `proposal.invoke` |
-| `auth.*` | 授权操作 | `auth.grant`, `auth.revoke` |
+| Primitive | Current implementation |
+|-----------|----------------------|
+| **Message** | `ChannelMessage` in `workflow/context/types.ts` |
+| **Proposal** | Implicit, hardcoded in controller (inbox polling), approval mechanism, workflow YAML |
+| **Agent** | `AgentSession` in `agent/session.ts` |
+| **System** | `Daemon` in `daemon/daemon.ts` |
 
-给 Agent 什么 tools = 授权它做什么。不给 bash tool = 没有执行命令的权限。Tool 本身就是授权机制。
+Evolution direction: make implicit Proposals explicit (schema + function).
 
-## Emergent Concepts
+### Evolution Path
 
-以下概念不是独立原语，而是四个原语的组合模式：
+**Phase 1 (current)**: System = daemon. Proposal hardcoded in controller. Agent = AgentSession. Single process, file storage.
 
-```
-Agent + Message
-  → + Proposal               = 路由
-    → + Proposal chain        = 工作流（一组 Proposal，when 互相引用，时序涌现）
-    → + Proposal gate         = 权限/审批（Proposal 等待授权 Message）
-  → + Message accumulation    = Channel（Space 里 Message 的自然沉淀）
-  → + filter Proposal         = Inbox（Proposal 过滤 @mention 的 Message）
-  → + Proposal + Agent binding = 组织（固定规则 + 固定成员）
-```
+**Phase 2**: Define `Proposal<T>` interface. Refactor controller inbox polling, approval mechanism, and workflow YAML parser into explicit Proposals.
 
-### Authorization
+**Phase 3**: Composable Proposals. Agent can define new Proposals via `proposal.*` tools. Hot-loading at runtime.
 
-授权 = Agent 发出的一种特殊 Message。
-
-```
-Agent 发送: Message { type: "authorize", scope: "bash", from: "human" }
-Proposal 检查: 需要的 authorize Message 够了吗？
-```
-
-| 场景 | 实现 |
-|------|------|
-| 工具审批 | Proposal 等待 human 的 authorize Message |
-| 投票 | Proposal 等待 n/m 个 authorize Messages |
-| 权限 | System 预发 authorize Message 给 Agent |
-| 委托 | Agent A 发 authorize Message 指定 Agent B |
-
-### Space
-
-Space = Proposals + Agents + Messages 的作用域绑定。
-
-`@global` 是零 Proposal、开放成员的退化 Space。加上 Proposals + 固定成员 = 组织。
-
-### Workflow
-
-Workflow = 一组 Proposal。YAML 是 WorkflowProposal 的 schema data 的序列化形式。
-
-### Task
-
-Task = CreateTaskProposal 的一次执行。是 Proposal → Agent 的调用。
-
-## Current Implementation
-
-现有系统是这个模型的退化态：
-
-| 原语 | 当前实现 | 位置 |
-|------|---------|------|
-| **Message** | `ChannelMessage` | `context/types.ts` |
-| **Proposal** | 隐式，硬编码在三处 | controller.ts, approval, workflow YAML |
-| **Agent** | `AgentSession` (ToolLoop) | `agent/session.ts` |
-| **System** | `Daemon` | `daemon/daemon.ts` |
-
-Proposal 的三处隐式实现：
-
-```
-1. controller.ts 的 inbox 轮询
-   → 隐式 Proposal: when=mention(@agent), auto → createTask
-
-2. approval 机制
-   → 隐式 Proposal: when=tool_call(bash), requires=authorize(human)
-
-3. workflow YAML + parser
-   → 最接近显式 Proposal: schema(YAML) + function(parse → create agents → register triggers)
-```
-
-演进方向：把隐式的 Proposal 变成显式的 schema + function。
-
-### Module Structure
-
-```
-src/
-├── daemon/                     # System 的实现
-│   ├── daemon.ts               # 进程生命周期，HTTP server
-│   ├── handler.ts              # 请求处理（→ 吸收进 service）
-│   └── discovery.ts            # daemon.json 发现
-│
-├── workflow/                   # Workflow Proposal 的当前实现
-│   ├── manager.ts              # Workflow 实例管理
-│   ├── runner.ts               # 单 workflow 执行
-│   ├── controller/             # Agent 生命周期（隐式 Proposal）
-│   │   └── controller.ts       # poll → run → ack → retry
-│   ├── parser.ts               # YAML → data（schema 校验）
-│   ├── interpolate.ts          # ${{ }} 变量插值
-│   └── prompt.ts               # Prompt 构建
-│
-├── agent/                      # Agent 的实现
-│   ├── session.ts              # ToolLoop: LLM + tools → result
-│   ├── models.ts               # Model 创建
-│   ├── types.ts                # 核心类型
-│   ├── tools/                  # Tool 工厂
-│   └── skills/                 # Skill 加载
-│
-├── context/                    # 状态存储（Message + Documents + Resources）
-│   ├── provider.ts             # ContextProvider 接口
-│   ├── file-provider.ts        # 文件存储
-│   ├── memory-provider.ts      # 内存存储（测试）
-│   ├── mcp-tools.ts            # Context tools 定义
-│   ├── proposals.ts            # 投票（→ Authorization Proposal）
-│   └── types.ts                # Channel, Message 类型
-│
-├── backends/                   # Agent backend 适配
-│   ├── sdk.ts                  # Vercel AI SDK
-│   ├── claude-code.ts          # Claude Code CLI
-│   ├── codex.ts                # Codex CLI
-│   ├── cursor.ts               # Cursor CLI
-│   └── mock.ts                 # Mock（测试）
-│
-└── cli/                        # 客户端（独立进程，HTTP → System）
-    ├── client.ts               # HTTP client
-    └── commands/               # 命令组
-```
-
-### Dependency Graph
-
-```
-cli/ ──── HTTP ────► daemon/ (System)
-                       │
-                       ├──► workflow/   (Workflow Proposal)
-                       │       │
-                       │       ├──► agent/     (Agent / ToolLoop)
-                       │       └──► context/   (Message + State)
-                       │
-                       ├──► context/   (Tools 定义)
-                       └──► backends/  (Agent backend 适配)
-```
-
-## Evolution Path
-
-### Phase 1: Current (Done)
-
-System = daemon (Hono + Bun.serve)。Proposal 硬编码在 controller 里。Agent = AgentSession。单进程，文件存储。
-
-### Phase 2: Explicit Proposal
-
-核心变更：把隐式 Proposal 变成显式的 schema + function。
-
-- 定义 `Proposal<T>` 接口（schema + execute）
-- 把 controller 的 inbox 轮询重构为 Proposal
-- 把 approval 机制重构为 Proposal
-- Workflow YAML parser 已经接近 Proposal 形态，对齐接口即可
-
-### Phase 3: Composable Proposals
-
-- Proposal 可组合（execute 内调子 Proposal）
-- Agent 可通过 `proposal.*` tools 定义新 Proposal
-- 热加载：运行时添加/修改 Proposal
-
-### Phase 4: Authorization + Space
-
-- Authorization 作为特殊 Message 类型
-- Space 作为 Proposal + Agent + Message 的作用域
-- `@global` 作为默认 Space
-- 命名 Space 支持
+**Phase 4**: Authorization as special Message type. Space as scoped binding. `@global` as default Space.
