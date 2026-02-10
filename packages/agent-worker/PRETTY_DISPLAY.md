@@ -6,12 +6,12 @@ Agent-worker now features a beautiful CLI interface using `@clack/prompts` for n
 
 ### 🎨 Visual Enhancements
 
+- **Step-based output** - Each message/event is a clear step using clack symbols (◇)
 - **Intro/Outro frames** - Clean session boundaries
-- **Animated spinners** - Real-time progress indicators
-- **Color-coded agents** - Each agent gets a distinct color
-- **Grouped messages** - Messages from the same agent are visually grouped
-- **Status badges** - Clear success/error indicators
-- **Summary boxes** - Document and feedback displayed in styled boxes
+- **Animated spinners** - Real-time progress indicators during initialization
+- **Color-coded agents** - Each agent gets a distinct color for easy identification
+- **Minimal decoration** - Clean, scannable output without visual noise
+- **Summary boxes** - Document and feedback displayed in styled note boxes
 
 ### 📊 Display Modes
 
@@ -24,16 +24,15 @@ Output:
 ```
 ┌   agent-worker
 │
-●  Workflow: my-workflow
+◇  Workflow: my-workflow
+◇  Agents: alice, bob
 ◇  Initialized
 │
-◇  ✓ Agents started
+◇  Agents started
 │
-│  alice:
-│    Hello! I'm Alice.
+◇  alice: Hello! I'm Alice.
 │
-│  bob:
-│    Hi Alice, I'm Bob.
+◇  bob: Hi Alice, I'm Bob.
 │
 ◆  Completed in 3.2s
 │
