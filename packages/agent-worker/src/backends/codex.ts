@@ -14,6 +14,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { stringify as yamlStringify } from "yaml";
 import type { Backend, BackendResponse } from "./types.ts";
+import { DEFAULT_IDLE_TIMEOUT } from "./types.ts";
 import { execWithIdleTimeout, IdleTimeoutError } from "./idle-timeout.ts";
 import { createStreamParser, codexAdapter, extractCodexResult } from "./stream-json.ts";
 
@@ -38,7 +39,7 @@ export class CodexBackend implements Backend {
 
   constructor(options: CodexOptions = {}) {
     this.options = {
-      timeout: 600000, // 10 minute default
+      timeout: DEFAULT_IDLE_TIMEOUT,
       ...options,
     };
   }
@@ -70,7 +71,7 @@ export class CodexBackend implements Backend {
     // Use workspace as cwd if set
     const cwd = this.options.workspace || this.options.cwd;
     const debugLog = this.options.debugLog;
-    const timeout = this.options.timeout ?? 600000;
+    const timeout = this.options.timeout ?? DEFAULT_IDLE_TIMEOUT;
 
     try {
       const { stdout } = await execWithIdleTimeout({

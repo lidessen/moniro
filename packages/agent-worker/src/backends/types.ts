@@ -15,6 +15,12 @@ export {
 
 import type { BackendType } from "./model-maps.ts";
 
+/**
+ * Default idle timeout for CLI backends (10 minutes).
+ * Timeout resets on any stdout activity, so this is an inactivity threshold.
+ */
+export const DEFAULT_IDLE_TIMEOUT = 600_000; // 10 minutes in milliseconds
+
 export interface BackendConfig {
   type: BackendType;
   /** Model identifier (interpretation depends on backend) */

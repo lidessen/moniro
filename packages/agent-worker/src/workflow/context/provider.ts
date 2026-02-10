@@ -419,9 +419,7 @@ export class ContextProviderImpl implements ContextProvider {
     // Clear startedAt and task when transitioning to idle
     if (status.state === "idle") {
       statuses[agent]!.startedAt = undefined;
-      if (!status.task) {
-        statuses[agent]!.task = undefined;
-      }
+      statuses[agent]!.task = undefined;
     }
 
     await this.saveAgentStatus(statuses);

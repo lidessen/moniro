@@ -13,6 +13,7 @@ import { execa } from "execa";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Backend, BackendResponse } from "./types.ts";
+import { DEFAULT_IDLE_TIMEOUT } from "./types.ts";
 import { execWithIdleTimeoutAbortable, IdleTimeoutError } from "./idle-timeout.ts";
 import { createStreamParser, claudeAdapter, extractClaudeResult } from "./stream-json.ts";
 
@@ -48,7 +49,7 @@ export class ClaudeCodeBackend implements Backend {
 
   constructor(options: ClaudeCodeOptions = {}) {
     this.options = {
-      timeout: 600000, // 10 minute default
+      timeout: DEFAULT_IDLE_TIMEOUT,
       ...options,
     };
   }
@@ -77,7 +78,7 @@ export class ClaudeCodeBackend implements Backend {
     const cwd = this.options.workspace || this.options.cwd;
     const debugLog = this.options.debugLog;
     const outputFormat = this.options.outputFormat ?? "stream-json";
-    const timeout = this.options.timeout ?? 600000;
+    const timeout = this.options.timeout ?? DEFAULT_IDLE_TIMEOUT;
 
     try {
       const { promise, abort } = execWithIdleTimeoutAbortable({

@@ -352,7 +352,8 @@ export const cursorAdapter: EventAdapter = (raw) => {
           callId: event.call_id,
         };
       }
-      // For other tool types, extract name if available
+      // For other tool types, Cursor doesn't provide the tool name in the event
+      // TODO: investigate if tool name can be extracted from other event fields
       return {
         kind: "tool_call_started",
         name: "tool",

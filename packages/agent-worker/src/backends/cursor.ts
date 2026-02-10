@@ -14,6 +14,7 @@ import { execa } from "execa";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Backend, BackendResponse } from "./types.ts";
+import { DEFAULT_IDLE_TIMEOUT } from "./types.ts";
 import { execWithIdleTimeout, IdleTimeoutError } from "./idle-timeout.ts";
 import { createStreamParser, cursorAdapter, extractClaudeResult } from "./stream-json.ts";
 
@@ -38,7 +39,7 @@ export class CursorBackend implements Backend {
 
   constructor(options: CursorOptions = {}) {
     this.options = {
-      timeout: 600000, // 10 minute default
+      timeout: DEFAULT_IDLE_TIMEOUT,
       ...options,
     };
   }
@@ -66,7 +67,7 @@ export class CursorBackend implements Backend {
     // Use workspace as cwd if set, otherwise fall back to cwd option
     const cwd = this.options.workspace || this.options.cwd;
     const debugLog = this.options.debugLog;
-    const timeout = this.options.timeout ?? 600000;
+    const timeout = this.options.timeout ?? DEFAULT_IDLE_TIMEOUT;
 
     try {
       const { stdout } = await execWithIdleTimeout({
