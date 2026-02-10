@@ -6,35 +6,27 @@ agent-worker is a daemon service that manages AI agent workflows. The daemon is 
 
 ```
                 ┌─────────────────────────────┐
-                │          Daemon             │
+                │     Daemon (:5099)          │
                 │                             │
    REST ───────►│  ┌───────────────────────┐  │
-                │  │    Service Layer      │  │
-   MCP ────────►│  │  (one interface,      │  │
-                │  │   multiple protocols) │  │
-   WebSocket ──►│  └───────┬───────────────┘  │
+   SSE ────────►│  │    Service Layer      │  │
+   MCP ────────►│  │  9 endpoints          │  │
+                │  └───────┬───────────────┘  │
                 │          │                  │
                 │          ▼                  │
                 │  ┌───────────────────────┐  │
-                │  │   Workflow Manager    │  │
-                │  │                       │  │
-                │  │  @global              │  │
-                │  │   ├── my-bot          │  │
-                │  │   └── assistant       │  │
-                │  │                       │  │
-                │  │  @review:pr-123       │  │
-                │  │   ├── reviewer        │  │
-                │  │   └── coder           │  │
+                │  │   Agent Manager       │  │
+                │  │   Map<name, Agent>    │  │
                 │  └───────┬───────────────┘  │
                 │          │                  │
                 │     ┌────┴────┐             │
                 │     ▼         ▼             │
-                │  Agent     Context          │
-                │  Session   Provider         │
+                │  AgentWorker  Context       │
+                │  (ToolLoop)   Provider      │
                 └─────────────────────────────┘
 
-  CLI ─────── REST ──────────► Daemon
-  Web UI ──── REST + WS ─────► Daemon
+  CLI ─────── REST + SSE ────► Daemon
+  Web UI ──── REST + SSE ────► Daemon
   AI Tool ─── MCP ───────────► Daemon
 ```
 
@@ -51,14 +43,12 @@ Discovery is minimal: the daemon writes `~/.agent-worker/daemon.json` with `{ pi
 REST and MCP expose the **same operations** through different protocols:
 
 ```
-REST:  POST /session/send  { message: "..." }
-MCP:   tool "agent_send"   { message: "..." }
-WS:    { action: "send_stream", message: "..." }
+REST:  POST /run     { agent: "alice", message: "..." }  → SSE stream
+REST:  POST /serve   { agent: "alice", message: "..." }  → JSON response
+MCP:   tool "channel_send" { to: "alice", message: "..." }
 ```
 
-All three call the same underlying handler. Adding a new operation means implementing it once, then exposing it through both REST and MCP.
-
-- **CLI, Web UI, scripts** → REST (request/response) + WebSocket (streaming)
+- **CLI, Web UI, scripts** → REST (CRUD + SSE streaming)
 - **AI tools** (Claude Code, Cursor, etc.) → MCP (tool calling)
 
 ### Workflow — The Execution Model
@@ -242,7 +232,7 @@ Eliminates the split between "single-agent daemon" and "multi-agent workflow" co
 ### Why AgentWorker vs AgentController?
 
 Separation of concerns:
-- **Session** answers "how to talk to an LLM" — stateful conversation, tool loop, streaming
+- **Worker** answers "how to talk to an LLM" — stateful conversation, tool loop, streaming
 - **Controller** answers "when to talk and what to do with results" — inbox polling, retry, error recovery
 
 The controller calls `session.send()` when it decides the agent should act. The daemon doesn't do inbox polling — controllers do.
@@ -250,6 +240,172 @@ The controller calls `session.send()` when it decides the agent should act. The 
 ### Why Context lives under workflow/?
 
 Context (channel, inbox, documents, resources) is the collaboration substrate within a workflow. It is exposed to agents via MCP tools and to the daemon for REST/MCP endpoints. The `ContextProvider` interface keeps it backend-agnostic.
+
+---
+
+## Phase 3: Service Refactoring (Design)
+
+> This section describes the planned refactoring from per-agent processes to a single daemon service. It is the implementation plan — not yet implemented.
+
+### Current → Target
+
+```
+Current: CLI spawns N child processes, each with random port
+         CLI reads ~/.agent-worker/sessions/{uuid}.json to find agents
+         20+ REST endpoints + WebSocket streaming
+
+Target:  One daemon process on port 5099
+         ~/.agent-worker/daemon.json = { pid, host, port }
+         9 HTTP endpoints + SSE streaming
+         Agent state lives in daemon memory (Map<name, AgentState>)
+```
+
+### Daemon HTTP API
+
+```
+Daemon 级
+  GET  /health                  daemon 状态（pid, uptime, agent count）
+  POST /shutdown                关闭 daemon
+
+Agent 管理（纯 CRUD）
+  GET    /agents                列出所有 agent
+  POST   /agents                创建 agent { name, model, backend, system }
+  GET    /agents/:name          agent 信息
+  DELETE /agents/:name          删除 agent
+
+Workflow 执行
+  POST   /run                   运行 workflow → SSE stream
+  POST   /serve                 运行 workflow → 同步 JSON 响应
+
+System 接口
+  ALL    /mcp                   统一 MCP 端点（agent 通过 initialize 身份区分）
+```
+
+**删除的端点**：`/session/*`（history, stats, export, clear）、`/tools`、`/approvals/*`、`/schedule`、`/feedback`、`/ws`。这些能力通过 MCP tools 提供或不再需要。
+
+### /run — SSE Workflow Execution
+
+```
+POST /run
+Content-Type: application/json
+
+{ "agent": "alice", "message": "analyze this code" }
+// or
+{ "workflow": "review", "tag": "pr-123", "message": "start review" }
+// or
+{ "agents": { "reviewer": { "model": "sonnet", ... } }, "message": "..." }
+```
+
+Response: `text/event-stream`
+
+```
+event: chunk
+data: {"agent": "alice", "text": "Let me analyze"}
+
+event: chunk
+data: {"agent": "alice", "text": " the code..."}
+
+event: tool_call
+data: {"agent": "alice", "tool": "bash", "args": {"command": "ls"}}
+
+event: done
+data: {"content": "...", "usage": {...}}
+```
+
+### /serve — Sync Workflow Execution
+
+Same request body as `/run`, returns complete JSON:
+
+```
+POST /serve → { "content": "...", "toolCalls": [...], "usage": {...} }
+```
+
+### MCP — Unified Endpoint
+
+Single `/mcp` route. Agent identity from initialize handshake:
+
+```typescript
+// Agent connects:
+{ method: "initialize", params: { clientInfo: { name: "alice" } } }
+
+// Daemon resolves agent → determines available tools:
+// alice gets: channel.*, proposal.*, resource.*
+// admin gets: channel.*, proposal.*, agent.*, system.*
+```
+
+Tool categories exposed via MCP:
+- `channel_send`, `channel_read`, `my_inbox` — context operations
+- `team_doc_*`, `resource_*` — shared storage
+- `proposal_*` — voting/decisions
+
+### CLI Commands
+
+```
+管理
+  agent-worker new <name> [options]     POST /agents
+  agent-worker ls                       GET /agents
+  agent-worker stop <name>              DELETE /agents/:name
+  agent-worker stop --all               POST /shutdown
+
+执行
+  agent-worker run <workflow|agent> [message]    POST /run (SSE → stdout)
+  agent-worker serve <workflow|agent>            POST /serve (长驻 or 单次)
+
+交互（通过 daemon 转发到 context）
+  agent-worker send <target> <message>  context channel 操作
+  agent-worker peek [target]            context channel 读取
+```
+
+`send`/`peek` 是 context 操作，走 daemon 内部的 context provider 或通过 MCP。
+
+### Daemon State
+
+```typescript
+interface DaemonState {
+  agents: Map<string, AgentState>;
+  server: { stop(): void };
+  port: number;
+  startedAt: string;
+}
+
+interface AgentState {
+  worker: AgentWorker;
+  name: string;
+  model: string;
+  backend: BackendType;
+  system: string;
+  createdAt: string;
+}
+```
+
+### Discovery
+
+```
+~/.agent-worker/daemon.json
+{
+  "pid": 12345,
+  "host": "127.0.0.1",
+  "port": 5099,
+  "startedAt": "2026-02-10T..."
+}
+```
+
+CLI 启动 flow:
+1. 读 `daemon.json` → PID 还活着？→ 直接用
+2. 没有或进程已死 → spawn daemon 进程 → 等 `daemon.json` 出现
+3. 发 HTTP 请求
+
+### Implementation Steps
+
+```
+Step 1: daemon.json + port 5099          ← 基础设施
+Step 2: DaemonState + 多 agent 管理       ← 状态模型
+Step 3: 9 端点路由 + SSE /run             ← API 重建
+Step 4: CLI 适配                          ← 客户端
+Step 5: 清理旧代码                         ← sessions/, WebSocket, handler.ts
+```
+
+每步一个 commit，按步验证。
 
 ---
 
