@@ -96,13 +96,18 @@ export function buildAgentPrompt(ctx: AgentRunContext): string {
   );
   sections.push("");
   sections.push("### Team Tools");
-  sections.push("- **team_members**: List all agents you can @mention.");
+  sections.push(
+    "- **team_members**: List all agents you can @mention. Pass includeStatus=true to see their current state and tasks.",
+  );
   sections.push("- **team_doc_read/write/append/list/create**: Shared team documents.");
   sections.push("");
   sections.push("### Personal Tools");
   sections.push("- **my_inbox**: Check your unread messages.");
   sections.push(
-    "- **my_inbox_ack**: Acknowledge messages after processing (pass the latest timestamp).",
+    "- **my_inbox_ack**: Acknowledge messages after processing (pass the latest message ID).",
+  );
+  sections.push(
+    "- **my_status_set**: Update your status. Call when starting work (state='running', task='...') or when done (state='idle').",
   );
   sections.push("");
   sections.push("### Proposal & Voting Tools");
