@@ -75,6 +75,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename
           log,
           mode: "run",
           feedback: options.feedback,
+          prettyDisplay: !options.debug && !options.json, // Use pretty display in non-debug, non-json mode
         });
 
         // Store references for cleanup (though run mode completes automatically)
@@ -105,17 +106,26 @@ Note: Workflow name is inferred from YAML 'name' field or filename
                 2,
               ),
             );
-          } else if (finalDoc) {
-            console.log("\n--- Document ---");
-            console.log(finalDoc);
-          }
-        }
-
-        // Print feedback summary (to stderr in JSON mode)
-        if (result.feedback && result.feedback.length > 0 && !options.json) {
-          console.log(`\n--- Feedback (${result.feedback.length}) ---`);
-          for (const entry of result.feedback) {
-            console.log(`  [${entry.type}] ${entry.target}: ${entry.description}`);
+          } else if (!options.debug) {
+            // Pretty display mode - show summary
+            const { showWorkflowSummary } = await import("@/workflow/display-pretty.ts");
+            showWorkflowSummary({
+              duration: result.duration,
+              document: finalDoc,
+              feedback: result.feedback,
+            });
+          } else {
+            // Debug mode - show traditional output
+            if (finalDoc) {
+              console.log("\n--- Document ---");
+              console.log(finalDoc);
+            }
+            if (result.feedback && result.feedback.length > 0) {
+              console.log(`\n--- Feedback (${result.feedback.length}) ---`);
+              for (const entry of result.feedback) {
+                console.log(`  [${entry.type}] ${entry.target}: ${entry.description}`);
+              }
+            }
           }
         }
       } catch (error) {
