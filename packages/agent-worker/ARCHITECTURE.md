@@ -1,85 +1,125 @@
 # agent-worker Architecture
 
-## Vision
-
-An event-driven execution platform where agents, humans, and contracts collaborate through a unified protocol. The daemon is the execution environment — like an OS kernel for AI workflows.
+## Four Primitives
 
 ```
-                        ┌──────────────────────────────────────┐
-                        │              Daemon                  │
-                        │                                      │
-   REST ───────────────►│  ┌────────────────────────────────┐  │
-                        │  │         Service Layer          │  │
-   MCP ────────────────►│  │   (one interface, N protocols) │  │
-                        │  └──────────┬─────────────────────┘  │
-   WebSocket ──────────►│             │                        │
-                        │             ▼                        │
-                        │  ┌──────────────────────┐            │
-                        │  │      Event Bus       │            │
-                        │  │                      │            │
-                        │  │  mention  ─────┐     │            │
-                        │  │  user_msg ─────┤     │            │
-                        │  │  cron     ─────┤     │            │
-                        │  │  approval ─────┘     │            │
-                        │  └──────────┬───────────┘            │
-                        │             │                        │
-                        │      ┌──────┴──────┐                 │
-                        │      ▼             ▼                 │
-                        │  Contracts     Supervisors           │
-                        │  (govern)      (schedule)            │
-                        │      │             │                 │
-                        │      ▼             ▼                 │
-                        │  ┌──────────────────────┐            │
-                        │  │     Executors        │            │
-                        │  │  (prompt, tools) → ● │            │
-                        │  └──────────┬───────────┘            │
-                        │             │                        │
-                        │             ▼                        │
-                        │         Context                      │
-                        │  (channels, docs, resources)         │
-                        └──────────────────────────────────────┘
-
-  CLI ─────── REST ──────────► Daemon
-  Web UI ──── REST + WS ─────► Daemon
-  AI Tool ─── MCP ───────────► Daemon
-  Human ───── REST/WS ────────► Daemon  (human-as-agent)
+Message    — 数据
+Proposal   — 逻辑（schema + function，状态转移）
+Agent      — 执行者（ToolLoop）
+System     — 运行时（提供 tools，驱动求值循环）
 ```
 
-## Core Model
-
-### Everything is an Event
-
-The system is fundamentally event-driven. Every trigger that causes an agent to act is an event:
-
-| Event | Source | Example |
-|-------|--------|---------|
-| `mention` | Another agent @mentions this one | `@reviewer please check PR #42` |
-| `user_message` | Human sends a message | CLI `send`, Web UI chat |
-| `cron` | Time-based trigger | `every 30m: check inbox` |
-| `approval` | Contract resolution | `deploy approved by 2/3 voters` |
-| `webhook` | External system | GitHub push, Slack message |
-
-There is no "inbox polling." Events enter a bus; subscribers consume them. The bus is the single source of truth for "what happened."
-
-### Executor — Stateless Execution
-
-An Executor is a single tool-loop execution. It receives a prompt and tools, runs to completion, and returns a result. It does not know:
-
-- Why it was invoked
-- What workflow it belongs to
-- What other agents exist
-- What happened before (except via system prompt)
+Tool 是 System 暴露给 Agent 的接口。Agent 被沙箱化——它能做什么完全取决于 System 给了它什么 tools。
 
 ```
-Executor = (system_prompt, tools, message) → result
+                    ┌─── System ──────────────────────┐
+                    │                                  │
+  REST ────────────►│   Message ──► Proposal ──┐       │
+                    │                          │       │
+  MCP ─────────────►│              ┌───────────┘       │
+                    │              ▼                    │
+  WebSocket ───────►│   ┌─── Agent (ToolLoop) ───┐     │
+                    │   │                        │     │
+                    │   │   tool ──► System       │     │
+                    │   │   tool ──► World        │     │
+                    │   │                        │     │
+                    │   └────────────┬───────────┘     │
+                    │                │                  │
+                    │                ▼                  │
+                    │           new Message             │
+                    │                │                  │
+                    │                ▼                  │
+                    │           Proposal ...            │
+                    └──────────────────────────────────┘
 ```
 
-Context is provided entirely through **system prompt** (what you know) and **tools** (what you can do). The executor doesn't "have context" — it receives context as inputs. This is critical: an executor is a pure function over an LLM call.
+## Core Rule
 
-This maps to any backend: AI SDK tool loop, Claude Code CLI, Codex CLI, a human reading a prompt and typing a response. The interface is the same.
+系统的数学核心只有一条规则：
+
+```
+message + proposal → message | task
+task = agent.execute(prompt, tools, message) → message
+```
+
+Message 进入，Proposal（状态转移函数）求值，产出新的 Message 或 Task。Task 是 Agent 的一次执行，执行完产出 Message，回到循环。
+
+### Message
+
+数据。系统中流动的一切信息。
+
+用户输入、agent 回复、@mention、cron 触发、webhook、task 完成通知——都是 Message。Message 是不可变的事实，append-only。
+
+### Proposal
+
+逻辑。Schema + Function。
+
+Proposal 是状态转移函数：接收 Message（符合 schema 定义），执行 function，产出新的 Message 或 Task。
 
 ```typescript
-interface Executor {
+interface Proposal<T> {
+  schema: Schema<T>;
+  execute(data: T, ctx: SystemContext): void;
+}
+```
+
+Proposal 可组合——function 内部可以调用子 Proposal。YAML、JSON 只是 schema data 的序列化形式，数据进来经 schema 校验后由 function 处理。
+
+**以 Workflow 为例**：
+
+```typescript
+const WorkflowProposal = defineProposal({
+  schema: WorkflowSchema,     // YAML 结构的类型定义
+  execute(data, ctx) {
+    for (const agent of data.agents) {
+      ctx.propose(CreateAgentProposal, agent)
+    }
+    for (const trigger of data.triggers) {
+      ctx.propose(RegisterTriggerProposal, trigger)
+    }
+  }
+})
+
+const CreateAgentProposal = defineProposal({
+  schema: AgentSchema,
+  execute(config, ctx) {
+    const agent = createToolLoop(config)
+    ctx.register(agent)
+  }
+})
+
+const RegisterTriggerProposal = defineProposal({
+  schema: TriggerSchema,
+  execute(config, ctx) {
+    ctx.on(config.when, (message) => {
+      ctx.propose(CreateTaskProposal, {
+        agent: config.assign,
+        message
+      })
+    })
+  }
+})
+
+const CreateTaskProposal = defineProposal({
+  schema: TaskSchema,
+  execute(config, ctx) {
+    const agent = ctx.getAgent(config.agent)
+    const result = await agent.execute(config.message)
+    ctx.emit(result)   // result → new message → cycle continues
+  }
+})
+```
+
+一次 workflow 执行就是 Proposal 的递归调用链：WorkflowProposal → CreateAgentProposal × N → RegisterTriggerProposal × N → (message arrives) → CreateTaskProposal → Agent executes → new Message → ...
+
+### Agent
+
+执行者。ToolLoop。
+
+Agent 接收 (prompt, tools, message)，跑 LLM tool loop 到完成，返回 result。Agent 不知道自己为什么被调用、属于什么 workflow、有什么历史。它是封闭的——唯一能做的事就是调 tool。
+
+```typescript
+interface Agent {
   execute(config: {
     systemPrompt: string;
     tools: Tool[];
@@ -88,284 +128,178 @@ interface Executor {
 }
 ```
 
-(Currently `AgentSession` in `src/agent/session.ts`)
+这个接口对任何 backend 成立：AI SDK tool loop、Claude Code CLI、Codex CLI、人类读消息然后操作。
 
-### Supervisor — Lifecycle Management
+### System
 
-A Supervisor manages the lifecycle of one agent identity across multiple executions. It answers "when to execute" and "what to do with results":
+运行时。
 
-1. Subscribe to events from the bus
-2. When an event arrives → build prompt with context → create Executor → run
-3. On completion → write result to context → emit events (if @mentions)
-4. On failure → retry with backoff
-5. State machine: `idle → executing → idle → ...`
+System 驱动 Message + Proposal 的求值循环，管理 Agent 生命周期，持有状态（Messages、Documents、Resources），通过 Tools 暴露接口给 Agent。
 
-The Supervisor is stateful (it is an agent's persistent identity), but each execution it spawns is stateless.
+System 提供的 Tools 分四类：
 
-```
-Supervisor
-  ├── subscribes to: Event Bus (filtered by relevance)
-  ├── creates: Executor (per invocation)
-  ├── reads/writes: Context (channels, docs, resources)
-  └── state: idle | executing | stopped
-```
+| Tool 类别 | 作用 | 示例 |
+|-----------|------|------|
+| `channel.*` | 消息读写 | `channel.send`, `channel.read` |
+| `space.*` | 空间/工作流管理 | `space.create`, `space.members` |
+| `proposal.*` | 提案操作 | `proposal.define`, `proposal.invoke` |
+| `auth.*` | 授权操作 | `auth.grant`, `auth.revoke` |
 
-(Currently `AgentController` in `src/workflow/controller/controller.ts`)
+给 Agent 什么 tools = 授权它做什么。不给 bash tool = 没有执行命令的权限。Tool 本身就是授权机制。
 
-### Context — The World
+## Emergent Concepts
 
-Context is the shared substrate that gives agents their world. It is the only state that persists across executions.
-
-| Primitive | Purpose |
-|-----------|---------|
-| **Channel** | Append-only message log. The communication backbone. |
-| **Inbox** | Per-agent filtered view of channel (derived from @mentions) |
-| **Resources** | Content-addressed blob storage (files, images, large text) |
-| **Documents** | Shared workspace files (team docs, scratch pads) |
-| **Proposals** | Voting mechanism for collaborative decisions |
-
-Agents interact with context exclusively via **tools** — `channel_send`, `channel_read`, `my_inbox`, `team_doc_*`, `resource_*`, etc. An executor never directly accesses context; it calls tools that the supervisor provided.
-
-Context is backend-agnostic: `ContextProvider` interface with pluggable storage (`FileContextProvider`, `MemoryContextProvider`, future: distributed).
-
-### Contracts — Governance
-
-A Contract is a declarative rule that governs system behavior. Contracts unify what are traditionally separate systems:
-
-| Traditional Concept | As a Contract |
-|--------------------|---------------|
-| **Permission** | "Agent X may execute bash commands" |
-| **Approval flow** | "Deployments require 2/3 team vote" |
-| **Workflow routing** | "When PR opened → route to @reviewer then @coder" |
-| **Rate limiting** | "Agent X may send at most 10 messages per hour" |
-| **Escalation** | "If cost > $5, require human approval" |
-
-A contract has three defining properties:
-
-1. **Human-describable** — A non-technical person can read and understand what it does
-2. **Agent-generatable** — An AI agent can author contracts from natural language requirements
-3. **Hot-loadable** — Contracts can be added, modified, or removed at runtime without restarting
-
-```typescript
-interface Contract {
-  id: string;
-  name: string;                    // Human-readable name
-  description: string;             // Natural language description
-  condition: EventPattern;         // When does this contract apply?
-  action: ContractAction;          // What does it do?
-  scope: OrganizationId | 'global';
-}
-
-// Examples:
-// { condition: "bash_tool_call", action: "require_approval(agent.creator)" }
-// { condition: "deploy_*", action: "require_votes(2, org.members)" }
-// { condition: "pr_opened", action: "route(@reviewer, @coder)" }
-```
-
-The daemon is the contract execution environment — like a blockchain runtime, but centralized and practical. Contracts are evaluated against events; when conditions match, actions execute.
-
-### Organization — Crystallized Collaboration
-
-An Organization is a group with shared governance: fixed contracts, established workflows, relatively stable membership.
+以下概念不是独立原语，而是四个原语的组合模式：
 
 ```
-Organization = Contracts + Members + Context
+Agent + Message
+  → + Proposal               = 路由
+    → + Proposal chain        = 工作流（一组 Proposal，when 互相引用，时序涌现）
+    → + Proposal gate         = 权限/审批（Proposal 等待授权 Message）
+  → + Message accumulation    = Channel（Space 里 Message 的自然沉淀）
+  → + filter Proposal         = Inbox（Proposal 过滤 @mention 的 Message）
+  → + Proposal + Agent binding = 组织（固定规则 + 固定成员）
 ```
 
-| Component | Purpose |
-|-----------|---------|
-| **Contracts** | The rules everyone agrees to |
-| **Members** | Agents and humans in the group |
-| **Context** | Shared channels, docs, resources |
+### Authorization
 
-`@global` is the degenerate organization: zero contracts, anyone can join, no governance. It's the default workspace where standalone agents live.
-
-A named organization like `@review-team` has contracts ("PRs require reviewer + coder", "deployments need 2/3 approval"), fixed members (`@reviewer`, `@coder`, `@lead`), and shared context (review channel, standards doc).
-
-Organizations form naturally: start with ad-hoc collaboration in `@global`, notice patterns, solidify them into contracts, name the group. The path from chaos to structure is:
+授权 = Agent 发出的一种特殊 Message。
 
 ```
-@global (zero contracts)
-  → ad-hoc patterns emerge
-    → formalize as contracts
-      → name the group → Organization
+Agent 发送: Message { type: "authorize", scope: "bash", from: "human" }
+Proposal 检查: 需要的 authorize Message 够了吗？
 ```
 
-### Workflow — Solidified Event Patterns
+| 场景 | 实现 |
+|------|------|
+| 工具审批 | Proposal 等待 human 的 authorize Message |
+| 投票 | Proposal 等待 n/m 个 authorize Messages |
+| 权限 | System 预发 authorize Message 给 Agent |
+| 委托 | Agent A 发 authorize Message 指定 Agent B |
 
-A Workflow is a specific pattern of event routing within an organization. It defines "when X happens, do Y then Z":
+### Space
 
-```yaml
-name: code-review
-trigger: pr_opened
-steps:
-  - agent: reviewer
-    on: trigger
-    action: review PR, post findings to #review
-  - agent: coder
-    on: reviewer.complete
-    action: address findings, push fixes
-  - agent: reviewer
-    on: coder.complete
-    action: verify fixes, approve or request changes
-```
+Space = Proposals + Agents + Messages 的作用域绑定。
 
-Workflows are contracts with temporal ordering. The difference is conceptual, not technical — a workflow is a set of routing contracts that form a directed graph.
+`@global` 是零 Proposal、开放成员的退化 Space。加上 Proposals + 固定成员 = 组织。
 
-### Humans as Agents
+### Workflow
 
-A human interacts with the system through the same interface as an AI agent:
+Workflow = 一组 Proposal。YAML 是 WorkflowProposal 的 schema data 的序列化形式。
 
-- **Inbox**: events/mentions addressed to them
-- **Tools**: REST/WebSocket endpoints to read context, post messages, vote on proposals
-- **Execution**: human reads prompt (inbox message), performs actions (via tools), posts result
+### Task
 
-The supervisor for a human agent simply waits for external input instead of spawning an executor. From the system's perspective, a human is a slow agent with high-quality judgment.
+Task = CreateTaskProposal 的一次执行。是 Proposal → Agent 的调用。
 
 ## Current Implementation
 
-The system today implements a subset of this vision:
+现有系统是这个模型的退化态：
+
+| 原语 | 当前实现 | 位置 |
+|------|---------|------|
+| **Message** | `ChannelMessage` | `context/types.ts` |
+| **Proposal** | 隐式，硬编码在三处 | controller.ts, approval, workflow YAML |
+| **Agent** | `AgentSession` (ToolLoop) | `agent/session.ts` |
+| **System** | `Daemon` | `daemon/daemon.ts` |
+
+Proposal 的三处隐式实现：
+
+```
+1. controller.ts 的 inbox 轮询
+   → 隐式 Proposal: when=mention(@agent), auto → createTask
+
+2. approval 机制
+   → 隐式 Proposal: when=tool_call(bash), requires=authorize(human)
+
+3. workflow YAML + parser
+   → 最接近显式 Proposal: schema(YAML) + function(parse → create agents → register triggers)
+```
+
+演进方向：把隐式的 Proposal 变成显式的 schema + function。
+
+### Module Structure
 
 ```
 src/
-├── daemon/                     # The service
-│   ├── daemon.ts               # Process lifecycle, HTTP server, routes
-│   ├── handler.ts              # Request handler (legacy, being absorbed into service)
-│   ├── server.ts               # Hono app: REST + MCP + WebSocket
-│   ├── service.ts              # Service layer operations
-│   └── discovery.ts            # Read/write daemon.json
+├── daemon/                     # System 的实现
+│   ├── daemon.ts               # 进程生命周期，HTTP server
+│   ├── handler.ts              # 请求处理（→ 吸收进 service）
+│   └── discovery.ts            # daemon.json 发现
 │
-├── workflow/                   # Workflow execution
-│   ├── manager.ts              # Workflow instance management
-│   ├── runner.ts               # Single workflow execution
-│   ├── controller/             # Agent lifecycle (→ future: supervisor/)
-│   │   └── controller.ts       # Poll → run → ack → retry
-│   ├── parser.ts               # YAML workflow definitions
-│   ├── interpolate.ts          # Variable interpolation (${{ }})
-│   └── prompt.ts               # Prompt building from context
+├── workflow/                   # Workflow Proposal 的当前实现
+│   ├── manager.ts              # Workflow 实例管理
+│   ├── runner.ts               # 单 workflow 执行
+│   ├── controller/             # Agent 生命周期（隐式 Proposal）
+│   │   └── controller.ts       # poll → run → ack → retry
+│   ├── parser.ts               # YAML → data（schema 校验）
+│   ├── interpolate.ts          # ${{ }} 变量插值
+│   └── prompt.ts               # Prompt 构建
 │
-├── agent/                      # Execution engine (→ future: executor/)
-│   ├── session.ts              # LLM conversation + tool loop
-│   ├── models.ts               # Model creation, provider registry
-│   ├── types.ts                # Core types
-│   ├── tools/                  # Built-in tool factories
-│   └── skills/                 # Skill loading + importing
+├── agent/                      # Agent 的实现
+│   ├── session.ts              # ToolLoop: LLM + tools → result
+│   ├── models.ts               # Model 创建
+│   ├── types.ts                # 核心类型
+│   ├── tools/                  # Tool 工厂
+│   └── skills/                 # Skill 加载
 │
-├── context/                    # Shared storage
-│   ├── provider.ts             # ContextProvider interface
-│   ├── file-provider.ts        # File-based storage
-│   ├── memory-provider.ts      # In-memory (testing)
-│   ├── mcp-tools.ts            # Context MCP tool definitions
-│   ├── proposals.ts            # Voting system (→ future: contracts)
-│   └── types.ts                # Channel, inbox, document types
+├── context/                    # 状态存储（Message + Documents + Resources）
+│   ├── provider.ts             # ContextProvider 接口
+│   ├── file-provider.ts        # 文件存储
+│   ├── memory-provider.ts      # 内存存储（测试）
+│   ├── mcp-tools.ts            # Context tools 定义
+│   ├── proposals.ts            # 投票（→ Authorization Proposal）
+│   └── types.ts                # Channel, Message 类型
 │
-├── backends/                   # AI provider adapters
-│   ├── types.ts                # Backend interface
-│   ├── index.ts                # Factory + availability
+├── backends/                   # Agent backend 适配
 │   ├── sdk.ts                  # Vercel AI SDK
 │   ├── claude-code.ts          # Claude Code CLI
 │   ├── codex.ts                # Codex CLI
 │   ├── cursor.ts               # Cursor CLI
-│   └── mock.ts                 # Mock (testing)
+│   └── mock.ts                 # Mock（测试）
 │
-└── cli/                        # Client (NOT under daemon)
-    ├── client.ts               # HTTP client → daemon REST API
-    └── commands/               # One file per command group
+└── cli/                        # 客户端（独立进程，HTTP → System）
+    ├── client.ts               # HTTP client
+    └── commands/               # 命令组
 ```
 
-### What Exists vs What's Planned
-
-| Vision Concept | Current State | Gap |
-|----------------|---------------|-----|
-| **Daemon** | Hono + Bun.serve, REST + WS + MCP | Solid foundation |
-| **Service Layer** | REST routes + MCP expose same ops | Need formal service interface |
-| **Event Bus** | Inbox polling in controller | Replace polling with pub/sub |
-| **Executor** | AgentSession (stateful, knows history) | Extract stateless execution core |
-| **Supervisor** | AgentController (poll + run + ack) | Rename, subscribe to bus instead of poll |
-| **Context** | Channels, docs, resources, proposals | Complete. Add event sourcing later. |
-| **Contracts** | Approval mechanism (ad-hoc) | Need contract engine |
-| **Organizations** | Workflows with named groups | Need contract binding |
-| **Human-as-agent** | Not implemented | Need human supervisor variant |
-
-## Dependency Graph
+### Dependency Graph
 
 ```
-cli/ ──── HTTP ────► daemon/
+cli/ ──── HTTP ────► daemon/ (System)
                        │
-                       ├──► workflow/
+                       ├──► workflow/   (Workflow Proposal)
                        │       │
-                       │       ├──► agent/     (Executor)
-                       │       └──► context/   (ContextProvider)
+                       │       ├──► agent/     (Agent / ToolLoop)
+                       │       └──► context/   (Message + State)
                        │
-                       ├──► context/           (MCP tool definitions)
-                       └──► backends/          (backend factory)
+                       ├──► context/   (Tools 定义)
+                       └──► backends/  (Agent backend 适配)
 ```
-
-Rules:
-- `cli/` imports nothing from `daemon/` except discovery (reading daemon.json)
-- `daemon/` imports from `workflow/`, `context/`, `agent/`, `backends/`
-- `workflow/` imports from `agent/`, `context/`, `backends/`
-- `agent/` imports from `backends/` (types only)
-- `context/` imports nothing from other app modules (pure domain)
-- No circular dependencies. No upward imports.
 
 ## Evolution Path
 
 ### Phase 1: Current (Done)
 
-Daemon as HTTP service with REST, WebSocket, and MCP. Agent lifecycle managed by controller with inbox polling. Single-process, file-based context.
+System = daemon (Hono + Bun.serve)。Proposal 硬编码在 controller 里。Agent = AgentSession。单进程，文件存储。
 
-### Phase 2: Naming + Extraction
+### Phase 2: Explicit Proposal
 
-Align code with architecture concepts:
-- `AgentSession` → `AgentRuntime` (then extract stateless `Executor` interface)
-- `AgentController` → `AgentSupervisor`
-- Extract `service.ts` as the formal service layer (all operations, protocol-agnostic)
-- Move `handler.ts` logic into service layer
+核心变更：把隐式 Proposal 变成显式的 schema + function。
 
-### Phase 3: Event Bus
+- 定义 `Proposal<T>` 接口（schema + execute）
+- 把 controller 的 inbox 轮询重构为 Proposal
+- 把 approval 机制重构为 Proposal
+- Workflow YAML parser 已经接近 Proposal 形态，对齐接口即可
 
-Replace inbox polling with event-driven architecture:
-- Introduce `EventBus` with typed events and subscriptions
-- Supervisors subscribe to events instead of polling inbox
-- User messages, cron triggers, mentions all become events
-- Context writes emit events (channel_send → `mention` event)
+### Phase 3: Composable Proposals
 
-### Phase 4: Contracts
+- Proposal 可组合（execute 内调子 Proposal）
+- Agent 可通过 `proposal.*` tools 定义新 Proposal
+- 热加载：运行时添加/修改 Proposal
 
-Introduce declarative governance:
-- Define `Contract` type (condition + action + scope)
-- Contract engine evaluates contracts against events
-- Migrate approval mechanism to contract form
-- Workflow YAML definitions become contract sets
-- Hot-loading: add/modify contracts without restart
+### Phase 4: Authorization + Space
 
-### Phase 5: Organizations
-
-Formalize group governance:
-- Organization = contracts + members + context
-- `@global` as default (zero-contract) organization
-- Named organizations with bound contracts
-- Human members alongside agent members
-
-## Key Design Decisions
-
-### Why event-driven?
-
-Polling creates coupling: the supervisor must know about inbox structure, timing, and filtering. Events invert this: things happen, interested parties react. This naturally supports distribution (events can cross process boundaries), extensibility (new event types don't require changes to existing code), and human participation (humans emit and consume events too).
-
-### Why stateless executors?
-
-An executor that knows its history, context, and purpose is hard to test, hard to distribute, and hard to replace. An executor that receives `(prompt, tools, message)` and returns a result is a pure function — test it with mocks, run it anywhere, swap the backend without touching the supervisor. Context is managed by the supervisor and injected via tools, not embedded in the executor.
-
-### Why contracts instead of a permission system?
-
-A "permission system" implies a fixed taxonomy of allow/deny rules. Contracts are more general: they can express permissions, approval flows, routing rules, rate limits, escalation policies — anything that governs behavior. And because they're human-describable and agent-generatable, they can evolve with the organization rather than being hardcoded by developers.
-
-### Why organizations?
-
-Without organizations, governance is per-workflow — scattered and duplicated. Organizations provide a named scope for contracts, a stable membership list, and shared context. They're the natural unit of "a team that works together with agreed-upon rules." `@global` exists so you don't need an organization for simple use cases.
-
-### Why humans as agents?
-
-If humans and AI agents use different interfaces, every feature must be built twice. If humans are agents (with the same inbox, tools, and event protocol), the system is automatically collaborative. A human can join a workflow, vote on proposals, review code — all through the same mechanisms agents use.
+- Authorization 作为特殊 Message 类型
+- Space 作为 Proposal + Agent + Message 的作用域
+- `@global` 作为默认 Space
+- 命名 Space 支持
