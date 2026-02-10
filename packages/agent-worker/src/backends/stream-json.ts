@@ -26,7 +26,8 @@ export type StreamEvent =
       durationMs?: number;
       costUsd?: number;
       usage?: { input: number; output: number };
-    };
+    }
+  | { kind: "unknown"; type: string; raw: Record<string, unknown> };
 
 /**
  * Converts a raw JSON event object to a standard StreamEvent.
@@ -68,6 +69,12 @@ export function formatEvent(event: StreamEvent, backendName: string): string | n
       if (event.usage) details.push(`${event.usage.input} in, ${event.usage.output} out`);
       if (details.length > 0) parts.push(`(${details.join(", ")})`);
       return parts.join(" ");
+    }
+
+    case "unknown": {
+      // Only log unknown events in debug mode (let caller decide visibility)
+      const preview = JSON.stringify(event.raw).slice(0, 100);
+      return `[DEBUG] ${backendName} unknown event type="${event.type}": ${preview}...`;
     }
   }
 }
@@ -283,11 +290,17 @@ export function createStreamParser(
       if (!line.trim()) continue;
       try {
         const raw = JSON.parse(line);
-        // Debug: log all events to see what's happening
-        if (raw.type === "assistant" || raw.type === "system") {
-          debugLog(`[DEBUG] ${backendName} event: ${JSON.stringify(raw).substring(0, 200)}`);
+        let event = adapter(raw);
+
+        // If adapter doesn't recognize the event, create an "unknown" event
+        if (!event && raw.type) {
+          event = {
+            kind: "unknown",
+            type: raw.type as string,
+            raw,
+          };
         }
-        const event = adapter(raw);
+
         if (event) {
           const progress = formatEvent(event, backendName);
           if (progress) debugLog(progress);
