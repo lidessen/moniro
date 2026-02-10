@@ -78,19 +78,20 @@ function processEntry(entry: Message, state: PrettyDisplayState, agentNames: str
   // Skip debug entries
   if (kind === "debug") return;
 
-  // Tool call entries - show as step with caller info
+  // Tool call entries - show with ▶ symbol and "called" format
   if (kind === "tool_call" && toolCall) {
     const caller = from.includes(":") ? from.split(":").pop() : from;
     if (caller) {
       const color = getAgentColor(caller, agentNames);
-      // Format: agent → tool_name(args)
+      // Format: agent called tool_name(args)
       // Tool name in cyan/bold for visibility, args dimmed for less clutter
-      const arrow = pc.cyan("→");
       const tool = pc.bold(pc.cyan(toolCall.name));
       const args = toolCall.args ? pc.dim(`(${toolCall.args})`) : pc.dim("()");
-      p.log.step(`${color(caller)} ${arrow} ${tool}${args}`);
+      p.log.message(`${color(caller)} called ${tool}${args}`, { symbol: pc.cyan("▶") });
     } else {
-      p.log.step(pc.cyan(`→ ${pc.bold(toolCall.name)}`) + pc.dim(`(${toolCall.args || ""})`));
+      p.log.message(`called ${pc.cyan(pc.bold(toolCall.name))}${pc.dim(`(${toolCall.args || ""})`)}`, {
+        symbol: pc.cyan("▶"),
+      });
     }
     return;
   }
@@ -116,19 +117,35 @@ function processEntry(entry: Message, state: PrettyDisplayState, agentNames: str
       state.spinner.start("Starting agents");
     } else if (content.includes("Workflow complete")) {
       if (state.spinner) {
-        state.spinner.stop("Complete");
+        state.spinner.stop();
         state.spinner = null;
       }
       const match = content.match(/\(([0-9.]+)s\)/);
       if (match) {
-        p.log.success(`Completed in ${match[1]}s`);
+        p.log.success(`Completed in ${pc.bold(match[1])}s`);
+      } else {
+        p.log.success("Workflow complete");
       }
       state.phase = "complete";
     } else if (content.startsWith("[ERROR]")) {
+      if (state.spinner) {
+        state.spinner.stop();
+        state.spinner = null;
+      }
       p.log.error(content.replace("[ERROR] ", ""));
       state.phase = "error";
     } else if (content.startsWith("[WARN]")) {
       p.log.warn(content.replace("[WARN] ", ""));
+    } else if (content.match(/Inbox: \d+ message/)) {
+      // Agent received messages - show as progress step
+      p.log.step(pc.dim(content));
+    } else if (content.match(/Running \(attempt/)) {
+      // Agent is running - show as progress step
+      p.log.step(pc.dim(content));
+    } else if (content.startsWith("DONE")) {
+      // Agent completed successfully - show with green checkmark
+      const details = content.replace("DONE ", "");
+      p.log.info(pc.green("✓") + " " + pc.dim(details));
     }
     return;
   }
@@ -138,8 +155,9 @@ function processEntry(entry: Message, state: PrettyDisplayState, agentNames: str
 
   // Stop spinner when first agent message arrives
   if (state.spinner && state.phase === "running" && !state.hasShownAgentsStarted) {
-    state.spinner.stop("Agents started");
+    state.spinner.stop();
     state.spinner = null;
+    p.log.info("Agents ready and processing");
     state.hasShownAgentsStarted = true;
   }
 
@@ -183,9 +201,6 @@ export function startPrettyDisplay(config: PrettyDisplayConfig): PrettyDisplayWa
 
   // Show intro
   p.intro(pc.bgCyan(pc.black(introText)));
-
-  // Add blank line after intro
-  console.log("");
 
   // Start initial spinner with agent count
   state.spinner = p.spinner();
