@@ -117,7 +117,7 @@ function processEntry(entry: Message, state: PrettyDisplayState, agentNames: str
   } else {
     p.log.step(color(from));
     for (const line of lines) {
-      p.log.message(`  ${line}`);
+      p.log.message(line);
     }
   }
 }
