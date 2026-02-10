@@ -23,6 +23,8 @@ export interface PrettyDisplayConfig {
   workflowName: string;
   /** Workflow tag (main will be omitted) */
   tag: string;
+  /** Workflow file path (optional) */
+  workflowPath?: string;
   /** Poll interval in ms (default: 500) */
   pollInterval?: number;
   /** Starting cursor position */
@@ -83,16 +85,14 @@ function processEntry(entry: Message, state: PrettyDisplayState, agentNames: str
     // Extract phase from log content
     if (content.includes("Running workflow:")) {
       state.phase = "running";
-      state.workflowInfo.name = content.split(":")[1]?.trim();
+      // Skip - workflow name already shown in intro
     } else if (content.includes("Agents:") && content.includes(",")) {
-      state.workflowInfo.agents = content.split(":")[1]?.trim();
-      // Show workflow info compactly when we have both
-      if (state.workflowInfo.name && state.workflowInfo.agents) {
-        p.log.step(`${pc.bold(state.workflowInfo.name)}\n   ${pc.dim(state.workflowInfo.agents)}`);
-      }
+      // Skip - agents already shown in Initialized step
     } else if (content.includes("Starting agents")) {
       if (state.spinner) {
-        state.spinner.stop("Initialized");
+        // Show agent names when stopping init spinner
+        const agentList = agentNames.join(", ");
+        state.spinner.stop(`Initialized: ${pc.dim(agentList)}`);
       }
       state.spinner = p.spinner();
       state.spinner.start("Starting agents");
@@ -148,6 +148,7 @@ export function startPrettyDisplay(config: PrettyDisplayConfig): PrettyDisplayWa
     agentNames,
     workflowName,
     tag,
+    workflowPath,
     pollInterval = 500,
     initialCursor = 0,
   } = config;
@@ -162,9 +163,10 @@ export function startPrettyDisplay(config: PrettyDisplayConfig): PrettyDisplayWa
   // Show ASCII banner
   console.log(pc.cyan(BANNER));
 
-  // Build intro text with workflow and tag
+  // Build intro text with workflow, tag, and path
   const tagText = tag === "main" ? "" : `:${tag}`;
-  const introText = ` agent-worker: ${workflowName}${tagText} `;
+  const pathText = workflowPath ? ` ${pc.dim(`(${workflowPath})`)}` : "";
+  const introText = ` ${workflowName}${tagText}${pathText} `;
 
   // Show intro
   p.intro(pc.bgCyan(pc.black(introText)));
@@ -172,9 +174,11 @@ export function startPrettyDisplay(config: PrettyDisplayConfig): PrettyDisplayWa
   // Add blank line after intro
   console.log("");
 
-  // Start initial spinner
+  // Start initial spinner with agent count
   state.spinner = p.spinner();
-  state.spinner.start("Initializing workflow");
+  const agentCount = agentNames.length;
+  const agentWord = agentCount === 1 ? "agent" : "agents";
+  state.spinner.start(`Initializing ${agentCount} ${agentWord}`);
 
   let cursor = initialCursor;
   let running = true;

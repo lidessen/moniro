@@ -70,6 +70,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename
           workflow: parsedWorkflow,
           workflowName,
           tag,
+          workflowPath: file, // Pass workflow file path
           instance: `${workflowName}:${tag}`, // Backward compat
           debug: options.debug,
           log,
