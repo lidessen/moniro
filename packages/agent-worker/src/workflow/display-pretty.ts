@@ -73,10 +73,22 @@ function getAgentColor(name: string, agentNames: string[]): (s: string) => strin
  * Process a channel entry for pretty display
  */
 function processEntry(entry: Message, state: PrettyDisplayState, agentNames: string[]): void {
-  const { kind, from, content } = entry;
+  const { kind, from, content, toolCall } = entry;
 
   // Skip debug entries
   if (kind === "debug") return;
+
+  // Tool call entries - show as step with caller info
+  if (kind === "tool_call" && toolCall) {
+    const caller = from.includes(":") ? from.split(":").pop() : from;
+    if (caller) {
+      const color = getAgentColor(caller, agentNames);
+      p.log.step(`${color(caller)} ${pc.dim(`${toolCall.name}(${toolCall.args})`)}`);
+    } else {
+      p.log.step(pc.dim(`${toolCall.name}(${toolCall.args})`));
+    }
+    return;
+  }
 
   // Log entries (operational messages)
   if (kind === "log") {
@@ -108,7 +120,7 @@ function processEntry(entry: Message, state: PrettyDisplayState, agentNames: str
       }
       state.phase = "complete";
     } else if (content.startsWith("CALL ")) {
-      // Tool calls - show as step with caller info
+      // Legacy CALL format from SDK/Mock runners - show as step with caller info
       const toolCall = content.replace("CALL ", "");
       const caller = from.includes(":") ? from.split(":").pop() : from;
       if (caller) {

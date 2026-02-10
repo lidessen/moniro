@@ -22,8 +22,13 @@ import type { StorageBackend } from "./storage.ts";
 export interface SendOptions {
   /** DM recipient (private to sender + recipient) */
   to?: string;
-  /** Entry kind ('log' = operational log, 'debug' = debug detail; both hidden from agents) */
-  kind?: "log" | "debug";
+  /** Entry kind ('log' = operational log, 'debug' = debug detail, 'tool_call' = tool invocation) */
+  kind?: "log" | "debug" | "tool_call";
+  /** Tool call metadata (only for kind='tool_call') */
+  toolCall?: {
+    name: string;
+    args: string;
+  };
 }
 
 /** Options for reading channel messages */
@@ -156,6 +161,7 @@ export class ContextProviderImpl implements ContextProvider {
     // Add optional fields only if present
     if (options?.to) msg.to = options.to;
     if (options?.kind) msg.kind = options.kind;
+    if (options?.toolCall) msg.toolCall = options.toolCall;
 
     // JSONL: one JSON object per line
     const line = JSON.stringify(msg) + "\n";

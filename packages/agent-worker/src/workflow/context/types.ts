@@ -17,8 +17,15 @@ export interface Message {
   mentions: string[];
   /** DM recipient — if set, only visible to sender and recipient */
   to?: string;
-  /** Entry kind — undefined = normal message, 'log' = operational log, 'debug' = debug detail */
-  kind?: "log" | "debug";
+  /** Entry kind — undefined = normal message, 'log' = operational log, 'debug' = debug detail, 'tool_call' = tool invocation */
+  kind?: "log" | "debug" | "tool_call";
+  /** Tool call metadata (only present when kind='tool_call') */
+  toolCall?: {
+    /** Tool name (e.g., 'channel_send', 'my_inbox') */
+    name: string;
+    /** Tool arguments as formatted string for display */
+    args: string;
+  };
 }
 
 // ==================== Resource System ====================

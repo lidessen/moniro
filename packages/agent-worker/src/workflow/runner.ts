@@ -555,13 +555,10 @@ export async function runWorkflowWithControllers(
           logger.debug(`@mention: ${from} → @${target} (no controller found!)`);
         }
       },
-      // Tool calls are important - show them in normal mode (not just debug)
+      // MCP server debugLog - only used for non-tool-call logs now
+      // Tool calls from MCP are written directly to channel with kind='tool_call'
       debugLog: (msg) => {
-        if (msg.startsWith("CALL ")) {
-          logger.info(msg); // Tool calls → always visible
-        } else {
-          logger.debug(msg); // Other debug info → debug only
-        }
+        logger.debug(msg);
       },
       feedback: feedbackEnabled,
     });

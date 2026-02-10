@@ -99,17 +99,30 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
 
   // Helper to log tool calls
   const logTool = (tool: string, agent: string | undefined, params: Record<string, unknown>) => {
-    if (debugLog) {
-      const agentStr = agent || "anonymous";
-      const paramsStr = Object.entries(params)
-        .filter(([_, v]) => v !== undefined)
-        .map(([k, v]) => {
-          const val = typeof v === "string" && v.length > 50 ? v.slice(0, 50) + "..." : v;
-          return `${k}=${JSON.stringify(val)}`;
-        })
-        .join(", ");
-      debugLog(`[mcp:${agentStr}] ${tool}(${paramsStr})`);
-    }
+    if (!agent) return; // Only log for identified agents
+
+    const paramsStr = Object.entries(params)
+      .filter(([_, v]) => v !== undefined)
+      .map(([k, v]) => {
+        const val = typeof v === "string" && v.length > 50 ? v.slice(0, 50) + "..." : v;
+        return `${k}=${JSON.stringify(val)}`;
+      })
+      .join(", ");
+
+    // Write tool call directly to channel with dedicated type (fire-and-forget)
+    provider
+      .appendChannel(
+        agent,
+        `${tool}(${paramsStr})`, // Content shows the call for reference
+        {
+          kind: "tool_call",
+          toolCall: {
+            name: tool,
+            args: paramsStr,
+          },
+        },
+      )
+      .catch(() => {}); // Ignore errors - logging should never block
   };
 
   const server = new McpServer({

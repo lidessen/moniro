@@ -987,11 +987,19 @@ describe('MCP Server Tools', () => {
       expect(result.timestamp).toBeDefined()
       expect(result.mentions).toEqual([])
 
-      // Verify message in provider
+      // Verify messages in provider (tool call + actual message)
       const entries = await provider.readChannel()
-      expect(entries).toHaveLength(1)
+      expect(entries).toHaveLength(2)
+
+      // First entry: tool call log
       expect(entries[0]!.from).toBe('agent1')
-      expect(entries[0]!.content).toBe('Hello world')
+      expect(entries[0]!.kind).toBe('tool_call')
+      expect(entries[0]!.toolCall?.name).toBe('channel_send')
+
+      // Second entry: actual message
+      expect(entries[1]!.from).toBe('agent1')
+      expect(entries[1]!.content).toBe('Hello world')
+      expect(entries[1]!.kind).toBeUndefined() // Regular message
     })
 
     test('extracts mentions from message', async () => {
