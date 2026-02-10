@@ -2,317 +2,74 @@ import { Command, Option } from "commander";
 import { readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { getDefaultModel } from "@/agent/models.ts";
-import type { BackendType } from "@/backends/types.ts";
 import { normalizeBackendType } from "@/backends/model-maps.ts";
-import { sendRequest } from "../client.ts";
 import {
-  startDaemon,
-  isSessionRunning,
-  listSessions,
-  setDefaultSession,
-  waitForReady,
-  generateAutoName,
-  getAgentDisplayName,
-} from "@/daemon/index.ts";
-import {
-  parseTarget,
-  buildTarget,
-  buildTargetDisplay,
-  DEFAULT_WORKFLOW,
-  DEFAULT_TAG,
-  // Backward compat
-  DEFAULT_INSTANCE,
-} from "../target.ts";
+  createAgent,
+  listAgents,
+  deleteAgent,
+  shutdown,
+  health,
+  run,
+  serve,
+  isDaemonActive,
+} from "../client.ts";
+import { isDaemonRunning, DEFAULT_PORT } from "@/daemon/index.ts";
 import { outputJson } from "../output.ts";
 
-// Common action for creating new agent
-async function createAgentAction(
-  name: string | undefined,
-  options: {
-    model?: string;
-    backend?: string;
-    system?: string;
-    systemFile?: string;
-    idleTimeout?: string;
-    port?: string;
-    host?: string;
-    skill?: string[];
-    skillDir?: string[];
-    importSkill?: string[];
-    tool?: string;
-    foreground?: boolean;
-    json?: boolean;
-    feedback?: boolean;
-    wakeup?: string;
-    wakeupPrompt?: string;
-  },
-) {
-  let system = options.system ?? "You are a helpful assistant.";
-  if (options.systemFile) {
-    system = readFileSync(options.systemFile, "utf-8");
+// ── Helpers ────────────────────────────────────────────────────────
+
+/**
+ * Ensure daemon is running. If not, spawn it in background and wait.
+ */
+async function ensureDaemon(port?: number, host?: string): Promise<void> {
+  if (isDaemonRunning()) return;
+
+  // Spawn daemon process
+  const scriptPath = process.argv[1] ?? "";
+  const args = [scriptPath, "daemon"];
+  if (port) args.push("--port", String(port));
+  if (host) args.push("--host", host);
+
+  const child = spawn(process.execPath, args, {
+    detached: true,
+    stdio: "ignore",
+  });
+  child.unref();
+
+  // Wait for daemon to be ready (daemon.json appears)
+  const maxWait = 5000;
+  const start = Date.now();
+  while (Date.now() - start < maxWait) {
+    if (isDaemonRunning()) return;
+    await new Promise((r) => setTimeout(r, 100));
   }
 
-  const backend = normalizeBackendType(options.backend ?? "default");
-  const model = options.model || getDefaultModel();
-  const idleTimeout = parseInt(options.idleTimeout ?? "1800000", 10);
-
-  // Agent Mode only creates standalone agents in global workflow
-  const workflow = DEFAULT_WORKFLOW;
-  const tag = DEFAULT_TAG;
-  const instance = DEFAULT_INSTANCE; // Backward compat
-
-  // Auto-generate name if not provided (a0, a1, ..., z9)
-  const agentName = name || generateAutoName();
-
-  // Build full agent@workflow:tag name
-  let fullName: string;
-  if (agentName.includes("@")) {
-    fullName = agentName;
-  } else {
-    fullName = buildTarget(agentName, workflow, tag);
-  }
-
-  // Build schedule config if provided
-  const schedule = options.wakeup
-    ? {
-        wakeup: /^\d+$/.test(options.wakeup) ? parseInt(options.wakeup, 10) : options.wakeup,
-        prompt: options.wakeupPrompt,
-      }
-    : undefined;
-
-  if (options.foreground) {
-    startDaemon({
-      model,
-      system,
-      name: fullName,
-      workflow,
-      tag,
-      instance, // Backward compat
-      idleTimeout,
-      backend,
-      port: options.port ? parseInt(options.port, 10) : undefined,
-      host: options.host,
-      skills: options.skill,
-      skillDirs: options.skillDir,
-      importSkills: options.importSkill,
-      tool: options.tool,
-      feedback: options.feedback,
-      schedule,
-    });
-  } else {
-    const scriptPath = process.argv[1] ?? "";
-    const args = [
-      scriptPath,
-      "new",
-      agentName,
-      "-m",
-      model,
-      "-b",
-      backend,
-      "-s",
-      system,
-      "--foreground",
-    ];
-    args.push("--idle-timeout", String(idleTimeout));
-    if (options.feedback) {
-      args.push("--feedback");
-    }
-    if (options.skill) {
-      for (const skillPath of options.skill) {
-        args.push("--skill", skillPath);
-      }
-    }
-    if (options.skillDir) {
-      for (const dir of options.skillDir) {
-        args.push("--skill-dir", dir);
-      }
-    }
-    if (options.importSkill) {
-      for (const spec of options.importSkill) {
-        args.push("--import-skill", spec);
-      }
-    }
-    if (options.tool) {
-      args.push("--tool", options.tool);
-    }
-    if (options.wakeup) {
-      args.push("--wakeup", options.wakeup);
-    }
-    if (options.wakeupPrompt) {
-      args.push("--wakeup-prompt", options.wakeupPrompt);
-    }
-    if (options.port) {
-      args.push("--port", options.port);
-    }
-    if (options.host) {
-      args.push("--host", options.host);
-    }
-
-    const child = spawn(process.execPath, args, {
-      detached: true,
-      stdio: "ignore",
-    });
-    child.unref();
-
-    // Wait for ready signal instead of blind timeout
-    const info = await waitForReady(fullName, 5000);
-    if (info) {
-      const targetDisplay = buildTargetDisplay(agentName, workflow, tag);
-
-      if (options.json) {
-        outputJson({
-          name: agentName,
-          workflow,
-          tag,
-          instance, // Backward compat
-          model: info.model,
-          backend,
-        });
-      } else {
-        console.log(targetDisplay);
-      }
-    } else {
-      console.error("Failed to start agent");
-      process.exit(1);
-    }
-  }
+  console.error("Failed to start daemon");
+  process.exit(1);
 }
 
-// Common action for listing agents
-function listAgentsAction(targetInput?: string, options?: { json?: boolean; all?: boolean }) {
-  let sessions = listSessions();
+// ── Commands ───────────────────────────────────────────────────────
 
-  // Filter by target if specified (unless --all is used)
-  if (!options?.all && targetInput) {
-    const target = parseTarget(targetInput);
-    sessions = sessions.filter((s) => {
-      const sessionWorkflow = s.workflow || s.instance || DEFAULT_WORKFLOW;
-      const sessionTag = s.tag || DEFAULT_TAG;
-      return sessionWorkflow === target.workflow && sessionTag === target.tag;
-    });
-  } else if (!options?.all && !targetInput) {
-    // Default: show global workflow only
-    sessions = sessions.filter((s) => {
-      const sessionWorkflow = s.workflow || s.instance || DEFAULT_WORKFLOW;
-      return sessionWorkflow === DEFAULT_WORKFLOW;
-    });
-  }
-  // If --all is specified, show all sessions (no filter)
-
-  if (options?.json) {
-    outputJson(
-      sessions.map((s) => {
-        const parsed = s.name ? parseTarget(s.name) : null;
-        return {
-          id: s.id,
-          name: parsed?.agent ?? null,
-          workflow: s.workflow,
-          tag: s.tag,
-          instance: s.instance, // Backward compat
-          model: s.model,
-          backend: s.backend,
-          running: isSessionRunning(s.id),
-        };
-      }),
-    );
-    return;
-  }
-
-  if (sessions.length === 0) {
-    console.log("No active agents");
-    return;
-  }
-
-  // Group by workflow:tag
-  const byWorkflow = new Map<string, typeof sessions>();
-  for (const s of sessions) {
-    const workflow = s.workflow || s.instance || DEFAULT_WORKFLOW;
-    const tag = s.tag || DEFAULT_TAG;
-    const key = buildTargetDisplay(undefined, workflow, tag);
-    if (!byWorkflow.has(key)) byWorkflow.set(key, []);
-    byWorkflow.get(key)!.push(s);
-  }
-
-  for (const [workflowDisplay, agents] of byWorkflow) {
-    if (byWorkflow.size > 1) {
-      console.log(`[${workflowDisplay}]`);
-    }
-    for (const s of agents) {
-      const running = isSessionRunning(s.id);
-      const status = running ? "running" : "stopped";
-      const displayName = s.name ? getAgentDisplayName(s.name) : s.id.slice(0, 8);
-      const prefix = byWorkflow.size > 1 ? "  " : "";
-      console.log(`${prefix}${displayName.padEnd(12)} ${s.model.padEnd(30)} [${status}]`);
-    }
-  }
-}
-
-// Common action for stopping agents
-async function stopAgentAction(targetInput?: string, options?: { all?: boolean }) {
-  // Stop all agents
-  if (options?.all) {
-    const sessions = listSessions();
-    for (const s of sessions) {
-      if (isSessionRunning(s.id)) {
-        await sendRequest({ action: "shutdown" }, s.id);
-        const displayName = s.name ? getAgentDisplayName(s.name) : s.id.slice(0, 8);
-        console.log(`Stopped: ${displayName}`);
-      }
-    }
-    return;
-  }
-
-  if (!targetInput) {
-    console.error("Specify target agent or use --all");
-    process.exit(1);
-  }
-
-  // Parse target
-  const target = parseTarget(targetInput);
-
-  // If no agent name specified (e.g., @review:pr-123), stop all agents in that workflow:tag
-  if (!target.agent) {
-    let sessions = listSessions();
-    sessions = sessions.filter((s) => {
-      const sessionWorkflow = s.workflow || s.instance || DEFAULT_WORKFLOW;
-      const sessionTag = s.tag || DEFAULT_TAG;
-      return sessionWorkflow === target.workflow && sessionTag === target.tag;
+export function registerAgentCommands(program: Command) {
+  // ── daemon ─────────────────────────────────────────────────────
+  // Start daemon in foreground (mainly for development/debugging)
+  program
+    .command("daemon")
+    .description("Start daemon in foreground")
+    .option("--port <port>", `HTTP port (default: ${DEFAULT_PORT})`)
+    .option("--host <host>", "Host to bind to (default: 127.0.0.1)")
+    .action(async (options) => {
+      const { startDaemon } = await import("@/daemon/daemon.ts");
+      await startDaemon({
+        port: options.port ? parseInt(options.port, 10) : undefined,
+        host: options.host,
+      });
     });
 
-    if (sessions.length === 0) {
-      console.error(
-        `No agents found in ${buildTargetDisplay(undefined, target.workflow, target.tag)}`,
-      );
-      process.exit(1);
-    }
-
-    for (const s of sessions) {
-      if (isSessionRunning(s.id)) {
-        await sendRequest({ action: "shutdown" }, s.id);
-        const displayName = s.name ? getAgentDisplayName(s.name) : s.id.slice(0, 8);
-        console.log(`Stopped: ${displayName}`);
-      }
-    }
-    return;
-  }
-
-  // Stop specific agent
-  const fullTarget = buildTarget(target.agent, target.workflow, target.tag);
-  if (!isSessionRunning(fullTarget)) {
-    console.error(`Agent not found: ${targetInput}`);
-    process.exit(1);
-  }
-
-  const res = await sendRequest({ action: "shutdown" }, fullTarget);
-  if (res.success) {
-    console.log("Agent stopped");
-  } else {
-    console.error("Error:", res.error);
-  }
-}
-
-function addNewCommandOptions(cmd: Command): Command {
-  return cmd
+  // ── new ────────────────────────────────────────────────────────
+  program
+    .command("new <name>")
+    .description("Create a new agent")
     .option("-m, --model <model>", `Model identifier (default: ${getDefaultModel()})`)
     .addOption(
       new Option("-b, --backend <type>", "Backend type")
@@ -321,214 +78,235 @@ function addNewCommandOptions(cmd: Command): Command {
     )
     .option("-s, --system <prompt>", "System prompt", "You are a helpful assistant.")
     .option("-f, --system-file <file>", "Read system prompt from file")
-    .option("--idle-timeout <ms>", "Idle timeout in ms (0 = no timeout)", "1800000")
-    .option("--skill <path...>", "Add individual skill directories")
-    .option("--skill-dir <path...>", "Scan directories for skills")
-    .option("--import-skill <spec...>", "Import skills from Git (owner/repo:{skill1,skill2})")
-    .option("--tool <file>", "Import MCP tools from file (SDK backend only)")
-    .option("--feedback", "Enable feedback tool (agent can report tool/workflow observations)")
-    .option("--wakeup <value>", "Scheduled wakeup: ms number, duration (30s/5m/2h), or cron expr")
-    .option("--wakeup-prompt <prompt>", "Custom prompt for scheduled wakeup")
-    .option("--port <port>", "HTTP port to listen on (default: 5099)")
-    .option("--host <host>", "Host to bind to (default: 127.0.0.1, use 0.0.0.0 for remote access)")
-    .option("--foreground", "Run in foreground")
-    .option("--json", "Output as JSON");
-}
-
-export function registerAgentCommands(program: Command) {
-  // ============================================================================
-  // Top-level commands (primary interface)
-  // ============================================================================
-
-  // `new` — create agent
-  addNewCommandOptions(
-    program
-      .command("new [name]")
-      .description("Create a new standalone agent (auto-names if omitted: a0, a1, ...)")
-      .addHelpText(
-        "after",
-        `
+    .option("--workflow <name>", "Workflow name (default: global)")
+    .option("--tag <tag>", "Workflow instance tag (default: main)")
+    .option("--port <port>", `Daemon port if starting new daemon (default: ${DEFAULT_PORT})`)
+    .option("--host <host>", "Daemon host (default: 127.0.0.1)")
+    .option("--json", "Output as JSON")
+    .addHelpText(
+      "after",
+      `
 Examples:
-  $ agent-worker new alice -m anthropic/claude-sonnet-4-5    # Create standalone agent
-  $ agent-worker new -b mock                                 # Quick testing without API key
-  $ agent-worker new monitor --wakeup 30s                    # Agent with scheduled wakeup
-
-Note: Agent Mode creates standalone agents in the global workflow.
-      For coordinated multi-agent workflows, use Workflow Mode (YAML files).
+  $ agent-worker new alice -m anthropic/claude-sonnet-4-5
+  $ agent-worker new bot -b mock
+  $ agent-worker new reviewer --workflow review --tag pr-123
       `,
-      ),
-  ).action(createAgentAction);
-
-  // `ls` — list agents
-  program
-    .command("ls [target]")
-    .description("List agents (default: global workflow)")
-    .option("--json", "Output as JSON")
-    .option("--all", "Show agents from all workflows")
-    .addHelpText(
-      "after",
-      `
-Examples:
-  $ agent-worker ls                # List global workflow agents (default)
-  $ agent-worker ls @review        # List review workflow agents
-  $ agent-worker ls @review:pr-123 # List specific workflow:tag agents
-  $ agent-worker ls --all          # List all agents from all workflows
-    `,
     )
-    .action(listAgentsAction);
-
-  // `stop` — stop agent(s)
-  program
-    .command("stop [target]")
-    .description("Stop agent(s)")
-    .option("--all", "Stop all agents")
-    .addHelpText(
-      "after",
-      `
-Examples:
-  $ agent-worker stop alice           # Stop alice in global workflow
-  $ agent-worker stop alice@review    # Stop alice in review workflow
-  $ agent-worker stop @review:pr-123  # Stop all agents in review:pr-123
-  $ agent-worker stop --all           # Stop all agents
-    `,
-    )
-    .action(stopAgentAction);
-
-  // `status` — check agent status
-  program
-    .command("status [target]")
-    .description("Check agent status")
-    .option("--json", "Output as JSON")
-    .action(async (target, options) => {
-      if (!isSessionRunning(target)) {
-        if (options.json) {
-          outputJson({
-            running: false,
-            error: target ? `Not found: ${target}` : "No active agent",
-          });
-        } else {
-          console.error(target ? `Agent not found: ${target}` : "No active agent");
-        }
-        process.exit(1);
+    .action(async (name, options) => {
+      let system = options.system;
+      if (options.systemFile) {
+        system = readFileSync(options.systemFile, "utf-8");
       }
 
-      const res = await sendRequest({ action: "ping" }, target);
-      if (res.success && res.data) {
-        const data = res.data as { id: string; model: string; name?: string };
-        if (options.json) {
-          outputJson({ ...data, running: true });
-        } else {
-          const nameStr = data.name ? ` (${data.name})` : "";
-          console.log(`Agent: ${data.id}${nameStr}`);
-          console.log(`Model: ${data.model}`);
-        }
-      }
-    });
+      const backend = normalizeBackendType(options.backend ?? "default");
+      const model = options.model || getDefaultModel();
 
-  // `use` — set default agent
-  program
-    .command("use <target>")
-    .description("Set default agent")
-    .option("--json", "Output as JSON")
-    .action((target, options) => {
-      if (setDefaultSession(target)) {
-        if (options.json) {
-          outputJson({ target });
-        } else {
-          console.log(`Default agent set to: ${target}`);
-        }
-      } else {
-        console.error(`Agent not found: ${target}`);
-        process.exit(1);
-      }
-    });
+      // Ensure daemon is running
+      await ensureDaemon(
+        options.port ? parseInt(options.port, 10) : undefined,
+        options.host,
+      );
 
-  // ============================================================================
-  // Schedule commands (top-level)
-  // ============================================================================
-  const scheduleCmd = program
-    .command("schedule")
-    .description("Manage scheduled wakeup for agents")
-    .addHelpText(
-      "after",
-      `
-Examples:
-  $ agent-worker schedule alice set 30s                    # Wake alice every 30 seconds
-  $ agent-worker schedule alice set 5m --prompt "Status?"  # With custom prompt
-  $ agent-worker schedule alice get                        # View current schedule
-  $ agent-worker schedule alice clear                      # Remove schedule
-    `,
-    );
+      // Create agent via daemon API
+      const res = await createAgent({
+        name,
+        model,
+        system,
+        backend,
+        workflow: options.workflow,
+        tag: options.tag,
+      });
 
-  scheduleCmd
-    .command("get [target]")
-    .description("Show current wakeup schedule")
-    .option("--json", "Output as JSON")
-    .action(async (target, options) => {
-      const res = await sendRequest({ action: "schedule_get" }, target);
-      if (!res.success) {
+      if (res.error) {
         console.error("Error:", res.error);
         process.exit(1);
       }
+
       if (options.json) {
-        outputJson(res.data);
-      } else if (res.data) {
-        const s = res.data as { wakeup: string | number; prompt?: string };
-        console.log(`Wakeup: ${s.wakeup}`);
-        if (s.prompt) {
-          console.log(`Prompt: ${s.prompt}`);
-        } else {
-          console.log("Prompt: (default)");
-        }
+        outputJson(res);
       } else {
-        console.log("No wakeup schedule configured");
+        console.log(`${name} (${model})`);
       }
     });
 
-  scheduleCmd
-    .command("set <wakeup>")
-    .description("Set wakeup schedule (ms number, duration 30s/5m/2h, or cron expression)")
-    .option("-p, --prompt <prompt>", "Custom wakeup prompt")
-    .option("--to <target>", "Target agent")
+  // ── ls ─────────────────────────────────────────────────────────
+  program
+    .command("ls")
+    .description("List agents")
     .option("--json", "Output as JSON")
-    .action(async (wakeup, options) => {
-      // Parse as number if it looks like one
-      const wakeupValue = /^\d+$/.test(wakeup) ? parseInt(wakeup, 10) : wakeup;
-      const payload: Record<string, unknown> = { wakeup: wakeupValue };
-      if (options.prompt) {
-        payload.prompt = options.prompt;
-      }
-      const res = await sendRequest({ action: "schedule_set", payload }, options.to);
-      if (res.success) {
+    .addHelpText(
+      "after",
+      `
+Examples:
+  $ agent-worker ls
+  $ agent-worker ls --json
+      `,
+    )
+    .action(async (options) => {
+      if (!isDaemonActive()) {
         if (options.json) {
-          outputJson({ wakeup: wakeupValue, prompt: options.prompt || null });
+          outputJson({ agents: [] });
         } else {
-          console.log(`Wakeup set: ${wakeup}`);
-          if (options.prompt) {
-            console.log(`Prompt: ${options.prompt}`);
-          }
+          console.log("No daemon running");
         }
+        return;
+      }
+
+      const res = await listAgents();
+      if (res.error) {
+        console.error("Error:", res.error);
+        process.exit(1);
+      }
+
+      const agents = (res.agents ?? []) as Array<{
+        name: string;
+        model: string;
+        backend: string;
+        workflow: string;
+        tag: string;
+        createdAt: string;
+      }>;
+
+      if (options.json) {
+        outputJson({ agents });
+        return;
+      }
+
+      if (agents.length === 0) {
+        console.log("No agents");
+        return;
+      }
+
+      for (const a of agents) {
+        const wf = a.tag === "main" ? `@${a.workflow}` : `@${a.workflow}:${a.tag}`;
+        console.log(`${a.name.padEnd(12)} ${a.model.padEnd(30)} ${wf}`);
+      }
+    });
+
+  // ── stop ───────────────────────────────────────────────────────
+  program
+    .command("stop [name]")
+    .description("Stop agent or daemon")
+    .option("--all", "Stop daemon (all agents)")
+    .addHelpText(
+      "after",
+      `
+Examples:
+  $ agent-worker stop alice       # Stop specific agent
+  $ agent-worker stop --all       # Stop daemon (all agents)
+      `,
+    )
+    .action(async (name, options) => {
+      if (!isDaemonActive()) {
+        console.error("No daemon running");
+        process.exit(1);
+      }
+
+      if (options.all) {
+        const res = await shutdown();
+        if (res.success) {
+          console.log("Daemon stopped");
+        } else {
+          console.error("Error:", res.error);
+        }
+        return;
+      }
+
+      if (!name) {
+        console.error("Specify agent name or use --all");
+        process.exit(1);
+      }
+
+      const res = await deleteAgent(name);
+      if (res.success) {
+        console.log(`Stopped: ${name}`);
       } else {
         console.error("Error:", res.error);
         process.exit(1);
       }
     });
 
-  scheduleCmd
-    .command("clear [target]")
-    .description("Remove scheduled wakeup")
+  // ── status ─────────────────────────────────────────────────────
+  program
+    .command("status")
+    .description("Show daemon status")
     .option("--json", "Output as JSON")
-    .action(async (target, options) => {
-      const res = await sendRequest({ action: "schedule_clear" }, target);
-      if (res.success) {
+    .action(async (options) => {
+      if (!isDaemonActive()) {
         if (options.json) {
-          outputJson({ success: true });
+          outputJson({ running: false });
         } else {
-          console.log("Schedule cleared");
+          console.log("Daemon not running");
         }
+        return;
+      }
+
+      const res = await health();
+      if (options.json) {
+        outputJson(res);
       } else {
+        console.log(`Daemon: pid=${res.pid} port=${res.port}`);
+        const agents = (res.agents ?? []) as string[];
+        console.log(`Agents: ${agents.length > 0 ? agents.join(", ") : "(none)"}`);
+        if (res.uptime) {
+          const secs = Math.round((res.uptime as number) / 1000);
+          console.log(`Uptime: ${secs}s`);
+        }
+      }
+    });
+
+  // ── run ────────────────────────────────────────────────────────
+  program
+    .command("run <agent> <message>")
+    .description("Send message to agent (SSE streaming)")
+    .option("--json", "Output final response as JSON")
+    .addHelpText(
+      "after",
+      `
+Examples:
+  $ agent-worker run alice "analyze this code"
+  $ agent-worker run alice "hello" --json
+      `,
+    )
+    .action(async (agent, message, options) => {
+      if (!isDaemonActive()) {
+        console.error("No daemon running");
+        process.exit(1);
+      }
+
+      const res = await run({ agent, message }, (chunk) => {
+        if (!options.json) {
+          process.stdout.write(chunk.text);
+        }
+      });
+
+      if (options.json) {
+        outputJson(res);
+      } else {
+        // Newline after streaming output
+        console.log();
+      }
+    });
+
+  // ── serve ──────────────────────────────────────────────────────
+  program
+    .command("serve <agent> <message>")
+    .description("Send message to agent (sync response)")
+    .option("--json", "Output as JSON")
+    .action(async (agent, message, options) => {
+      if (!isDaemonActive()) {
+        console.error("No daemon running");
+        process.exit(1);
+      }
+
+      const res = await serve({ agent, message });
+      if (options.json) {
+        outputJson(res);
+      } else if (res.error) {
         console.error("Error:", res.error);
         process.exit(1);
+      } else {
+        console.log((res as { content?: string }).content ?? JSON.stringify(res));
       }
     });
 }
