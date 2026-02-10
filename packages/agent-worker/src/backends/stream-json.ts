@@ -283,6 +283,10 @@ export function createStreamParser(
       if (!line.trim()) continue;
       try {
         const raw = JSON.parse(line);
+        // Debug: log all events to see what's happening
+        if (raw.type === "assistant" || raw.type === "system") {
+          debugLog(`[DEBUG] ${backendName} event: ${JSON.stringify(raw).substring(0, 200)}`);
+        }
         const event = adapter(raw);
         if (event) {
           const progress = formatEvent(event, backendName);
