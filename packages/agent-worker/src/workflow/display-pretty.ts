@@ -34,6 +34,8 @@ interface PrettyDisplayState {
   phase: "init" | "running" | "complete" | "error";
   /** Has shown agents started */
   hasShownAgentsStarted: boolean;
+  /** Workflow info buffer */
+  workflowInfo: { name?: string; agents?: string };
 }
 
 // ==================== Agent Colors ====================
@@ -66,11 +68,13 @@ function processEntry(entry: Message, state: PrettyDisplayState, agentNames: str
     // Extract phase from log content
     if (content.includes("Running workflow:")) {
       state.phase = "running";
-      const workflowName = content.split(":")[1]?.trim();
-      p.log.step(pc.dim(`Workflow: ${workflowName}`));
+      state.workflowInfo.name = content.split(":")[1]?.trim();
     } else if (content.includes("Agents:") && content.includes(",")) {
-      const agents = content.split(":")[1]?.trim();
-      p.log.step(pc.dim(`Agents: ${agents}`));
+      state.workflowInfo.agents = content.split(":")[1]?.trim();
+      // Show workflow info compactly when we have both
+      if (state.workflowInfo.name && state.workflowInfo.agents) {
+        p.log.step(`${pc.bold(state.workflowInfo.name)}\n   ${pc.dim(state.workflowInfo.agents)}`);
+      }
     } else if (content.includes("Starting agents")) {
       if (state.spinner) {
         state.spinner.stop("Initialized");
@@ -138,6 +142,7 @@ export function startPrettyDisplay(config: PrettyDisplayConfig): PrettyDisplayWa
     spinner: null,
     phase: "init",
     hasShownAgentsStarted: false,
+    workflowInfo: {},
   };
 
   // Show intro
