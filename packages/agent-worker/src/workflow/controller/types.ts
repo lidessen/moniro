@@ -95,6 +95,8 @@ export interface AgentRunContext {
   projectDir: string;
   /** Retry attempt number (1 = first try, 2+ = retry) */
   retryAttempt: number;
+  /** Context provider (for logging tool calls directly to channel) */
+  provider: import("../context/provider.ts").ContextProvider;
   /** Whether feedback tool is enabled */
   feedback?: boolean;
 }

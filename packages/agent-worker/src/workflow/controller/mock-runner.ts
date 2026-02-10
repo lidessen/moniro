@@ -16,24 +16,6 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import type { AgentRunContext, AgentRunResult } from "./types.ts";
 import { buildAgentPrompt } from "./prompt.ts";
 
-// ==================== Debug Formatting ====================
-
-/** Truncate string, flatten newlines */
-function truncate(s: string, max: number): string {
-  const flat = s.replace(/\s+/g, " ").trim();
-  return flat.length > max ? flat.slice(0, max) + "…" : flat;
-}
-
-/** Format a tool call for concise single-line debug output (function call syntax) */
-function formatToolCall(tc: { toolName: string } & Record<string, unknown>): string {
-  const input = (tc.input ?? tc.args ?? {}) as Record<string, unknown>;
-  const pairs = Object.entries(input).map(([k, v]) => {
-    const s = typeof v === "string" ? v : JSON.stringify(v);
-    return `${k}=${truncate(s, 60)}`;
-  });
-  return `${tc.toolName}(${pairs.join(", ")})`;
-}
-
 // ==================== MCP Tool Bridge ====================
 
 interface MCPToolBridge {
@@ -147,14 +129,7 @@ export async function runMockAgent(
       prompt,
       system: ctx.agent.resolvedSystemPrompt,
       stopWhen: stepCountIs(3),
-      onStepFinish: (step) => {
-        log(`Step finished: ${step.toolCalls?.length || 0} tool calls`);
-        if (step.toolCalls?.length) {
-          for (const tc of step.toolCalls) {
-            log(`CALL ${formatToolCall(tc)}`);
-          }
-        }
-      },
+      // Tool calls are logged by MCP server with tool_call type
     });
 
     const totalToolCalls = result.steps.reduce((n, s) => n + s.toolCalls.length, 0);

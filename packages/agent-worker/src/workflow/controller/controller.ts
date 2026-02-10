@@ -137,6 +137,7 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
           workspaceDir,
           projectDir,
           retryAttempt: attempt,
+          provider: contextProvider,
           feedback,
         };
 

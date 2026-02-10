@@ -583,13 +583,8 @@ export async function runWorkflowWithControllers(
       const agentLogger = logger.child(agentName);
 
       // Get backend for this agent
-      // Tool calls are shown in normal mode, other debug info only in debug mode
       const backendDebugLog = (msg: string) => {
-        if (msg.startsWith("CALL ")) {
-          agentLogger.info(msg); // Tool calls → always visible with agent name
-        } else {
-          agentLogger.debug(msg); // Other debug info → debug only
-        }
+        agentLogger.debug(msg);
       };
       let backend: Backend;
       if (createBackend) {
@@ -624,14 +619,7 @@ export async function runWorkflowWithControllers(
         projectDir: runtime.projectDir,
         backend,
         pollInterval,
-        log: (msg) => {
-          // Tool calls are important - show in normal mode (not just debug)
-          if (msg.startsWith("CALL ") || msg.startsWith("Step finished")) {
-            controllerLogger.info(msg);
-          } else {
-            controllerLogger.debug(msg);
-          }
-        },
+        log: (msg) => controllerLogger.debug(msg),
         infoLog: (msg) => controllerLogger.info(msg),
         errorLog: (msg) => controllerLogger.error(msg),
         feedback: feedbackEnabled,

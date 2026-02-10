@@ -152,7 +152,15 @@ export async function runSdkAgent(
         _stepNum++;
         if (step.toolCalls?.length) {
           for (const tc of step.toolCalls) {
-            log(`CALL ${formatToolCall(tc)}`);
+            // Only log non-MCP tools (like bash) - MCP tools are logged by MCP server
+            if (tc.toolName === "bash") {
+              const args = formatToolCall(tc);
+              // Write bash tool call directly to channel with tool_call type (fire-and-forget)
+              ctx.provider.appendChannel(ctx.name, args, {
+                kind: "tool_call",
+                toolCall: { name: tc.toolName, args },
+              }).catch(() => {});
+            }
           }
         }
       },
