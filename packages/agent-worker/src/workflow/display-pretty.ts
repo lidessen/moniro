@@ -83,9 +83,14 @@ function processEntry(entry: Message, state: PrettyDisplayState, agentNames: str
     const caller = from.includes(":") ? from.split(":").pop() : from;
     if (caller) {
       const color = getAgentColor(caller, agentNames);
-      p.log.step(`${color(caller)} ${pc.dim(`${toolCall.name}(${toolCall.args})`)}`);
+      // Format: agent → tool_name(args)
+      // Tool name in cyan/bold for visibility, args dimmed for less clutter
+      const arrow = pc.cyan("→");
+      const tool = pc.bold(pc.cyan(toolCall.name));
+      const args = toolCall.args ? pc.dim(`(${toolCall.args})`) : pc.dim("()");
+      p.log.step(`${color(caller)} ${arrow} ${tool}${args}`);
     } else {
-      p.log.step(pc.dim(`${toolCall.name}(${toolCall.args})`));
+      p.log.step(pc.cyan(`→ ${pc.bold(toolCall.name)}`) + pc.dim(`(${toolCall.args || ""})`));
     }
     return;
   }
