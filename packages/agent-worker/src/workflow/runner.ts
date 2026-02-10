@@ -649,6 +649,8 @@ export async function runWorkflowWithControllers(
       channelWatcher = startPrettyDisplay({
         contextProvider: runtime.contextProvider,
         agentNames: runtime.agentNames,
+        workflowName,
+        tag,
         initialCursor: channelStart,
         pollInterval: 250,
       });

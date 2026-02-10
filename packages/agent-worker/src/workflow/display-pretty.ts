@@ -19,6 +19,10 @@ export interface PrettyDisplayConfig {
   contextProvider: ContextProvider;
   /** Agent names */
   agentNames: string[];
+  /** Workflow name */
+  workflowName: string;
+  /** Workflow tag (main will be omitted) */
+  tag: string;
   /** Poll interval in ms (default: 500) */
   pollInterval?: number;
   /** Starting cursor position */
@@ -139,7 +143,14 @@ export interface PrettyDisplayWatcher {
  * Start pretty display watcher
  */
 export function startPrettyDisplay(config: PrettyDisplayConfig): PrettyDisplayWatcher {
-  const { contextProvider, agentNames, pollInterval = 500, initialCursor = 0 } = config;
+  const {
+    contextProvider,
+    agentNames,
+    workflowName,
+    tag,
+    pollInterval = 500,
+    initialCursor = 0,
+  } = config;
 
   const state: PrettyDisplayState = {
     spinner: null,
@@ -151,8 +162,12 @@ export function startPrettyDisplay(config: PrettyDisplayConfig): PrettyDisplayWa
   // Show ASCII banner
   console.log(pc.cyan(BANNER));
 
+  // Build intro text with workflow and tag
+  const tagText = tag === "main" ? "" : `:${tag}`;
+  const introText = ` agent-worker: ${workflowName}${tagText} `;
+
   // Show intro
-  p.intro(pc.bgCyan(pc.black(" agent-worker ")));
+  p.intro(pc.bgCyan(pc.black(introText)));
 
   // Add blank line after intro
   console.log("");
