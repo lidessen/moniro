@@ -118,7 +118,7 @@ describe('Client Module', () => {
       'nonexistent-session-12345'
     )
     expect(res.success).toBe(false)
-    expect(res.error).toContain('Session not found')
+    expect(res.error).toContain('not found')
   })
 
   test('sendRequest returns error when no active session', async () => {

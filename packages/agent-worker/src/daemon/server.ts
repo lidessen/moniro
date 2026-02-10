@@ -1,5 +1,11 @@
 // Re-exports from daemon modules
 export {
+  // Daemon discovery
+  DEFAULT_PORT,
+  readDaemonInfo,
+  isDaemonRunning,
+  type DaemonInfo,
+  // Legacy session (kept for transition)
   listSessions,
   setDefaultSession,
   isSessionRunning,

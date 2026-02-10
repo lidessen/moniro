@@ -14,6 +14,7 @@ import { createFeedbackTool, FEEDBACK_PROMPT } from "../agent/tools/feedback.ts"
 import type { FeedbackEntry } from "../agent/tools/feedback.ts";
 import {
   SESSIONS_DIR,
+  DEFAULT_PORT,
   ensureDirs,
   cleanupStaleSessions,
   registerSession,
@@ -21,6 +22,8 @@ import {
   resolveSchedule,
   getInstanceAgentNames,
   getAgentDisplayName,
+  writeDaemonInfo,
+  removeDaemonInfo,
 } from "./registry.ts";
 import type { SessionInfo, ScheduleConfig } from "./registry.ts";
 import { handleRequest } from "./handler.ts";
@@ -432,6 +435,8 @@ function cleanup(): void {
     }
     unregisterSession(state.info.id);
   }
+  // Remove daemon.json
+  removeDaemonInfo();
 }
 
 export async function startDaemon(config: {
@@ -446,7 +451,7 @@ export async function startDaemon(config: {
   instance?: string;
   idleTimeout?: number;
   backend?: BackendType;
-  /** HTTP port to listen on (0 = auto-assign) */
+  /** HTTP port to listen on (default: 5099) */
   port?: number;
   /** Host to bind to (default: "127.0.0.1", use "0.0.0.0" for remote access) */
   host?: string;
@@ -871,7 +876,7 @@ export async function startDaemon(config: {
   const server = Bun.serve({
     fetch: app.fetch,
     websocket,
-    port: config.port ?? 0,
+    port: config.port ?? DEFAULT_PORT,
     hostname: host,
     error(error) {
       console.error("Server error:", error);
@@ -882,10 +887,18 @@ export async function startDaemon(config: {
 
   info.port = server.port ?? 0;
 
-  // Write PID file
+  // Write daemon.json for client discovery
+  writeDaemonInfo({
+    pid: process.pid,
+    host,
+    port: info.port,
+    startedAt: new Date().toISOString(),
+  });
+
+  // Write PID file (legacy, kept for transition)
   writeFileSync(pidFile, process.pid.toString());
 
-  // Register session
+  // Register session (legacy, kept for transition)
   registerSession(info);
 
   // Initialize state

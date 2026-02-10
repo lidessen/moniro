@@ -1,5 +1,11 @@
 // Re-export registry functions and types
 export {
+  // Daemon discovery (new)
+  DEFAULT_PORT,
+  readDaemonInfo,
+  isDaemonRunning,
+  type DaemonInfo,
+  // Legacy session functions (kept for transition)
   listSessions,
   setDefaultSession,
   isSessionRunning,

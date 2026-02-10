@@ -1,4 +1,4 @@
-import { getSessionInfo, isSessionRunning } from "../daemon/server.ts";
+import { isDaemonRunning, getSessionInfo, isSessionRunning } from "../daemon/server.ts";
 
 interface Response {
   success: boolean;
@@ -81,27 +81,37 @@ function resolveRoute(req: {
 }
 
 /**
- * Resolve session target → base URL.
- * Returns null with an error Response if the session is not reachable.
+ * Resolve daemon or session target → base URL.
+ * Tries daemon.json first (new: single daemon), falls back to per-session lookup (legacy).
  */
 function resolveBaseUrl(
   target: string | undefined,
   debug: boolean,
 ): { url: string } | { error: Response } {
   if (debug) {
-    console.error(`[DEBUG] Looking up session: ${target || "(default)"}`);
+    console.error(`[DEBUG] Looking up: ${target || "(daemon)"}`);
   }
 
+  // Try daemon.json first (new discovery)
+  const daemon = isDaemonRunning();
+  if (daemon) {
+    if (debug) {
+      console.error(`[DEBUG] Found daemon: pid=${daemon.pid} port=${daemon.port}`);
+    }
+    return { url: `http://${daemon.host}:${daemon.port}` };
+  }
+
+  // Fallback: legacy per-session lookup
   const info = getSessionInfo(target);
 
   if (!info) {
     if (target) {
-      return { error: { success: false, error: `Session not found: ${target}` } };
+      return { error: { success: false, error: `Agent not found: ${target}` } };
     }
     return {
       error: {
         success: false,
-        error: "No active session. Start one with: agent-worker session start -m <model>",
+        error: "No daemon running. Start one with: agent-worker new <name> -m <model>",
       },
     };
   }
@@ -115,7 +125,7 @@ function resolveBaseUrl(
   }
 
   if (!isSessionRunning(target)) {
-    return { error: { success: false, error: `Session not running: ${target || info.id}` } };
+    return { error: { success: false, error: `Agent not running: ${target || info.id}` } };
   }
 
   return { url: `http://${info.host || "127.0.0.1"}:${info.port}` };

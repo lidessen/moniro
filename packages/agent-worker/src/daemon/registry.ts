@@ -1,11 +1,10 @@
 /**
- * Session Registry — Directory-per-session design.
+ * Daemon Registry
  *
- * Each session is stored as its own file: sessions/{id}.json
- * Only the owning daemon process writes to its session file.
- * No shared mutable state → no locks needed.
+ * Discovery: daemon.json = { pid, host, port, startedAt }
+ * One daemon process on a fixed port. Clients read daemon.json to find it.
  *
- * Default session ID is stored in a separate file: default
+ * Legacy: per-session files in sessions/{id}.json (deprecated, kept for transition)
  */
 
 import {
@@ -22,8 +21,57 @@ import type { BackendType } from "../backends/types.ts";
 
 export const CONFIG_DIR = join(homedir(), ".agent-worker");
 export const SESSIONS_DIR = join(CONFIG_DIR, "sessions");
+export const DEFAULT_PORT = 5099;
 
+const DAEMON_FILE = join(CONFIG_DIR, "daemon.json");
 const DEFAULT_FILE = join(CONFIG_DIR, "default");
+
+// ==================== Daemon Discovery ====================
+
+export interface DaemonInfo {
+  pid: number;
+  host: string;
+  port: number;
+  startedAt: string;
+}
+
+/** Write daemon.json for client discovery */
+export function writeDaemonInfo(info: DaemonInfo): void {
+  mkdirSync(CONFIG_DIR, { recursive: true });
+  writeFileSync(DAEMON_FILE, JSON.stringify(info, null, 2));
+}
+
+/** Read daemon.json. Returns null if missing or malformed. */
+export function readDaemonInfo(): DaemonInfo | null {
+  try {
+    return JSON.parse(readFileSync(DAEMON_FILE, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+
+/** Remove daemon.json (on shutdown) */
+export function removeDaemonInfo(): void {
+  try {
+    unlinkSync(DAEMON_FILE);
+  } catch {
+    // Already removed
+  }
+}
+
+/** Check if a daemon is already running (daemon.json exists + PID alive) */
+export function isDaemonRunning(): DaemonInfo | null {
+  const info = readDaemonInfo();
+  if (!info) return null;
+  try {
+    process.kill(info.pid, 0);
+    return info;
+  } catch {
+    // PID dead, clean up stale daemon.json
+    removeDaemonInfo();
+    return null;
+  }
+}
 
 /**
  * Schedule configuration for periodic agent wakeup.
