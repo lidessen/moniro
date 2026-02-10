@@ -1,5 +1,11 @@
 # agent-worker
 
+## 0.8.0
+
+### Minor Changes
+
+- [`944236b`](https://github.com/lidessen/moniro/commit/944236b4a70b8912d489ea048a32514e79cd0fe7) - BREAKING: Rename MCP tools (inbox*\* → my_inbox*_, document\__ → team*doc*\*, etc.), add agent status management, increase idle timeout to 10min, improve event handling with typed adapters
+
 ## 0.7.0
 
 ### Minor Changes
