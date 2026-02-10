@@ -21,13 +21,8 @@ process.stderr.write = function (chunk: string | Uint8Array, ...rest: unknown[])
 import { Command } from "commander";
 import { registerAgentCommands } from "./commands/agent.ts";
 import { registerSendCommands } from "./commands/send.ts";
-import { registerToolCommands } from "./commands/tool.ts";
-import { registerWorkflowCommands } from "./commands/workflow.ts";
-import { registerApprovalCommands } from "./commands/approval.ts";
 import { registerInfoCommands } from "./commands/info.ts";
 import { registerDocCommands } from "./commands/doc.ts";
-import { registerMockCommands } from "./commands/mock.ts";
-import { registerFeedbackCommand } from "./commands/feedback.ts";
 import packageJson from "../../package.json" with { type: "json" };
 
 const program = new Command();
@@ -39,11 +34,6 @@ program
 
 registerAgentCommands(program);
 registerSendCommands(program);
-registerMockCommands(program);
-registerFeedbackCommand(program);
-registerToolCommands(program); // TODO: Remove deprecated commands
-registerWorkflowCommands(program);
-registerApprovalCommands(program);
 registerInfoCommands(program);
 registerDocCommands(program);
 

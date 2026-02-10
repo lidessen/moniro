@@ -1,25 +1,30 @@
-import { isDaemonRunning, getSessionInfo, isSessionRunning } from "../daemon/server.ts";
+/**
+ * CLI client — HTTP client for daemon REST API.
+ *
+ * Talks to the 9-endpoint daemon:
+ *   GET  /health, POST /shutdown
+ *   GET/POST /agents, GET/DELETE /agents/:name
+ *   POST /run (SSE), POST /serve
+ *   ALL  /mcp
+ */
 
-interface Response {
-  success: boolean;
-  data?: unknown;
+import { isDaemonRunning } from "../daemon/server.ts";
+
+// ── Types ──────────────────────────────────────────────────────────
+
+interface ApiResponse {
+  success?: boolean;
   error?: string;
+  [key: string]: unknown;
 }
 
-interface SendOptions {
-  target?: string;
-  debug?: boolean;
-}
+// ── Retry logic ────────────────────────────────────────────────────
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 200;
 
-/** Check if an error is transient and worth retrying */
 function isRetryableError(error: unknown): boolean {
-  if (error instanceof TypeError) {
-    // fetch throws TypeError for network errors (connection refused, etc.)
-    return true;
-  }
+  if (error instanceof TypeError) return true;
   if (error instanceof Error) {
     const code = (error as NodeJS.ErrnoException).code;
     return code === "ECONNREFUSED" || code === "ECONNRESET";
@@ -27,124 +32,34 @@ function isRetryableError(error: unknown): boolean {
   return false;
 }
 
-/**
- * Map legacy { action, payload } to RESTful { method, path, body }.
- */
-function resolveRoute(req: {
-  action: string;
-  payload?: unknown;
-}): { method: string; path: string; body?: unknown } {
-  const p = req.payload as Record<string, unknown> | undefined;
+// ── Daemon URL resolution ──────────────────────────────────────────
 
-  switch (req.action) {
-    case "ping":
-      return { method: "GET", path: "/session" };
-    case "send":
-      return { method: "POST", path: "/session/send", body: p };
-    case "history":
-      return { method: "GET", path: "/session/history" };
-    case "stats":
-      return { method: "GET", path: "/session/stats" };
-    case "export":
-      return { method: "GET", path: "/session/export" };
-    case "clear":
-      return { method: "POST", path: "/session/clear" };
-    case "shutdown":
-      return { method: "POST", path: "/session/shutdown" };
-    case "tool_list":
-      return { method: "GET", path: "/tools" };
-    case "tool_add":
-      return { method: "POST", path: "/tools", body: p };
-    case "tool_import":
-      return { method: "POST", path: "/tools/import", body: p };
-    case "tool_mock":
-      return { method: "POST", path: "/tools/mock", body: p };
-    case "pending":
-      return { method: "GET", path: "/approvals" };
-    case "approve":
-      return { method: "POST", path: `/approvals/${p?.id}/approve` };
-    case "deny": {
-      const { id, ...rest } = p ?? {};
-      return { method: "POST", path: `/approvals/${id}/deny`, body: rest };
-    }
-    case "feedback_list":
-      return { method: "GET", path: "/feedback" };
-    case "schedule_get":
-      return { method: "GET", path: "/schedule" };
-    case "schedule_set":
-      return { method: "PUT", path: "/schedule", body: p };
-    case "schedule_clear":
-      return { method: "DELETE", path: "/schedule" };
-    default:
-      throw new Error(`Unknown action: ${req.action}`);
-  }
-}
-
-/**
- * Resolve daemon or session target → base URL.
- * Tries daemon.json first (new: single daemon), falls back to per-session lookup (legacy).
- */
-function resolveBaseUrl(
-  target: string | undefined,
-  debug: boolean,
-): { url: string } | { error: Response } {
-  if (debug) {
-    console.error(`[DEBUG] Looking up: ${target || "(daemon)"}`);
-  }
-
-  // Try daemon.json first (new discovery)
+function getDaemonUrl(): string | null {
   const daemon = isDaemonRunning();
-  if (daemon) {
-    if (debug) {
-      console.error(`[DEBUG] Found daemon: pid=${daemon.pid} port=${daemon.port}`);
-    }
-    return { url: `http://${daemon.host}:${daemon.port}` };
-  }
-
-  // Fallback: legacy per-session lookup
-  const info = getSessionInfo(target);
-
-  if (!info) {
-    if (target) {
-      return { error: { success: false, error: `Agent not found: ${target}` } };
-    }
-    return {
-      error: {
-        success: false,
-        error: "No daemon running. Start one with: agent-worker new <name> -m <model>",
-      },
-    };
-  }
-
-  if (debug) {
-    console.error(`[DEBUG] Found session: ${info.id} (${info.backend})`);
-  }
-
-  if (!info.port) {
-    return { error: { success: false, error: `Session has no port: ${info.id}` } };
-  }
-
-  if (!isSessionRunning(target)) {
-    return { error: { success: false, error: `Agent not running: ${target || info.id}` } };
-  }
-
-  return { url: `http://${info.host || "127.0.0.1"}:${info.port}` };
+  if (!daemon) return null;
+  return `http://${daemon.host}:${daemon.port}`;
 }
 
-/**
- * Low-level HTTP request with retry logic.
- */
-async function httpRequest(
-  baseUrl: string,
+function requireDaemon(): string {
+  const url = getDaemonUrl();
+  if (!url) {
+    throw new Error("No daemon running. Start one with: agent-worker daemon");
+  }
+  return url;
+}
+
+// ── Low-level HTTP ─────────────────────────────────────────────────
+
+async function request(
   method: string,
   path: string,
-  body: unknown | undefined,
-  debug: boolean,
-): Promise<Response> {
+  body?: unknown,
+): Promise<ApiResponse> {
+  const baseUrl = requireDaemon();
   let lastError: unknown;
+
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const startTime = Date.now();
       const init: RequestInit = {
         method,
         headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
@@ -152,27 +67,12 @@ async function httpRequest(
         signal: AbortSignal.timeout(60_000),
       };
 
-      if (debug) {
-        console.error(`[DEBUG] ${method} ${baseUrl}${path}`);
-        if (body) console.error(`[DEBUG] Body: ${JSON.stringify(body, null, 2)}`);
-      }
-
       const res = await fetch(`${baseUrl}${path}`, init);
-      const result = (await res.json()) as Response;
-
-      if (debug) {
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-        console.error(`[DEBUG] ${res.status} after ${elapsed}s`);
-      }
-
-      return result;
+      return (await res.json()) as ApiResponse;
     } catch (error) {
       lastError = error;
       if (attempt < MAX_RETRIES && isRetryableError(error)) {
         const delay = BASE_DELAY_MS * Math.pow(2, attempt);
-        if (debug) {
-          console.error(`[DEBUG] Retry ${attempt + 1}/${MAX_RETRIES} after ${delay}ms`);
-        }
         await new Promise((resolve) => setTimeout(resolve, delay));
       } else {
         break;
@@ -184,43 +84,114 @@ async function httpRequest(
   return { success: false, error: `Connection failed: ${message}` };
 }
 
-/**
- * Send a request to a daemon session via HTTP REST routes.
- * Maps action-based requests to the appropriate RESTful endpoint.
- */
-export function sendRequest(
-  req: { action: string; payload?: unknown },
-  target?: string,
-  options?: SendOptions,
-): Promise<Response>;
-export async function sendRequest(
-  req: { action: string; payload?: unknown },
-  targetOrOptions?: string | SendOptions,
-  options?: SendOptions,
-): Promise<Response> {
-  // Handle overloaded signatures
-  let target: string | undefined;
-  let opts: SendOptions = {};
+// ── Public API ─────────────────────────────────────────────────────
 
-  if (typeof targetOrOptions === "string") {
-    target = targetOrOptions;
-    opts = options || {};
-  } else if (targetOrOptions) {
-    opts = targetOrOptions;
-    target = opts.target;
-  }
-  const debug = opts.debug || false;
+/** GET /health */
+export function health(): Promise<ApiResponse> {
+  return request("GET", "/health");
+}
 
-  const resolved = resolveBaseUrl(target, debug);
-  if ("error" in resolved) return resolved.error;
+/** POST /shutdown */
+export function shutdown(): Promise<ApiResponse> {
+  return request("POST", "/shutdown");
+}
 
-  const route = resolveRoute(req);
-  return httpRequest(resolved.url, route.method, route.path, route.body, debug);
+/** GET /agents */
+export function listAgents(): Promise<ApiResponse> {
+  return request("GET", "/agents");
+}
+
+/** POST /agents */
+export function createAgent(body: {
+  name: string;
+  model: string;
+  system: string;
+  backend?: string;
+  workflow?: string;
+  tag?: string;
+}): Promise<ApiResponse> {
+  return request("POST", "/agents", body);
+}
+
+/** GET /agents/:name */
+export function getAgent(name: string): Promise<ApiResponse> {
+  return request("GET", `/agents/${encodeURIComponent(name)}`);
+}
+
+/** DELETE /agents/:name */
+export function deleteAgent(name: string): Promise<ApiResponse> {
+  return request("DELETE", `/agents/${encodeURIComponent(name)}`);
+}
+
+/** POST /serve (sync JSON response) */
+export function serve(body: {
+  agent: string;
+  message: string;
+}): Promise<ApiResponse> {
+  return request("POST", "/serve", body);
 }
 
 /**
- * Check if any session is active, or a specific session
+ * POST /run (SSE stream).
+ * Calls onChunk for each chunk, returns final response.
  */
-export function isSessionActive(target?: string): boolean {
-  return isSessionRunning(target);
+export async function run(
+  body: { agent: string; message: string },
+  onChunk?: (data: { agent: string; text: string }) => void,
+): Promise<ApiResponse> {
+  const baseUrl = requireDaemon();
+
+  const res = await fetch(`${baseUrl}/run`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok || !res.body) {
+    return (await res.json()) as ApiResponse;
+  }
+
+  // Parse SSE stream
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let finalResponse: ApiResponse = { success: true };
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    // Process complete SSE events
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    let currentEvent = "";
+    for (const line of lines) {
+      if (line.startsWith("event: ")) {
+        currentEvent = line.slice(7);
+      } else if (line.startsWith("data: ")) {
+        const data = line.slice(6);
+        try {
+          const parsed = JSON.parse(data);
+          if (currentEvent === "chunk" && onChunk) {
+            onChunk(parsed);
+          } else if (currentEvent === "done") {
+            finalResponse = parsed;
+          } else if (currentEvent === "error") {
+            return { success: false, error: parsed.error };
+          }
+        } catch {
+          // Ignore malformed SSE data
+        }
+      }
+    }
+  }
+
+  return finalResponse;
+}
+
+/** Check if daemon is running */
+export function isDaemonActive(): boolean {
+  return getDaemonUrl() !== null;
 }

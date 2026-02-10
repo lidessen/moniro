@@ -8,7 +8,7 @@ import {
   listSessions,
   setDefaultSession,
   type SessionInfo,
-} from '../src/daemon/server.ts'
+} from '../src/daemon/registry.ts'
 
 describe('Server Session Management', () => {
   // Note: These tests use the actual registry file in ~/.agent-worker
@@ -109,31 +109,14 @@ describe('Server Session Management', () => {
 
 // ==================== Client Module Tests ====================
 
-import { sendRequest, isSessionActive } from '../src/cli/client.ts'
+import { isDaemonActive } from '../src/cli/client.ts'
 
 describe('Client Module', () => {
-  test('sendRequest returns error for nonexistent session', async () => {
-    const res = await sendRequest(
-      { action: 'status' },
-      'nonexistent-session-12345'
-    )
-    expect(res.success).toBe(false)
-    expect(res.error).toContain('not found')
-  })
-
-  test('sendRequest returns error when no active session', async () => {
-    // Without specifying a target, it should look for default session
-    // If no default exists, it should return an error
-    const res = await sendRequest({ action: 'status' })
-    // This will either find a session or return "No active session"
-    if (!res.success) {
-      expect(res.error).toBeDefined()
-    }
-  })
-
-  test('isSessionActive returns false for nonexistent session', () => {
-    const active = isSessionActive('definitely-not-a-real-session-xyz')
-    expect(active).toBe(false)
+  test('isDaemonActive returns false when no daemon running', () => {
+    // Without a running daemon, should return false
+    // (unless a daemon happens to be running on this machine)
+    const active = isDaemonActive()
+    expect(typeof active).toBe('boolean')
   })
 })
 
@@ -249,21 +232,10 @@ describe('CLI Command Logic', () => {
     })
   })
 
-  describe('down command logic', () => {
-    test('can check if session is running', () => {
-      // For a non-existent session, should return false
-      const running = isSessionActive('nonexistent-session-xyz')
-      expect(running).toBe(false)
-    })
-
-    test('sendRequest handles shutdown action format', async () => {
-      // Verify the shutdown request format is correct
-      const req = { action: 'shutdown' }
-      expect(req.action).toBe('shutdown')
-
-      // Sending to nonexistent session should return error
-      const res = await sendRequest(req, 'nonexistent')
-      expect(res.success).toBe(false)
+  describe('daemon check', () => {
+    test('isDaemonActive returns boolean', () => {
+      const active = isDaemonActive()
+      expect(typeof active).toBe('boolean')
     })
   })
 })

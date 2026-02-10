@@ -5,14 +5,6 @@ export {
   readDaemonInfo,
   isDaemonRunning,
   type DaemonInfo,
-  // Legacy session (kept for transition)
-  listSessions,
-  setDefaultSession,
-  isSessionRunning,
-  waitForReady,
-  registerSession,
-  unregisterSession,
-  getSessionInfo,
-  type SessionInfo,
 } from "./registry.ts";
 export { startDaemon } from "./daemon.ts";
+export type { AgentState, DaemonState } from "./daemon.ts";

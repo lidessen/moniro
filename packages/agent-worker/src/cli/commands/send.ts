@@ -1,6 +1,5 @@
 import type { Command } from "commander";
 import { mkdirSync } from "node:fs";
-import { sendRequest, isSessionActive } from "../client.ts";
 import { outputJson } from "../output.ts";
 import { getInstanceAgentNames } from "@/daemon/index.ts";
 import {
@@ -11,39 +10,32 @@ import { DEFAULT_WORKFLOW, parseTarget } from "../target.ts";
 
 /**
  * Get a context provider for the given workflow:tag.
- * Auto-provisions the context directory if it doesn't exist.
  */
-function getContextProvider(workflow: string, tag: string, instanceFallback?: string) {
+function getContextProvider(workflow: string, tag: string) {
   const dir = getDefaultContextDir(workflow, tag);
   mkdirSync(dir, { recursive: true });
-  const agentNames = [...getInstanceAgentNames(instanceFallback || workflow), "user"];
+  const agentNames = [...getInstanceAgentNames(workflow), "user"];
   return createFileContextProvider(dir, agentNames);
 }
 
 export function registerSendCommands(program: Command) {
-  // Send command — posts to workflow channel with @mention routing
+  // Send — posts to workflow channel with @mention routing
   program
     .command("send <target> <message>")
-    .description(
-      "Send message to agent or workflow. Use @workflow for broadcast or @mentions within workflow.",
-    )
+    .description("Send message to agent or workflow channel")
     .option("--json", "Output as JSON")
     .addHelpText(
       "after",
       `
 Examples:
-  $ agent-worker send alice "analyze this code"              # Send to alice@global:main
-  $ agent-worker send alice@review "hello"                   # Send to alice@review:main
-  $ agent-worker send alice@review:pr-123 "check this"       # Send to specific workflow:tag
-  $ agent-worker send @review "team update"                  # Broadcast to review workflow
-  $ agent-worker send @review "@alice @bob discuss this"     # @mention within workflow
+  $ agent-worker send alice "analyze this code"
+  $ agent-worker send @review "team update"
+  $ agent-worker send @review "@alice @bob discuss this"
     `,
     )
     .action(async (targetInput: string, message: string, options) => {
-      // Parse target identifier
       const target = parseTarget(targetInput);
-
-      const provider = getContextProvider(target.workflow, target.tag, target.workflow);
+      const provider = getContextProvider(target.workflow, target.tag);
 
       const entry = await provider.appendChannel("user", message);
 
@@ -61,33 +53,30 @@ Examples:
       }
     });
 
-  // Peek command — read channel messages
+  // Peek — read channel messages
   program
     .command("peek [target]")
     .description("View channel messages (default: @global)")
     .option("--json", "Output as JSON")
     .option("--all", "Show all messages")
     .option("-n, --last <count>", "Show last N messages", parseInt)
-    .option("--find <text>", "Filter messages containing text (case-insensitive)")
+    .option("--find <text>", "Filter messages containing text")
     .addHelpText(
       "after",
       `
 Examples:
-  $ agent-worker peek                    # View @global:main
-  $ agent-worker peek @review            # View @review:main
-  $ agent-worker peek @review:pr-123     # View specific workflow:tag
+  $ agent-worker peek
+  $ agent-worker peek @review
+  $ agent-worker peek @review:pr-123
     `,
     )
     .action(async (targetInput: string | undefined, options) => {
-      // Parse target identifier (default to @global)
       const target = parseTarget(targetInput || `@${DEFAULT_WORKFLOW}`);
-
-      const provider = getContextProvider(target.workflow, target.tag, target.workflow);
+      const provider = getContextProvider(target.workflow, target.tag);
 
       const limit = options.all ? undefined : (options.last ?? 10);
       let messages = await provider.readChannel({ limit });
 
-      // Apply text filter
       if (options.find) {
         const searchText = options.find.toLowerCase();
         messages = messages.filter((msg) => msg.content.toLowerCase().includes(searchText));
@@ -105,81 +94,11 @@ Examples:
 
       for (const msg of messages) {
         if (msg.kind === "log" || msg.kind === "debug") {
-          // System messages: dimmed format
           console.log(`  ~ ${msg.from}: ${msg.content}`);
         } else {
           const mentions = msg.mentions.length > 0 ? ` → @${msg.mentions.join(" @")}` : "";
           console.log(`[${msg.from}]${mentions} ${msg.content}`);
         }
-      }
-    });
-
-  // Stats command — still per-agent (via daemon)
-  program
-    .command("stats [target]")
-    .description("Show agent statistics")
-    .option("--json", "Output as JSON")
-    .action(async (target, options) => {
-      if (!isSessionActive(target)) {
-        console.error(target ? `Agent not found: ${target}` : "No active agent");
-        process.exit(1);
-      }
-
-      const res = await sendRequest({ action: "stats" }, target);
-      if (!res.success) {
-        console.error("Error:", res.error);
-        process.exit(1);
-      }
-
-      const stats = res.data as {
-        messageCount: number;
-        usage: { input: number; output: number; total: number };
-      };
-
-      if (options.json) {
-        outputJson(stats);
-      } else {
-        console.log(`Messages: ${stats.messageCount}`);
-        console.log(
-          `Tokens: ${stats.usage.total} (in: ${stats.usage.input}, out: ${stats.usage.output})`,
-        );
-      }
-    });
-
-  // Export command — still per-agent (via daemon)
-  program
-    .command("export [target]")
-    .description("Export agent transcript")
-    .action(async (target) => {
-      if (!isSessionActive(target)) {
-        console.error(target ? `Agent not found: ${target}` : "No active agent");
-        process.exit(1);
-      }
-
-      const res = await sendRequest({ action: "export" }, target);
-      if (!res.success) {
-        console.error("Error:", res.error);
-        process.exit(1);
-      }
-
-      console.log(JSON.stringify(res.data, null, 2));
-    });
-
-  // Clear command — clears agent internal history (via daemon)
-  program
-    .command("clear [target]")
-    .description("Clear agent conversation history")
-    .action(async (target) => {
-      if (!isSessionActive(target)) {
-        console.error(target ? `Agent not found: ${target}` : "No active agent");
-        process.exit(1);
-      }
-
-      const res = await sendRequest({ action: "clear" }, target);
-      if (res.success) {
-        console.log("History cleared");
-      } else {
-        console.error("Error:", res.error);
       }
     });
 }
