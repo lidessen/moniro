@@ -436,6 +436,8 @@ export interface ControllerRunConfig {
   workflowName?: string;
   /** Workflow tag (defaults to "main") */
   tag?: string;
+  /** Workflow file path (for display) */
+  workflowPath?: string;
   /** @deprecated Use workflowName instead. Instance name */
   instance?: string;
   /** Debug mode (show debug channel entries in output) */
@@ -651,6 +653,7 @@ export async function runWorkflowWithControllers(
         agentNames: runtime.agentNames,
         workflowName,
         tag,
+        workflowPath: config.workflowPath,
         initialCursor: channelStart,
         pollInterval: 250,
       });
