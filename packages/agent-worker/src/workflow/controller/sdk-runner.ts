@@ -169,6 +169,21 @@ export async function runSdkAgent(
     });
 
     const totalToolCalls = result.steps.reduce((n, s) => n + s.toolCalls.length, 0);
+    const lastStep = result.steps[result.steps.length - 1];
+
+    // Warn if max_steps limit was reached while agent was still working
+    if (
+      ctx.agent.max_steps &&
+      result.steps.length >= ctx.agent.max_steps &&
+      (lastStep?.toolCalls?.length ?? 0) > 0
+    ) {
+      const warning = `⚠️  Agent reached max_steps limit (${ctx.agent.max_steps}) but wanted to continue. Consider increasing max_steps or removing the limit.`;
+      log(warning);
+      // Also write to channel so user can see it
+      await ctx.provider
+        .appendChannel(ctx.name, warning, { kind: "log" })
+        .catch(() => {});
+    }
 
     await mcp.close();
     return {

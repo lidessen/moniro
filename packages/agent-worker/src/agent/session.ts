@@ -300,6 +300,13 @@ export class AgentSession {
     this.totalUsage.output += usage.output;
     this.totalUsage.total += usage.total;
 
+    // Warn if maxSteps limit was reached while agent was still working
+    if (this.maxSteps > 0 && stepNumber >= this.maxSteps && allToolCalls.length > 0) {
+      console.warn(
+        `⚠️  Agent reached maxSteps limit (${this.maxSteps}) but wanted to continue. Consider increasing maxSteps or removing the limit.`,
+      );
+    }
+
     const currentPending = this.pendingApprovals.filter((p) => p.status === "pending");
 
     return {
