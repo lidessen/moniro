@@ -241,8 +241,10 @@ export function startPrettyDisplay(config: PrettyDisplayConfig): PrettyDisplayWa
           processEntry(entry, state, agentNames);
         }
         cursor = tail.cursor;
-      } catch {
-        // Ignore errors during polling
+      } catch (error) {
+        // Log polling errors but continue for transient issues
+        // This allows display to recover from temporary provider failures
+        console.error("Display polling error:", error instanceof Error ? error.message : error);
       }
       await sleep(pollInterval);
     }
