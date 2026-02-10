@@ -110,10 +110,16 @@ function processEntry(entry: Message, state: PrettyDisplayState, agentNames: str
     } else if (content.startsWith("CALL ")) {
       // Tool calls - show as step with caller info
       const toolCall = content.replace("CALL ", "");
-      // Extract agent name from "workflow:agentName" format
-      const caller = from.includes(":") ? from.split(":")[1] : from;
-      const color = getAgentColor(caller!, agentNames);
-      p.log.step(`${color(caller!)} ${pc.dim(toolCall)}`);
+      const caller = from.includes(":") ? from.split(":").pop() : from;
+      if (caller) {
+        const color = getAgentColor(caller, agentNames);
+        p.log.step(`${color(caller)} ${pc.dim(toolCall)}`);
+      } else {
+        p.log.step(pc.dim(toolCall));
+      }
+    } else if (content.startsWith("Step finished")) {
+      // Skip step finished debug messages
+      return;
     } else if (content.startsWith("[ERROR]")) {
       p.log.error(content.replace("[ERROR] ", ""));
       state.phase = "error";
