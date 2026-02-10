@@ -38,7 +38,7 @@ export class CursorBackend implements Backend {
 
   constructor(options: CursorOptions = {}) {
     this.options = {
-      timeout: 300000, // 5 minute default (matches claude/codex)
+      timeout: 600000, // 10 minute default
       ...options,
     };
   }
@@ -66,7 +66,7 @@ export class CursorBackend implements Backend {
     // Use workspace as cwd if set, otherwise fall back to cwd option
     const cwd = this.options.workspace || this.options.cwd;
     const debugLog = this.options.debugLog;
-    const timeout = this.options.timeout ?? 300000;
+    const timeout = this.options.timeout ?? 600000;
 
     try {
       const { stdout } = await execWithIdleTimeout({
