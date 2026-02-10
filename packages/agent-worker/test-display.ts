@@ -86,12 +86,16 @@ async function main() {
   p.log.info(pc.green("✓") + " " + pc.dim("3 steps, 3 tool calls, 856ms"));
   await sleep(600);
 
+  console.log("");
+
   // Agent message (note box)
   p.note(
     "I've analyzed the codebase and identified 3 potential improvements:\n\n1. Reduce bundle size by lazy-loading components\n2. Add error boundaries for better resilience\n3. Implement caching layer for API calls",
     pc.cyan("assistant")
   );
   await sleep(1000);
+
+  console.log("");
 
   // Second agent starts
   p.log.step(pc.dim("Inbox: 1 message(s) from [assistant]"));
@@ -125,8 +129,12 @@ async function main() {
   p.log.info(pc.green("✓") + " " + pc.dim("2 steps, 4 tool calls, 723ms"));
   await sleep(600);
 
+  console.log("");
+
   p.note("The analysis looks good. I approve these changes.", pc.yellow("reviewer"));
   await sleep(800);
+
+  console.log("");
 
   // Final status - integrated naturally
   p.log.info("All agents completed their tasks");
