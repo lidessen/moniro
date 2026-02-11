@@ -1,5 +1,11 @@
 # agent-worker
 
+## 0.10.0
+
+### Minor Changes
+
+- [`9075077`](https://github.com/lidessen/moniro/commit/9075077fcffabf1a25eb2c9a3c4b5ce45ec61754) - Fix stream message display and add timestamps to all pretty output
+
 ## 0.9.0
 
 ### Minor Changes
