@@ -28,6 +28,7 @@ import type { StateStore } from "../agent/store.ts";
 import { MemoryStateStore } from "../agent/store.ts";
 import type { BackendType } from "../backends/types.ts";
 import { DEFAULT_PORT, writeDaemonInfo, removeDaemonInfo, isDaemonRunning } from "./registry.ts";
+import { startHttpServer, type ServerHandle } from "./serve.ts";
 import { createContextMCPServer } from "../workflow/context/mcp/server.ts";
 import {
   createFileContextProvider,
@@ -45,7 +46,7 @@ export interface DaemonState {
   /** State store — conversation persistence (pluggable) */
   store: StateStore;
   /** HTTP server handle */
-  server: { stop(closeActiveConnections?: boolean): void };
+  server: ServerHandle;
   port: number;
   host: string;
   startedAt: string;
@@ -74,7 +75,7 @@ async function gracefulShutdown(): Promise<void> {
         await state.store.save(name, handle.getState());
       } catch { /* best-effort */ }
     }
-    state.server.stop();
+    await state.server.close();
   }
 
   for (const [, session] of mcpSessions) {
@@ -388,18 +389,12 @@ export async function startDaemon(config: {
 
   // ── Start HTTP server ────────────────────────────────────────
 
-  const server = Bun.serve({
-    fetch: app.fetch,
+  const server = await startHttpServer(app, {
     port: config.port ?? DEFAULT_PORT,
     hostname: host,
-    error(error) {
-      console.error("Server error:", error);
-      removeDaemonInfo();
-      process.exit(1);
-    },
   });
 
-  const actualPort = server.port ?? 0;
+  const actualPort = server.port;
   const startedAt = new Date().toISOString();
 
   writeDaemonInfo({
