@@ -63,7 +63,7 @@ function createMockBackend(
     type: 'claude' as const,
     async send(message: string, options?: { system?: string }) {
       await behavior(message, provider, options)
-      return { content: 'ok' }
+      return { content: '' }
     },
   }
 }
@@ -196,7 +196,8 @@ describe('Alice-Bob workflow with mock backends', () => {
 
     // Verify the full conversation flow
     const entries = await provider.readChannel()
-    const messages = entries.map((e) => ({ from: e.from, content: e.content }))
+    // Filter out stream messages (tool calls, assistant messages) to get final responses
+    const messages = entries.filter((e) => !e.kind || e.kind === undefined).map((e) => ({ from: e.from, content: e.content }))
 
     // 1. Orchestrator kickoff
     expect(messages[0]!.from).toBe('system')
@@ -246,7 +247,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       },
       async send(message: string, options?: { system?: string }) {
         capturedAlice = { ...capturedAlice, prompt: message, system: options?.system }
-        return { content: 'ok' }
+        return { content: '' }
       },
     }
 
@@ -257,7 +258,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       },
       async send(message: string, options?: { system?: string }) {
         capturedBob = { ...capturedBob, prompt: message, system: options?.system }
-        return { content: 'ok' }
+        return { content: '' }
       },
     }
 
@@ -378,7 +379,9 @@ describe('Alice-Bob workflow with mock backends', () => {
       return entries.some((e) => e.from === 'bob' && e.content.includes('Sure'))
     })
 
-    const entries = await provider.readChannel()
+    const allEntries = await provider.readChannel()
+    // Filter out stream messages to get final responses
+    const entries = allEntries.filter((e) => !e.kind || e.kind === undefined)
     expect(entries).toHaveLength(3)
     expect(entries[0]!.from).toBe('system')
     expect(entries[1]!.from).toBe('alice')
@@ -583,7 +586,9 @@ describe('Alice-Bob workflow with mock backends', () => {
       return entries.some((e) => e.from === 'bob' && e.content.includes("welcome"))
     })
 
-    const entries = await provider.readChannel()
+    const allEntries = await provider.readChannel()
+    // Filter out stream messages to get final responses
+    const entries = allEntries.filter((e) => !e.kind || e.kind === undefined)
     // Debug: entries.map((e) => `${e.from}: ${e.content.slice(0, 50)}`)
 
     // Verify 5-message flow

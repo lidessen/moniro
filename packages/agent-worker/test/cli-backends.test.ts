@@ -297,12 +297,12 @@ describe('Claude/Cursor Adapter', () => {
     expect(formatEvent(event, 'Cursor')).toBe('Cursor completed (0.1s)')
   })
 
-  test('returns null for plain assistant text', () => {
+  test('returns skip for plain assistant text', () => {
     const raw = {
       type: 'assistant',
       message: { content: [{ type: 'text', text: 'hello' }] },
     }
-    expect(claudeAdapter(raw)).toBeNull()
+    expect(claudeAdapter(raw)).toEqual({ kind: 'skip' })
   })
 
   test('extractClaudeResult extracts result', () => {
@@ -375,9 +375,9 @@ describe('Codex Adapter', () => {
     expect(formatEvent(event, 'Codex')).toBe('Codex completed (8133 in, 5 out)')
   })
 
-  test('skips agent_message (returns null)', () => {
+  test('skips agent_message (returns skip)', () => {
     const raw = { type: 'item.completed', item: { type: 'agent_message', text: '4' } }
-    expect(codexAdapter(raw)).toBeNull()
+    expect(codexAdapter(raw)).toEqual({ kind: 'skip' })
   })
 
   test('extractCodexResult extracts agent_message', () => {
