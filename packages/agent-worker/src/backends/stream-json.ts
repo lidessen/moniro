@@ -340,6 +340,13 @@ export const cursorAdapter: EventAdapter = (raw) => {
     };
   }
 
+  if (event.type === "user" || event.type === "assistant") {
+    // User and assistant messages contain only text, no tool calls
+    // (tool calls come as separate tool_call events)
+    // Skip these events — text is extracted by result extractor
+    return null;
+  }
+
   if (event.type === "tool_call") {
     if (event.subtype === "started" && event.tool_call) {
       // Extract tool name from shellToolCall
