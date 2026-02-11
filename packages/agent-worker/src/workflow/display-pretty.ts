@@ -88,13 +88,27 @@ function getAgentColor(name: string, agentNames: string[]): (s: string) => strin
   return AGENT_COLORS[idx % AGENT_COLORS.length]!;
 }
 
+// ==================== Time Formatting ====================
+
+/**
+ * Extract HH:MM:SS from ISO timestamp for display
+ */
+function formatTime(timestamp: string): string {
+  const d = new Date(timestamp);
+  const h = String(d.getHours()).padStart(2, "0");
+  const m = String(d.getMinutes()).padStart(2, "0");
+  const s = String(d.getSeconds()).padStart(2, "0");
+  return pc.dim(`${h}:${m}:${s}`);
+}
+
 // ==================== Message Processing ====================
 
 /**
  * Process a channel entry for pretty display
  */
 function processEntry(entry: Message, state: PrettyDisplayState, agentNames: string[]): void {
-  const { kind, from, content, toolCall } = entry;
+  const { kind, from, content, toolCall, timestamp } = entry;
+  const time = formatTime(timestamp);
 
   // Skip debug entries
   if (kind === "debug") return;
@@ -108,10 +122,10 @@ function processEntry(entry: Message, state: PrettyDisplayState, agentNames: str
       // Tool name in cyan/bold for visibility, args dimmed for less clutter
       const tool = pc.bold(pc.cyan(toolCall.name));
       const args = toolCall.args ? pc.dim(`(${toolCall.args})`) : pc.dim("()");
-      p.log.message(`${color(caller)} called ${tool}${args}`, { symbol: pc.cyan("▶") });
+      p.log.message(`${time} ${color(caller)} called ${tool}${args}`, { symbol: pc.cyan("▶") });
     } else {
       p.log.message(
-        `called ${pc.cyan(pc.bold(toolCall.name))}${pc.dim(`(${toolCall.args || ""})`)}`,
+        `${time} called ${pc.cyan(pc.bold(toolCall.name))}${pc.dim(`(${toolCall.args || ""})`)}`,
         {
           symbol: pc.cyan("▶"),
         },
@@ -126,12 +140,12 @@ function processEntry(entry: Message, state: PrettyDisplayState, agentNames: str
     const agent = from.includes(":") ? from.split(":").pop()! : from;
 
     if (content.startsWith("STARTING ") || content.startsWith("CALL ")) {
-      p.log.message(`${color(agent)} ${content}`, { symbol: pc.cyan("▶") });
+      p.log.message(`${time} ${color(agent)} ${content}`, { symbol: pc.cyan("▶") });
     } else if (content.startsWith("Assistant: ")) {
       const text = content.slice("Assistant: ".length);
-      p.log.message(`${color(agent)} ${text}`, { symbol: pc.cyan("◆") });
+      p.log.message(`${time} ${color(agent)} ${text}`, { symbol: pc.cyan("◆") });
     } else {
-      p.log.message(`${color(agent)} ${pc.dim(content)}`, { symbol: pc.dim("│") });
+      p.log.message(`${time} ${color(agent)} ${pc.dim(content)}`, { symbol: pc.dim("│") });
     }
     return;
   }
@@ -151,7 +165,7 @@ function processEntry(entry: Message, state: PrettyDisplayState, agentNames: str
       if (state.spinner) {
         // Show agent names when stopping init spinner
         const agentList = agentNames.join(", ");
-        state.spinner.stop(`Initialized: ${pc.dim(agentList)}`);
+        state.spinner.stop(`${time} Initialized: ${pc.dim(agentList)}`);
       }
       state.spinner = p.spinner();
       state.spinner.start("Starting agents");
@@ -162,9 +176,9 @@ function processEntry(entry: Message, state: PrettyDisplayState, agentNames: str
       }
       const match = content.match(/\(([0-9.]+)s\)/);
       if (match) {
-        p.log.success(`Completed in ${pc.bold(match[1])}s`);
+        p.log.success(`${time} Completed in ${pc.bold(match[1])}s`);
       } else {
-        p.log.success("Workflow complete");
+        p.log.success(`${time} Workflow complete`);
       }
       state.phase = "complete";
     } else if (content.startsWith("[ERROR]")) {
@@ -172,20 +186,20 @@ function processEntry(entry: Message, state: PrettyDisplayState, agentNames: str
         state.spinner.stop();
         state.spinner = null;
       }
-      p.log.error(content.replace("[ERROR] ", ""));
+      p.log.error(`${time} ${content.replace("[ERROR] ", "")}`);
       state.phase = "error";
     } else if (content.startsWith("[WARN]")) {
-      p.log.warn(content.replace("[WARN] ", ""));
+      p.log.warn(`${time} ${content.replace("[WARN] ", "")}`);
     } else if (content.match(/Inbox: \d+ message/)) {
       // Agent received messages - show as progress step
-      p.log.step(pc.dim(content));
+      p.log.step(`${time} ${pc.dim(content)}`);
     } else if (content.match(/Running \(attempt/)) {
       // Agent is running - show as progress step
-      p.log.step(pc.dim(content));
+      p.log.step(`${time} ${pc.dim(content)}`);
     } else if (content.startsWith("DONE")) {
       // Agent completed successfully - show with green checkmark
       const details = content.replace("DONE ", "");
-      p.log.info(pc.green("✓") + " " + pc.dim(details));
+      p.log.info(`${time} ${pc.green("✓")} ${pc.dim(details)}`);
     }
     return;
   }
@@ -197,12 +211,12 @@ function processEntry(entry: Message, state: PrettyDisplayState, agentNames: str
   if (state.spinner && state.phase === "running" && !state.hasShownAgentsStarted) {
     state.spinner.stop();
     state.spinner = null;
-    p.log.info("Agents ready and processing");
+    p.log.info(`${time} Agents ready and processing`);
     state.hasShownAgentsStarted = true;
   }
 
   // Show message in a note box (trim to remove extra whitespace)
-  p.note(content.trim(), color(from));
+  p.note(content.trim(), `${time} ${color(from)}`);
 }
 
 // ==================== Pretty Display Watcher ====================
