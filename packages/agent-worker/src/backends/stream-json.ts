@@ -41,10 +41,7 @@ export type ClaudeEvent =
       type: "user";
       message: {
         role: "user";
-        content: Array<
-          | { type: "text"; text: string }
-          | { type: "image"; source?: unknown }
-        >;
+        content: Array<{ type: "text"; text: string } | { type: "image"; source?: unknown }>;
       };
     }
   | {
