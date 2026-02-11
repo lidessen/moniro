@@ -41,7 +41,10 @@ export type ClaudeEvent =
       type: "user";
       message: {
         role: "user";
-        content: unknown[];
+        content: Array<
+          | { type: "text"; text: string }
+          | { type: "image"; source?: unknown }
+        >;
       };
     }
   | {
@@ -261,6 +264,18 @@ export const claudeAdapter: EventAdapter = (raw) => {
       model: event.model,
       sessionId: event.session_id,
     };
+  }
+
+  if (event.type === "user") {
+    // User messages (visible in normal mode as progress)
+    const textContent = event.message.content.find((c) => c.type === "text");
+    if (textContent && "text" in textContent) {
+      return {
+        kind: "user_message",
+        text: textContent.text,
+      };
+    }
+    return { kind: "skip" };
   }
 
   if (event.type === "assistant") {
@@ -532,10 +547,11 @@ export function createStreamParser(
         if (event) {
           const progress = formatEvent(event, backendName);
           if (progress) {
-            // Use messageLog for tool calls and assistant messages (visible in normal mode)
+            // Use messageLog for tool calls, user messages, and assistant messages (visible in normal mode)
             const shouldUseMessageLog =
               event.kind === "tool_call" ||
               event.kind === "tool_call_started" ||
+              event.kind === "user_message" ||
               event.kind === "assistant_message";
             const logFn = shouldUseMessageLog && messageLog ? messageLog : debugLog;
             logFn(progress);
