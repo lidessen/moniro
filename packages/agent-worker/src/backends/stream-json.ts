@@ -166,6 +166,7 @@ export type StreamEvent =
       costUsd?: number;
       usage?: { input: number; output: number };
     }
+  | { kind: "skip" } // Event is recognized but doesn't need logging (e.g., text messages)
   | { kind: "unknown"; type: string; raw: Record<string, unknown> };
 
 /**
@@ -216,6 +217,11 @@ export function formatEvent(event: StreamEvent, backendName: string): string | n
       return parts.join(" ");
     }
 
+    case "skip": {
+      // Event is recognized but doesn't need logging
+      return null;
+    }
+
     case "unknown": {
       // Only log unknown events in debug mode (let caller decide visibility)
       const preview = JSON.stringify(event.raw).slice(0, 100);
@@ -260,7 +266,7 @@ export const claudeAdapter: EventAdapter = (raw) => {
     }
 
     // Plain text assistant messages — no standard event (extracted by result extractor)
-    return null;
+    return { kind: "skip" };
   }
 
   if (event.type === "result") {
@@ -344,7 +350,7 @@ export const cursorAdapter: EventAdapter = (raw) => {
     // User and assistant messages contain only text, no tool calls
     // (tool calls come as separate tool_call events)
     // Skip these events — text is extracted by result extractor
-    return null;
+    return { kind: "skip" };
   }
 
   if (event.type === "tool_call") {
@@ -369,7 +375,7 @@ export const cursorAdapter: EventAdapter = (raw) => {
     }
 
     // completed events are not shown (result is in assistant message)
-    return null;
+    return { kind: "skip" };
   }
 
   if (event.type === "result") {
@@ -414,7 +420,7 @@ export const codexAdapter: EventAdapter = (raw) => {
     }
 
     // agent_message, reasoning, command_execution — skip (extracted by result extractor)
-    return null;
+    return { kind: "skip" };
   }
 
   if (event.type === "turn.completed") {
