@@ -255,9 +255,9 @@ Examples:
       }
     });
 
-  // ── run ────────────────────────────────────────────────────────
+  // ── ask ────────────────────────────────────────────────────────
   program
-    .command("run <agent> <message>")
+    .command("ask <agent> <message>")
     .description("Send message to agent (SSE streaming)")
     .option("--json", "Output final response as JSON")
     .addHelpText(
