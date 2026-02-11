@@ -99,6 +99,9 @@ function processEntry(entry: Message, state: PrettyDisplayState, agentNames: str
   // Skip debug entries
   if (kind === "debug") return;
 
+  // Skip stream entries (backend streaming output - redundant with tool_call entries)
+  if (kind === "stream") return;
+
   // Tool call entries - show with ▶ symbol and "called" format
   if (kind === "tool_call" && toolCall) {
     const caller = from.includes(":") ? from.split(":").pop() : from;
