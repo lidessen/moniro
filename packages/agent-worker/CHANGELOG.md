@@ -1,5 +1,11 @@
 # agent-worker
 
+## 0.11.0
+
+### Minor Changes
+
+- [`da789c8`](https://github.com/lidessen/moniro/commit/da789c8ff992e3bfbedae152736edc1d90f197f9) - Rewrite daemon as multi-agent HTTP service, replace Unix socket IPC with HTTP server, add RESTful routes and WebSocket streaming, rename CLI commands, improve stability and reliability
+
 ## 0.10.0
 
 ### Minor Changes
