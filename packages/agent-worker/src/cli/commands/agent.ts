@@ -298,8 +298,8 @@ Examples:
       "after",
       `
 Examples:
-  $ agent-worker run alice "analyze this code"
-  $ agent-worker run alice "hello" --json
+  $ agent-worker ask alice "analyze this code"
+  $ agent-worker ask alice "hello" --json
       `,
     )
     .action(async (agent, message, options) => {

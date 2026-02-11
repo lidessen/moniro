@@ -39,6 +39,7 @@ import {
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import type { AgentController } from "../workflow/controller/types.ts";
 import type { ContextProvider } from "../workflow/context/provider.ts";
+import type { Context } from "hono";
 import type { ParsedWorkflow } from "../workflow/types.ts";
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -74,8 +75,8 @@ export interface DaemonState {
   workflows: Map<string, WorkflowHandle>;
   /** State store — conversation persistence (pluggable) */
   store: StateStore;
-  /** HTTP server handle */
-  server: ServerHandle;
+  /** HTTP server handle (optional — missing when app is used without server) */
+  server?: ServerHandle;
   port: number;
   host: string;
   startedAt: string;
@@ -99,7 +100,7 @@ async function gracefulShutdown(): Promise<void> {
 
   if (state) {
     // Stop all workflows
-    for (const [key, wf] of state.workflows) {
+    for (const [, wf] of state.workflows) {
       try {
         await wf.shutdown();
       } catch {
@@ -116,7 +117,9 @@ async function gracefulShutdown(): Promise<void> {
         /* best-effort */
       }
     }
-    await state.server.close();
+    if (state.server) {
+      await state.server.close();
+    }
   }
 
   for (const [, session] of mcpSessions) {
@@ -134,41 +137,44 @@ async function gracefulShutdown(): Promise<void> {
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-function getWorkflowAgentNames(workflow: string, tag: string): string[] {
-  if (!state) return [];
-  return [...state.configs.values()]
-    .filter((c) => c.workflow === workflow && c.tag === tag)
-    .map((c) => c.name);
+/** Safe JSON body parsing — returns null on malformed input */
+async function parseJsonBody(c: { req: { json: () => Promise<unknown> } }): Promise<unknown> {
+  try {
+    return await c.req.json();
+  } catch {
+    return null;
+  }
 }
 
-// ── Daemon Entry Point ─────────────────────────────────────────────
+// ── App Factory ──────────────────────────────────────────────────
 
-export async function startDaemon(
-  config: {
-    port?: number;
-    host?: string;
-    store?: StateStore;
-  } = {},
-): Promise<void> {
-  const existing = isDaemonRunning();
-  if (existing) {
-    console.error(`Daemon already running: pid=${existing.pid} port=${existing.port}`);
-    process.exit(1);
-  }
-
-  const host = config.host ?? "127.0.0.1";
-  const store = config.store ?? new MemoryStateStore();
+/**
+ * Create the Hono app with all daemon routes.
+ *
+ * Accepts a state getter so the app can be used both in production
+ * (module-level state set by startDaemon) and in tests (injected state).
+ */
+export function createDaemonApp(getState: () => DaemonState | null): Hono {
   const app = new Hono();
   app.use("*", cors());
+
+  function getWorkflowAgentNames(workflow: string, tag: string): string[] {
+    const s = getState();
+    if (!s) return [];
+    return [...s.configs.values()]
+      .filter((c) => c.workflow === workflow && c.tag === tag)
+      .map((c) => c.name);
+  }
 
   // ── GET /health ──────────────────────────────────────────────
 
   app.get("/health", (c) => {
-    if (!state) return c.json({ status: "unavailable" }, 503);
+    const s = getState();
+    if (!s) return c.json({ status: "unavailable" }, 503);
 
     // Collect all agent names: standalone + workflow agents
-    const standaloneAgents = [...state.configs.keys()];
-    const workflowList = [...state.workflows.values()].map((wf) => ({
+    const standaloneAgents = [...s.configs.keys()];
+    const workflowList = [...s.workflows.values()].map((wf) => ({
       name: wf.name,
       tag: wf.tag,
       agents: wf.agents,
@@ -177,8 +183,8 @@ export async function startDaemon(
     return c.json({
       status: "ok",
       pid: process.pid,
-      port: state.port,
-      uptime: Date.now() - new Date(state.startedAt).getTime(),
+      port: s.port,
+      uptime: Date.now() - new Date(s.startedAt).getTime(),
       agents: standaloneAgents,
       workflows: workflowList,
     });
@@ -194,10 +200,11 @@ export async function startDaemon(
   // ── GET /agents ──────────────────────────────────────────────
 
   app.get("/agents", (c) => {
-    if (!state) return c.json({ error: "Not ready" }, 503);
+    const s = getState();
+    if (!s) return c.json({ error: "Not ready" }, 503);
 
     // Standalone agents (from `new` command, registered in @global or named workflow)
-    const standaloneAgents = [...state.configs.values()].map((cfg) => ({
+    const standaloneAgents = [...s.configs.values()].map((cfg) => ({
       name: cfg.name,
       model: cfg.model,
       backend: cfg.backend,
@@ -208,7 +215,7 @@ export async function startDaemon(
     }));
 
     // Workflow agents (from `start` command)
-    const workflowAgents = [...state.workflows.values()].flatMap((wf) =>
+    const workflowAgents = [...s.workflows.values()].flatMap((wf) =>
       wf.agents.map((agentName) => {
         const controller = wf.controllers.get(agentName);
         return {
@@ -230,9 +237,11 @@ export async function startDaemon(
   // ── POST /agents ─────────────────────────────────────────────
 
   app.post("/agents", async (c) => {
-    if (!state) return c.json({ error: "Not ready" }, 503);
+    const s = getState();
+    if (!s) return c.json({ error: "Not ready" }, 503);
 
-    const body = await c.req.json();
+    const body = await parseJsonBody(c);
+    if (!body || typeof body !== "object") return c.json({ error: "Invalid JSON body" }, 400);
     const {
       name,
       model,
@@ -252,7 +261,7 @@ export async function startDaemon(
     if (!name || !model || !system) {
       return c.json({ error: "name, model, system required" }, 400);
     }
-    if (state.configs.has(name)) {
+    if (s.configs.has(name)) {
       return c.json({ error: `Agent already exists: ${name}` }, 409);
     }
 
@@ -268,11 +277,11 @@ export async function startDaemon(
     };
 
     // Worker — execution handle (restore from store if available)
-    const savedState = await state.store.load(name);
+    const savedState = await s.store.load(name);
     const handle = new LocalWorker(agentConfig, savedState ?? undefined);
 
-    state.configs.set(name, agentConfig);
-    state.workers.set(name, handle);
+    s.configs.set(name, agentConfig);
+    s.workers.set(name, handle);
 
     return c.json({ name, model, backend, workflow, tag }, 201);
   });
@@ -280,8 +289,9 @@ export async function startDaemon(
   // ── GET /agents/:name ────────────────────────────────────────
 
   app.get("/agents/:name", (c) => {
-    if (!state) return c.json({ error: "Not ready" }, 503);
-    const cfg = state.configs.get(c.req.param("name"));
+    const s = getState();
+    if (!s) return c.json({ error: "Not ready" }, 503);
+    const cfg = s.configs.get(c.req.param("name"));
     if (!cfg) return c.json({ error: "Agent not found" }, 404);
     return c.json({
       name: cfg.name,
@@ -297,23 +307,24 @@ export async function startDaemon(
   // ── DELETE /agents/:name ─────────────────────────────────────
 
   app.delete("/agents/:name", async (c) => {
-    if (!state) return c.json({ error: "Not ready" }, 503);
+    const s = getState();
+    if (!s) return c.json({ error: "Not ready" }, 503);
     const name = c.req.param("name");
 
-    if (!state.configs.delete(name)) {
+    if (!s.configs.delete(name)) {
       return c.json({ error: "Agent not found" }, 404);
     }
 
     // Persist final state before removing worker
-    const handle = state.workers.get(name);
+    const handle = s.workers.get(name);
     if (handle) {
       try {
-        await state.store.save(name, handle.getState());
+        await s.store.save(name, handle.getState());
       } catch {
         /* best-effort */
       }
     }
-    state.workers.delete(name);
+    s.workers.delete(name);
 
     return c.json({ success: true });
   });
@@ -321,9 +332,11 @@ export async function startDaemon(
   // ── POST /run (SSE stream) ──────────────────────────────────
 
   app.post("/run", async (c) => {
-    if (!state) return c.json({ error: "Not ready" }, 503);
+    const s = getState();
+    if (!s) return c.json({ error: "Not ready" }, 503);
 
-    const body = await c.req.json();
+    const body = await parseJsonBody(c);
+    if (!body || typeof body !== "object") return c.json({ error: "Invalid JSON body" }, 400);
     const { agent: agentName, message } = body as {
       agent: string;
       message: string;
@@ -333,7 +346,7 @@ export async function startDaemon(
       return c.json({ error: "agent and message required" }, 400);
     }
 
-    const handle = state.workers.get(agentName);
+    const handle = s.workers.get(agentName);
     if (!handle) return c.json({ error: `Agent not found: ${agentName}` }, 404);
 
     return streamSSE(c, async (stream) => {
@@ -343,8 +356,9 @@ export async function startDaemon(
           const { value, done } = await gen.next();
           if (done) {
             // Persist state after execution
-            if (state) {
-              await state.store.save(agentName, handle.getState());
+            const currentState = getState();
+            if (currentState) {
+              await currentState.store.save(agentName, handle.getState());
             }
             await stream.writeSSE({
               event: "done",
@@ -370,9 +384,11 @@ export async function startDaemon(
   // ── POST /serve (sync JSON) ─────────────────────────────────
 
   app.post("/serve", async (c) => {
-    if (!state) return c.json({ error: "Not ready" }, 503);
+    const s = getState();
+    if (!s) return c.json({ error: "Not ready" }, 503);
 
-    const body = await c.req.json();
+    const body = await parseJsonBody(c);
+    if (!body || typeof body !== "object") return c.json({ error: "Invalid JSON body" }, 400);
     const { agent: agentName, message } = body as {
       agent: string;
       message: string;
@@ -382,14 +398,14 @@ export async function startDaemon(
       return c.json({ error: "agent and message required" }, 400);
     }
 
-    const handle = state.workers.get(agentName);
+    const handle = s.workers.get(agentName);
     if (!handle) return c.json({ error: `Agent not found: ${agentName}` }, 404);
 
     try {
       const response = await handle.send(message);
 
       // Persist state after execution
-      await state.store.save(agentName, handle.getState());
+      await s.store.save(agentName, handle.getState());
 
       return c.json(response);
     } catch (error) {
@@ -401,7 +417,8 @@ export async function startDaemon(
   // ── ALL /mcp (unified MCP endpoint) ─────────────────────────
 
   app.all("/mcp", async (c) => {
-    if (!state) return c.json({ error: "Not ready" }, 503);
+    const s = getState();
+    if (!s) return c.json({ error: "Not ready" }, 503);
 
     const req = c.req.raw;
     const sessionId = req.headers.get("mcp-session-id");
@@ -429,7 +446,7 @@ export async function startDaemon(
       const url = new URL(req.url);
       const agentName = url.searchParams.get("agent") || "user";
 
-      const agentCfg = state.configs.get(agentName);
+      const agentCfg = s.configs.get(agentName);
       const workflow = agentCfg?.workflow ?? "global";
       const tag = agentCfg?.tag ?? "main";
 
@@ -472,9 +489,11 @@ export async function startDaemon(
   // ── POST /workflows (start a workflow) ──────────────────────
 
   app.post("/workflows", async (c) => {
-    if (!state) return c.json({ error: "Not ready" }, 503);
+    const s = getState();
+    if (!s) return c.json({ error: "Not ready" }, 503);
 
-    const body = await c.req.json();
+    const body = await parseJsonBody(c);
+    if (!body || typeof body !== "object") return c.json({ error: "Invalid JSON body" }, 400);
     const { workflow, tag = "main", feedback, pollInterval } = body as {
       workflow: ParsedWorkflow;
       tag?: string;
@@ -489,7 +508,7 @@ export async function startDaemon(
     const workflowName = workflow.name || "global";
     const key = `${workflowName}:${tag}`;
 
-    if (state.workflows.has(key)) {
+    if (s.workflows.has(key)) {
       return c.json({ error: `Workflow already running: ${key}` }, 409);
     }
 
@@ -523,7 +542,7 @@ export async function startDaemon(
         startedAt: new Date().toISOString(),
       };
 
-      state.workflows.set(key, handle);
+      s.workflows.set(key, handle);
 
       return c.json({
         key,
@@ -540,9 +559,10 @@ export async function startDaemon(
   // ── GET /workflows ────────────────────────────────────────────
 
   app.get("/workflows", (c) => {
-    if (!state) return c.json({ error: "Not ready" }, 503);
+    const s = getState();
+    if (!s) return c.json({ error: "Not ready" }, 503);
 
-    const workflows = [...state.workflows.values()].map((wf) => {
+    const workflows = [...s.workflows.values()].map((wf) => {
       const agentStates: Record<string, string> = {};
       for (const [name, controller] of wf.controllers) {
         agentStates[name] = controller.state;
@@ -563,49 +583,58 @@ export async function startDaemon(
 
   // ── DELETE /workflows/:name/:tag ──────────────────────────────
 
-  app.delete("/workflows/:name/:tag", async (c) => {
-    if (!state) return c.json({ error: "Not ready" }, 503);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async function deleteWorkflow(c: Context<any, any, any>, name: string, tag: string) {
+    const s = getState();
+    if (!s) return c.json({ error: "Not ready" }, 503);
 
-    const name = c.req.param("name");
-    const tag = c.req.param("tag");
     const key = `${name}:${tag}`;
-
-    const handle = state.workflows.get(key);
+    const handle = s.workflows.get(key);
     if (!handle) {
       return c.json({ error: `Workflow not found: ${key}` }, 404);
     }
 
     try {
       await handle.shutdown();
-      state.workflows.delete(key);
+      s.workflows.delete(key);
       return c.json({ success: true, key });
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       return c.json({ error: `Failed to stop workflow: ${msg}` }, 500);
     }
-  });
+  }
+
+  app.delete("/workflows/:name/:tag", (c) =>
+    deleteWorkflow(c, c.req.param("name"), c.req.param("tag")),
+  );
 
   // Convenience: DELETE /workflows/:name (defaults tag to "main")
-  app.delete("/workflows/:name", async (c) => {
-    if (!state) return c.json({ error: "Not ready" }, 503);
+  app.delete("/workflows/:name", (c) =>
+    deleteWorkflow(c, c.req.param("name"), "main"),
+  );
 
-    const name = c.req.param("name");
-    const key = `${name}:main`;
+  return app;
+}
 
-    const handle = state.workflows.get(key);
-    if (!handle) {
-      return c.json({ error: `Workflow not found: ${key}` }, 404);
-    }
+// ── Daemon Entry Point ─────────────────────────────────────────────
 
-    try {
-      await handle.shutdown();
-      state.workflows.delete(key);
-      return c.json({ success: true, key });
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      return c.json({ error: `Failed to stop workflow: ${msg}` }, 500);
-    }
-  });
+export async function startDaemon(
+  config: {
+    port?: number;
+    host?: string;
+    store?: StateStore;
+  } = {},
+): Promise<void> {
+  const existing = isDaemonRunning();
+  if (existing) {
+    console.error(`Daemon already running: pid=${existing.pid} port=${existing.port}`);
+    process.exit(1);
+  }
+
+  const host = config.host ?? "127.0.0.1";
+  const store = config.store ?? new MemoryStateStore();
+
+  const app = createDaemonApp(() => state);
 
   // ── Start HTTP server ────────────────────────────────────────
 
