@@ -1,6 +1,6 @@
 import type { Command } from "commander";
-import { spawn } from "node:child_process";
 import { DEFAULT_TAG } from "../target.ts";
+import { startWorkflow, stopWorkflow } from "../client.ts";
 
 export function registerWorkflowCommands(program: Command) {
   // Run workflow
@@ -131,106 +131,82 @@ Note: Workflow name is inferred from YAML 'name' field or filename
       }
     });
 
-  // Start workflow and keep agents running
+  // Start workflow and keep agents running (via daemon)
   program
     .command("start <file>")
-    .description("Start workflow and keep agents running")
+    .description("Start workflow via daemon and keep agents running")
     .option("--tag <tag>", "Workflow instance tag (default: main)", DEFAULT_TAG)
-    .option("-d, --debug", "Show debug details (internal logs, MCP traces, idle checks)")
     .option("--feedback", "Enable feedback tool (agents can report tool/workflow observations)")
-    .option("--background", "Run in background (daemonize)")
+    .option("--json", "Output as JSON")
     .addHelpText(
       "after",
       `
 Examples:
-  $ agent-worker start review.yaml                    # Foreground (Ctrl+C to stop)
-  $ agent-worker start review.yaml --background       # Background daemon
+  $ agent-worker start review.yaml                    # Start review:main (Ctrl+C to stop)
   $ agent-worker start review.yaml --tag pr-123       # Start review:pr-123
+
+Workflow runs inside the daemon. Use ls/stop to manage:
+  $ agent-worker ls                                   # List all agents
+  $ agent-worker stop @review:pr-123                  # Stop workflow
 
 Note: Workflow name is inferred from YAML 'name' field or filename
     `,
     )
     .action(async (file, options) => {
-      const { parseWorkflowFile, runWorkflowWithControllers } = await import("@/workflow/index.ts");
+      const { parseWorkflowFile } = await import("@/workflow/index.ts");
+      const { ensureDaemon } = await import("./agent.ts");
 
       const tag = options.tag || DEFAULT_TAG;
 
-      // Parse workflow file to get the workflow name
-      const parsedWorkflow = await parseWorkflowFile(file, {
-        tag,
-      });
+      // Parse workflow file locally (resolves file paths, system prompts)
+      const parsedWorkflow = await parseWorkflowFile(file, { tag });
       const workflowName = parsedWorkflow.name;
 
-      // Background mode: spawn detached process
-      if (options.background) {
-        const { getDefaultContextDir } = await import("@/workflow/context/file-provider.ts");
-        const contextDir = getDefaultContextDir(workflowName, tag);
+      // Ensure daemon is running
+      await ensureDaemon();
 
-        const scriptPath = process.argv[1] ?? "";
-        const args = [scriptPath, "start", file];
-        if (tag !== DEFAULT_TAG) {
-          args.push("--tag", tag);
-        }
-        if (options.feedback) {
-          args.push("--feedback");
-        }
+      // Start workflow via daemon
+      const res = await startWorkflow({
+        workflow: parsedWorkflow,
+        tag,
+        feedback: options.feedback,
+      });
 
-        const child = spawn(process.execPath, args, {
-          detached: true,
-          stdio: "ignore",
-        });
-        child.unref();
+      if (res.error) {
+        console.error("Error:", res.error);
+        process.exit(1);
+      }
 
-        console.log(`Workflow: ${workflowName}:${tag}`);
-        console.log(`PID: ${child.pid}`);
-        console.log(`Context: ${contextDir}`);
-        console.log(`\nTo monitor:`);
-        console.log(`  agent-worker ls @${workflowName}:${tag}`);
-        console.log(`  agent-worker peek @${workflowName}:${tag}`);
-        console.log(`\nTo stop:`);
-        console.log(`  agent-worker stop @${workflowName}:${tag}`);
+      const agents = (res.agents ?? []) as string[];
+
+      if (options.json) {
+        const { outputJson } = await import("../output.ts");
+        outputJson({ name: workflowName, tag, agents });
         return;
       }
 
-      let shutdownFn: (() => Promise<void>) | undefined;
+      console.log(`Workflow: @${workflowName}${tag !== "main" ? ":" + tag : ""}`);
+      console.log(`Agents:   ${agents.join(", ")}`);
+      console.log(`\nTo monitor:`);
+      console.log(`  agent-worker ls`);
+      console.log(`  agent-worker peek @${workflowName}${tag !== "main" ? ":" + tag : ""}`);
+      console.log(`\nTo stop:`);
+      console.log(`  agent-worker stop @${workflowName}${tag !== "main" ? ":" + tag : ""}`);
 
-      // Setup graceful shutdown
+      // Foreground: keep alive, stop on Ctrl+C
+      let isCleaningUp = false;
       const cleanup = async () => {
-        console.log("\nShutting down...");
-        if (shutdownFn) {
-          await shutdownFn();
-        }
+        if (isCleaningUp) return;
+        isCleaningUp = true;
+        console.log("\nStopping workflow...");
+        await stopWorkflow(workflowName, tag);
         process.exit(0);
       };
 
       process.on("SIGINT", cleanup);
       process.on("SIGTERM", cleanup);
 
-      try {
-        const result = await runWorkflowWithControllers({
-          workflow: parsedWorkflow,
-          workflowName,
-          tag,
-          instance: `${workflowName}:${tag}`, // Backward compat
-          debug: options.debug,
-          log: console.log,
-          mode: "start",
-          feedback: options.feedback,
-        });
-
-        if (!result.success) {
-          console.error("Workflow failed:", result.error);
-          process.exit(1);
-        }
-
-        shutdownFn = result.shutdown;
-
-        // Keep process alive
-        await new Promise(() => {});
-      } catch (error) {
-        console.error("Error:", error instanceof Error ? error.message : String(error));
-        await cleanup();
-        process.exit(1);
-      }
+      // Keep process alive
+      await new Promise(() => {});
     });
 }

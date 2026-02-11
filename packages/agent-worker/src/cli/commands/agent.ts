@@ -21,7 +21,7 @@ import { outputJson } from "../output.ts";
 /**
  * Ensure daemon is running. If not, spawn it in background and wait.
  */
-async function ensureDaemon(port?: number, host?: string): Promise<void> {
+export async function ensureDaemon(port?: number, host?: string): Promise<void> {
   if (isDaemonRunning()) return;
 
   // Spawn daemon process
@@ -162,6 +162,8 @@ Examples:
         workflow: string;
         tag: string;
         createdAt: string;
+        source?: string;
+        state?: string;
       }>;
 
       if (options.json) {
@@ -176,21 +178,24 @@ Examples:
 
       for (const a of agents) {
         const wf = a.tag === "main" ? `@${a.workflow}` : `@${a.workflow}:${a.tag}`;
-        console.log(`${a.name.padEnd(12)} ${a.model.padEnd(30)} ${wf}`);
+        const info = a.model || a.state || "";
+        console.log(`${a.name.padEnd(12)} ${info.padEnd(30)} ${wf}`);
       }
     });
 
   // ── stop ───────────────────────────────────────────────────────
   program
     .command("stop [name]")
-    .description("Stop agent or daemon")
-    .option("--all", "Stop daemon (all agents)")
+    .description("Stop agent, workflow, or daemon")
+    .option("--all", "Stop daemon (all agents and workflows)")
     .addHelpText(
       "after",
       `
 Examples:
-  $ agent-worker stop alice       # Stop specific agent
-  $ agent-worker stop --all       # Stop daemon (all agents)
+  $ agent-worker stop alice           # Stop specific agent
+  $ agent-worker stop @review:pr-123  # Stop workflow
+  $ agent-worker stop @review         # Stop workflow (tag defaults to main)
+  $ agent-worker stop --all           # Stop daemon (everything)
       `,
     )
     .action(async (name, options) => {
@@ -210,16 +215,33 @@ Examples:
       }
 
       if (!name) {
-        console.error("Specify agent name or use --all");
+        console.error("Specify agent name, @workflow[:tag], or use --all");
         process.exit(1);
       }
 
-      const res = await deleteAgent(name);
-      if (res.success) {
-        console.log(`Stopped: ${name}`);
+      // Parse target to determine if it's a workflow or agent
+      const { parseTarget } = await import("../target.ts");
+      const target = parseTarget(name);
+
+      if (target.agent === undefined) {
+        // Workflow-level target: @workflow or @workflow:tag
+        const { stopWorkflow: stopWf } = await import("../client.ts");
+        const res = await stopWf(target.workflow, target.tag);
+        if (res.success) {
+          console.log(`Stopped: ${target.display}`);
+        } else {
+          console.error("Error:", res.error);
+          process.exit(1);
+        }
       } else {
-        console.error("Error:", res.error);
-        process.exit(1);
+        // Agent-level target
+        const res = await deleteAgent(target.agent);
+        if (res.success) {
+          console.log(`Stopped: ${target.display}`);
+        } else {
+          console.error("Error:", res.error);
+          process.exit(1);
+        }
       }
     });
 
@@ -243,8 +265,23 @@ Examples:
         outputJson(res);
       } else {
         console.log(`Daemon: pid=${res.pid} port=${res.port}`);
+
         const agents = (res.agents ?? []) as string[];
         console.log(`Agents: ${agents.length > 0 ? agents.join(", ") : "(none)"}`);
+
+        const workflows = (res.workflows ?? []) as Array<{
+          name: string;
+          tag: string;
+          agents: string[];
+        }>;
+        if (workflows.length > 0) {
+          console.log(`Workflows:`);
+          for (const wf of workflows) {
+            const display = wf.tag === "main" ? `@${wf.name}` : `@${wf.name}:${wf.tag}`;
+            console.log(`  ${display} → ${wf.agents.join(", ")}`);
+          }
+        }
+
         if (res.uptime) {
           const secs = Math.round((res.uptime as number) / 1000);
           console.log(`Uptime: ${secs}s`);

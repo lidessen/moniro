@@ -195,6 +195,28 @@ export async function run(
   }
 }
 
+// ── Workflow API ──────────────────────────────────────────────────
+
+/** POST /workflows — start a workflow via daemon */
+export function startWorkflow(body: {
+  workflow: unknown;
+  tag?: string;
+  feedback?: boolean;
+  pollInterval?: number;
+}): Promise<ApiResponse> {
+  return request("POST", "/workflows", body);
+}
+
+/** GET /workflows — list running workflows */
+export function listWorkflows(): Promise<ApiResponse> {
+  return request("GET", "/workflows");
+}
+
+/** DELETE /workflows/:name/:tag — stop a workflow */
+export function stopWorkflow(name: string, tag: string = "main"): Promise<ApiResponse> {
+  return request("DELETE", `/workflows/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`);
+}
+
 /** Check if daemon is running */
 export function isDaemonActive(): boolean {
   return getDaemonUrl() !== null;
