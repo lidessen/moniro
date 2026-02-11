@@ -467,6 +467,8 @@ export interface ControllerRunConfig {
   feedback?: boolean;
   /** Use pretty display mode (with @clack/prompts) */
   prettyDisplay?: boolean;
+  /** Headless mode — skip channel watcher/display (for daemon-hosted workflows) */
+  headless?: boolean;
 }
 
 /**
@@ -661,30 +663,33 @@ export async function runWorkflowWithControllers(
 
     // 7. Start channel watcher — the unified display layer
     // Skip entries from previous runs — channelStart was captured before any current-run writes
+    // Headless mode (daemon-hosted): skip display entirely
     let channelWatcher: { stop: () => void } | undefined;
 
-    if (config.prettyDisplay) {
-      // Pretty display mode (non-debug, non-json)
-      const { startPrettyDisplay } = await import("./display-pretty.ts");
-      channelWatcher = startPrettyDisplay({
-        contextProvider: runtime.contextProvider,
-        agentNames: runtime.agentNames,
-        workflowName,
-        tag,
-        workflowPath: config.workflowPath,
-        initialCursor: channelStart,
-        pollInterval: 250,
-      });
-    } else {
-      // Standard display mode (debug or programmatic)
-      channelWatcher = startChannelWatcher({
-        contextProvider: runtime.contextProvider,
-        agentNames: runtime.agentNames,
-        log,
-        showDebug: debug,
-        initialCursor: channelStart,
-        pollInterval: 250, // Fast polling for responsive output
-      });
+    if (!config.headless) {
+      if (config.prettyDisplay) {
+        // Pretty display mode (non-debug, non-json)
+        const { startPrettyDisplay } = await import("./display-pretty.ts");
+        channelWatcher = startPrettyDisplay({
+          contextProvider: runtime.contextProvider,
+          agentNames: runtime.agentNames,
+          workflowName,
+          tag,
+          workflowPath: config.workflowPath,
+          initialCursor: channelStart,
+          pollInterval: 250,
+        });
+      } else {
+        // Standard display mode (debug or programmatic)
+        channelWatcher = startChannelWatcher({
+          contextProvider: runtime.contextProvider,
+          agentNames: runtime.agentNames,
+          log,
+          showDebug: debug,
+          initialCursor: channelStart,
+          pollInterval: 250, // Fast polling for responsive output
+        });
+      }
     }
 
     // Handle run mode vs start mode

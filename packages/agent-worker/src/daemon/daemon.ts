@@ -5,14 +5,16 @@
  *   Registry (configs)  — what agents exist and their configuration
  *   StateStore (store)  — conversation history and usage (pluggable)
  *   WorkerHandle (workers) — execution, local or remote
+ *   Workflows (workflows) — running workflow instances with controllers
  *
  * The daemon is pure glue: receive request → lookup config →
  * dispatch to worker → persist state → return response.
  *
- * 9 HTTP endpoints:
+ * HTTP endpoints:
  *   GET  /health, POST /shutdown
  *   GET/POST /agents, GET/DELETE /agents/:name
  *   POST /run (SSE), POST /serve
+ *   GET/POST /workflows, DELETE /workflows/:name/:tag
  *   ALL  /mcp
  */
 
@@ -35,14 +37,41 @@ import {
   getDefaultContextDir,
 } from "../workflow/context/file-provider.ts";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import type { AgentController } from "../workflow/controller/types.ts";
+import type { ContextProvider } from "../workflow/context/provider.ts";
+import type { ParsedWorkflow } from "../workflow/types.ts";
 
 // ── Types ──────────────────────────────────────────────────────────
+
+/** Handle for a running workflow managed by the daemon */
+export interface WorkflowHandle {
+  /** Workflow name (from YAML name field or filename) */
+  name: string;
+  /** Workflow instance tag */
+  tag: string;
+  /** Key for lookup: "name:tag" */
+  key: string;
+  /** Agent names in this workflow */
+  agents: string[];
+  /** Agent controllers for lifecycle management */
+  controllers: Map<string, AgentController>;
+  /** Context provider for shared state */
+  contextProvider: ContextProvider;
+  /** Shutdown function (stops controllers + cleans context) */
+  shutdown: () => Promise<void>;
+  /** Original workflow file path (for display) */
+  workflowPath?: string;
+  /** When this workflow was started */
+  startedAt: string;
+}
 
 export interface DaemonState {
   /** Agent configs — the registry (what agents exist) */
   configs: Map<string, AgentConfig>;
   /** Worker handles — the execution layer (how to talk to agents) */
   workers: Map<string, WorkerHandle>;
+  /** Running workflows — keyed by "name:tag" */
+  workflows: Map<string, WorkflowHandle>;
   /** State store — conversation persistence (pluggable) */
   store: StateStore;
   /** HTTP server handle */
@@ -69,6 +98,16 @@ async function gracefulShutdown(): Promise<void> {
   shuttingDown = true;
 
   if (state) {
+    // Stop all workflows
+    for (const [key, wf] of state.workflows) {
+      try {
+        await wf.shutdown();
+      } catch {
+        /* best-effort */
+      }
+    }
+    state.workflows.clear();
+
     // Persist all agent states before stopping
     for (const [name, handle] of state.workers) {
       try {
@@ -126,12 +165,22 @@ export async function startDaemon(
 
   app.get("/health", (c) => {
     if (!state) return c.json({ status: "unavailable" }, 503);
+
+    // Collect all agent names: standalone + workflow agents
+    const standaloneAgents = [...state.configs.keys()];
+    const workflowList = [...state.workflows.values()].map((wf) => ({
+      name: wf.name,
+      tag: wf.tag,
+      agents: wf.agents,
+    }));
+
     return c.json({
       status: "ok",
       pid: process.pid,
       port: state.port,
       uptime: Date.now() - new Date(state.startedAt).getTime(),
-      agents: [...state.configs.keys()],
+      agents: standaloneAgents,
+      workflows: workflowList,
     });
   });
 
@@ -146,15 +195,36 @@ export async function startDaemon(
 
   app.get("/agents", (c) => {
     if (!state) return c.json({ error: "Not ready" }, 503);
-    const agents = [...state.configs.values()].map((c) => ({
-      name: c.name,
-      model: c.model,
-      backend: c.backend,
-      workflow: c.workflow,
-      tag: c.tag,
-      createdAt: c.createdAt,
+
+    // Standalone agents (from `new` command, registered in @global or named workflow)
+    const standaloneAgents = [...state.configs.values()].map((cfg) => ({
+      name: cfg.name,
+      model: cfg.model,
+      backend: cfg.backend,
+      workflow: cfg.workflow,
+      tag: cfg.tag,
+      createdAt: cfg.createdAt,
+      source: "standalone" as const,
     }));
-    return c.json({ agents });
+
+    // Workflow agents (from `start` command)
+    const workflowAgents = [...state.workflows.values()].flatMap((wf) =>
+      wf.agents.map((agentName) => {
+        const controller = wf.controllers.get(agentName);
+        return {
+          name: agentName,
+          model: "", // workflow agents don't expose model at this level
+          backend: "",
+          workflow: wf.name,
+          tag: wf.tag,
+          createdAt: wf.startedAt,
+          source: "workflow" as const,
+          state: controller?.state ?? "unknown",
+        };
+      }),
+    );
+
+    return c.json({ agents: [...standaloneAgents, ...workflowAgents] });
   });
 
   // ── POST /agents ─────────────────────────────────────────────
@@ -399,6 +469,144 @@ export async function startDaemon(
     return c.json({ error: "Method not allowed" }, 405);
   });
 
+  // ── POST /workflows (start a workflow) ──────────────────────
+
+  app.post("/workflows", async (c) => {
+    if (!state) return c.json({ error: "Not ready" }, 503);
+
+    const body = await c.req.json();
+    const { workflow, tag = "main", feedback, pollInterval } = body as {
+      workflow: ParsedWorkflow;
+      tag?: string;
+      feedback?: boolean;
+      pollInterval?: number;
+    };
+
+    if (!workflow || !workflow.agents) {
+      return c.json({ error: "workflow (parsed YAML) required" }, 400);
+    }
+
+    const workflowName = workflow.name || "global";
+    const key = `${workflowName}:${tag}`;
+
+    if (state.workflows.has(key)) {
+      return c.json({ error: `Workflow already running: ${key}` }, 409);
+    }
+
+    try {
+      const { runWorkflowWithControllers } = await import("../workflow/runner.ts");
+
+      const result = await runWorkflowWithControllers({
+        workflow,
+        workflowName,
+        tag,
+        mode: "start",
+        headless: true,
+        feedback,
+        pollInterval,
+        log: () => {}, // Silent — daemon doesn't output to terminal
+      });
+
+      if (!result.success) {
+        return c.json({ error: result.error || "Workflow failed to start" }, 500);
+      }
+
+      const handle: WorkflowHandle = {
+        name: workflowName,
+        tag,
+        key,
+        agents: Object.keys(workflow.agents),
+        controllers: result.controllers!,
+        contextProvider: result.contextProvider!,
+        shutdown: result.shutdown!,
+        workflowPath: workflow.filePath,
+        startedAt: new Date().toISOString(),
+      };
+
+      state.workflows.set(key, handle);
+
+      return c.json({
+        key,
+        name: workflowName,
+        tag,
+        agents: handle.agents,
+      }, 201);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      return c.json({ error: `Failed to start workflow: ${msg}` }, 500);
+    }
+  });
+
+  // ── GET /workflows ────────────────────────────────────────────
+
+  app.get("/workflows", (c) => {
+    if (!state) return c.json({ error: "Not ready" }, 503);
+
+    const workflows = [...state.workflows.values()].map((wf) => {
+      const agentStates: Record<string, string> = {};
+      for (const [name, controller] of wf.controllers) {
+        agentStates[name] = controller.state;
+      }
+      return {
+        name: wf.name,
+        tag: wf.tag,
+        key: wf.key,
+        agents: wf.agents,
+        agentStates,
+        workflowPath: wf.workflowPath,
+        startedAt: wf.startedAt,
+      };
+    });
+
+    return c.json({ workflows });
+  });
+
+  // ── DELETE /workflows/:name/:tag ──────────────────────────────
+
+  app.delete("/workflows/:name/:tag", async (c) => {
+    if (!state) return c.json({ error: "Not ready" }, 503);
+
+    const name = c.req.param("name");
+    const tag = c.req.param("tag");
+    const key = `${name}:${tag}`;
+
+    const handle = state.workflows.get(key);
+    if (!handle) {
+      return c.json({ error: `Workflow not found: ${key}` }, 404);
+    }
+
+    try {
+      await handle.shutdown();
+      state.workflows.delete(key);
+      return c.json({ success: true, key });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      return c.json({ error: `Failed to stop workflow: ${msg}` }, 500);
+    }
+  });
+
+  // Convenience: DELETE /workflows/:name (defaults tag to "main")
+  app.delete("/workflows/:name", async (c) => {
+    if (!state) return c.json({ error: "Not ready" }, 503);
+
+    const name = c.req.param("name");
+    const key = `${name}:main`;
+
+    const handle = state.workflows.get(key);
+    if (!handle) {
+      return c.json({ error: `Workflow not found: ${key}` }, 404);
+    }
+
+    try {
+      await handle.shutdown();
+      state.workflows.delete(key);
+      return c.json({ success: true, key });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      return c.json({ error: `Failed to stop workflow: ${msg}` }, 500);
+    }
+  });
+
   // ── Start HTTP server ────────────────────────────────────────
 
   const server = await startHttpServer(app, {
@@ -419,6 +627,7 @@ export async function startDaemon(
   state = {
     configs: new Map(),
     workers: new Map(),
+    workflows: new Map(),
     store,
     server,
     port: actualPort,
