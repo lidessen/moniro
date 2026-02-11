@@ -20,6 +20,7 @@ process.stderr.write = function (chunk: string | Uint8Array, ...rest: unknown[])
 
 import { Command } from "commander";
 import { registerAgentCommands } from "./commands/agent.ts";
+import { registerWorkflowCommands } from "./commands/workflow.ts";
 import { registerSendCommands } from "./commands/send.ts";
 import { registerInfoCommands } from "./commands/info.ts";
 import { registerDocCommands } from "./commands/doc.ts";
@@ -32,6 +33,7 @@ program
   .description("CLI for creating and managing AI agents")
   .version(packageJson.version);
 
+registerWorkflowCommands(program);
 registerAgentCommands(program);
 registerSendCommands(program);
 registerInfoCommands(program);

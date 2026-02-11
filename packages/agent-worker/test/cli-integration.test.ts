@@ -109,6 +109,12 @@ describe('CLI Integration', () => {
     test('shows help for run command', async () => {
       const result = await runCli(['run', '--help'])
       expect(result.exitCode).toBe(0)
+      expect(result.stdout).toContain('<file>')
+    })
+
+    test('shows help for ask command', async () => {
+      const result = await runCli(['ask', '--help'])
+      expect(result.exitCode).toBe(0)
       expect(result.stdout).toContain('<agent>')
       expect(result.stdout).toContain('<message>')
     })
