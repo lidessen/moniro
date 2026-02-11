@@ -182,12 +182,12 @@ export class ContextProviderImpl implements ContextProvider {
   async readChannel(options?: ReadOptions): Promise<Message[]> {
     let entries = await this.syncChannel();
 
-    // Visibility filtering: agent sees public msgs + DMs to/from them, no logs/debug
+    // Visibility filtering: agent sees public msgs + DMs to/from them, no logs/debug/stream
     if (options?.agent) {
       const agent = options.agent;
       entries = entries.filter((e) => {
-        // Logs and debug entries are hidden from agents
-        if (e.kind === "log" || e.kind === "debug") return false;
+        // Logs, debug, and stream entries are hidden from agents
+        if (e.kind === "log" || e.kind === "debug" || e.kind === "stream") return false;
         // DMs: only visible to sender and recipient
         if (e.to) return e.to === agent || e.from === agent;
         // Public messages: visible to all
