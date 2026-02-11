@@ -314,9 +314,13 @@ async function runAgent(
     info(`Prompt (${prompt.length} chars) → ${backend.type} backend`);
 
     // Send via backend
-    await backend.send(prompt, { system: ctx.agent.resolvedSystemPrompt });
+    const response = await backend.send(prompt, { system: ctx.agent.resolvedSystemPrompt });
 
-    return { success: true, duration: Date.now() - startTime };
+    return {
+      success: true,
+      duration: Date.now() - startTime,
+      content: response.content,
+    };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     return { success: false, error: errorMsg, duration: Date.now() - startTime };

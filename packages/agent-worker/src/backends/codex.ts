@@ -29,8 +29,10 @@ export interface CodexOptions {
   resume?: string;
   /** Idle timeout in milliseconds — kills process if no output for this duration */
   timeout?: number;
-  /** Debug log function (for workflow diagnostics) */
+  /** Debug log function (for tool calls and debug info) */
   debugLog?: (message: string) => void;
+  /** Message log function (for agent messages - user/assistant) */
+  messageLog?: (message: string) => void;
 }
 
 export class CodexBackend implements Backend {
@@ -79,7 +81,9 @@ export class CodexBackend implements Backend {
         args,
         cwd,
         timeout,
-        onStdout: debugLog ? createStreamParser(debugLog, "Codex", codexAdapter) : undefined,
+        onStdout: debugLog
+          ? createStreamParser(debugLog, "Codex", codexAdapter, this.options.messageLog)
+          : undefined,
       });
 
       return extractCodexResult(stdout);

@@ -38,8 +38,10 @@ export interface ClaudeCodeOptions {
   timeout?: number;
   /** MCP config file path (for workflow context) */
   mcpConfigPath?: string;
-  /** Debug log function (for workflow diagnostics) */
+  /** Debug log function (for tool calls and debug info) */
   debugLog?: (message: string) => void;
+  /** Message log function (for agent messages - user/assistant) */
+  messageLog?: (message: string) => void;
 }
 
 export class ClaudeCodeBackend implements Backend {
@@ -88,7 +90,7 @@ export class ClaudeCodeBackend implements Backend {
         timeout,
         onStdout:
           outputFormat === "stream-json" && debugLog
-            ? createStreamParser(debugLog, "Claude", claudeAdapter)
+            ? createStreamParser(debugLog, "Claude", claudeAdapter, this.options.messageLog)
             : undefined,
       });
 

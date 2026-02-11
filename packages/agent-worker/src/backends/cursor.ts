@@ -27,8 +27,10 @@ export interface CursorOptions {
   workspace?: string;
   /** Idle timeout in milliseconds — kills process if no output for this duration */
   timeout?: number;
-  /** Debug log function (for workflow diagnostics) */
+  /** Debug log function (for tool calls and debug info) */
   debugLog?: (message: string) => void;
+  /** Message log function (for agent messages - user/assistant) */
+  messageLog?: (message: string) => void;
 }
 
 export class CursorBackend implements Backend {
@@ -67,6 +69,7 @@ export class CursorBackend implements Backend {
     // Use workspace as cwd if set, otherwise fall back to cwd option
     const cwd = this.options.workspace || this.options.cwd;
     const debugLog = this.options.debugLog;
+    const messageLog = this.options.messageLog;
     const timeout = this.options.timeout ?? DEFAULT_IDLE_TIMEOUT;
 
     try {
@@ -75,7 +78,9 @@ export class CursorBackend implements Backend {
         args,
         cwd,
         timeout,
-        onStdout: debugLog ? createStreamParser(debugLog, "Cursor", cursorAdapter) : undefined,
+        onStdout: debugLog
+          ? createStreamParser(debugLog, "Cursor", cursorAdapter, messageLog)
+          : undefined,
       });
 
       return extractClaudeResult(stdout);

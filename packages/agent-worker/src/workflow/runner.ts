@@ -586,6 +586,10 @@ export async function runWorkflowWithControllers(
       const backendDebugLog = (msg: string) => {
         agentLogger.debug(msg);
       };
+      // Message log writes directly to channel as agent messages (kind=undefined)
+      const backendMessageLog = (msg: string) => {
+        runtime.contextProvider.appendChannel(agentName, msg).catch(() => {});
+      };
       let backend: Backend;
       if (createBackend) {
         backend = createBackend(agentName, agentDef);
@@ -593,10 +597,14 @@ export async function runWorkflowWithControllers(
         backend = getBackendByType(agentDef.backend, {
           model: agentDef.model,
           debugLog: backendDebugLog,
+          messageLog: backendMessageLog,
           timeout: agentDef.timeout,
         });
       } else if (agentDef.model) {
-        backend = getBackendForModel(agentDef.model, { debugLog: backendDebugLog });
+        backend = getBackendForModel(agentDef.model, {
+          debugLog: backendDebugLog,
+          messageLog: backendMessageLog,
+        });
       } else {
         throw new Error(`Agent "${agentName}" requires either a backend or model field`);
       }

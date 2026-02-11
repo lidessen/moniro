@@ -166,6 +166,8 @@ export type StreamEvent =
       costUsd?: number;
       usage?: { input: number; output: number };
     }
+  | { kind: "user_message"; text: string }
+  | { kind: "assistant_message"; text: string }
   | { kind: "skip" } // Event is recognized but doesn't need logging (e.g., text messages)
   | { kind: "unknown"; type: string; raw: Record<string, unknown> };
 
@@ -215,6 +217,16 @@ export function formatEvent(event: StreamEvent, backendName: string): string | n
       if (event.usage) details.push(`${event.usage.input} in, ${event.usage.output} out`);
       if (details.length > 0) parts.push(`(${details.join(", ")})`);
       return parts.join(" ");
+    }
+
+    case "user_message": {
+      const preview = event.text.length > 80 ? event.text.slice(0, 80) + "..." : event.text;
+      return `User: ${preview}`;
+    }
+
+    case "assistant_message": {
+      const preview = event.text.length > 80 ? event.text.slice(0, 80) + "..." : event.text;
+      return `Assistant: ${preview}`;
     }
 
     case "skip": {
@@ -346,11 +358,20 @@ export const cursorAdapter: EventAdapter = (raw) => {
     };
   }
 
-  if (event.type === "user" || event.type === "assistant") {
-    // User and assistant messages contain only text, no tool calls
-    // (tool calls come as separate tool_call events)
-    // Skip these events — text is extracted by result extractor
-    return { kind: "skip" };
+  if (event.type === "user") {
+    const text = event.message.content.map((c) => c.text).join("\n");
+    return {
+      kind: "user_message",
+      text,
+    };
+  }
+
+  if (event.type === "assistant") {
+    const text = event.message.content.map((c) => c.text).join("\n");
+    return {
+      kind: "assistant_message",
+      text,
+    };
   }
 
   if (event.type === "tool_call") {
@@ -472,16 +493,18 @@ export function extractCodexResult(stdout: string): BackendResponse {
  * Create a line-buffered stream parser.
  *
  * Accumulates stdout chunks, parses each line through the given adapter,
- * and emits formatted progress messages via debugLog.
+ * and emits formatted progress messages via appropriate callback.
  *
- * @param debugLog - Callback for progress messages
+ * @param debugLog - Callback for debug/tool messages (kind="debug")
  * @param backendName - Display name (e.g., "Cursor", "Claude", "Codex")
  * @param adapter - Format-specific adapter to convert raw JSON → StreamEvent
+ * @param messageLog - Optional callback for agent messages (kind=undefined). If not provided, uses debugLog.
  */
 export function createStreamParser(
   debugLog: (message: string) => void,
   backendName: string,
   adapter: EventAdapter,
+  messageLog?: (message: string) => void,
 ): (chunk: string) => void {
   let lineBuf = "";
 
@@ -508,7 +531,12 @@ export function createStreamParser(
 
         if (event) {
           const progress = formatEvent(event, backendName);
-          if (progress) debugLog(progress);
+          if (progress) {
+            // Use messageLog for agent messages (user/assistant), debugLog for everything else
+            const isAgentMessage = event.kind === "user_message" || event.kind === "assistant_message";
+            const logFn = isAgentMessage && messageLog ? messageLog : debugLog;
+            logFn(progress);
+          }
         }
       } catch {
         // Not JSON — ignore

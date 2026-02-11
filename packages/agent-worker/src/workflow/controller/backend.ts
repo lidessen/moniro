@@ -16,7 +16,12 @@ import { createMockBackend } from "@/backends/mock.ts";
  */
 export function getBackendByType(
   backendType: "sdk" | "claude" | "cursor" | "codex" | "mock",
-  options?: { model?: string; debugLog?: (msg: string) => void; timeout?: number },
+  options?: {
+    model?: string;
+    debugLog?: (msg: string) => void;
+    messageLog?: (msg: string) => void;
+    timeout?: number;
+  },
 ): Backend {
   if (backendType === "mock") {
     return createMockBackend(options?.debugLog);
@@ -28,6 +33,9 @@ export function getBackendByType(
   }
   if (options?.debugLog) {
     backendOptions.debugLog = options.debugLog;
+  }
+  if (options?.messageLog) {
+    backendOptions.messageLog = options.messageLog;
   }
 
   return createBackend({
@@ -45,7 +53,7 @@ export function getBackendByType(
  */
 export function getBackendForModel(
   model: string,
-  options?: { debugLog?: (msg: string) => void },
+  options?: { debugLog?: (msg: string) => void; messageLog?: (msg: string) => void },
 ): Backend {
   const { provider } = parseModel(model);
 
