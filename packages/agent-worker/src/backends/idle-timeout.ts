@@ -71,8 +71,17 @@ export async function execWithIdleTimeout(options: IdleTimeoutOptions): Promise<
   subprocess.stdout?.on("data", (chunk: Buffer) => {
     const text = chunk.toString();
     stdout += text;
-    if (onStdout) onStdout(text);
+    // Reset timer BEFORE calling onStdout to ensure timeout is always reset
+    // even if the callback throws an exception
     resetTimer();
+    if (onStdout) {
+      try {
+        onStdout(text);
+      } catch (err) {
+        // Log callback errors but don't let them break the stream
+        console.error("onStdout callback error:", err);
+      }
+    }
   });
 
   subprocess.stderr?.on("data", (chunk: Buffer) => {
@@ -137,8 +146,17 @@ export function execWithIdleTimeoutAbortable(options: IdleTimeoutOptions): {
   subprocess.stdout?.on("data", (chunk: Buffer) => {
     const text = chunk.toString();
     stdout += text;
-    if (onStdout) onStdout(text);
+    // Reset timer BEFORE calling onStdout to ensure timeout is always reset
+    // even if the callback throws an exception
     resetTimer();
+    if (onStdout) {
+      try {
+        onStdout(text);
+      } catch (err) {
+        // Log callback errors but don't let them break the stream
+        console.error("onStdout callback error:", err);
+      }
+    }
   });
 
   subprocess.stderr?.on("data", (chunk: Buffer) => {
