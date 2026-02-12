@@ -7,10 +7,6 @@ on:
     branches:
       - main
 
-permissions:
-  id-token: write
-  contents: read
-
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
@@ -20,6 +16,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged && startsWith(github.event.pull_request.head.ref, 'release/'))
     runs-on: ubuntu-latest
     permissions:
+      id-token: write
       contents: write
     steps:
       - name: Checkout
