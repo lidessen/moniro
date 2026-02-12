@@ -60,7 +60,7 @@
 
   **New Providers & Capabilities:**
 
-  - **Minimax CN Provider**: Added `minimax_cn` provider with dedicated `MINIMAX_CN_API_KEY` environment variable support
+  - **MiniMax Base URL Override**: MiniMax provider now supports `MINIMAX_BASE_URL` env var for CN endpoint (`https://api.minimaxi.com/anthropic/v1`)
   - **Scheduled Wakeup**: Agent sessions can now be scheduled to wake up at specific times using cron expressions
   - **Project-local Context**: Support for project-local context directories via `--context-dir` flag
 

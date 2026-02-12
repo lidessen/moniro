@@ -159,17 +159,13 @@ export async function createModelAsync(modelId: string): Promise<LanguageModel> 
     mistral: { package: "@ai-sdk/mistral", export: "mistral" },
     xai: { package: "@ai-sdk/xai", export: "xai" },
     // MiniMax uses Claude-compatible API
+    // Set MINIMAX_BASE_URL to override (e.g., "https://api.minimaxi.com/anthropic/v1" for CN)
     minimax: {
       package: "@ai-sdk/anthropic",
       export: "anthropic",
-      options: { baseURL: "https://api.minimax.io/anthropic/v1", apiKeyEnvVar: "MINIMAX_API_KEY" },
-    },
-    minimax_cn: {
-      package: "@ai-sdk/anthropic",
-      export: "anthropic",
       options: {
-        baseURL: "https://api.minimaxi.com/anthropic/v1",
-        apiKeyEnvVar: "MINIMAX_CN_API_KEY",
+        baseURL: process.env.MINIMAX_BASE_URL || "https://api.minimax.io/anthropic/v1",
+        apiKeyEnvVar: "MINIMAX_API_KEY",
       },
     },
   };
