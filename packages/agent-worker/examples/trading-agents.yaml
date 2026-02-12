@@ -219,7 +219,7 @@ agents:
       Conclude with: TECHNICAL BIAS: BULLISH / BEARISH / NEUTRAL (with confidence 1-10)
 
   fundamentals:
-    model: anthropic/claude-sonnet-4-5
+    model: deepseek/deepseek-reasoner
     system_prompt: |
       You are the Fundamentals Analyst at a quantitative trading firm.
 
@@ -276,7 +276,7 @@ agents:
   # the TradingAgents "investment debate" mechanism.
 
   bull:
-    model: anthropic/claude-sonnet-4-5
+    model: deepseek/deepseek-reasoner
     system_prompt: |
       You are the Bull Researcher at a quantitative trading firm.
       Your job is to build the STRONGEST POSSIBLE case for BUYING this stock.
@@ -301,7 +301,7 @@ agents:
       and state you're waiting. You'll be triggered again when more reports arrive.
 
   bear:
-    model: anthropic/claude-sonnet-4-5
+    model: deepseek/deepseek-reasoner
     system_prompt: |
       You are the Bear Researcher at a quantitative trading firm.
       Your job is to build the STRONGEST POSSIBLE case AGAINST buying this stock.
