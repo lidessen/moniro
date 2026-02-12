@@ -435,34 +435,114 @@ describe("Daemon API", () => {
 
   describe("token auth", () => {
     const TEST_TOKEN = "test-secret-token";
+    let authedApp: ReturnType<typeof createDaemonApp>;
 
-    test("rejects requests without token when token is configured", async () => {
-      const authedApp = createDaemonApp({
+    function authedPost(path: string, body: unknown) {
+      return authedApp.request(path, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${TEST_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+    }
+
+    beforeEach(() => {
+      authedApp = createDaemonApp({
         getState: () => testState,
         token: TEST_TOKEN,
       });
+    });
+
+    // ── Rejection: no token ──────────────────────────────────
+
+    test("rejects GET /health without token", async () => {
       const res = await authedApp.request("/health");
       expect(res.status).toBe(401);
       const data = await json(res);
       expect(data.error).toBe("Unauthorized");
     });
 
-    test("rejects requests with wrong token", async () => {
-      const authedApp = createDaemonApp({
-        getState: () => testState,
-        token: TEST_TOKEN,
+    test("rejects POST /agents without token", async () => {
+      const res = await authedApp.request("/agents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "x", model: "m", system: "s" }),
       });
+      expect(res.status).toBe(401);
+    });
+
+    test("rejects POST /run without token", async () => {
+      const res = await authedApp.request("/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agent: "a", message: "hi" }),
+      });
+      expect(res.status).toBe(401);
+    });
+
+    test("rejects POST /serve without token", async () => {
+      const res = await authedApp.request("/serve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agent: "a", message: "hi" }),
+      });
+      expect(res.status).toBe(401);
+    });
+
+    test("rejects POST /workflows without token", async () => {
+      const res = await authedApp.request("/workflows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workflow: {} }),
+      });
+      expect(res.status).toBe(401);
+    });
+
+    test("rejects DELETE /agents/:name without token", async () => {
+      const res = await authedApp.request("/agents/test", { method: "DELETE" });
+      expect(res.status).toBe(401);
+    });
+
+    test("rejects DELETE /workflows/:name/:tag without token", async () => {
+      const res = await authedApp.request("/workflows/w/main", { method: "DELETE" });
+      expect(res.status).toBe(401);
+    });
+
+    test("rejects POST /shutdown without token", async () => {
+      const res = await authedApp.request("/shutdown", { method: "POST" });
+      expect(res.status).toBe(401);
+    });
+
+    // ── Rejection: wrong token ───────────────────────────────
+
+    test("rejects requests with wrong token", async () => {
       const res = await authedApp.request("/health", {
         headers: { Authorization: "Bearer wrong-token" },
       });
       expect(res.status).toBe(401);
     });
 
-    test("accepts requests with correct token", async () => {
-      const authedApp = createDaemonApp({
-        getState: () => testState,
-        token: TEST_TOKEN,
+    // ── Rejection: wrong scheme ──────────────────────────────
+
+    test("rejects requests with wrong auth scheme", async () => {
+      const res = await authedApp.request("/health", {
+        headers: { Authorization: `Token ${TEST_TOKEN}` },
       });
+      expect(res.status).toBe(401);
+    });
+
+    test("rejects empty Authorization header", async () => {
+      const res = await authedApp.request("/health", {
+        headers: { Authorization: "" },
+      });
+      expect(res.status).toBe(401);
+    });
+
+    // ── Acceptance: correct token ────────────────────────────
+
+    test("accepts GET /health with correct token", async () => {
       const res = await authedApp.request("/health", {
         headers: { Authorization: `Bearer ${TEST_TOKEN}` },
       });
@@ -471,30 +551,63 @@ describe("Daemon API", () => {
       expect(data.status).toBe("ok");
     });
 
-    test("POST with token works", async () => {
-      const authedApp = createDaemonApp({
-        getState: () => testState,
-        token: TEST_TOKEN,
-      });
-      const res = await authedApp.request("/agents", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${TEST_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: "secured-agent",
-          model: "test/model",
-          system: "Secure prompt",
-        }),
+    test("accepts POST /agents with correct token", async () => {
+      const res = await authedPost("/agents", {
+        name: "secured-agent",
+        model: "test/model",
+        system: "Secure prompt",
       });
       expect(res.status).toBe(201);
     });
 
+    test("accepts POST /run with correct token (404 = past auth)", async () => {
+      const res = await authedPost("/run", { agent: "nobody", message: "hi" });
+      // 404 means request passed auth and reached route handler
+      expect(res.status).toBe(404);
+    });
+
+    test("accepts POST /serve with correct token (404 = past auth)", async () => {
+      const res = await authedPost("/serve", { agent: "nobody", message: "hi" });
+      expect(res.status).toBe(404);
+    });
+
+    test("accepts DELETE /agents/:name with correct token (404 = past auth)", async () => {
+      const res = await authedApp.request("/agents/nobody", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+      });
+      expect(res.status).toBe(404);
+    });
+
+    test("accepts POST /workflows with correct token (400 = past auth)", async () => {
+      const res = await authedPost("/workflows", {});
+      // 400 means request passed auth, reached handler, failed validation
+      expect(res.status).toBe(400);
+    });
+
+    test("accepts DELETE /workflows with correct token (404 = past auth)", async () => {
+      const res = await authedApp.request("/workflows/x/main", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+      });
+      expect(res.status).toBe(404);
+    });
+
+    // ── Backward compat: no token configured ─────────────────
+
     test("no token required when token is not configured", async () => {
-      // Default app (no token) should work without auth header
       const res = await app.request("/health");
       expect(res.status).toBe(200);
+    });
+
+    test("all endpoints work without token when not configured", async () => {
+      // POST /agents works
+      const res = await post(app, "/agents", {
+        name: "open-agent",
+        model: "test/model",
+        system: "prompt",
+      });
+      expect(res.status).toBe(201);
     });
   });
 
