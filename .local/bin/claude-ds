@@ -13,6 +13,11 @@ if [ ! -x "$BINARY" ]; then
   echo "Downloaded Claude Code v$VERSION"
 fi
 
+if [ -z "${DEEPSEEK_API_KEY:-}" ]; then
+  echo "Error: DEEPSEEK_API_KEY is not set." >&2
+  exit 1
+fi
+
 export ANTHROPIC_BASE_URL="https://api.deepseek.com/anthropic"
 export ANTHROPIC_AUTH_TOKEN="${DEEPSEEK_API_KEY}"
 export ANTHROPIC_API_KEY=""

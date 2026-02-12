@@ -80,19 +80,18 @@ fi
 # ─── Cursor Agent ─────────────────────────────────────────────
 echo ""
 echo "=== Cursor Agent ==="
-if command -v agent &>/dev/null || command -v cursor &>/dev/null; then
-  CMD=$(command -v agent 2>/dev/null || command -v cursor 2>/dev/null)
-  VERSION=$($CMD --version 2>/dev/null || echo "unknown")
-  ok "cursor agent installed: $VERSION ($(basename $CMD))"
+if command -v cursor &>/dev/null && cursor agent --version &>/dev/null 2>&1; then
+  VERSION=$(cursor agent --version 2>/dev/null || echo "unknown")
+  ok "cursor agent installed: $VERSION"
   ((AVAILABLE++))
 elif [[ "$CHECK_ONLY" == true ]]; then
-  fail "cursor agent not found (tried: agent, cursor)"
+  fail "cursor agent not found"
   ((MISSING++))
 else
   echo "Installing Cursor Agent..."
   curl -fsS https://cursor.com/install | bash
-  if command -v agent &>/dev/null; then
-    ok "cursor agent installed: $(agent --version 2>/dev/null)"
+  if command -v cursor &>/dev/null && cursor agent --version &>/dev/null 2>&1; then
+    ok "cursor agent installed: $(cursor agent --version 2>/dev/null)"
     ((AVAILABLE++))
   else
     fail "cursor agent installation failed"
