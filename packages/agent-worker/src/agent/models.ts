@@ -54,7 +54,9 @@ async function createCustomProvider(
   const module = await import(packageName);
   const createFn = module[`create${exportName.charAt(0).toUpperCase() + exportName.slice(1)}`];
   if (!createFn) {
-    throw new Error(`Package ${packageName} does not export create${exportName.charAt(0).toUpperCase() + exportName.slice(1)}`);
+    throw new Error(
+      `Package ${packageName} does not export create${exportName.charAt(0).toUpperCase() + exportName.slice(1)}`,
+    );
   }
   return createFn(options);
 }
@@ -100,7 +102,7 @@ export async function createModelWithProvider(
     return providerFn(modelName);
   }
 
-  // Object provider → custom baseURL/apiKey
+  // Object provider
   const { name, base_url, api_key } = provider;
   const pkg = PROVIDER_PACKAGES[name];
   if (!pkg) {
@@ -109,6 +111,16 @@ export async function createModelWithProvider(
     );
   }
 
+  // No custom options → use cached standard provider (same as string path)
+  if (!base_url && !api_key) {
+    const providerFn = await loadProvider(name, pkg.package, pkg.export);
+    if (!providerFn) {
+      throw new Error(`Install ${pkg.package} to use ${name} models directly`);
+    }
+    return providerFn(modelName);
+  }
+
+  // Custom baseURL/apiKey → fresh instance (not cached)
   const opts: { baseURL?: string; apiKey?: string } = {};
   if (base_url) opts.baseURL = base_url;
   if (api_key) opts.apiKey = resolveApiKey(api_key);

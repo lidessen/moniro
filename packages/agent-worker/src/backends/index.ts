@@ -59,7 +59,11 @@ export function createBackend(
   switch (normalized.type) {
     case "default": {
       const provider = (normalized as { provider?: string | ProviderConfig }).provider;
-      return new SdkBackend({ model, maxTokens: (normalized as { maxTokens?: number }).maxTokens, provider });
+      return new SdkBackend({
+        model,
+        maxTokens: (normalized as { maxTokens?: number }).maxTokens,
+        provider,
+      });
     }
     case "claude":
       return new ClaudeCodeBackend({

@@ -337,6 +337,50 @@ function validateAgent(name: string, agent: unknown, errors: ValidationError[]):
   if (a.tools !== undefined && !Array.isArray(a.tools)) {
     errors.push({ path: `${path}.tools`, message: 'Optional field "tools" must be an array' });
   }
+
+  // Validate provider field
+  if (a.provider !== undefined) {
+    if (typeof a.provider === "string") {
+      // string form is valid
+    } else if (
+      typeof a.provider === "object" &&
+      a.provider !== null &&
+      !Array.isArray(a.provider)
+    ) {
+      const p = a.provider as Record<string, unknown>;
+      if (!p.name || typeof p.name !== "string") {
+        errors.push({
+          path: `${path}.provider.name`,
+          message: 'Field "provider.name" is required and must be a string',
+        });
+      }
+      if (p.base_url !== undefined && typeof p.base_url !== "string") {
+        errors.push({
+          path: `${path}.provider.base_url`,
+          message: 'Field "provider.base_url" must be a string',
+        });
+      }
+      if (p.api_key !== undefined && typeof p.api_key !== "string") {
+        errors.push({
+          path: `${path}.provider.api_key`,
+          message: 'Field "provider.api_key" must be a string',
+        });
+      }
+    } else {
+      errors.push({
+        path: `${path}.provider`,
+        message: 'Field "provider" must be a string or object with { name, base_url?, api_key? }',
+      });
+    }
+
+    // provider only works with default backend
+    if (CLI_BACKENDS.includes(backend) && backend !== "mock") {
+      errors.push({
+        path: `${path}.provider`,
+        message: `Field "provider" is ignored for CLI backend "${backend}" (only works with default backend)`,
+      });
+    }
+  }
 }
 
 /**

@@ -15,7 +15,11 @@ import { join } from "node:path";
 import type { Backend, BackendResponse } from "./types.ts";
 import { DEFAULT_IDLE_TIMEOUT } from "./types.ts";
 import { execWithIdleTimeout, IdleTimeoutError } from "./idle-timeout.ts";
-import { createStreamParser, type StreamParserCallbacks, type EventAdapter } from "./stream-json.ts";
+import {
+  createStreamParser,
+  type StreamParserCallbacks,
+  type EventAdapter,
+} from "./stream-json.ts";
 
 export interface OpenCodeOptions {
   /** Model to use in provider/model format (e.g., 'deepseek/deepseek-chat') */
@@ -56,7 +60,11 @@ export class OpenCodeBackend implements Backend {
     // OpenCode uses { mcp: { name: { type: "local", command: [...] } } }
     const opencodeMcp: Record<string, unknown> = {};
     for (const [name, config] of Object.entries(mcpConfig.mcpServers)) {
-      const serverConfig = config as { command?: string; args?: string[]; env?: Record<string, string> };
+      const serverConfig = config as {
+        command?: string;
+        args?: string[];
+        env?: Record<string, string>;
+      };
       opencodeMcp[name] = {
         type: "local",
         command: [serverConfig.command, ...(serverConfig.args || [])],
@@ -222,9 +230,7 @@ export const opencodeAdapter: EventAdapter = (raw) => {
     return {
       kind: "completed",
       costUsd: cost,
-      usage: tokens
-        ? { input: tokens.input, output: tokens.output }
-        : undefined,
+      usage: tokens ? { input: tokens.input, output: tokens.output } : undefined,
     };
   }
 
