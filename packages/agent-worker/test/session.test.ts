@@ -1196,6 +1196,7 @@ describe('Backend factory', () => {
     expect(availability).toHaveProperty('claude')
     expect(availability).toHaveProperty('codex')
     expect(availability).toHaveProperty('cursor')
+    expect(availability).toHaveProperty('opencode')
     expect(availability.default).toBe(true) // Default backend is always available
   })
 
@@ -1203,8 +1204,8 @@ describe('Backend factory', () => {
     const { listBackends } = await import('../src/backends/index.ts')
 
     const backends = await listBackends()
-    expect(backends).toHaveLength(4)
-    expect(backends.map((b) => b.type)).toEqual(['default', 'claude', 'codex', 'cursor'])
+    expect(backends).toHaveLength(5)
+    expect(backends.map((b) => b.type)).toEqual(['default', 'claude', 'codex', 'cursor', 'opencode'])
     expect(backends[0]!.name).toBe('Vercel AI SDK')
   })
 })
