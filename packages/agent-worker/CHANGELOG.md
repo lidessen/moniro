@@ -1,5 +1,15 @@
 # agent-worker
 
+## 0.13.0
+
+### Minor Changes
+
+- [`f9718a1`](https://github.com/lidessen/moniro/commit/f9718a1181f567cb81b5103f851169c6996119a8) - Add OpenCode backend, provider config system for custom API endpoints, and E2E test infrastructure for third-party model integration
+
+### Patch Changes
+
+- [`1880007`](https://github.com/lidessen/moniro/commit/18800079676f046333812399aff79ee2c3d0240f) - Add repository field to package.json for npm publish provenance validation
+
 ## 0.12.0
 
 ### Minor Changes
