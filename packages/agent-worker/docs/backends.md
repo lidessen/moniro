@@ -46,9 +46,9 @@ getBackendByType() → Backend
          └── buildCommand → execa(command, args, { cwd, stdin: 'ignore', timeout })
 ```
 
-### Cursor (`cursor-agent`)
+### Cursor (`cursor agent`)
 
-**Command**: `cursor-agent -p --force --approve-mcps <message> [--model <model>]`
+**Command**: `cursor agent -p --force --approve-mcps <message> [--model <model>]`
 
 | Option | Default | Description |
 |--------|---------|-------------|
@@ -61,7 +61,7 @@ getBackendByType() → Backend
 **Model map**: `sonnet` → `sonnet-4.5`, `opus` → `opus-4.5`, `claude-sonnet-4-5` → `sonnet-4.5`
 
 **Gotchas**:
-- stdin must be `'ignore'` — cursor-agent hangs otherwise
+- stdin must be `'ignore'` — cursor agent hangs otherwise
 - No system prompt flag; embedded in message
 - Timeout is idle-based: resets whenever the process produces output
 - Response is plain text only
@@ -150,7 +150,7 @@ agents:
 
 | Feature | Cursor | Claude | Codex | OpenCode | Mock |
 |---------|--------|--------|-------|----------|------|
-| Command | `cursor-agent` | `claude` | `codex exec` | `opencode run` | (in-process) |
+| Command | `cursor agent` | `claude` | `codex exec` | `opencode run` | (in-process) |
 | Auto-approval | `--force --approve-mcps` | `--dangerously-skip-permissions` | `--full-auto` | (auto in run mode) | N/A |
 | MCP config format | JSON | JSON | YAML | JSON | Direct socket |
 | MCP config location | `.cursor/mcp.json` | `--mcp-config <path>` | `.codex/config.yaml` | `opencode.json` | N/A |
@@ -222,7 +222,7 @@ export OPENAI_API_KEY="sk-..."
 
 ### Cursor Agent
 ```bash
-# Install (command installs as `agent`, also available as `cursor-agent`)
+# Install (command installs as `agent`, also available as `cursor agent`)
 curl -fsS https://cursor.com/install | bash
 
 # Required env — get key from https://cursor.com/dashboard?tab=background-agents

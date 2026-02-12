@@ -50,7 +50,7 @@ export async function execWithIdleTimeout(options: IdleTimeoutOptions): Promise<
   let isAborted = false;
 
   // IMPORTANT: stdin must be 'ignore' to prevent CLI agents from hanging
-  // See: https://forum.cursor.com/t/node-js-spawn-with-cursor-agent-hangs-and-exits-with-code-143-after-timeout/133709
+  // See: https://forum.cursor.com/t/node-js-spawn-with-cursor-agent-hangs/133709
   const subprocess: ResultPromise = execa(command, args, {
     cwd,
     stdin: "ignore",

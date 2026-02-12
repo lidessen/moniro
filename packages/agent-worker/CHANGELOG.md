@@ -261,6 +261,6 @@
   - `sdk`: Vercel AI SDK (default)
   - `claude`: Claude Code CLI (`claude -p` for non-interactive mode)
   - `codex`: OpenAI Codex CLI (`codex exec`)
-  - `cursor`: Cursor Agent CLI (`cursor-agent -p`)
+  - `cursor`: Cursor Agent CLI (`cursor agent -p`)
   - New `agent-worker backends` command to check CLI tool availability
   - Unified model specification across all backends with `createBackend()`

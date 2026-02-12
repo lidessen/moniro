@@ -6,7 +6,7 @@
  * agent execution → channel communication → idle detection → completion.
  *
  * This tests the same code paths as runWorkflowWithControllers but with
- * mock backends instead of real CLIs (cursor-agent, claude).
+ * mock backends instead of real CLIs (cursor agent, claude).
  */
 
 import { describe, test, expect, afterEach } from 'bun:test'

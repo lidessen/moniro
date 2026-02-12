@@ -80,13 +80,13 @@ fi
 # ─── Cursor Agent ─────────────────────────────────────────────
 echo ""
 echo "=== Cursor Agent ==="
-if command -v agent &>/dev/null || command -v cursor-agent &>/dev/null; then
-  CMD=$(command -v agent 2>/dev/null || command -v cursor-agent 2>/dev/null)
+if command -v agent &>/dev/null || command -v cursor &>/dev/null; then
+  CMD=$(command -v agent 2>/dev/null || command -v cursor 2>/dev/null)
   VERSION=$($CMD --version 2>/dev/null || echo "unknown")
   ok "cursor agent installed: $VERSION ($(basename $CMD))"
   ((AVAILABLE++))
 elif [[ "$CHECK_ONLY" == true ]]; then
-  fail "cursor agent not found (tried: agent, cursor-agent)"
+  fail "cursor agent not found (tried: agent, cursor)"
   ((MISSING++))
 else
   echo "Installing Cursor Agent..."

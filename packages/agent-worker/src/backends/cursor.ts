@@ -1,7 +1,6 @@
 /**
  * Cursor CLI backend
- * Uses `cursor agent -p` (preferred) or `cursor-agent -p` (fallback)
- * for non-interactive mode with stream-json output
+ * Uses `cursor agent -p` for non-interactive mode with stream-json output
  *
  * MCP Configuration:
  * Cursor uses project-level MCP config via .cursor/mcp.json in the workspace.
@@ -39,7 +38,7 @@ export interface CursorOptions {
 export class CursorBackend implements Backend {
   readonly type = "cursor" as const;
   private options: CursorOptions;
-  /** Resolved command: "cursor" (subcommand style) or "cursor-agent" (standalone) */
+  /** Resolved command: "cursor" (subcommand style) */
   private resolvedCommand: string | null = null;
 
   constructor(options: CursorOptions = {}) {
@@ -113,26 +112,16 @@ export class CursorBackend implements Backend {
 
   /**
    * Resolve which cursor command is available.
-   * Prefers `cursor agent` (subcommand), falls back to `cursor-agent` (standalone).
+   * Checks `cursor agent --version` (subcommand style).
    * Result is cached after first resolution.
    */
   private async resolveCommand(): Promise<string | null> {
     if (this.resolvedCommand !== null) return this.resolvedCommand;
 
-    // 1. Prefer: cursor agent --version
     try {
       await execa("cursor", ["agent", "--version"], { stdin: "ignore", timeout: 2000 });
       this.resolvedCommand = "cursor";
       return "cursor";
-    } catch {
-      // Not available
-    }
-
-    // 2. Fallback: cursor-agent --version
-    try {
-      await execa("cursor-agent", ["--version"], { stdin: "ignore", timeout: 2000 });
-      this.resolvedCommand = "cursor-agent";
-      return "cursor-agent";
     } catch {
       // Not available
     }
@@ -157,12 +146,11 @@ export class CursorBackend implements Backend {
       agentArgs.push("--model", this.options.model);
     }
 
-    if (cmd === "cursor") {
-      // Subcommand style: cursor agent -p ...
-      return { command: "cursor", args: ["agent", ...agentArgs] };
+    if (!cmd) {
+      throw new Error("cursor agent CLI not found");
     }
 
-    // Standalone style: cursor-agent -p ...
-    return { command: "cursor-agent", args: agentArgs };
+    // Subcommand style: cursor agent -p ...
+    return { command: "cursor", args: ["agent", ...agentArgs] };
   }
 }

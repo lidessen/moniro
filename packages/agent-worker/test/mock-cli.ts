@@ -1,9 +1,8 @@
 #!/usr/bin/env bun
 /**
- * Mock CLI for testing cursor-agent, claude, codex, and opencode backends
+ * Mock CLI for testing cursor agent, claude, codex, and opencode backends
  *
  * Usage:
- *   bun test/mock-cli.ts cursor-agent -p "hello"
  *   bun test/mock-cli.ts cursor agent -p "hello"
  *   bun test/mock-cli.ts claude -p "hello"
  *   bun test/mock-cli.ts codex "hello"
@@ -19,11 +18,11 @@
 
 const args = process.argv.slice(2)
 
-// Parse command name (cursor-agent, cursor agent, claude, codex)
-// Normalize "cursor agent" → "cursor-agent"
+// Parse command name (cursor agent, claude, codex)
+// Normalize "cursor agent" subcommand → "cursor"
 let command = args[0]
 if (command === 'cursor' && args[1] === 'agent') {
-  command = 'cursor-agent'
+  command = 'cursor'
   args.splice(1, 1) // remove 'agent' so arg parsing stays consistent
 }
 
@@ -46,7 +45,7 @@ if (args.includes('--version')) {
 if (args.includes('--help')) {
   console.log(`Mock CLI - simulates ${command || 'agent'} behavior for testing`)
   console.log('\nOptions:')
-  console.log('  -p <message>     Print mode (cursor-agent)')
+  console.log('  -p <message>     Print mode (cursor agent)')
   console.log('  --version        Show version')
   console.log('  --help           Show help')
   process.exit(0)
@@ -72,8 +71,8 @@ if (slowOutputChunks > 0) {
 // Extract message from args
 let message = ''
 
-if (command === 'cursor-agent') {
-  // cursor-agent -p "message" or cursor-agent "message" -p
+if (command === 'cursor') {
+  // cursor agent -p "message" or cursor agent "message" -p
   const pIndex = args.indexOf('-p')
   if (pIndex !== -1 && args[pIndex + 1]) {
     message = args[pIndex + 1]!

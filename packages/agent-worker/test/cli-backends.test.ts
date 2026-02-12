@@ -1,7 +1,7 @@
 /**
  * CLI Backend Tests
  *
- * Uses mock-cli.ts to simulate cursor-agent, claude, codex, and opencode CLIs
+ * Uses mock-cli.ts to simulate cursor agent, claude, codex, and opencode CLIs
  */
 
 import { describe, test, expect } from 'bun:test'
@@ -51,19 +51,19 @@ async function runMockCli(
 
 describe('Mock CLI', () => {
   test('responds to --version', async () => {
-    const result = await runMockCli(['cursor-agent', '--version'])
+    const result = await runMockCli(['cursor', 'agent', '--version'])
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain('1.0.0')
   })
 
   test('responds to simple message', async () => {
-    const result = await runMockCli(['cursor-agent', '-p', '2+2=?'])
+    const result = await runMockCli(['cursor', 'agent', '-p', '2+2=?'])
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toBe('4')
   })
 
   test('handles custom response via env', async () => {
-    const result = await runMockCli(['cursor-agent', '-p', 'anything'], {
+    const result = await runMockCli(['cursor', 'agent', '-p', 'anything'], {
       MOCK_RESPONSE: 'Custom response here',
     })
     expect(result.exitCode).toBe(0)
@@ -71,7 +71,7 @@ describe('Mock CLI', () => {
   })
 
   test('simulates failure', async () => {
-    const result = await runMockCli(['cursor-agent', '-p', 'test'], {
+    const result = await runMockCli(['cursor', 'agent', '-p', 'test'], {
       MOCK_FAIL: '1',
     })
     expect(result.exitCode).toBe(1)
@@ -79,7 +79,7 @@ describe('Mock CLI', () => {
   })
 
   test('outputs JSON format', async () => {
-    const result = await runMockCli(['cursor-agent', '-p', '2+2=?', '--output-format=stream-json'])
+    const result = await runMockCli(['cursor', 'agent', '-p', '2+2=?', '--output-format=stream-json'])
     expect(result.exitCode).toBe(0)
 
     const lines = result.stdout.split('\n')
@@ -95,11 +95,11 @@ describe('CursorBackend with Mock', () => {
   // Create a backend that uses our mock CLI (with stream-json format)
   class MockCursorBackend extends CursorBackend {
     protected override async buildCommand(message: string): Promise<{ command: string; args: string[] }> {
-      // Use bun to run mock-cli.ts instead of actual cursor-agent
+      // Use bun to run mock-cli.ts instead of actual cursor agent
       // Include --output-format=stream-json to match real buildCommand behavior
       return {
         command: 'bun',
-        args: [MOCK_CLI_PATH, 'cursor-agent', '-p', message, '--output-format=stream-json'],
+        args: [MOCK_CLI_PATH, 'cursor', 'agent', '-p', message, '--output-format=stream-json'],
       }
     }
   }
@@ -138,7 +138,7 @@ describe('CursorBackend with Mock', () => {
     backend['buildCommand'] = async (message: string) => {
       return {
         command: 'bun',
-        args: [MOCK_CLI_PATH, 'cursor-agent', '-p', message],
+        args: [MOCK_CLI_PATH, 'cursor', 'agent', '-p', message],
       }
     }
 
@@ -167,7 +167,7 @@ describe('Idle Timeout', () => {
       await expect(
         execWithIdleTimeout({
           command: 'bun',
-          args: [MOCK_CLI_PATH, 'cursor-agent', '-p', 'test'],
+          args: [MOCK_CLI_PATH, 'cursor', 'agent', '-p', 'test'],
           timeout: 1500,
         })
       ).rejects.toThrow(IdleTimeoutError)
@@ -188,7 +188,7 @@ describe('Idle Timeout', () => {
     try {
       const result = await execWithIdleTimeout({
         command: 'bun',
-        args: [MOCK_CLI_PATH, 'cursor-agent', '-p', 'test'],
+        args: [MOCK_CLI_PATH, 'cursor', 'agent', '-p', 'test'],
         timeout: 200,
       })
       expect(result.stdout).toContain('chunk 1')
@@ -205,7 +205,7 @@ describe('Idle Timeout', () => {
   test('fast process completes normally', async () => {
     const result = await execWithIdleTimeout({
       command: 'bun',
-      args: [MOCK_CLI_PATH, 'cursor-agent', '-p', '2+2=?'],
+      args: [MOCK_CLI_PATH, 'cursor', 'agent', '-p', '2+2=?'],
       timeout: 5000,
     })
     expect(result.stdout).toContain('4')
@@ -543,9 +543,9 @@ describe('OpenCodeBackend with Mock', () => {
 })
 
 describe('Backend Integration', () => {
-  test('mock CLI behaves like real cursor-agent', async () => {
+  test('mock CLI behaves like real cursor agent', async () => {
     // Test the exact command that CursorBackend would build
-    const result = await runMockCli(['cursor-agent', '-p', 'What is 2+2?'])
+    const result = await runMockCli(['cursor', 'agent', '-p', 'What is 2+2?'])
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toBe('4')
   })
@@ -558,7 +558,7 @@ describe('Backend Integration', () => {
     ]
 
     for (const { message, expected } of testCases) {
-      const result = await runMockCli(['cursor-agent', '-p', message])
+      const result = await runMockCli(['cursor', 'agent', '-p', message])
       expect(result.stdout).toContain(expected)
     }
   })

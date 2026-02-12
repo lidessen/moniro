@@ -120,11 +120,11 @@ Go 语言构建的开源终端 agent（`sst/opencode`），原生支持 75+ prov
 |-----|-------------|------|------|------|
 | Claude Code | `curl -fsSL https://claude.ai/install.sh \| bash` | `brew install --cask claude-code` | `claude` | 2.1.38 |
 | Codex CLI | `npm i -g @openai/codex` | `brew install --cask codex`、GitHub Release binary | `codex` | 0.98.0 |
-| Cursor Agent | `curl -fsS https://cursor.com/install \| bash` | - | `agent` / `cursor-agent` | 2026.01.28 |
+| Cursor Agent | `curl -fsS https://cursor.com/install \| bash` | - | `agent` / `cursor agent` | 2026.01.28 |
 | OpenCode | `curl -fsSL https://opencode.ai/install \| bash` | `npm i -g opencode-ai@latest`、`brew install anomalyco/tap/opencode` | `opencode` | 1.1.59 |
 
 **注意**：
-- Cursor CLI 命令已改为 `agent`（`cursor-agent` 仍然兼容，指向同一 binary）
+- Cursor CLI 命令已改为 `agent`（`cursor agent` 子命令仍然兼容）
 - Claude Code npm 安装已废弃，`npm i -g @anthropic-ai/claude-code` 仍可用但不推荐
 - Codex CLI 也提供了 GitHub Release 的 binary 下载
 

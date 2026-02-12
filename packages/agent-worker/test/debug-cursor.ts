@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Debug script to test cursor-agent behavior in different spawn configurations
+ * Debug script to test cursor agent behavior in different spawn configurations
  *
  * Run: bun test/debug-cursor.ts
  */
@@ -9,14 +9,14 @@ import { spawn, spawnSync } from 'node:child_process'
 
 const MESSAGE = '2+2=?'
 
-console.log('=== Testing cursor-agent spawn configurations ===\n')
+console.log('=== Testing cursor agent spawn configurations ===\n')
 
 // Test 1: Default spawn (no stdio specified)
 async function test1() {
   console.log('Test 1: Default spawn (no stdio)')
   return new Promise<void>((resolve) => {
     const start = Date.now()
-    const proc = spawn('cursor-agent', ['-p', MESSAGE])
+    const proc = spawn('cursor', ['agent', '-p', MESSAGE])
 
     let stdout = ''
     let stderr = ''
@@ -51,7 +51,7 @@ async function test2() {
   console.log('\nTest 2: With stdio: pipe')
   return new Promise<void>((resolve) => {
     const start = Date.now()
-    const proc = spawn('cursor-agent', ['-p', MESSAGE], {
+    const proc = spawn('cursor', ['agent', '-p', MESSAGE], {
       stdio: ['pipe', 'pipe', 'pipe'],
     })
 
@@ -85,7 +85,7 @@ async function test3() {
   console.log('\nTest 3: With stdin.end() immediately')
   return new Promise<void>((resolve) => {
     const start = Date.now()
-    const proc = spawn('cursor-agent', ['-p', MESSAGE], {
+    const proc = spawn('cursor', ['agent', '-p', MESSAGE], {
       stdio: ['pipe', 'pipe', 'pipe'],
     })
 
@@ -122,7 +122,7 @@ async function test4() {
   console.log('\nTest 4: With stdin ignored')
   return new Promise<void>((resolve) => {
     const start = Date.now()
-    const proc = spawn('cursor-agent', ['-p', MESSAGE], {
+    const proc = spawn('cursor', ['agent', '-p', MESSAGE], {
       stdio: ['ignore', 'pipe', 'pipe'],
     })
 
@@ -156,7 +156,7 @@ async function test5() {
   console.log('\nTest 5: With stdio: inherit (TTY)')
   return new Promise<void>((resolve) => {
     const start = Date.now()
-    const proc = spawn('cursor-agent', ['-p', MESSAGE], {
+    const proc = spawn('cursor', ['agent', '-p', MESSAGE], {
       stdio: 'inherit',
     })
 
@@ -179,7 +179,7 @@ function test6() {
   console.log('\nTest 6: spawnSync')
   const start = Date.now()
   try {
-    const result = spawnSync('cursor-agent', ['-p', MESSAGE], {
+    const result = spawnSync('cursor', ['agent', '-p', MESSAGE], {
       timeout: 10000,
       encoding: 'utf-8',
     })
@@ -193,7 +193,7 @@ function test6() {
 
 // Run all tests
 async function main() {
-  console.log('cursor-agent location:', await getCommandPath('cursor-agent'))
+  console.log('cursor agent location:', await getCommandPath('cursor'))
   console.log('')
 
   await test1()

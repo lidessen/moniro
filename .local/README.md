@@ -60,11 +60,11 @@ Codex CLI deprecated `wire_api = "chat"` (Chat Completions API) and now requires
 
 ### 3. Cursor Agent CLI (v2026.01.28) - Cannot Use Third-Party Models
 
-**Binary**: `~/.local/bin/cursor-agent` (symlinked to `~/.local/bin/agent`)
+**Binary**: `~/.local/bin/agent` (also available as `cursor agent` subcommand)
 
 **Status**: **LOCKED TO CURSOR INFRASTRUCTURE**. No way to point at custom API endpoints.
 
-The CLI only accepts Cursor's pre-configured models (gpt-5, sonnet-4, etc.) via `--model` flag. There is no `--base-url` or custom provider configuration. Authentication requires a Cursor subscription via `cursor-agent login`.
+The CLI only accepts Cursor's pre-configured models (gpt-5, sonnet-4, etc.) via `--model` flag. There is no `--base-url` or custom provider configuration. Authentication requires a Cursor subscription via `cursor agent login`.
 
 ### 4. OpenCode (v1.1.59) - Best Option for DeepSeek
 
