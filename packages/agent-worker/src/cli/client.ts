@@ -32,33 +32,44 @@ function isRetryableError(error: unknown): boolean {
   return false;
 }
 
-// ── Daemon URL resolution ──────────────────────────────────────────
+// ── Daemon URL + Auth resolution ──────────────────────────────────
 
-function getDaemonUrl(): string | null {
+function getDaemonConnection(): { url: string; token?: string } | null {
   const daemon = isDaemonRunning();
   if (!daemon) return null;
-  return `http://${daemon.host}:${daemon.port}`;
+  return { url: `http://${daemon.host}:${daemon.port}`, token: daemon.token };
 }
 
-function requireDaemon(): string {
-  const url = getDaemonUrl();
-  if (!url) {
+function requireDaemon(): { url: string; token?: string } {
+  const conn = getDaemonConnection();
+  if (!conn) {
     throw new Error("No daemon running. Start one with: agent-worker daemon");
   }
-  return url;
+  return conn;
+}
+
+/** Build headers with auth token */
+function authHeaders(token?: string, extra?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = { ...extra };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return headers;
 }
 
 // ── Low-level HTTP ─────────────────────────────────────────────────
 
 async function request(method: string, path: string, body?: unknown): Promise<ApiResponse> {
-  const baseUrl = requireDaemon();
+  const { url: baseUrl, token } = requireDaemon();
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
+      const headers = authHeaders(
+        token,
+        body !== undefined ? { "Content-Type": "application/json" } : undefined,
+      );
       const init: RequestInit = {
         method,
-        headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
+        headers,
         body: body !== undefined ? JSON.stringify(body) : undefined,
         signal: AbortSignal.timeout(60_000),
       };
@@ -133,8 +144,11 @@ export async function run(
   onChunk?: (data: { agent: string; text: string }) => void,
 ): Promise<ApiResponse> {
   let baseUrl: string;
+  let token: string | undefined;
   try {
-    baseUrl = requireDaemon();
+    const conn = requireDaemon();
+    baseUrl = conn.url;
+    token = conn.token;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     return { success: false, error: msg };
@@ -143,7 +157,7 @@ export async function run(
   try {
     const res = await fetch(`${baseUrl}/run`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(token, { "Content-Type": "application/json" }),
       body: JSON.stringify(body),
     });
 
@@ -219,5 +233,5 @@ export function stopWorkflow(name: string, tag: string = "main"): Promise<ApiRes
 
 /** Check if daemon is running */
 export function isDaemonActive(): boolean {
-  return getDaemonUrl() !== null;
+  return getDaemonConnection() !== null;
 }

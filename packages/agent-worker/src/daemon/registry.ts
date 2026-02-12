@@ -33,6 +33,8 @@ export interface DaemonInfo {
   host: string;
   port: number;
   startedAt: string;
+  /** Auth token for API access (random per daemon instance) */
+  token?: string;
 }
 
 /** Write daemon.json for client discovery */

@@ -110,7 +110,7 @@ describe("Daemon API", () => {
 
   beforeEach(() => {
     testState = createTestState();
-    app = createDaemonApp(() => testState);
+    app = createDaemonApp({ getState: () => testState });
   });
 
   // ── GET /health ──────────────────────────────────────────────
@@ -129,7 +129,7 @@ describe("Daemon API", () => {
     });
 
     test("returns 503 when state is null", async () => {
-      const nullApp = createDaemonApp(() => null);
+      const nullApp = createDaemonApp({ getState: () => null });
       const res = await nullApp.request("/health");
       expect(res.status).toBe(503);
       const data = await json(res);
@@ -431,11 +431,78 @@ describe("Daemon API", () => {
     });
   });
 
+  // ── Token auth ────────────────────────────────────────────────
+
+  describe("token auth", () => {
+    const TEST_TOKEN = "test-secret-token";
+
+    test("rejects requests without token when token is configured", async () => {
+      const authedApp = createDaemonApp({
+        getState: () => testState,
+        token: TEST_TOKEN,
+      });
+      const res = await authedApp.request("/health");
+      expect(res.status).toBe(401);
+      const data = await json(res);
+      expect(data.error).toBe("Unauthorized");
+    });
+
+    test("rejects requests with wrong token", async () => {
+      const authedApp = createDaemonApp({
+        getState: () => testState,
+        token: TEST_TOKEN,
+      });
+      const res = await authedApp.request("/health", {
+        headers: { Authorization: "Bearer wrong-token" },
+      });
+      expect(res.status).toBe(401);
+    });
+
+    test("accepts requests with correct token", async () => {
+      const authedApp = createDaemonApp({
+        getState: () => testState,
+        token: TEST_TOKEN,
+      });
+      const res = await authedApp.request("/health", {
+        headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+      });
+      expect(res.status).toBe(200);
+      const data = await json(res);
+      expect(data.status).toBe("ok");
+    });
+
+    test("POST with token works", async () => {
+      const authedApp = createDaemonApp({
+        getState: () => testState,
+        token: TEST_TOKEN,
+      });
+      const res = await authedApp.request("/agents", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${TEST_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "secured-agent",
+          model: "test/model",
+          system: "Secure prompt",
+        }),
+      });
+      expect(res.status).toBe(201);
+    });
+
+    test("no token required when token is not configured", async () => {
+      // Default app (no token) should work without auth header
+      const res = await app.request("/health");
+      expect(res.status).toBe(200);
+    });
+  });
+
   // ── 503 when not ready ───────────────────────────────────────
 
   describe("503 when state is null", () => {
     test("all endpoints return 503", async () => {
-      const nullApp = createDaemonApp(() => null);
+      const nullApp = createDaemonApp({ getState: () => null });
 
       const endpoints: Array<[string, string]> = [
         ["GET", "/agents"],
@@ -450,7 +517,7 @@ describe("Daemon API", () => {
     });
 
     test("POST endpoints return 503", async () => {
-      const nullApp = createDaemonApp(() => null);
+      const nullApp = createDaemonApp({ getState: () => null });
 
       const endpoints = ["/agents", "/run", "/serve", "/workflows"];
 

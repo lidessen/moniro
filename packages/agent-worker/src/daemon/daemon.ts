@@ -19,7 +19,6 @@
  */
 
 import { Hono } from "hono";
-import { cors } from "hono/cors";
 import { streamSSE } from "hono/streaming";
 import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
@@ -148,15 +147,46 @@ async function parseJsonBody(c: { req: { json: () => Promise<unknown> } }): Prom
 
 // ── App Factory ──────────────────────────────────────────────────
 
+/** Options for createDaemonApp */
+export interface DaemonAppOptions {
+  /** State getter — returns current DaemonState or null if not ready */
+  getState: () => DaemonState | null;
+  /** Auth token — when set, all requests must include `Authorization: Bearer <token>` */
+  token?: string;
+}
+
 /**
  * Create the Hono app with all daemon routes.
  *
  * Accepts a state getter so the app can be used both in production
  * (module-level state set by startDaemon) and in tests (injected state).
+ *
+ * When a token is provided, all endpoints require `Authorization: Bearer <token>`.
+ * This prevents cross-origin attacks from malicious websites.
  */
-export function createDaemonApp(getState: () => DaemonState | null): Hono {
+export function createDaemonApp(options: DaemonAppOptions): Hono;
+/** @deprecated Pass DaemonAppOptions instead */
+export function createDaemonApp(getState: () => DaemonState | null): Hono;
+export function createDaemonApp(
+  optionsOrGetState: DaemonAppOptions | (() => DaemonState | null),
+): Hono {
+  const { getState, token } =
+    typeof optionsOrGetState === "function"
+      ? { getState: optionsOrGetState, token: undefined }
+      : optionsOrGetState;
+
   const app = new Hono();
-  app.use("*", cors());
+
+  // Auth middleware — reject requests without valid token
+  if (token) {
+    app.use("*", async (c, next) => {
+      const auth = c.req.header("authorization");
+      if (auth !== `Bearer ${token}`) {
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+      await next();
+    });
+  }
 
   function getWorkflowAgentNames(workflow: string, tag: string): string[] {
     const s = getState();
@@ -639,8 +669,9 @@ export async function startDaemon(
 
   const host = config.host ?? "127.0.0.1";
   const store = config.store ?? new MemoryStateStore();
+  const token = randomUUID();
 
-  const app = createDaemonApp(() => state);
+  const app = createDaemonApp({ getState: () => state, token });
 
   // ── Start HTTP server ────────────────────────────────────────
 
@@ -657,6 +688,7 @@ export async function startDaemon(
     host,
     port: actualPort,
     startedAt,
+    token,
   });
 
   state = {

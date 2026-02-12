@@ -223,25 +223,19 @@ Examples:
       const { parseTarget } = await import("../target.ts");
       const target = parseTarget(name);
 
+      let res: Awaited<ReturnType<typeof deleteAgent>>;
       if (target.agent === undefined) {
-        // Workflow-level target: @workflow or @workflow:tag
         const { stopWorkflow: stopWf } = await import("../client.ts");
-        const res = await stopWf(target.workflow, target.tag);
-        if (res.success) {
-          console.log(`Stopped: ${target.display}`);
-        } else {
-          console.error("Error:", res.error);
-          process.exit(1);
-        }
+        res = await stopWf(target.workflow, target.tag);
       } else {
-        // Agent-level target
-        const res = await deleteAgent(target.agent);
-        if (res.success) {
-          console.log(`Stopped: ${target.display}`);
-        } else {
-          console.error("Error:", res.error);
-          process.exit(1);
-        }
+        res = await deleteAgent(target.agent);
+      }
+
+      if (res.success) {
+        console.log(`Stopped: ${target.display}`);
+      } else {
+        console.error("Error:", res.error);
+        process.exit(1);
       }
     });
 
