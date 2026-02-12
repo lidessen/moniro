@@ -82,7 +82,7 @@ agents:
       Conclude with: FUNDAMENTAL BIAS: BULLISH / BEARISH / NEUTRAL (with confidence 1-10)
 
   sentiment:
-    model: anthropic/claude-haiku-3-5
+    model: deepseek/deepseek-chat
     system_prompt: |
       You are the Sentiment & News Analyst at a quantitative trading firm.
 
