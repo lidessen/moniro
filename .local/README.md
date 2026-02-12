@@ -66,18 +66,47 @@ Codex CLI deprecated `wire_api = "chat"` (Chat Completions API) and now requires
 
 The CLI only accepts Cursor's pre-configured models (gpt-5, sonnet-4, etc.) via `--model` flag. There is no `--base-url` or custom provider configuration. Authentication requires a Cursor subscription via `cursor-agent login`.
 
+### 4. OpenCode (v1.1.59) - Best Option for DeepSeek
+
+**Binary**: `/opt/node22/bin/opencode` (installed globally via npm)
+**Config**: `opencode.json` (project root)
+
+**Status**: **WORKING PERFECTLY** with DeepSeek. Native support, zero friction.
+
+OpenCode (`sst/opencode`) is a Go-based open-source terminal agent with native support for 75+ providers including DeepSeek. Both `deepseek-chat` and `deepseek-reasoner` work out of the box.
+
+**Usage**:
+```bash
+# Non-interactive (pipe or positional prompt)
+echo "explain this code" | opencode run --model deepseek/deepseek-chat
+
+# Interactive TUI
+opencode --model deepseek/deepseek-chat
+
+# Use DeepSeek Reasoner (R1) for complex reasoning
+opencode run --model deepseek/deepseek-reasoner
+```
+
+**Config** (`opencode.json`):
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "deepseek": {
+      "options": { "apiKey": "{env:DEEPSEEK_API_KEY}" }
+    }
+  },
+  "model": "deepseek/deepseek-chat"
+}
+```
+
+**Verified working**: Text generation, reasoning (R1), tool use (bash commands). Responses in ~3 seconds.
+
 ## Summary
 
-| CLI | Third-Party Model Support | DeepSeek Status |
-|-----|---------------------------|-----------------|
-| Claude Code | Via `ANTHROPIC_BASE_URL` env var | **Working** |
-| Codex CLI | Via `config.toml` providers | **Broken** (Responses API required) |
-| Cursor Agent | None | **Not possible** |
-
-## Alternative Approaches
-
-For broader third-party model support, consider:
-- **OpenRouter** (`openrouter.ai/api`): 400+ models, Anthropic API-compatible "skin"
-- **LiteLLM** (`litellm`): Self-hosted proxy, 100+ providers, translates API formats
-- **claude-code-router**: Purpose-built Claude Code proxy with multi-provider support
-- **OpenCode** (`open-code.ai`): Open-source terminal agent with native multi-provider support
+| CLI | DeepSeek | Config Complexity | Tool Use | Recommended |
+|-----|----------|-------------------|----------|-------------|
+| **OpenCode** | Native support | Minimal | Working | **Best choice** |
+| Claude Code | Via env vars | Medium | Working | Good |
+| Codex CLI | Broken | - | - | Not usable |
+| Cursor Agent | Not possible | - | - | Not usable |
