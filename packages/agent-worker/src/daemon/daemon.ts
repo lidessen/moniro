@@ -494,7 +494,12 @@ export function createDaemonApp(getState: () => DaemonState | null): Hono {
 
     const body = await parseJsonBody(c);
     if (!body || typeof body !== "object") return c.json({ error: "Invalid JSON body" }, 400);
-    const { workflow, tag = "main", feedback, pollInterval } = body as {
+    const {
+      workflow,
+      tag = "main",
+      feedback,
+      pollInterval,
+    } = body as {
       workflow: ParsedWorkflow;
       tag?: string;
       feedback?: boolean;
@@ -544,12 +549,15 @@ export function createDaemonApp(getState: () => DaemonState | null): Hono {
 
       s.workflows.set(key, handle);
 
-      return c.json({
-        key,
-        name: workflowName,
-        tag,
-        agents: handle.agents,
-      }, 201);
+      return c.json(
+        {
+          key,
+          name: workflowName,
+          tag,
+          agents: handle.agents,
+        },
+        201,
+      );
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       return c.json({ error: `Failed to start workflow: ${msg}` }, 500);
@@ -609,9 +617,7 @@ export function createDaemonApp(getState: () => DaemonState | null): Hono {
   );
 
   // Convenience: DELETE /workflows/:name (defaults tag to "main")
-  app.delete("/workflows/:name", (c) =>
-    deleteWorkflow(c, c.req.param("name"), "main"),
-  );
+  app.delete("/workflows/:name", (c) => deleteWorkflow(c, c.req.param("name"), "main"));
 
   return app;
 }
