@@ -33,6 +33,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-bun-
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          registry-url: 'https://registry.npmjs.org'
+
       - name: Install dependencies
         run: bun install
 
@@ -54,6 +59,7 @@ jobs:
           echo "new_tags=$NEW_TAGS" >> "$GITHUB_OUTPUT"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_PROVENANCE: true
 
       - name: Push tags
         if: steps.publish.outputs.new_tags != ''
