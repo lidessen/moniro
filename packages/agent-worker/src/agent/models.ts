@@ -168,6 +168,16 @@ export async function createModelAsync(modelId: string): Promise<LanguageModel> 
         apiKeyEnvVar: "MINIMAX_API_KEY",
       },
     },
+    // GLM (Zhipu) uses Claude-compatible API
+    // Set GLM_BASE_URL to override (default: "https://open.bigmodel.cn")
+    glm: {
+      package: "@ai-sdk/anthropic",
+      export: "anthropic",
+      options: {
+        baseURL: `${(process.env.GLM_BASE_URL || "https://open.bigmodel.cn").replace(/\/+$/, "")}/api/anthropic/v1`,
+        apiKeyEnvVar: "GLM_API_KEY",
+      },
+    },
   };
 
   const config = providerConfigs[provider];
@@ -189,7 +199,7 @@ export async function createModelAsync(modelId: string): Promise<LanguageModel> 
 
 /**
  * List of supported providers for direct access
- * Note: minimax uses Claude-compatible API via @ai-sdk/anthropic with custom baseURL
+ * Note: minimax and glm use Claude-compatible API via @ai-sdk/anthropic with custom baseURL
  */
 export const SUPPORTED_PROVIDERS = [
   "anthropic",
@@ -200,6 +210,7 @@ export const SUPPORTED_PROVIDERS = [
   "mistral",
   "xai",
   "minimax",
+  "glm",
 ] as const;
 
 export type SupportedProvider = (typeof SUPPORTED_PROVIDERS)[number];
@@ -233,4 +244,5 @@ export const FRONTIER_MODELS = {
   mistral: ["mistral-large-latest", "pixtral-large-latest", "magistral-medium-2506"],
   xai: ["grok-4", "grok-4-fast-reasoning"],
   minimax: ["MiniMax-M2"],
+  glm: ["glm-5", "glm-4.7"],
 } as const;
