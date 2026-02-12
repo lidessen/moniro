@@ -4,29 +4,29 @@
  * Prerequisites:
  *   - Run `scripts/e2e-setup.sh` to install CLIs
  *   - Set env vars:
- *     DEEPSEEK_API_KEY   — for Claude Code (via DeepSeek) and OpenCode
- *     OPENAI_API_KEY     — for Codex CLI (optional, or use ZENMUX_API_KEY)
- *     ZENMUX_API_KEY     — for Codex CLI via ZenMux proxy (optional)
- *     CURSOR_API_KEY     — for Cursor Agent (optional)
+ *     DEEPSEEK_API_KEY     — for Claude Code (via DeepSeek) and OpenCode
+ *     AI_GATEWAY_API_KEY   — for Codex CLI via Vercel AI Gateway (Gemini 2.0 Flash)
+ *     CURSOR_API_KEY       — for Cursor Agent (requires paid subscription)
  *
  * Usage:
  *   # Run all E2E tests
- *   DEEPSEEK_API_KEY=sk-... bun test test/e2e/
+ *   bun test test/e2e/
  *
  *   # Run specific backend
- *   DEEPSEEK_API_KEY=sk-... bun test test/e2e/ -t "OpenCode"
+ *   bun test test/e2e/ -t "OpenCode"
  *
  * Notes:
  *   - Claude Code E2E may hang when run from within a claude session.
  *     Set SKIP_CLAUDE_E2E=1 to skip it.
- *   - Codex requires Responses API (wire_api="responses"). ZenMux supports this.
- *   - Cursor requires paid subscription + API key from cursor.com/dashboard
+ *   - Codex uses Vercel AI Gateway (Responses API) with google/gemini-2.0-flash.
+ *     Config is written to ~/.codex/config.toml automatically.
+ *   - Cursor uses composer-1 model. Requires paid subscription + API key.
  */
 
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { tmpdir, homedir } from "node:os";
 import { ClaudeCodeBackend } from "../../src/backends/claude-code.ts";
 import { CodexBackend } from "../../src/backends/codex.ts";
 import { CursorBackend } from "../../src/backends/cursor.ts";
@@ -162,36 +162,61 @@ describe.skipIf(!hasOpenCode || !hasDeepSeekKey)(
   },
 );
 
-// ─── Codex CLI (OpenAI) ─────────────────────────────────────
+// ─── Codex CLI (Vercel AI Gateway + Gemini 2.0 Flash) ───────
 
 const hasCodex = cliAvailable("codex");
+const hasGatewayKey = !!process.env.AI_GATEWAY_API_KEY;
 const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
-const hasZenMuxKey = !!process.env.ZENMUX_API_KEY;
-// Codex needs Responses API — either OpenAI directly or ZenMux proxy
-const hasCodexAuth = hasOpenAIKey || hasZenMuxKey;
+// Codex needs Responses API — Vercel AI Gateway (preferred) or OpenAI directly
+const hasCodexAuth = hasGatewayKey || hasOpenAIKey;
+
+// Codex model: Vercel Gateway uses google/gemini-2.0-flash, OpenAI uses default
+const CODEX_MODEL = hasGatewayKey ? "google/gemini-2.0-flash" : undefined;
 
 describe.skipIf(!hasCodex || !hasCodexAuth)(
   "E2E: Codex CLI",
   () => {
     let tmpDir: string;
-    let savedEnv: Record<string, string | undefined>;
+    let savedConfig: string | null = null;
+    const codexConfigPath = join(homedir(), ".codex", "config.toml");
 
     beforeAll(() => {
       tmpDir = makeTmpDir("codex");
 
-      // If using ZenMux instead of OpenAI, set up env
-      if (hasZenMuxKey && !hasOpenAIKey) {
-        savedEnv = { OPENAI_API_KEY: process.env.OPENAI_API_KEY };
-        process.env.OPENAI_API_KEY = process.env.ZENMUX_API_KEY;
+      // If using Vercel AI Gateway, write codex config with vercel provider
+      if (hasGatewayKey) {
+        // Back up existing config
+        if (existsSync(codexConfigPath)) {
+          savedConfig = readFileSync(codexConfigPath, "utf-8");
+        }
+
+        const codexDir = join(homedir(), ".codex");
+        if (!existsSync(codexDir)) mkdirSync(codexDir, { recursive: true });
+
+        writeFileSync(
+          codexConfigPath,
+          [
+            'model = "google/gemini-2.0-flash"',
+            'model_provider = "vercel"',
+            "",
+            "[model_providers.vercel]",
+            'name = "Vercel AI Gateway"',
+            'base_url = "https://ai-gateway.vercel.sh/v1"',
+            'env_key = "AI_GATEWAY_API_KEY"',
+            'wire_api = "responses"',
+            "",
+          ].join("\n"),
+        );
       }
     });
 
     afterAll(() => {
-      if (savedEnv) {
-        for (const [key, value] of Object.entries(savedEnv)) {
-          if (value === undefined) delete process.env[key];
-          else process.env[key] = value;
-        }
+      // Restore original codex config
+      if (savedConfig !== null) {
+        writeFileSync(codexConfigPath, savedConfig);
+      } else if (hasGatewayKey) {
+        // Remove config we created if there was no original
+        try { rmSync(codexConfigPath); } catch { /* ignore */ }
       }
       try {
         rmSync(tmpDir, { recursive: true, force: true });
@@ -202,6 +227,7 @@ describe.skipIf(!hasCodex || !hasCodexAuth)(
       "sends prompt and receives response",
       async () => {
         const backend = new CodexBackend({
+          model: CODEX_MODEL,
           cwd: tmpDir,
           timeout: E2E_TIMEOUT,
         });
@@ -238,9 +264,10 @@ describe.skipIf(!hasCursor || !hasCursorKey)(
     });
 
     test(
-      "sends prompt and receives response",
+      "sends prompt and receives response (composer-1)",
       async () => {
         const backend = new CursorBackend({
+          model: "composer-1",
           cwd: tmpDir,
           timeout: E2E_TIMEOUT,
         });
@@ -265,10 +292,12 @@ describe("E2E: Backend Availability", () => {
       "Cursor Agent": hasCursor ? "installed" : "missing",
       "OpenCode CLI": hasOpenCode ? "installed" : "missing",
       DEEPSEEK_API_KEY: hasDeepSeekKey ? "set" : "not set",
+      AI_GATEWAY_API_KEY: hasGatewayKey ? "set" : "not set",
       OPENAI_API_KEY: hasOpenAIKey ? "set" : "not set",
-      ZENMUX_API_KEY: hasZenMuxKey ? "set" : "not set",
       CURSOR_API_KEY: hasCursorKey ? "set" : "not set",
       SKIP_CLAUDE_E2E: skipClaudeE2E ? "yes (skipped)" : "no",
+      "Codex model": CODEX_MODEL ?? "(OpenAI default)",
+      "Cursor model": "composer-1",
     };
 
     console.log("\n=== E2E Backend Availability ===");

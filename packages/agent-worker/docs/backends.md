@@ -203,11 +203,21 @@ npm i -g @openai/codex
 # Or: brew install --cask codex
 
 # Required env — Codex requires Responses API (wire_api="responses")
-# Option 1: OpenAI directly
+# Option 1: Vercel AI Gateway (recommended — $0.10/$0.40 per M tokens, $5/month free)
+export AI_GATEWAY_API_KEY="..."
+# E2E model: google/gemini-2.0-flash (cheapest with full tool use support)
+# Option 2: OpenAI directly
 export OPENAI_API_KEY="sk-..."
-# Option 2: ZenMux proxy (supports Responses API, bridges to other providers)
-export ZENMUX_API_KEY="..."
-# Note: DeepSeek not directly compatible (no Responses API support)
+# Note: DeepSeek not compatible (no Responses API support)
+
+# ~/.codex/config.toml for Vercel AI Gateway:
+# model = "google/gemini-2.0-flash"
+# model_provider = "vercel"
+# [model_providers.vercel]
+# name = "Vercel AI Gateway"
+# base_url = "https://ai-gateway.vercel.sh/v1"
+# env_key = "AI_GATEWAY_API_KEY"
+# wire_api = "responses"
 ```
 
 ### Cursor Agent

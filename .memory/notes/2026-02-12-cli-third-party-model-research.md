@@ -109,10 +109,10 @@ Go 语言构建的开源终端 agent（`sst/opencode`），原生支持 75+ prov
 
 | CLI | DeepSeek | 配置难度 | 工具使用 | E2E 方案 |
 |-----|----------|----------|----------|----------|
-| OpenCode | 原生支持 | 极简 | 正常 | `DEEPSEEK_API_KEY` |
-| Claude Code | 通过 env vars | 中等 | 正常 | `DEEPSEEK_API_KEY` |
-| Codex CLI | 需代理 (ZenMux) | 中等 | 正常 | `OPENAI_API_KEY` / `ZENMUX_API_KEY` |
-| Cursor Agent | 不可能 | - | - | `CURSOR_API_KEY`（付费） |
+| OpenCode | 原生支持 | 极简 | 正常 | `DEEPSEEK_API_KEY` → deepseek/deepseek-chat |
+| Claude Code | 通过 env vars | 中等 | 正常 | `DEEPSEEK_API_KEY` → deepseek-chat |
+| Codex CLI | 需代理 | 中等 | 正常 | `AI_GATEWAY_API_KEY` → Vercel AI Gateway → google/gemini-2.0-flash |
+| Cursor Agent | 不可能 | - | - | `CURSOR_API_KEY`（付费）→ composer-1 |
 
 ## 安装方式验证（2026-02-12 官网确认）
 
@@ -130,12 +130,21 @@ Go 语言构建的开源终端 agent（`sst/opencode`），原生支持 75+ prov
 
 ## E2E 测试方案
 
-| Backend | 模型/Provider | 认证 | 状态 |
-|---------|--------------|------|------|
-| Claude Code | DeepSeek via `ANTHROPIC_BASE_URL` | `DEEPSEEK_API_KEY` | 可用但从 claude session 内运行会挂起 |
-| OpenCode | `deepseek/deepseek-chat` | `DEEPSEEK_API_KEY` | 可用 |
-| Codex CLI | OpenAI 或 ZenMux 代理 | `OPENAI_API_KEY` 或 `ZENMUX_API_KEY` | 需要测试 |
-| Cursor Agent | Cursor 预置模型 | `CURSOR_API_KEY`（付费） | 需要测试 |
+| Backend | 模型 | 认证 env var | 价格 | 状态 |
+|---------|------|-------------|------|------|
+| Claude Code | deepseek-chat | `DEEPSEEK_API_KEY` | $0.14/$0.28 per M | 可用（从 claude session 内运行会挂起） |
+| OpenCode | deepseek/deepseek-chat | `DEEPSEEK_API_KEY` | $0.14/$0.28 per M | **已验证通过** |
+| Codex CLI | google/gemini-2.0-flash | `AI_GATEWAY_API_KEY` | $0.10/$0.40 per M | 需要测试 |
+| Cursor Agent | composer-1 | `CURSOR_API_KEY` | Cursor 订阅 | 需要测试 |
+
+**Codex 代理选择**：Vercel AI Gateway（非 ZenMux）
+- Responses API 首批官方合作伙伴
+- 每月 $5 免费额度
+- 0% 加价（BYOK）
+- Gemini 2.0 Flash 价格接近 DeepSeek：$0.10/M input, $0.40/M output
+- 支持 tool calling、structured outputs
+
+**Cursor 模型选择**：composer-1（Cursor 自有模型）
 
 **文件**：
 - `packages/agent-worker/scripts/e2e-setup.sh` — CLI 安装和环境检查
@@ -145,6 +154,4 @@ Go 语言构建的开源终端 agent（`sst/opencode`），原生支持 75+ prov
 
 ## 待调研
 
-- ~~LiteLLM 代理方案 — 为 Codex CLI 提供 Responses API 翻译~~ → ZenMux 已确认可用
-- OpenRouter — 统一 API 代理
 - OpenCode 高级功能 — MCP 集成、multi-agent、LSP

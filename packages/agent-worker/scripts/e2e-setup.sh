@@ -135,12 +135,13 @@ else
   warn "DEEPSEEK_API_KEY not set — Claude Code and OpenCode E2E tests will be skipped"
 fi
 
-if [[ -n "${OPENAI_API_KEY:-}" ]]; then
-  ok "OPENAI_API_KEY set (for Codex E2E)"
-elif [[ -n "${ZENMUX_API_KEY:-}" ]]; then
-  ok "ZENMUX_API_KEY set (for Codex E2E via ZenMux proxy)"
+if [[ -n "${AI_GATEWAY_API_KEY:-}" ]]; then
+  ok "AI_GATEWAY_API_KEY set (for Codex E2E via Vercel AI Gateway → Gemini 2.0 Flash)"
+elif [[ -n "${OPENAI_API_KEY:-}" ]]; then
+  ok "OPENAI_API_KEY set (for Codex E2E via OpenAI directly)"
 else
-  warn "OPENAI_API_KEY / ZENMUX_API_KEY not set — Codex E2E tests will be skipped"
+  warn "AI_GATEWAY_API_KEY / OPENAI_API_KEY not set — Codex E2E tests will be skipped"
+  echo "       Get Vercel AI Gateway key from: https://vercel.com/docs/ai-gateway"
 fi
 
 if [[ -n "${CURSOR_API_KEY:-}" ]]; then
