@@ -1,5 +1,11 @@
 # agent-worker
 
+## 0.12.0
+
+### Minor Changes
+
+- [`d85df4d`](https://github.com/lidessen/moniro/commit/d85df4dea0972e91af63dd474780336d7402eb88) - feat: unify workflow lifecycle under daemon management - workflows now run inside daemon process with improved API endpoints, security (token auth), and testing
+
 ## 0.11.0
 
 ### Minor Changes
