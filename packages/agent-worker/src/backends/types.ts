@@ -10,6 +10,7 @@ export {
   CURSOR_MODEL_MAP,
   CLAUDE_MODEL_MAP,
   CODEX_MODEL_MAP,
+  OPENCODE_MODEL_MAP,
   getModelForBackend,
   normalizeBackendType,
 } from "./model-maps.ts";

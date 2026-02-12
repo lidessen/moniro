@@ -8,7 +8,7 @@
 // ==================== Backend Type ====================
 
 /** Backend type (union of all supported backends) */
-export type BackendType = "default" | "claude" | "cursor" | "codex" | "mock";
+export type BackendType = "default" | "claude" | "cursor" | "codex" | "opencode" | "mock";
 
 /** Normalize backend type, mapping deprecated "sdk" to "default" */
 export function normalizeBackendType(type: string): BackendType {
@@ -25,6 +25,7 @@ export const BACKEND_DEFAULT_MODELS: Record<BackendType, string> = {
   claude: "sonnet",
   cursor: "sonnet-4.5",
   codex: "gpt-5.2-codex",
+  opencode: "deepseek/deepseek-chat",
 };
 
 /**
@@ -96,6 +97,26 @@ export const CODEX_MODEL_MAP: Record<string, string> = {
   "o3-mini": "o3-mini",
 };
 
+/**
+ * Model translation for OpenCode CLI backend
+ * OpenCode uses provider/model format natively
+ */
+export const OPENCODE_MODEL_MAP: Record<string, string> = {
+  // DeepSeek models
+  "deepseek-chat": "deepseek/deepseek-chat",
+  "deepseek-reasoner": "deepseek/deepseek-reasoner",
+  "deepseek/deepseek-chat": "deepseek/deepseek-chat",
+  "deepseek/deepseek-reasoner": "deepseek/deepseek-reasoner",
+  // Anthropic models (via OpenCode's anthropic provider)
+  sonnet: "anthropic/claude-sonnet-4-5-20250514",
+  opus: "anthropic/claude-opus-4-20250514",
+  "claude-sonnet-4-5": "anthropic/claude-sonnet-4-5-20250514",
+  "claude-opus-4": "anthropic/claude-opus-4-20250514",
+  // OpenAI models (via OpenCode's openai provider)
+  "gpt-5.2": "openai/gpt-5.2",
+  o3: "openai/o3",
+};
+
 // ==================== Model Translation ====================
 
 /**
@@ -124,6 +145,10 @@ export function getModelForBackend(model: string | undefined, backend: BackendTy
 
     case "codex":
       return CODEX_MODEL_MAP[model] || CODEX_MODEL_MAP[normalizedModel] || normalizedModel;
+
+    case "opencode":
+      // OpenCode uses provider/model format; preserve full model string if it has a slash
+      return OPENCODE_MODEL_MAP[model] || OPENCODE_MODEL_MAP[normalizedModel] || model;
 
     default:
       return normalizedModel;

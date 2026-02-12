@@ -73,7 +73,7 @@ export function registerAgentCommands(program: Command) {
     .option("-m, --model <model>", `Model identifier (default: ${getDefaultModel()})`)
     .addOption(
       new Option("-b, --backend <type>", "Backend type")
-        .choices(["default", "sdk", "claude", "codex", "cursor", "mock"])
+        .choices(["default", "sdk", "claude", "codex", "cursor", "opencode", "mock"])
         .default("default"),
     )
     .option("-s, --system <prompt>", "System prompt", "You are a helpful assistant.")

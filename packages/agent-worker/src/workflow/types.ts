@@ -44,8 +44,8 @@ export interface WorkflowFile {
 // ==================== Agent Definition ====================
 
 export interface AgentDefinition {
-  /** Backend to use: 'default' (Vercel AI SDK), 'claude', 'cursor', 'codex', 'mock' (testing) */
-  backend?: "default" | "claude" | "cursor" | "codex" | "mock";
+  /** Backend to use: 'default' (Vercel AI SDK), 'claude', 'cursor', 'codex', 'opencode', 'mock' (testing) */
+  backend?: "default" | "claude" | "cursor" | "codex" | "opencode" | "mock";
 
   /** Model identifier (e.g., 'anthropic/claude-sonnet-4-5'). Optional for CLI backends that have defaults. */
   model?: string;

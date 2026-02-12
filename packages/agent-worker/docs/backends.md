@@ -4,18 +4,18 @@ Agent-worker supports multiple backends with different capabilities.
 
 ## Feature Matrix
 
-| Feature | SDK | Claude CLI | Codex CLI | Cursor CLI | Mock |
-|---------|-----|------------|-----------|------------|------|
-| **Messaging** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Conversation history** | ✅ | ⚠️ Simplified | ⚠️ Simplified | ⚠️ Simplified | ✅ |
-| **Dynamic tools** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Tool mocking** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Approval system** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Skills (via tool)** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Skills (filesystem)** | ❌ | ✅ | ✅ | ✅ | ❌ |
-| **`--import-skill`** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Token usage** | ✅ | ⚠️ Limited | ⚠️ Limited | ⚠️ Limited | ✅ |
-| **Export transcript** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Feature | SDK | Claude CLI | Codex CLI | Cursor CLI | OpenCode CLI | Mock |
+|---------|-----|------------|-----------|------------|-------------|------|
+| **Messaging** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Conversation history** | ✅ | ⚠️ Simplified | ⚠️ Simplified | ⚠️ Simplified | ⚠️ Simplified | ✅ |
+| **Dynamic tools** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Tool mocking** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Approval system** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Skills (via tool)** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Skills (filesystem)** | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **`--import-skill`** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Token usage** | ✅ | ⚠️ Limited | ⚠️ Limited | ⚠️ Limited | ✅ | ✅ |
+| **Export transcript** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 **Legend**: ✅ Full | ⚠️ Partial | ❌ Not supported
 
@@ -27,6 +27,7 @@ Agent-worker supports multiple backends with different capabilities.
 | **Claude CLI** | Existing Claude installation, native Claude experience, MCP server support |
 | **Codex CLI** | OpenAI Codex workflows |
 | **Cursor CLI** | Cursor Agent integration |
+| **OpenCode CLI** | Multi-provider support (DeepSeek, Anthropic, OpenAI, Gemini, Ollama) |
 | **Mock** | Testing workflows without real LLM API calls |
 
 ---
@@ -36,7 +37,7 @@ Agent-worker supports multiple backends with different capabilities.
 All CLI backends share this architecture:
 
 ```
-Workflow YAML (backend: cursor|claude|codex)
+Workflow YAML (backend: cursor|claude|codex|opencode)
     │
     ▼
 getBackendByType() → Backend
@@ -108,6 +109,30 @@ getBackendByType() → Backend
 - Timeout is idle-based: resets whenever the process produces output
 - `--skip-git-repo-check` enables running in workspace dirs without git init
 
+### OpenCode (`opencode run`)
+
+**Command**: `opencode run --format json <message> [--model <provider/model>]`
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `model` | `deepseek/deepseek-chat` | Model in provider/model format |
+| `timeout` | 600s | Idle timeout (resets on output) |
+
+**MCP config**: JSON at `<workspace>/opencode.json` (key: `mcp`, uses `type: "local"` format)
+
+**Model map**: `deepseek-chat` → `deepseek/deepseek-chat`, `sonnet` → `anthropic/claude-sonnet-4-5-20250514`
+
+**Gotchas**:
+- Uses `opencode run` subcommand for non-interactive mode
+- Models use `provider/model` format (e.g., `deepseek/deepseek-chat`)
+- MCP config uses `mcp` key with `type: "local"` and `command: [...]` (array, not string)
+- JSON output uses `step_start`/`text`/`tool_use`/`step_finish` events
+- Supports 75+ providers including DeepSeek, Anthropic, OpenAI, Gemini, Ollama
+- Timeout is idle-based: resets whenever the process produces output
+- Requires `DEEPSEEK_API_KEY` env var for DeepSeek provider
+
+**Installation**: `npm i -g opencode-ai@latest` or `curl -fsSL https://opencode.ai/install | bash`
+
 ### Mock Backend
 
 In-process backend for testing. Uses AI SDK `MockLanguageModelV3` with real MCP tools.
@@ -123,15 +148,15 @@ agents:
 
 ## CLI Comparison
 
-| Feature | Cursor | Claude | Codex | Mock |
-|---------|--------|--------|-------|------|
-| Command | `cursor-agent` | `claude` | `codex exec` | (in-process) |
-| Auto-approval | `--force --approve-mcps` | `--dangerously-skip-permissions` | `--dangerously-bypass-approvals-and-sandbox` | N/A |
-| MCP config format | JSON | JSON | YAML | Direct socket |
-| MCP config location | `.cursor/mcp.json` | `--mcp-config <path>` | `.codex/config.yaml` | N/A |
-| System prompt | (in message) | `--append-system-prompt` | (in message) | `system` param |
-| Session resume | No | `--continue` / `--resume` | `--resume` | N/A |
-| Default idle timeout | 300s | 300s | 300s | N/A |
+| Feature | Cursor | Claude | Codex | OpenCode | Mock |
+|---------|--------|--------|-------|----------|------|
+| Command | `cursor-agent` | `claude` | `codex exec` | `opencode run` | (in-process) |
+| Auto-approval | `--force --approve-mcps` | `--dangerously-skip-permissions` | `--full-auto` | (auto in run mode) | N/A |
+| MCP config format | JSON | JSON | YAML | JSON | Direct socket |
+| MCP config location | `.cursor/mcp.json` | `--mcp-config <path>` | `.codex/config.yaml` | `opencode.json` | N/A |
+| System prompt | (in message) | `--append-system-prompt` | (in message) | (in message) | `system` param |
+| Session resume | No | `--continue` / `--resume` | `--resume` | No | N/A |
+| Default idle timeout | 600s | 600s | 600s | 600s | N/A |
 
 ---
 
@@ -147,4 +172,54 @@ Backend.setWorkspace(dir, mcpConfig)
   → MCP tools use agentId as message sender
 ```
 
-Parser validation: CLI backends (`claude`, `cursor`, `codex`, `mock`) do NOT require `model` in YAML. Only `sdk` requires it.
+Parser validation: CLI backends (`claude`, `cursor`, `codex`, `opencode`, `mock`) do NOT require `model` in YAML. Only `sdk` requires it.
+
+---
+
+## Backend Setup for E2E Testing
+
+Each backend needs specific installation and configuration before E2E tests can use it.
+
+### Claude Code
+```bash
+# Install (standalone binary)
+curl -fsSL https://claude.ai/install.sh | bash
+# Or download directly
+GCS_BUCKET="https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases"
+VERSION=$(curl -fsSL "$GCS_BUCKET/latest")
+curl -fsSL "$GCS_BUCKET/$VERSION/linux-x64/claude" -o ~/.local/bin/claude && chmod +x ~/.local/bin/claude
+
+# Required env
+export ANTHROPIC_API_KEY="sk-ant-..."
+```
+
+### Codex CLI
+```bash
+npm i -g @openai/codex
+# Required env
+export OPENAI_API_KEY="sk-..."
+```
+
+### Cursor Agent
+```bash
+curl -fsSL https://cursor.com/install | bash
+# Required env
+export CURSOR_API_KEY="..."  # or run: cursor-agent login
+```
+
+### OpenCode
+```bash
+npm i -g opencode-ai@latest
+# Or: curl -fsSL https://opencode.ai/install | bash
+
+# Required env (for DeepSeek provider)
+export DEEPSEEK_API_KEY="sk-..."
+# Or for Anthropic provider
+export ANTHROPIC_API_KEY="sk-ant-..."
+```
+
+### Quick availability check
+```bash
+# Check all backends
+npx agent-worker backends
+```

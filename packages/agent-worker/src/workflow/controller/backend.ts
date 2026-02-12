@@ -26,7 +26,7 @@ export interface WorkflowBackendOptions {
  * from backends/index.ts. Mock backend is handled specially (no model needed).
  */
 export function getBackendByType(
-  backendType: "default" | "claude" | "cursor" | "codex" | "mock",
+  backendType: "default" | "claude" | "cursor" | "codex" | "opencode" | "mock",
   options?: WorkflowBackendOptions,
 ): Backend {
   if (backendType === "mock") {

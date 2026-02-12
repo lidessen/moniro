@@ -1,12 +1,13 @@
 #!/usr/bin/env bun
 /**
- * Mock CLI for testing cursor-agent, claude, and codex backends
+ * Mock CLI for testing cursor-agent, claude, codex, and opencode backends
  *
  * Usage:
  *   bun test/mock-cli.ts cursor-agent -p "hello"
  *   bun test/mock-cli.ts cursor agent -p "hello"
  *   bun test/mock-cli.ts claude -p "hello"
  *   bun test/mock-cli.ts codex "hello"
+ *   bun test/mock-cli.ts opencode run "hello"
  *
  * Environment variables:
  *   MOCK_DELAY_MS - Delay before responding (default: 100)
@@ -105,6 +106,24 @@ if (command === 'cursor-agent') {
   } else {
     message = args[1] || ''
   }
+} else if (command === 'opencode') {
+  // opencode run [--format json] "message" [--model provider/model]
+  // Find first non-flag arg after "run"
+  const runIdx = args.indexOf('run')
+  if (runIdx !== -1) {
+    for (let i = runIdx + 1; i < args.length; i++) {
+      if (args[i] === '--format' || args[i] === '--model') {
+        i++ // skip the value
+        continue
+      }
+      if (!args[i]?.startsWith('-')) {
+        message = args[i] ?? ''
+        break
+      }
+    }
+  } else {
+    message = args[1] || ''
+  }
 }
 
 // Simulate delay
@@ -136,8 +155,19 @@ if (customResponse) {
 // Check output format
 const outputFormat = args.find(a => a.startsWith('--output-format='))?.split('=')[1]
 const jsonFlag = args.includes('--json')
+const formatFlag = (() => {
+  const idx = args.indexOf('--format')
+  return idx !== -1 ? args[idx + 1] : undefined
+})()
 
-if (outputFormat === 'stream-json') {
+if (formatFlag === 'json' && command === 'opencode') {
+  // OpenCode JSON format
+  const sessionId = `ses_${crypto.randomUUID().replace(/-/g, '').slice(0, 20)}`
+  const msgId = `msg_${crypto.randomUUID().replace(/-/g, '').slice(0, 20)}`
+  console.log(JSON.stringify({ type: 'step_start', timestamp: Date.now(), sessionID: sessionId, part: { id: `prt_${crypto.randomUUID().replace(/-/g, '').slice(0, 20)}`, sessionID: sessionId, messageID: msgId, type: 'step-start' } }))
+  console.log(JSON.stringify({ type: 'text', timestamp: Date.now(), sessionID: sessionId, part: { id: `prt_${crypto.randomUUID().replace(/-/g, '').slice(0, 20)}`, sessionID: sessionId, messageID: msgId, type: 'text', text: response, time: { start: Date.now(), end: Date.now() } } }))
+  console.log(JSON.stringify({ type: 'step_finish', timestamp: Date.now(), sessionID: sessionId, part: { id: `prt_${crypto.randomUUID().replace(/-/g, '').slice(0, 20)}`, sessionID: sessionId, messageID: msgId, type: 'step-finish', reason: 'stop', cost: 0.001, tokens: { total: 100, input: 80, output: 20, reasoning: 0 } } }))
+} else if (outputFormat === 'stream-json') {
   // Cursor/Claude stream-json format
   const sessionId = crypto.randomUUID()
   console.log(JSON.stringify({ type: 'system', subtype: 'init', model: 'Mock Model', session_id: sessionId }))

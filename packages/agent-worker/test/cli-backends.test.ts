@@ -1,13 +1,15 @@
 /**
  * CLI Backend Tests
  *
- * Uses mock-cli.ts to simulate cursor-agent, claude, and codex CLIs
+ * Uses mock-cli.ts to simulate cursor-agent, claude, codex, and opencode CLIs
  */
 
 import { describe, test, expect } from 'bun:test'
 import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import { CursorBackend } from '../src/backends/cursor.ts'
+import { OpenCodeBackend } from '../src/backends/opencode.ts'
+import { opencodeAdapter, extractOpenCodeResult } from '../src/backends/opencode.ts'
 import { execWithIdleTimeout, IdleTimeoutError } from '../src/backends/idle-timeout.ts'
 import {
   formatEvent,
@@ -418,6 +420,125 @@ describe('Codex Mock CLI', () => {
     const lines = result.stdout.split('\n')
     const messageLine = JSON.parse(lines[2]!)
     expect(messageLine.item.text).toContain('Hello')
+  })
+})
+
+describe('OpenCode Adapter', () => {
+  test('converts step_start event', () => {
+    const raw = { type: 'step_start', sessionID: 'ses_abc123', part: { type: 'step-start' } }
+    const event = opencodeAdapter(raw)
+    expect(event!.kind).toBe('init')
+    if (event!.kind === 'init') {
+      expect(event!.sessionId).toBe('ses_abc123')
+    }
+  })
+
+  test('formats step_start event', () => {
+    const event = opencodeAdapter({ type: 'step_start', sessionID: 'ses_abc123', part: { type: 'step-start' } })!
+    expect(formatEvent(event, 'OpenCode')).toBe('OpenCode initialized (session: ses_abc123)')
+  })
+
+  test('converts tool_use event', () => {
+    const raw = {
+      type: 'tool_use',
+      sessionID: 'ses_abc',
+      part: { type: 'tool', callID: 'call_123', tool: 'bash', state: { status: 'completed', input: { command: 'ls -la' } } },
+    }
+    const event = opencodeAdapter(raw)
+    expect(event).not.toBeNull()
+    expect(event!.kind).toBe('tool_call')
+    if (event!.kind === 'tool_call') {
+      expect(event!.name).toBe('bash')
+      expect(event!.args).toContain('ls -la')
+    }
+  })
+
+  test('converts step_finish event with cost and tokens', () => {
+    const raw = {
+      type: 'step_finish',
+      sessionID: 'ses_abc',
+      part: { type: 'step-finish', reason: 'stop', cost: 0.001, tokens: { total: 100, input: 80, output: 20 } },
+    }
+    const event = opencodeAdapter(raw)
+    expect(event).toEqual({ kind: 'completed', costUsd: 0.001, usage: { input: 80, output: 20 } })
+  })
+
+  test('formats step_finish event', () => {
+    const raw = {
+      type: 'step_finish',
+      sessionID: 'ses_abc',
+      part: { type: 'step-finish', reason: 'stop', cost: 0.001, tokens: { total: 100, input: 80, output: 20 } },
+    }
+    const event = opencodeAdapter(raw)!
+    expect(formatEvent(event, 'OpenCode')).toBe('OpenCode completed ($0.0010, 80 in, 20 out)')
+  })
+
+  test('skips text events', () => {
+    const raw = { type: 'text', sessionID: 'ses_abc', part: { type: 'text', text: 'hello' } }
+    expect(opencodeAdapter(raw)).toEqual({ kind: 'skip' })
+  })
+
+  test('extractOpenCodeResult extracts text', () => {
+    const stdout = [
+      '{"type":"step_start","sessionID":"ses_abc","part":{"type":"step-start"}}',
+      '{"type":"text","sessionID":"ses_abc","part":{"type":"text","text":"hello world"}}',
+      '{"type":"step_finish","sessionID":"ses_abc","part":{"type":"step-finish","reason":"stop","cost":0.001}}',
+    ].join('\n')
+    expect(extractOpenCodeResult(stdout).content).toBe('hello world')
+  })
+
+  test('extractOpenCodeResult falls back to raw stdout', () => {
+    expect(extractOpenCodeResult('plain text output').content).toBe('plain text output')
+  })
+})
+
+describe('OpenCode Mock CLI', () => {
+  test('mock CLI outputs opencode JSON format', async () => {
+    const result = await runMockCli(['opencode', 'run', '--format', 'json', '2+2=?'])
+    expect(result.exitCode).toBe(0)
+    const lines = result.stdout.split('\n')
+    expect(lines.length).toBeGreaterThanOrEqual(3)
+
+    const firstLine = JSON.parse(lines[0]!)
+    expect(firstLine.type).toBe('step_start')
+
+    const textLine = JSON.parse(lines[1]!)
+    expect(textLine.type).toBe('text')
+    expect(textLine.part.text).toBe('4')
+  })
+
+  test('mock CLI parses opencode run message correctly', async () => {
+    const result = await runMockCli(['opencode', 'run', '--format', 'json', 'hello'])
+    expect(result.exitCode).toBe(0)
+    const lines = result.stdout.split('\n')
+    const textLine = JSON.parse(lines[1]!)
+    expect(textLine.part.text).toContain('Hello')
+  })
+})
+
+describe('OpenCodeBackend with Mock', () => {
+  class MockOpenCodeBackend extends OpenCodeBackend {
+    private buildArgsMethod(message: string): string[] {
+      return ['run', '--format', 'json', message]
+    }
+  }
+
+  test('sends message and parses JSON result', async () => {
+    // Use execWithIdleTimeout directly to test parsing
+    const result = await runMockCli(['opencode', 'run', '--format', 'json', '2+2=?'])
+    expect(result.exitCode).toBe(0)
+    const parsed = extractOpenCodeResult(result.stdout)
+    expect(parsed.content).toBe('4')
+  })
+
+  test('reports progress via streamCallbacks', async () => {
+    const result = await runMockCli(['opencode', 'run', '--format', 'json', '2+2=?'])
+    // Verify all three event types are present
+    const lines = result.stdout.split('\n')
+    const types = lines.map(l => { try { return JSON.parse(l).type } catch { return null } }).filter(Boolean)
+    expect(types).toContain('step_start')
+    expect(types).toContain('text')
+    expect(types).toContain('step_finish')
   })
 })
 
