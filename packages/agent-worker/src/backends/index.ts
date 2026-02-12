@@ -24,6 +24,7 @@ export {
 export { opencodeAdapter, extractOpenCodeResult } from "./opencode.ts";
 
 import type { Backend, BackendType } from "./types.ts";
+import type { ProviderConfig } from "../workflow/types.ts";
 import { getModelForBackend, normalizeBackendType } from "./model-maps.ts";
 import { ClaudeCodeBackend, type ClaudeCodeOptions } from "./claude-code.ts";
 import { CodexBackend, type CodexOptions } from "./codex.ts";
@@ -32,7 +33,7 @@ import { OpenCodeBackend, type OpenCodeOptions } from "./opencode.ts";
 import { SdkBackend } from "./sdk.ts";
 
 export type BackendOptions =
-  | { type: "default"; model?: string; maxTokens?: number }
+  | { type: "default"; model?: string; maxTokens?: number; provider?: string | ProviderConfig }
   | { type: "claude"; model?: string; options?: Omit<ClaudeCodeOptions, "model"> }
   | { type: "codex"; model?: string; options?: Omit<CodexOptions, "model"> }
   | { type: "cursor"; model?: string; options?: Omit<CursorOptions, "model"> }
@@ -56,8 +57,10 @@ export function createBackend(
   const model = getModelForBackend(normalized.model, normalized.type);
 
   switch (normalized.type) {
-    case "default":
-      return new SdkBackend({ model, maxTokens: (normalized as { maxTokens?: number }).maxTokens });
+    case "default": {
+      const provider = (normalized as { provider?: string | ProviderConfig }).provider;
+      return new SdkBackend({ model, maxTokens: (normalized as { maxTokens?: number }).maxTokens, provider });
+    }
     case "claude":
       return new ClaudeCodeBackend({
         ...(normalized as { options?: Record<string, unknown> }).options,

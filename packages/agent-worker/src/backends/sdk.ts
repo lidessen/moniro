@@ -6,13 +6,16 @@
 import { generateText } from "ai";
 import type { LanguageModel } from "ai";
 import type { Backend, BackendResponse } from "./types.ts";
-import { createModel, createModelAsync } from "../agent/models.ts";
+import { createModel, createModelAsync, createModelWithProvider } from "../agent/models.ts";
+import type { ProviderConfig } from "../workflow/types.ts";
 
 export interface SdkBackendOptions {
-  /** Model identifier (e.g., 'openai/gpt-5.2' or 'anthropic:claude-sonnet-4-5') */
+  /** Model identifier (e.g., 'openai/gpt-5.2' or 'anthropic:claude-sonnet-4-5' or just 'MiniMax-M2.5' with provider) */
   model: string;
   /** Maximum tokens to generate */
   maxTokens?: number;
+  /** Provider configuration — when set, model is a plain name resolved via the provider */
+  provider?: string | ProviderConfig;
 }
 
 export class SdkBackend implements Backend {
@@ -20,23 +23,29 @@ export class SdkBackend implements Backend {
   private modelId: string;
   private model: LanguageModel | null = null;
   private maxTokens: number;
+  private provider: string | ProviderConfig | undefined;
 
   constructor(options: SdkBackendOptions) {
     this.modelId = options.model;
     this.maxTokens = options.maxTokens ?? 4096;
+    this.provider = options.provider;
 
-    // Try sync model creation (works for gateway format)
-    try {
-      this.model = createModel(this.modelId);
-    } catch {
-      // Will use async creation on first send
+    // Try sync model creation (works for gateway format, only when no custom provider)
+    if (!this.provider) {
+      try {
+        this.model = createModel(this.modelId);
+      } catch {
+        // Will use async creation on first send
+      }
     }
   }
 
   async send(message: string, options?: { system?: string }): Promise<BackendResponse> {
     // Ensure model is loaded
     if (!this.model) {
-      this.model = await createModelAsync(this.modelId);
+      this.model = this.provider
+        ? await createModelWithProvider(this.modelId, this.provider)
+        : await createModelAsync(this.modelId);
     }
 
     const result = await generateText({
@@ -60,7 +69,9 @@ export class SdkBackend implements Backend {
     // Check if we can create the model
     try {
       if (!this.model) {
-        this.model = await createModelAsync(this.modelId);
+        this.model = this.provider
+          ? await createModelWithProvider(this.modelId, this.provider)
+          : await createModelAsync(this.modelId);
       }
       return true;
     } catch {

@@ -1,22 +1,31 @@
 import { gateway, type LanguageModel } from "ai";
+import type { ProviderConfig } from "../workflow/types.ts";
+
+// Re-export for convenience
+export type { ProviderConfig } from "../workflow/types.ts";
 
 // Cache for lazy-loaded providers
 const providerCache: Record<string, ((model: string) => LanguageModel) | null> = {};
 
-interface ProviderOptions {
-  baseURL?: string;
-  apiKeyEnvVar?: string; // Custom env var name for API key
-}
+/** Provider SDK package mapping */
+const PROVIDER_PACKAGES: Record<string, { package: string; export: string }> = {
+  anthropic: { package: "@ai-sdk/anthropic", export: "anthropic" },
+  openai: { package: "@ai-sdk/openai", export: "openai" },
+  deepseek: { package: "@ai-sdk/deepseek", export: "deepseek" },
+  google: { package: "@ai-sdk/google", export: "google" },
+  groq: { package: "@ai-sdk/groq", export: "groq" },
+  mistral: { package: "@ai-sdk/mistral", export: "mistral" },
+  xai: { package: "@ai-sdk/xai", export: "xai" },
+};
 
 /**
- * Lazy load a provider, caching the result
- * Supports custom baseURL and apiKey for providers using compatible APIs (e.g., MiniMax using Claude API)
+ * Lazy load a provider SDK, caching the result.
+ * Only caches standard providers (no custom baseURL/apiKey).
  */
 async function loadProvider(
   name: string,
   packageName: string,
   exportName: string,
-  options?: ProviderOptions,
 ): Promise<((model: string) => LanguageModel) | null> {
   if (name in providerCache) {
     return providerCache[name] ?? null;
@@ -24,29 +33,6 @@ async function loadProvider(
 
   try {
     const module = await import(packageName);
-    // If custom options provided, create provider instance with them
-    if (options?.baseURL || options?.apiKeyEnvVar) {
-      const createProvider =
-        module[`create${exportName.charAt(0).toUpperCase() + exportName.slice(1)}`];
-      if (createProvider) {
-        const providerOptions: Record<string, string | undefined> = {};
-        if (options.baseURL) {
-          providerOptions.baseURL = options.baseURL;
-        }
-        if (options.apiKeyEnvVar) {
-          const apiKey = process.env[options.apiKeyEnvVar];
-          if (!apiKey) {
-            throw new Error(
-              `Environment variable ${options.apiKeyEnvVar} is not set (required for ${name} provider)`,
-            );
-          }
-          providerOptions.apiKey = apiKey;
-        }
-        const provider = createProvider(providerOptions);
-        providerCache[name] = provider;
-        return provider;
-      }
-    }
     const exportedProvider = module[exportName] as ((model: string) => LanguageModel) | null;
     providerCache[name] = exportedProvider;
     return exportedProvider;
@@ -54,6 +40,81 @@ async function loadProvider(
     providerCache[name] = null;
     return null;
   }
+}
+
+/**
+ * Create a provider instance with custom baseURL and/or apiKey.
+ * Not cached — each call creates a fresh instance.
+ */
+async function createCustomProvider(
+  packageName: string,
+  exportName: string,
+  options: { baseURL?: string; apiKey?: string },
+): Promise<(model: string) => LanguageModel> {
+  const module = await import(packageName);
+  const createFn = module[`create${exportName.charAt(0).toUpperCase() + exportName.slice(1)}`];
+  if (!createFn) {
+    throw new Error(`Package ${packageName} does not export create${exportName.charAt(0).toUpperCase() + exportName.slice(1)}`);
+  }
+  return createFn(options);
+}
+
+/**
+ * Resolve api_key field: '$ENV_VAR' → process.env.ENV_VAR, literal → as-is
+ */
+function resolveApiKey(apiKey: string): string {
+  if (apiKey.startsWith("$")) {
+    const envVar = apiKey.slice(1);
+    const value = process.env[envVar];
+    if (!value) {
+      throw new Error(`Environment variable ${envVar} is not set`);
+    }
+    return value;
+  }
+  return apiKey;
+}
+
+/**
+ * Create a model using explicit provider configuration.
+ * Use this when provider details (base_url, api_key) are specified separately from the model name.
+ *
+ * Example:
+ *   createModelWithProvider("MiniMax-M2.5", { name: "anthropic", base_url: "https://api.minimax.io/anthropic/v1", api_key: "$MINIMAX_API_KEY" })
+ */
+export async function createModelWithProvider(
+  modelName: string,
+  provider: string | ProviderConfig,
+): Promise<LanguageModel> {
+  // String provider → resolve to built-in (no custom options)
+  if (typeof provider === "string") {
+    const pkg = PROVIDER_PACKAGES[provider];
+    if (!pkg) {
+      throw new Error(
+        `Unknown provider: ${provider}. Supported: ${Object.keys(PROVIDER_PACKAGES).join(", ")}`,
+      );
+    }
+    const providerFn = await loadProvider(provider, pkg.package, pkg.export);
+    if (!providerFn) {
+      throw new Error(`Install ${pkg.package} to use ${provider} models directly`);
+    }
+    return providerFn(modelName);
+  }
+
+  // Object provider → custom baseURL/apiKey
+  const { name, base_url, api_key } = provider;
+  const pkg = PROVIDER_PACKAGES[name];
+  if (!pkg) {
+    throw new Error(
+      `Unknown provider: ${name}. Supported: ${Object.keys(PROVIDER_PACKAGES).join(", ")}`,
+    );
+  }
+
+  const opts: { baseURL?: string; apiKey?: string } = {};
+  if (base_url) opts.baseURL = base_url;
+  if (api_key) opts.apiKey = resolveApiKey(api_key);
+
+  const providerFn = await createCustomProvider(pkg.package, pkg.export, opts);
+  return providerFn(modelName);
 }
 
 /**
@@ -147,49 +208,16 @@ export async function createModelAsync(modelId: string): Promise<LanguageModel> 
     throw new Error(`Invalid model identifier: ${modelId}. Model name is required.`);
   }
 
-  const providerConfigs: Record<
-    string,
-    { package: string; export: string; options?: ProviderOptions }
-  > = {
-    anthropic: { package: "@ai-sdk/anthropic", export: "anthropic" },
-    openai: { package: "@ai-sdk/openai", export: "openai" },
-    deepseek: { package: "@ai-sdk/deepseek", export: "deepseek" },
-    google: { package: "@ai-sdk/google", export: "google" },
-    groq: { package: "@ai-sdk/groq", export: "groq" },
-    mistral: { package: "@ai-sdk/mistral", export: "mistral" },
-    xai: { package: "@ai-sdk/xai", export: "xai" },
-    // MiniMax uses Claude-compatible API
-    // Set MINIMAX_BASE_URL to override (e.g., "https://api.minimaxi.com" for CN)
-    minimax: {
-      package: "@ai-sdk/anthropic",
-      export: "anthropic",
-      options: {
-        baseURL: `${(process.env.MINIMAX_BASE_URL || "https://api.minimax.io").replace(/\/+$/, "")}/anthropic/v1`,
-        apiKeyEnvVar: "MINIMAX_API_KEY",
-      },
-    },
-    // GLM (Zhipu) uses Claude-compatible API
-    // Set GLM_BASE_URL to override (default: "https://open.bigmodel.cn")
-    glm: {
-      package: "@ai-sdk/anthropic",
-      export: "anthropic",
-      options: {
-        baseURL: `${(process.env.GLM_BASE_URL || "https://open.bigmodel.cn").replace(/\/+$/, "")}/api/anthropic/v1`,
-        apiKeyEnvVar: "GLM_API_KEY",
-      },
-    },
-  };
-
-  const config = providerConfigs[provider];
+  const config = PROVIDER_PACKAGES[provider];
   if (!config) {
     throw new Error(
       `Unknown provider: ${provider}. ` +
-        `Supported: ${Object.keys(providerConfigs).join(", ")}. ` +
+        `Supported: ${Object.keys(PROVIDER_PACKAGES).join(", ")}. ` +
         `Or use gateway format: provider/model (e.g., openai/gpt-5.2)`,
     );
   }
 
-  const providerFn = await loadProvider(provider, config.package, config.export, config.options);
+  const providerFn = await loadProvider(provider, config.package, config.export);
   if (!providerFn) {
     throw new Error(`Install ${config.package} to use ${provider} models directly`);
   }
@@ -199,7 +227,6 @@ export async function createModelAsync(modelId: string): Promise<LanguageModel> 
 
 /**
  * List of supported providers for direct access
- * Note: minimax and glm use Claude-compatible API via @ai-sdk/anthropic with custom baseURL
  */
 export const SUPPORTED_PROVIDERS = [
   "anthropic",
@@ -209,8 +236,6 @@ export const SUPPORTED_PROVIDERS = [
   "groq",
   "mistral",
   "xai",
-  "minimax",
-  "glm",
 ] as const;
 
 export type SupportedProvider = (typeof SUPPORTED_PROVIDERS)[number];
@@ -243,6 +268,4 @@ export const FRONTIER_MODELS = {
   groq: ["meta-llama/llama-4-scout-17b-16e-instruct", "deepseek-r1-distill-llama-70b"],
   mistral: ["mistral-large-latest", "pixtral-large-latest", "magistral-medium-2506"],
   xai: ["grok-4", "grok-4-fast-reasoning"],
-  minimax: ["MiniMax-M2.5", "MiniMax-M2"],
-  glm: ["glm-5", "glm-4.7"],
 } as const;

@@ -1,5 +1,6 @@
 import { ToolLoopAgent, stepCountIs, type ModelMessage } from "ai";
-import { createModelAsync } from "./models.ts";
+import { createModelAsync, createModelWithProvider } from "./models.ts";
+import type { ProviderConfig } from "../workflow/types.ts";
 import type {
   AgentMessage,
   AgentResponse,
@@ -22,6 +23,8 @@ import type { Backend } from "../backends/types.ts";
 export interface AgentWorkerConfig extends SessionConfig {
   /** CLI backend - when provided, send() delegates to this backend */
   backend?: Backend;
+  /** Provider configuration — when set, model is resolved via createModelWithProvider */
+  provider?: string | ProviderConfig;
 }
 
 /**
@@ -73,6 +76,8 @@ export class AgentWorker {
 
   // CLI backend (null for SDK sessions)
   private backend: Backend | null;
+  // Provider config for custom endpoints (SDK only)
+  private provider: string | ProviderConfig | undefined;
 
   // Cached agent instance (rebuilt when tools change) - SDK only
   private cachedAgent: ToolLoopAgent | null = null;
@@ -114,6 +119,7 @@ export class AgentWorker {
     this.maxTokens = config.maxTokens ?? 4096;
     this.maxSteps = config.maxSteps ?? 200; // Default: 200 steps (effectively no limit for most tasks)
     this.backend = config.backend ?? null;
+    this.provider = config.provider;
   }
 
   /**
@@ -173,7 +179,9 @@ export class AgentWorker {
    */
   private async getAgent(autoApprove: boolean): Promise<ToolLoopAgent> {
     if (!this.cachedAgent || this.toolsChanged || !autoApprove) {
-      const model = await createModelAsync(this.model);
+      const model = this.provider
+        ? await createModelWithProvider(this.model, this.provider)
+        : await createModelAsync(this.model);
       this.cachedAgent = new ToolLoopAgent({
         model,
         instructions: this.system,

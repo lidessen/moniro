@@ -41,14 +41,43 @@ export interface WorkflowFile {
   kickoff?: string;
 }
 
+// ==================== Provider Configuration ====================
+
+/**
+ * Custom provider configuration for API endpoint overrides.
+ * Allows pointing any compatible SDK at a different base URL.
+ *
+ * Examples:
+ *   provider: anthropic                    # string → built-in provider
+ *   provider:                              # object → custom endpoint
+ *     name: anthropic
+ *     base_url: https://api.minimax.io/anthropic/v1
+ *     api_key: $MINIMAX_API_KEY
+ */
+export interface ProviderConfig {
+  /** Provider SDK name (e.g., 'anthropic', 'openai') */
+  name: string;
+  /** Override base URL for the provider */
+  base_url?: string;
+  /** API key — env var reference with '$' prefix (e.g., '$MINIMAX_API_KEY') or literal value */
+  api_key?: string;
+}
+
 // ==================== Agent Definition ====================
 
 export interface AgentDefinition {
   /** Backend to use: 'default' (Vercel AI SDK), 'claude', 'cursor', 'codex', 'opencode', 'mock' (testing) */
   backend?: "default" | "claude" | "cursor" | "codex" | "opencode" | "mock";
 
-  /** Model identifier (e.g., 'anthropic/claude-sonnet-4-5'). Optional for CLI backends that have defaults. */
+  /** Model identifier. When provider is set, this is just the model name (e.g., 'MiniMax-M2.5').
+   *  Without provider, uses existing formats: 'provider/model', 'provider:model', or 'provider'. */
   model?: string;
+
+  /**
+   * Provider configuration — string (built-in name) or object (custom endpoint).
+   * When set, 'model' is just the model name without provider prefix.
+   */
+  provider?: string | ProviderConfig;
 
   /** System prompt - inline string or file path (optional) */
   system_prompt?: string;

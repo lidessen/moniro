@@ -50,6 +50,7 @@ export class LocalWorker implements WorkerHandle {
         system: config.system,
         tools: {},
         backend,
+        provider: config.provider,
       },
       restore,
     );

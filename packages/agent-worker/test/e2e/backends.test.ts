@@ -7,8 +7,8 @@
  *     DEEPSEEK_API_KEY     — for Claude Code (via DeepSeek) and OpenCode
  *     AI_GATEWAY_API_KEY   — for Codex CLI via Vercel AI Gateway (Gemini 2.0 Flash)
  *     CURSOR_API_KEY       — for Cursor Agent (requires paid subscription)
- *     MINIMAX_API_KEY      — for MiniMax (SDK, Claude-compatible API)
- *     GLM_API_KEY          — for GLM/Zhipu (SDK, Claude-compatible API)
+ *     MINIMAX_API_KEY      — for MiniMax (SDK via Anthropic provider + custom endpoint)
+ *     GLM_API_KEY          — for GLM/Zhipu (SDK via Anthropic provider + custom endpoint)
  *
  * Usage:
  *   # Run all E2E tests
@@ -285,18 +285,23 @@ describe.skipIf(!hasCursor || !hasCursorKey)(
   },
 );
 
-// ─── MiniMax (SDK, Claude-compatible API) ────────────────────
+// ─── MiniMax (SDK via Anthropic provider + custom endpoint) ──
 
 const hasMiniMaxKey = !!process.env.MINIMAX_API_KEY;
 
 describe.skipIf(!hasMiniMaxKey)(
-  "E2E: MiniMax (SDK)",
+  "E2E: MiniMax (SDK, provider config)",
   () => {
     test(
       "sends prompt and receives response (MiniMax-M2.5)",
       async () => {
         const backend = new SdkBackend({
-          model: "minimax:MiniMax-M2.5",
+          model: "MiniMax-M2.5",
+          provider: {
+            name: "anthropic",
+            base_url: "https://api.minimax.io/anthropic/v1",
+            api_key: "$MINIMAX_API_KEY",
+          },
         });
 
         const result = await backend.send(PROMPT);
@@ -309,18 +314,23 @@ describe.skipIf(!hasMiniMaxKey)(
   },
 );
 
-// ─── GLM / Zhipu (SDK, Claude-compatible API) ───────────────
+// ─── GLM / Zhipu (SDK via Anthropic provider + custom endpoint)
 
 const hasGlmKey = !!process.env.GLM_API_KEY;
 
 describe.skipIf(!hasGlmKey)(
-  "E2E: GLM (SDK)",
+  "E2E: GLM (SDK, provider config)",
   () => {
     test(
       "sends prompt and receives response (glm-4.7)",
       async () => {
         const backend = new SdkBackend({
-          model: "glm:glm-4.7",
+          model: "glm-4.7",
+          provider: {
+            name: "anthropic",
+            base_url: "https://open.bigmodel.cn/api/anthropic/v1",
+            api_key: "$GLM_API_KEY",
+          },
         });
 
         const result = await backend.send(PROMPT);

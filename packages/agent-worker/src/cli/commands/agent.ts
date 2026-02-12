@@ -76,6 +76,9 @@ export function registerAgentCommands(program: Command) {
         .choices(["default", "sdk", "claude", "codex", "cursor", "opencode", "mock"])
         .default("default"),
     )
+    .option("--provider <name>", "Provider SDK name (e.g., anthropic, openai)")
+    .option("--base-url <url>", "Override provider base URL")
+    .option("--api-key <ref>", "API key env var (e.g., $MINIMAX_API_KEY)")
     .option("-s, --system <prompt>", "System prompt", "You are a helpful assistant.")
     .option("-f, --system-file <file>", "Read system prompt from file")
     .option("--workflow <name>", "Workflow name (default: global)")
@@ -90,6 +93,7 @@ Examples:
   $ agent-worker new alice -m anthropic/claude-sonnet-4-5
   $ agent-worker new bot -b mock
   $ agent-worker new reviewer --workflow review --tag pr-123
+  $ agent-worker new coder -m MiniMax-M2.5 --provider anthropic --base-url https://api.minimax.io/anthropic/v1 --api-key '$MINIMAX_API_KEY'
       `,
     )
     .action(async (name, options) => {
@@ -101,6 +105,20 @@ Examples:
       const backend = normalizeBackendType(options.backend ?? "default");
       const model = options.model || getDefaultModel();
 
+      // Build provider config from CLI options
+      let provider: string | { name: string; base_url?: string; api_key?: string } | undefined;
+      if (options.provider) {
+        if (options.baseUrl || options.apiKey) {
+          provider = {
+            name: options.provider,
+            base_url: options.baseUrl,
+            api_key: options.apiKey,
+          };
+        } else {
+          provider = options.provider;
+        }
+      }
+
       // Ensure daemon is running
       await ensureDaemon(options.port ? parseInt(options.port, 10) : undefined, options.host);
 
@@ -110,6 +128,7 @@ Examples:
         model,
         system,
         backend,
+        provider,
         workflow: options.workflow,
         tag: options.tag,
       });
