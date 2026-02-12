@@ -8,7 +8,6 @@ import { describe, test, expect } from 'bun:test'
 import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import { CursorBackend } from '../src/backends/cursor.ts'
-import { OpenCodeBackend } from '../src/backends/opencode.ts'
 import { opencodeAdapter, extractOpenCodeResult } from '../src/backends/opencode.ts'
 import { execWithIdleTimeout, IdleTimeoutError } from '../src/backends/idle-timeout.ts'
 import {
@@ -517,12 +516,6 @@ describe('OpenCode Mock CLI', () => {
 })
 
 describe('OpenCodeBackend with Mock', () => {
-  class MockOpenCodeBackend extends OpenCodeBackend {
-    private buildArgsMethod(message: string): string[] {
-      return ['run', '--format', 'json', message]
-    }
-  }
-
   test('sends message and parses JSON result', async () => {
     // Use execWithIdleTimeout directly to test parsing
     const result = await runMockCli(['opencode', 'run', '--format', 'json', '2+2=?'])
