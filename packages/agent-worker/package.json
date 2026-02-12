@@ -93,5 +93,10 @@
     "@ai-sdk/xai": {
       "optional": true
     }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lidessen/moniro.git",
+    "directory": "packages/agent-worker"
   }
 }
