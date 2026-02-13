@@ -249,7 +249,7 @@ describe.skipIf(!hasCodex || !hasCodexAuth)(
 
 // ─── Cursor Agent ────────────────────────────────────────────
 
-const hasCursor = cliAvailable("cursor");
+const hasCursor = cliAvailable("cursor") || cliAvailable("agent");
 const hasCursorKey = !!process.env.CURSOR_API_KEY;
 
 describe.skipIf(!hasCursor || !hasCursorKey)(

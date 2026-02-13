@@ -127,6 +127,14 @@ export class ClaudeCodeBackend implements Backend {
       this.currentAbort = undefined;
 
       if (error instanceof IdleTimeoutError) {
+        // Distinguish startup timeout (no output at all) from idle timeout (output then silence)
+        if (error.stdout === "" && error.stderr === "") {
+          throw new Error(
+            `claude produced no output within ${error.timeout}ms. ` +
+              `This often happens when running nested 'claude -p' inside an existing Claude Code session. ` +
+              `Consider using the SDK backend (model: "anthropic/claude-sonnet-4-5") instead.`,
+          );
+        }
         throw new Error(`claude timed out after ${timeout}ms of inactivity`);
       }
       if (error && typeof error === "object" && "exitCode" in error) {

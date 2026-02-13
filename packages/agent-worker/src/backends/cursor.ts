@@ -38,8 +38,13 @@ export interface CursorOptions {
 export class CursorBackend implements Backend {
   readonly type = "cursor" as const;
   private options: CursorOptions;
-  /** Resolved command: "cursor" (subcommand style) */
-  private resolvedCommand: string | null = null;
+  /**
+   * Resolved command style:
+   * - "subcommand": `cursor agent -p ...` (IDE-bundled CLI)
+   * - "direct": `agent -p ...` (standalone install via cursor.com/install)
+   * - null: not yet resolved
+   */
+  private resolvedStyle: "subcommand" | "direct" | null = null;
 
   constructor(options: CursorOptions = {}) {
     this.options = {
@@ -99,8 +104,8 @@ export class CursorBackend implements Backend {
   }
 
   async isAvailable(): Promise<boolean> {
-    const cmd = await this.resolveCommand();
-    return cmd !== null;
+    const style = await this.resolveStyle();
+    return style !== null;
   }
 
   getInfo(): { name: string; version?: string; model?: string } {
@@ -111,17 +116,29 @@ export class CursorBackend implements Backend {
   }
 
   /**
-   * Resolve which cursor command is available.
-   * Checks `cursor agent --version` (subcommand style).
+   * Resolve which cursor command style is available.
+   * Tries in order:
+   *   1. `cursor agent --version` — IDE-bundled CLI (subcommand style)
+   *   2. `agent --version` — standalone install via cursor.com/install (direct style)
    * Result is cached after first resolution.
    */
-  private async resolveCommand(): Promise<string | null> {
-    if (this.resolvedCommand !== null) return this.resolvedCommand;
+  private async resolveStyle(): Promise<"subcommand" | "direct" | null> {
+    if (this.resolvedStyle !== null) return this.resolvedStyle;
 
+    // Try subcommand style: cursor agent --version
     try {
       await execa("cursor", ["agent", "--version"], { stdin: "ignore", timeout: 2000 });
-      this.resolvedCommand = "cursor";
-      return "cursor";
+      this.resolvedStyle = "subcommand";
+      return "subcommand";
+    } catch {
+      // Not available
+    }
+
+    // Try direct style: agent --version (standalone install)
+    try {
+      await execa("agent", ["--version"], { stdin: "ignore", timeout: 2000 });
+      this.resolvedStyle = "direct";
+      return "direct";
     } catch {
       // Not available
     }
@@ -130,7 +147,7 @@ export class CursorBackend implements Backend {
   }
 
   protected async buildCommand(message: string): Promise<{ command: string; args: string[] }> {
-    const cmd = await this.resolveCommand();
+    const style = await this.resolveStyle();
     // --force: auto-approve all operations (required for non-interactive)
     // --approve-mcps: auto-approve MCP servers (required for workflow MCP tools)
     // --output-format=stream-json: structured output for progress parsing
@@ -146,11 +163,18 @@ export class CursorBackend implements Backend {
       agentArgs.push("--model", this.options.model);
     }
 
-    if (!cmd) {
-      throw new Error("cursor agent CLI not found");
+    if (!style) {
+      throw new Error(
+        "cursor agent CLI not found. Install via: curl -fsS https://cursor.com/install | bash",
+      );
     }
 
-    // Subcommand style: cursor agent -p ...
+    if (style === "direct") {
+      // Standalone install: agent -p ...
+      return { command: "agent", args: agentArgs };
+    }
+
+    // IDE-bundled: cursor agent -p ...
     return { command: "cursor", args: ["agent", ...agentArgs] };
   }
 }

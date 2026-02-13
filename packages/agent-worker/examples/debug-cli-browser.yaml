@@ -1,0 +1,24 @@
+# Debug workflow: test CLI backend with a simple browser-like task
+# Tests cursor backend with standalone `agent` CLI
+#
+# Run: node dist/cli/index.mjs run examples/debug-cli-browser.yaml --debug
+name: debug-cli-browser
+
+agents:
+  checker:
+    backend: cursor
+    model: composer-1
+    system_prompt: |
+      You are a simple checker agent. Your job is to:
+      1. Read your inbox messages
+      2. Execute the requested check using bash tools
+      3. Report the result via channel_send
+      4. Acknowledge your inbox and exit
+
+      Keep responses brief. Do not ask questions - just do the work and report.
+
+context:
+  provider: memory
+
+kickoff: |
+  @checker Please run `curl -s -o /dev/null -w "%{http_code}" https://example.com || echo "failed"` and report the HTTP status code. If the command fails, just report "unreachable".
