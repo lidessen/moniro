@@ -353,11 +353,19 @@ function validateAgent(name: string, agent: unknown, errors: ValidationError[]):
     }
   }
 
-  if (a.wakeup_prompt !== undefined && typeof a.wakeup_prompt !== "string") {
-    errors.push({
-      path: `${path}.wakeup_prompt`,
-      message: 'Field "wakeup_prompt" must be a string',
-    });
+  if (a.wakeup_prompt !== undefined) {
+    if (typeof a.wakeup_prompt !== "string") {
+      errors.push({
+        path: `${path}.wakeup_prompt`,
+        message: 'Field "wakeup_prompt" must be a string',
+      });
+    }
+    if (a.wakeup === undefined) {
+      errors.push({
+        path: `${path}.wakeup_prompt`,
+        message: 'Field "wakeup_prompt" can only be used when "wakeup" is also specified',
+      });
+    }
   }
 
   // Validate provider field
