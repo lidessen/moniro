@@ -68,9 +68,18 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
   let wakeResolver: (() => void) | null = null;
   let pollTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  // Schedule support: resolve agent's wakeup config into a typed schedule
+  // Schedule support: resolve agent's wakeup config into a typed schedule.
+  // Validate eagerly so invalid cron expressions fail at creation, not at runtime.
   const scheduleConfig: ScheduleConfig | undefined = agent.schedule;
-  const resolvedSchedule = scheduleConfig ? resolveSchedule(scheduleConfig) : undefined;
+  let resolvedSchedule: ReturnType<typeof resolveSchedule> | undefined;
+  if (scheduleConfig) {
+    try {
+      resolvedSchedule = resolveSchedule(scheduleConfig);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`Agent "${name}" has invalid schedule config: ${msg}`);
+    }
+  }
   let lastActivityTime = Date.now();
 
   /**
@@ -112,9 +121,11 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
               wakeupDue = true;
             }
           } else if (resolvedSchedule.type === "cron") {
-            // Cron: wake if next cron time has passed since last activity
+            // Cron: compute the absolute time of the next cron match after lastActivity,
+            // then check if that time has already passed
             const msTillNext = msUntilNextCron(resolvedSchedule.expr!, new Date(lastActivityTime));
-            if (now - lastActivityTime >= msTillNext) {
+            const nextTriggerTime = lastActivityTime + msTillNext;
+            if (now >= nextTriggerTime) {
               wakeupDue = true;
             }
           }
