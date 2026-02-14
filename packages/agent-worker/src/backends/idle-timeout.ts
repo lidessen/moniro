@@ -57,9 +57,7 @@ export async function execWithIdleTimeout(options: IdleTimeoutOptions): Promise<
   const timeout = Math.max(options.timeout, MIN_TIMEOUT_MS);
   // Startup timeout: cap at idle timeout so short timeouts (e.g., tests) aren't overridden
   const rawStartup =
-    options.startupTimeout !== undefined
-      ? options.startupTimeout
-      : DEFAULT_STARTUP_TIMEOUT;
+    options.startupTimeout !== undefined ? options.startupTimeout : DEFAULT_STARTUP_TIMEOUT;
   const startupTimeout = rawStartup > 0 ? Math.min(rawStartup, timeout) : 0;
 
   let idleTimedOut = false;
@@ -156,9 +154,7 @@ export function execWithIdleTimeoutAbortable(options: IdleTimeoutOptions): {
   const timeout = Math.max(options.timeout, MIN_TIMEOUT_MS);
   // Startup timeout: cap at idle timeout so short timeouts (e.g., tests) aren't overridden
   const rawStartup =
-    options.startupTimeout !== undefined
-      ? options.startupTimeout
-      : DEFAULT_STARTUP_TIMEOUT;
+    options.startupTimeout !== undefined ? options.startupTimeout : DEFAULT_STARTUP_TIMEOUT;
   const startupTimeout = rawStartup > 0 ? Math.min(rawStartup, timeout) : 0;
 
   let idleTimedOut = false;
