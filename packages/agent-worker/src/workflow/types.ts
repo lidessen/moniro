@@ -93,6 +93,12 @@ export interface AgentDefinition {
 
   /** Backend timeout in milliseconds (overrides backend default) */
   timeout?: number;
+
+  /** Periodic wakeup schedule: number (ms), duration string ("30s"/"5m"/"2h"), or cron expression */
+  wakeup?: string | number;
+
+  /** Custom prompt for wakeup events */
+  wakeup_prompt?: string;
 }
 
 // ==================== Setup Task ====================

@@ -280,6 +280,7 @@ export function createDaemonApp(
       provider,
       workflow = "global",
       tag = "main",
+      schedule,
     } = body as {
       name: string;
       model: string;
@@ -288,6 +289,7 @@ export function createDaemonApp(
       provider?: string | { name: string; base_url?: string; api_key?: string };
       workflow?: string;
       tag?: string;
+      schedule?: { wakeup: string | number; prompt?: string };
     };
 
     if (!name || !model || !system) {
@@ -307,6 +309,7 @@ export function createDaemonApp(
       workflow,
       tag,
       createdAt: new Date().toISOString(),
+      schedule,
     };
 
     // Worker — execution handle (restore from store if available)
@@ -316,7 +319,7 @@ export function createDaemonApp(
     s.configs.set(name, agentConfig);
     s.workers.set(name, handle);
 
-    return c.json({ name, model, backend, workflow, tag }, 201);
+    return c.json({ name, model, backend, workflow, tag, schedule }, 201);
   });
 
   // ── GET /agents/:name ────────────────────────────────────────
@@ -334,6 +337,7 @@ export function createDaemonApp(
       workflow: cfg.workflow,
       tag: cfg.tag,
       createdAt: cfg.createdAt,
+      schedule: cfg.schedule,
     });
   });
 
