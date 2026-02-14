@@ -83,6 +83,8 @@ export function registerAgentCommands(program: Command) {
     .option("-f, --system-file <file>", "Read system prompt from file")
     .option("--workflow <name>", "Workflow name (default: global)")
     .option("--tag <tag>", "Workflow instance tag (default: main)")
+    .option("--wakeup <interval|cron>", "Periodic wakeup schedule (e.g., 30s, 5m, 0 9 * * 1-5)")
+    .option("--wakeup-prompt <text>", "Custom prompt for wakeup events")
     .option("--port <port>", `Daemon port if starting new daemon (default: ${DEFAULT_PORT})`)
     .option("--host <host>", "Daemon host (default: 127.0.0.1)")
     .option("--json", "Output as JSON")
@@ -93,6 +95,7 @@ Examples:
   $ agent-worker new alice -m anthropic/claude-sonnet-4-5
   $ agent-worker new bot -b mock
   $ agent-worker new reviewer --workflow review --tag pr-123
+  $ agent-worker new monitor --wakeup 30s --system "Check status"
   $ agent-worker new coder -m MiniMax-M2.5 --provider anthropic --base-url https://api.minimax.io/anthropic/v1 --api-key '$MINIMAX_API_KEY'
       `,
     )
@@ -119,6 +122,15 @@ Examples:
         }
       }
 
+      // Build schedule config from CLI options
+      let schedule: { wakeup: string; prompt?: string } | undefined;
+      if (options.wakeup) {
+        schedule = { wakeup: options.wakeup };
+        if (options.wakeupPrompt) {
+          schedule.prompt = options.wakeupPrompt;
+        }
+      }
+
       // Ensure daemon is running
       await ensureDaemon(options.port ? parseInt(options.port, 10) : undefined, options.host);
 
@@ -131,6 +143,7 @@ Examples:
         provider,
         workflow: options.workflow,
         tag: options.tag,
+        schedule,
       });
 
       if (res.error) {

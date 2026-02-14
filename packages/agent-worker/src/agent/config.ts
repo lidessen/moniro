@@ -7,6 +7,7 @@
 
 import type { BackendType } from "../backends/types.ts";
 import type { ProviderConfig } from "../workflow/types.ts";
+import type { ScheduleConfig } from "../daemon/registry.ts";
 
 export interface AgentConfig {
   /** Agent name (unique within daemon) */
@@ -25,4 +26,6 @@ export interface AgentConfig {
   tag: string;
   /** When this agent was created */
   createdAt: string;
+  /** Periodic wakeup schedule */
+  schedule?: ScheduleConfig;
 }

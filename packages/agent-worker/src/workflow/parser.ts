@@ -338,6 +338,28 @@ function validateAgent(name: string, agent: unknown, errors: ValidationError[]):
     errors.push({ path: `${path}.tools`, message: 'Optional field "tools" must be an array' });
   }
 
+  // Validate wakeup field
+  if (a.wakeup !== undefined) {
+    if (typeof a.wakeup !== "string" && typeof a.wakeup !== "number") {
+      errors.push({
+        path: `${path}.wakeup`,
+        message: 'Field "wakeup" must be a string (duration or cron) or number (ms)',
+      });
+    } else if (typeof a.wakeup === "number" && a.wakeup <= 0) {
+      errors.push({
+        path: `${path}.wakeup`,
+        message: 'Field "wakeup" must be a positive number when specified as ms',
+      });
+    }
+  }
+
+  if (a.wakeup_prompt !== undefined && typeof a.wakeup_prompt !== "string") {
+    errors.push({
+      path: `${path}.wakeup_prompt`,
+      message: 'Field "wakeup_prompt" must be a string',
+    });
+  }
+
   // Validate provider field
   if (a.provider !== undefined) {
     if (typeof a.provider === "string") {

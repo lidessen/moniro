@@ -117,6 +117,7 @@ export function createAgent(body: {
   provider?: string | { name: string; base_url?: string; api_key?: string };
   workflow?: string;
   tag?: string;
+  schedule?: { wakeup: string | number; prompt?: string };
 }): Promise<ApiResponse> {
   return request("POST", "/agents", body);
 }
