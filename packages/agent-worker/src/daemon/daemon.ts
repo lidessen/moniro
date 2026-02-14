@@ -28,7 +28,7 @@ import { LocalWorker } from "../agent/handle.ts";
 import type { StateStore } from "../agent/store.ts";
 import { MemoryStateStore } from "../agent/store.ts";
 import type { BackendType } from "../backends/types.ts";
-import { DEFAULT_PORT, writeDaemonInfo, removeDaemonInfo, isDaemonRunning } from "./registry.ts";
+import { DEFAULT_PORT, writeDaemonInfo, removeDaemonInfo, isDaemonRunning, type ScheduleConfig } from "./registry.ts";
 import { startHttpServer, type ServerHandle } from "./serve.ts";
 import { createContextMCPServer } from "../workflow/context/mcp/server.ts";
 import {
@@ -289,7 +289,7 @@ export function createDaemonApp(
       provider?: string | { name: string; base_url?: string; api_key?: string };
       workflow?: string;
       tag?: string;
-      schedule?: { wakeup: string | number; prompt?: string };
+      schedule?: ScheduleConfig;
     };
 
     if (!name || !model || !system) {
