@@ -123,6 +123,10 @@ Examples:
       }
 
       // Build schedule config from CLI options
+      if (options.wakeupPrompt && !options.wakeup) {
+        console.error("Error: --wakeup-prompt can only be used with --wakeup.");
+        process.exit(1);
+      }
       let schedule: { wakeup: string; prompt?: string } | undefined;
       if (options.wakeup) {
         schedule = { wakeup: options.wakeup };
