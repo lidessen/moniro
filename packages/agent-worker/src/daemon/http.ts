@@ -13,11 +13,14 @@ import {
   removeAgent,
   type CreateAgentInput,
 } from "./registry.ts";
+import { channelSend, channelRead, inboxQuery } from "./context.ts";
+import type { createSchedulerManager } from "./scheduler.ts";
 
 export interface HttpDeps {
   db: Database;
   startedAt: number;
   shutdown: () => void;
+  schedulerManager?: ReturnType<typeof createSchedulerManager>;
 }
 
 export function createApp(deps: HttpDeps): Hono {
@@ -81,6 +84,45 @@ export function createApp(deps: HttpDeps): Hono {
       return c.json({ error: "Agent not found" }, 404);
     }
     return c.json({ ok: true });
+  });
+
+  // ==================== Messaging ====================
+
+  app.post("/send", async (c) => {
+    const body = await c.req.json<{
+      agent: string;
+      message: string;
+      workflow?: string;
+      tag?: string;
+    }>();
+
+    if (!body.agent || !body.message) {
+      return c.json({ error: "agent and message are required" }, 400);
+    }
+
+    const agentConfig = getAgent(deps.db, body.agent);
+    const workflow = body.workflow ?? agentConfig?.workflow ?? "global";
+    const tag = body.tag ?? agentConfig?.tag ?? "main";
+
+    const result = channelSend(deps.db, body.agent, body.message, workflow, tag);
+
+    // Wake schedulers for recipients
+    if (deps.schedulerManager) {
+      for (const recipient of result.recipients) {
+        deps.schedulerManager.wake(recipient, workflow, tag);
+      }
+    }
+
+    return c.json(result);
+  });
+
+  app.get("/peek", (c) => {
+    const workflow = c.req.query("workflow") ?? "global";
+    const tag = c.req.query("tag") ?? "main";
+    const limit = Number(c.req.query("limit") ?? "20");
+
+    const messages = channelRead(deps.db, workflow, tag, { limit });
+    return c.json(messages);
   });
 
   return app;
