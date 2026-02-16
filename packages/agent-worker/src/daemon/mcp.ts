@@ -5,7 +5,6 @@
  * Each tool handler is a thin wrapper over context operations.
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import type { Database } from "bun:sqlite";
 import { z } from "zod";
 import { TOOLS } from "../shared/constants.ts";
@@ -22,7 +21,6 @@ import { listAgents, getAgent, updateAgentState } from "./registry.ts";
 import {
   proposalCreate,
   proposalGet,
-  proposalList,
   proposalVote,
   proposalCancel,
   voteList,

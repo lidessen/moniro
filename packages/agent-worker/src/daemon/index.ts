@@ -64,9 +64,19 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<DaemonHa
   let server: ReturnType<typeof Bun.serve> | null = null;
   let isShuttingDown = false;
 
+  // Signal handler references — stored for cleanup
+  let onSignal: (() => void) | null = null;
+
   const shutdown = async () => {
     if (isShuttingDown) return;
     isShuttingDown = true;
+
+    // Remove signal handlers to prevent leak
+    if (onSignal) {
+      process.removeListener("SIGINT", onSignal);
+      process.removeListener("SIGTERM", onSignal);
+      onSignal = null;
+    }
 
     // TODO: stop schedulers, kill workers
 
@@ -113,10 +123,10 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<DaemonHa
     );
   }
 
-  // 7. Signal handlers
-  const onSignal = () => void shutdown();
+  // 7. Signal handlers (stored for cleanup on shutdown)
+  onSignal = () => void shutdown();
   process.on("SIGINT", onSignal);
   process.on("SIGTERM", onSignal);
 
-  return { db, port, host, startedAt, shutdown };
+  return { db, port: port!, host, startedAt, shutdown };
 }

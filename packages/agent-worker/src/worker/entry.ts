@@ -12,8 +12,14 @@ import type { WorkerConfig, WorkerIpcMessage } from "../shared/types.ts";
 import { createDaemonClient } from "./mcp-client.ts";
 import { buildPrompt } from "./prompt.ts";
 import { runSession } from "./session.ts";
-import { createMockBackend } from "./backends/mock.ts";
-import type { Backend } from "./backends/types.ts";
+import { createBackend } from "./backends/index.ts";
+import type { BackendType } from "./backends/types.ts";
+
+// Catch unhandled rejections — send error via IPC and exit
+process.on("unhandledRejection", (reason) => {
+  sendError(`Unhandled rejection: ${reason}`);
+  process.exit(1);
+});
 
 async function main() {
   const configStr = process.env.WORKER_CONFIG;
@@ -34,8 +40,6 @@ async function main() {
     daemon.teamMembers(),
   ]);
 
-  // TODO: team_doc_read when documents are implemented
-
   // 3. Build prompt
   const prompt = buildPrompt({
     system: config.agent.system,
@@ -44,8 +48,11 @@ async function main() {
     teamMembers,
   });
 
-  // 4. Create backend
-  const backend = createBackend(config);
+  // 4. Create backend (async — CLI backends use dynamic imports)
+  const backend = await createBackend({
+    type: config.agent.backend as BackendType,
+    model: config.agent.model,
+  });
 
   // 5. Prepare MCP config for CLI backends
   const mcpConfig = config.daemonMcpUrl
@@ -67,33 +74,30 @@ async function main() {
   });
 
   // 7. Send result via IPC
-  const msg: WorkerIpcMessage = { type: "result", data: result };
-  if (process.send) {
-    process.send(msg);
-  } else {
-    // Fallback: write to stdout for non-fork scenarios
-    console.log(JSON.stringify(msg));
-  }
-
+  sendIpc({ type: "result", data: result });
   process.exit(0);
 }
 
-function createBackend(config: WorkerConfig): Backend {
-  switch (config.agent.backend) {
-    case "mock":
-      return createMockBackend();
-    // TODO: sdk, claude, codex, cursor backends
-    default:
-      return createMockBackend({ response: `[${config.agent.backend} backend not yet implemented]` });
+/** Send IPC message to daemon, with fallback to stdout. */
+function sendIpc(msg: WorkerIpcMessage): void {
+  try {
+    if (process.send) {
+      process.send(msg);
+    } else {
+      console.log(JSON.stringify(msg));
+    }
+  } catch {
+    // IPC channel already closed — write to stderr as last resort
+    console.error(JSON.stringify(msg));
   }
 }
 
+/** Send error via IPC. */
+function sendError(message: string): void {
+  sendIpc({ type: "error", error: message });
+}
+
 main().catch((err) => {
-  const msg: WorkerIpcMessage = { type: "error", error: String(err) };
-  if (process.send) {
-    process.send(msg);
-  } else {
-    console.error(JSON.stringify(msg));
-  }
+  sendError(String(err));
   process.exit(1);
 });

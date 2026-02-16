@@ -13,15 +13,18 @@ import {
   removeAgent,
   type CreateAgentInput,
 } from "./registry.ts";
-import { channelSend, channelRead, inboxQuery } from "./context.ts";
+import { channelSend, channelRead } from "./context.ts";
 import { createWorkflow, listWorkflows, removeWorkflow } from "./registry.ts";
 import type { createSchedulerManager } from "./scheduler.ts";
+import { dispatchToolCall, type DispatchDeps } from "./tool-dispatch.ts";
+import type { DocumentProvider } from "../shared/types.ts";
 
 export interface HttpDeps {
   db: Database;
   startedAt: number;
   shutdown: () => void;
   schedulerManager?: ReturnType<typeof createSchedulerManager>;
+  documentProvider?: DocumentProvider;
 }
 
 export function createApp(deps: HttpDeps): Hono {
@@ -190,6 +193,65 @@ export function createApp(deps: HttpDeps): Hono {
 
     removeWorkflow(deps.db, name, tag);
     return c.json({ ok: true });
+  });
+
+  // ==================== MCP (Worker→Daemon tool calls) ====================
+
+  app.post("/mcp", async (c) => {
+    // Agent identity from query param (set by ProcessManager in daemonMcpUrl)
+    const agent = c.req.query("agent");
+    if (!agent) {
+      return c.json(
+        { jsonrpc: "2.0", id: null, error: { code: -32600, message: "Missing ?agent= query param" } },
+        400,
+      );
+    }
+
+    const body = await c.req.json<{
+      jsonrpc: string;
+      id: unknown;
+      method: string;
+      params?: { name?: string; arguments?: Record<string, unknown> };
+    }>();
+
+    // Only support tools/call
+    if (body.method !== "tools/call") {
+      return c.json({
+        jsonrpc: "2.0",
+        id: body.id ?? null,
+        error: { code: -32601, message: `Method '${body.method}' not supported` },
+      });
+    }
+
+    const toolName = body.params?.name;
+    if (!toolName) {
+      return c.json({
+        jsonrpc: "2.0",
+        id: body.id ?? null,
+        error: { code: -32602, message: "Missing params.name" },
+      });
+    }
+
+    const dispatchDeps: DispatchDeps = {
+      db: deps.db,
+      documentProvider: deps.documentProvider,
+    };
+
+    try {
+      const result = await dispatchToolCall(
+        dispatchDeps,
+        agent,
+        toolName,
+        body.params?.arguments ?? {},
+      );
+      return c.json({ jsonrpc: "2.0", id: body.id ?? null, result });
+    } catch (e) {
+      return c.json({
+        jsonrpc: "2.0",
+        id: body.id ?? null,
+        error: { code: -32000, message: (e as Error).message },
+      });
+    }
   });
 
   return app;

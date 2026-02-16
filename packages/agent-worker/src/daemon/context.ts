@@ -280,7 +280,7 @@ export function agentStatusSet(
   db: Database,
   agent: string,
   state?: string,
-  task?: string,
+  _task?: string,
 ): void {
   if (state) {
     db.run("UPDATE agents SET state = ? WHERE name = ?", [state, agent]);

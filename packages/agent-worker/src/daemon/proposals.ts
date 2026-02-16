@@ -189,7 +189,9 @@ function checkResolution(proposal: Proposal, votes: Vote[]): string | null {
 
   const totalVotes = votes.length;
   const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  const [topChoice, topCount] = entries[0];
+  const top = entries[0];
+  if (!top) return null;
+  const [topChoice, topCount] = top;
 
   switch (proposal.resolution) {
     case "plurality":
