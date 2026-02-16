@@ -1,160 +1,274 @@
 # agent-worker Architecture
 
-## Overview
+## Three-Tier Structure
 
-agent-worker is a daemon service that manages AI agent workflows. The daemon is the single long-lived process — all other interfaces (CLI, Web UI, AI tools) are clients that connect to it.
-
-```
-                ┌─────────────────────────────┐
-                │     Daemon (:5099)          │
-                │                             │
-   REST ───────►│  ┌───────────────────────┐  │
-   SSE ────────►│  │    Service Layer      │  │
-   MCP ────────►│  │  9 endpoints          │  │
-                │  └───────┬───────────────┘  │
-                │          │                  │
-                │          ▼                  │
-                │  ┌───────────────────────┐  │
-                │  │   Agent Manager       │  │
-                │  │   Map<name, Agent>    │  │
-                │  └───────┬───────────────┘  │
-                │          │                  │
-                │     ┌────┴────┐             │
-                │     ▼         ▼             │
-                │  AgentWorker  Context       │
-                │  (ToolLoop)   Provider      │
-                └─────────────────────────────┘
-
-  CLI ─────── REST + SSE ────► Daemon
-  Web UI ──── REST + SSE ────► Daemon
-  AI Tool ─── MCP ───────────► Daemon
-```
-
-## Core Concepts
-
-### Daemon — The Service
-
-The daemon is the top-level service process. It owns everything: HTTP server, workflow instances, agent lifecycles, context storage. There is exactly one daemon process.
-
-Discovery is minimal: the daemon writes `~/.agent-worker/daemon.json` with `{ pid, host, port }`. Clients read this file to find the daemon. Nothing else is stored on the filesystem for service coordination.
-
-### Service Layer — One Interface, Multiple Protocols
-
-REST and MCP expose the **same operations** through different protocols:
+agent-worker is a multi-agent collaboration system built on three layers: **Interface**, **Daemon**, and **Worker**. Each layer has a clear contract and strict boundaries.
 
 ```
-REST:  POST /run     { agent: "alice", message: "..." }  → SSE stream
-REST:  POST /serve   { agent: "alice", message: "..." }  → JSON response
-MCP:   tool "channel_send" { to: "alice", message: "..." }
+┌──────────────────────────────────────────────────┐
+│  Interface（接口层）                              │
+│                                                  │
+│  CLI / Web UI / External MCP clients             │
+│  Stateless. Pure protocol translation.           │
+└──────────────┬───────────────────────────────────┘
+               │ Daemon Protocol (HTTP / MCP)
+               ▼
+┌──────────────────────────────────────────────────┐
+│  Daemon（内核层）                                 │
+│                                                  │
+│  Registry / Scheduler / Context / StateStore     │
+│  Single process. Single source of truth.         │
+│  Decides: who runs, when, with what context.     │
+│                                                  │
+│  Daemon MCP ── context tools for workers         │
+└──────────────┬───────────────────────────────────┘
+               │ (system_prompt, daemon_mcp_url, worker_mcp_configs)
+               ▼
+┌──────────────────────────────────────────────────┐
+│  Worker（工人层）                                  │
+│                                                  │
+│  LLM communication / Tool Loop / Streaming       │
+│  Pure execution: f(prompt, tools) → result       │
+│                                                  │
+│  Daemon MCP ── connect to daemon for context     │
+│  Worker MCP ── self-held task tools              │
+└──────────────────────────────────────────────────┘
 ```
 
-- **CLI, Web UI, scripts** → REST (CRUD + SSE streaming)
-- **AI tools** (Claude Code, Cursor, etc.) → MCP (tool calling)
+The analogy is an operating system:
+
+| Layer | OS analogy | Owns | Does NOT own |
+|-------|-----------|------|-------------|
+| **Interface** | Shell, syscall interface | Protocol translation, UX, formatting | State, logic, scheduling |
+| **Daemon** | Kernel | Registry, scheduling, context, lifecycle, state | LLM communication, prompt execution |
+| **Worker** | Process | LLM conversation, tool loop, streaming | When to run, what context to use, retry |
+
+---
+
+## Interface — Protocol Layer
+
+The interface layer translates external protocols into daemon operations. Every interface is stateless — it holds no agent state, makes no scheduling decisions, stores nothing.
+
+```
+CLI ─────── REST + SSE ────► Daemon
+Web UI ──── REST + SSE ────► Daemon
+AI Tool ─── MCP ───────────► Daemon (External MCP clients)
+```
+
+All interfaces are equal citizens. No interface has privileged access — everything goes through the daemon protocol.
+
+### Daemon HTTP API
+
+```
+Daemon
+  GET  /health                  Status (pid, uptime, agent count)
+  POST /shutdown                Shutdown
+
+Agent CRUD
+  GET    /agents                List agents
+  POST   /agents                Create agent { name, model, backend, system }
+  GET    /agents/:name          Agent info
+  DELETE /agents/:name          Delete agent
+
+Execution
+  POST   /run                   Execute workflow → SSE stream
+  POST   /serve                 Execute workflow → JSON response
+
+System
+  ALL    /mcp                   Unified MCP endpoint
+```
+
+### CLI Discovery
+
+```
+~/.agent-worker/daemon.json = { pid, host, port, startedAt }
+
+1. Read daemon.json → PID alive? → Use it
+2. Missing or dead → Spawn daemon → Wait for daemon.json
+3. Send HTTP requests
+```
+
+---
+
+## Daemon — The Kernel
+
+The daemon is the single long-lived process. It is the sole authority for all state.
+
+### What the Daemon Owns
+
+| Component | Responsibility |
+|-----------|---------------|
+| **Registry** | What agents exist (`Map<name, AgentConfig>`) |
+| **Scheduler** | When agents run (inbox polling, cron, interval, wake) |
+| **Context** | Collaboration substrate (channel, inbox, documents, proposals) |
+| **StateStore** | Conversation history, usage stats (pluggable persistence) |
+| **Daemon MCP** | Exposes context tools to workers |
+| **Lifecycle** | Agent/workflow create, start, stop, destroy |
+
+### What the Daemon Does NOT Own
+
+- **LLM communication** — That's the worker's job
+- **Tool execution** — Workers execute their own tools
+- **Prompt content** — Workers receive prompts, daemon doesn't interpret them
 
 ### Workflow — The Execution Model
 
 Every agent runs inside a workflow. A workflow is a named group of agents with shared context.
 
-- **`@global`** — The default workflow. Standalone agents live here. `agent new --name bot` creates an agent under `@global`.
-- **Named workflows** — Created from YAML definitions or API calls. `@review:pr-123` is a workflow named `review` with tag `pr-123`.
+- **`@global`** — Default workflow. Standalone agents live here.
+- **Named workflows** — From YAML or API. `@review:pr-123` = workflow `review`, tag `pr-123`.
 
-There is no distinction between "single-agent mode" and "multi-agent mode" at the runtime level. A single agent is a workflow with one agent.
+There is no distinction between "single-agent mode" and "multi-agent mode" at runtime. A single agent is a workflow with one agent.
 
 ```
-Workflow Manager
+Daemon
   └── Workflow (@global, @review:pr-123, ...)
-        └── AgentController  (lifecycle: when to run, retry, inbox polling)
-              └── AgentWorker   (execution: LLM conversation, tool loop, streaming)
+        ├── Context (channel, inbox, documents, proposals)
+        ├── Scheduler (polling, cron, wake signals)
+        └── Worker[] (pure execution units)
 ```
 
-### AgentWorker — The ToolLoop
+### Two Kinds of MCP
 
-The execution engine for a single agent. It owns:
+The daemon hosts an MCP server (Daemon MCP). Workers connect to it for collaboration capabilities. Workers also have their own MCP connections (Worker MCP) for task-specific tools.
 
-- Conversation history (messages)
-- Model configuration (model ID, system prompt)
-- Tool registry (AI SDK tools)
-- Approval mechanism
-- `send(message)` → LLM reasoning → tool loop → response
-- `sendStream(message)` → same, with token-level streaming
+```
+Daemon MCP（内核 API）
+  Daemon holds. Exposes to workers and external clients.
+  Provides: context tools (channel_send, inbox_read, document_write, ...)
+  Provides: management tools (for external interface clients)
+  Analogy: syscall interface
 
-AgentWorker does not know _why_ it is asked to send. It does not know about inboxes, channels, or workflows. It is a pure execution primitive.
+Worker MCP（自持工具）
+  Worker holds/connects independently.
+  Loads: task tools (bash, file ops, custom MCP servers)
+  Source: agent config declarations
+  Analogy: process-loaded libraries
+```
 
-(`src/agent/worker.ts`)
+Workers access context **only** through Daemon MCP tools. They cannot read or write context storage directly. This enforces sandboxing — a worker can only do what its tools allow.
 
-### AgentController — Lifecycle Management
-
-The lifecycle manager for a single agent within a workflow. It decides when to run the AgentWorker and what to do with the results:
-
-1. Poll inbox for @mentions → build prompt → `session.send()` → write response to channel → ack inbox
-2. On failure → retry with exponential backoff
-3. External `wake()` → check inbox immediately
-4. State machine: `stopped → idle → running → idle → ...`
-
-AgentController wraps AgentWorker. The daemon does not do inbox polling or timer management directly — it delegates to controllers.
-
-(`src/workflow/controller/controller.ts`)
+```
+✗  Daemon assembles context → injects into prompt → passes to worker
+✓  Daemon starts MCP server → worker connects → calls context tools on demand
+```
 
 ### Context — Shared Storage
 
-Context provides the collaboration substrate for agents within a workflow. Each workflow has its own context:
+Context provides the collaboration substrate within a workflow. Each workflow has its own context, owned by the daemon:
 
 | Primitive | Purpose |
 |-----------|---------|
 | **Channel** | Append-only message log with @mentions |
 | **Inbox** | Per-agent filtered view of channel |
-| **Resources** | Content-addressed large content storage |
 | **Documents** | Shared team workspace files |
+| **Resources** | Content-addressed large content storage |
 | **Proposals** | Voting system for collaborative decisions |
 
-Context is exposed to agents via MCP tools (`channel_send`, `channel_read`, `my_inbox`, `team_doc_*`, `resource_*`, etc.). The same MCP tools are also available through the daemon's MCP endpoint.
-
 Context is backend-agnostic: `ContextProvider` interface with `FileContextProvider` (production) and `MemoryContextProvider` (testing).
+
+---
+
+## Worker — The Execution Unit
+
+The worker is a pure execution primitive. It receives a prompt and tools, runs an LLM tool loop, and returns results. It does not know why it was invoked, what workflow it belongs to, or when it will run next.
+
+```
+Worker contract:
+  Input:  (system_prompt, daemon_mcp_url, worker_mcp_configs)
+  Output: (response, tool_calls, usage)
+  Model:  f(prompt, tools) → result
+```
+
+### What the Worker Owns
+
+- **LLM conversation** — Messages, model config, tool loop
+- **Tool execution** — Runs tools within its sandbox
+- **Streaming** — Token-level output streaming
+- **Worker MCP connections** — Self-held task tools (bash, file ops, custom)
+- **Daemon MCP connection** — For context access (channel, documents, proposals)
+
+### What the Worker Does NOT Own
+
+- **Scheduling** — Daemon decides when to run the worker
+- **Context assembly** — Daemon provides context via MCP, not injected prompts
+- **Retry logic** — Daemon retries on failure
+- **Lifecycle** — Daemon creates and destroys workers
+
+### Backend Abstraction
+
+Workers use backends for LLM communication. A backend is a pure communication adapter — it only knows how to `send()`.
+
+| Backend | Integration |
+|---------|------------|
+| **SDK** (Vercel AI SDK) | Direct API, full tool injection, streaming |
+| **Claude CLI** | Native Claude, MCP via `--mcp-config` |
+| **Cursor CLI** | Cursor Agent, MCP via `.cursor/mcp.json` |
+| **Codex CLI** | Codex, MCP via `.codex/config.toml` |
+| **Mock** | Testing without API calls |
+
+---
 
 ## Module Structure
 
 ```
 src/
-├── daemon/                        # The service
-│   ├── daemon.ts                  # Process lifecycle: start, shutdown, signals, HTTP routes
-│   ├── handler.ts                 # Request handler: action dispatch
-│   ├── server.ts                  # Hono app: REST routes + MCP endpoint + WebSocket
-│   ├── registry.ts                # Read/write daemon.json for discovery
+├── cli/                           # Interface layer
+│   ├── client.ts                  # HTTP client → daemon REST API
+│   ├── instance.ts                # CLI instance management
+│   ├── output.ts                  # Output formatting
+│   ├── target.ts                  # Target resolution
+│   └── commands/                  # One file per command group
+│       ├── agent.ts               # new, list, stop, info
+│       ├── send.ts                # send, peek, stats, export, clear
+│       ├── tool.ts                # tool add, import, mock, list
+│       ├── workflow.ts            # run, start, stop, list
+│       ├── approval.ts            # pending, approve, deny
+│       ├── info.ts                # providers, backends
+│       ├── doc.ts                 # document operations
+│       ├── feedback.ts            # feedback commands
+│       └── mock.ts                # mock commands
+│
+├── daemon/                        # Daemon (kernel) layer
+│   ├── daemon.ts                  # Process lifecycle, HTTP routes
+│   ├── handler.ts                 # Request dispatch
+│   ├── server.ts                  # Hono app: REST + MCP endpoint
+│   ├── registry.ts                # Discovery via daemon.json
 │   └── cron.ts                    # Cron schedule management
 │
-├── workflow/                      # Execution model
-│   ├── runner.ts                  # Single workflow execution
-│   ├── parser.ts                  # YAML workflow definition → typed config
+├── workflow/                      # Daemon internals: orchestration
+│   ├── runner.ts                  # Workflow execution
+│   ├── parser.ts                  # YAML → typed config
 │   ├── interpolate.ts             # Variable interpolation (${{ }})
 │   ├── types.ts                   # Workflow types
 │   ├── layout.ts                  # Layout management
-│   ├── display.ts                 # Workflow display formatting
+│   ├── display.ts                 # Display formatting
 │   │
-│   ├── controller/                # Agent lifecycle management
+│   ├── controller/                # Scheduling + lifecycle (daemon concern)
 │   │   ├── controller.ts          # Poll → run → ack → retry loop
-│   │   ├── prompt.ts              # Agent prompt building from context
-│   │   ├── send.ts                # Message sending logic
-│   │   ├── sdk-runner.ts          # AI SDK backend runner
-│   │   ├── mock-runner.ts         # Mock backend runner (testing)
+│   │   ├── prompt.ts              # Prompt building from context
+│   │   ├── send.ts                # Message sending
+│   │   ├── sdk-runner.ts          # SDK backend runner
+│   │   ├── mock-runner.ts         # Mock backend runner
 │   │   ├── backend.ts             # Backend adapter
-│   │   ├── mcp-config.ts          # MCP tool configuration
+│   │   ├── mcp-config.ts          # MCP configuration
 │   │   └── types.ts               # Controller types
 │   │
-│   └── context/                   # Shared storage
-│       ├── provider.ts            # ContextProvider interface + implementation
+│   └── context/                   # Context storage (daemon concern)
+│       ├── provider.ts            # ContextProvider interface
 │       ├── types.ts               # Channel, inbox, document types
 │       ├── storage.ts             # StorageBackend interface
 │       ├── file-provider.ts       # File-based storage
 │       ├── memory-provider.ts     # In-memory storage (testing)
-│       ├── mcp-server.ts          # Context MCP server (tool definitions)
+│       ├── mcp-server.ts          # Daemon MCP server (context tools)
 │       ├── http-transport.ts      # MCP HTTP transport
 │       └── proposals.ts           # Proposal/voting system
 │
-├── agent/                         # Execution engine
-│   ├── worker.ts                 # AgentWorker: LLM conversation + tool loop
+├── agent/                         # Worker layer
+│   ├── worker.ts                  # AgentWorker: LLM conversation + tool loop
 │   ├── models.ts                  # Model creation, provider registry
 │   ├── types.ts                   # Core types
-│   ├── tools/                     # Built-in tool factories
+│   ├── tools/                     # Built-in worker tools
 │   │   ├── bash.ts                # Sandboxed bash/readFile/writeFile
 │   │   ├── skills.ts              # Skills tool
 │   │   └── feedback.ts            # Feedback tool
@@ -163,266 +277,102 @@ src/
 │       ├── importer.ts            # Git-based skill import
 │       └── import-spec.ts         # Import spec parsing
 │
-├── backends/                      # AI provider adapters
-│   ├── types.ts                   # Backend interface
-│   ├── index.ts                   # Factory + availability checks
-│   ├── model-maps.ts              # Model name translation
-│   ├── sdk.ts                     # Vercel AI SDK
-│   ├── claude-code.ts             # Claude Code CLI
-│   ├── codex.ts                   # Codex CLI
-│   ├── cursor.ts                  # Cursor CLI
-│   ├── mock.ts                    # Mock (testing)
-│   ├── idle-timeout.ts            # Idle timeout management
-│   └── stream-json.ts             # JSON streaming utilities
-│
-└── cli/                           # Independent client (NOT under daemon)
-    ├── client.ts                  # HTTP client → daemon REST API
-    ├── instance.ts                # CLI instance management
-    ├── output.ts                  # Output formatting
-    ├── target.ts                  # Target resolution
-    └── commands/                  # One file per command group
-        ├── agent.ts               # new, list, stop, info
-        ├── send.ts                # send, peek, stats, export, clear
-        ├── tool.ts                # tool add, import, mock, list
-        ├── workflow.ts            # run, start, stop, list
-        ├── approval.ts            # pending, approve, deny
-        ├── info.ts                # providers, backends
-        ├── doc.ts                 # document operations
-        ├── feedback.ts            # feedback commands
-        └── mock.ts                # mock commands
+└── backends/                      # Worker internals: LLM adapters
+    ├── types.ts                   # Backend interface
+    ├── index.ts                   # Factory + availability checks
+    ├── model-maps.ts              # Model name translation
+    ├── sdk.ts                     # Vercel AI SDK
+    ├── claude-code.ts             # Claude Code CLI
+    ├── codex.ts                   # Codex CLI
+    ├── cursor.ts                  # Cursor CLI
+    ├── mock.ts                    # Mock (testing)
+    ├── idle-timeout.ts            # Idle timeout management
+    └── stream-json.ts             # JSON streaming utilities
 ```
 
 ## Dependency Graph
 
 ```
-cli/ ──── HTTP ────► daemon/
-                       │
-                       ├──► workflow/
-                       │       │
-                       │       ├──► workflow/controller/  (AgentController)
-                       │       │       └──► agent/        (AgentWorker)
-                       │       │
-                       │       └──► workflow/context/     (ContextProvider)
-                       │
-                       └──► backends/                     (backend factory)
+Interface              Daemon (Kernel)                Worker
+─────────              ───────────────                ──────
+
+cli/ ──── HTTP ────►  daemon/
+                        │
+                        ├──► workflow/controller/     (scheduling, lifecycle)
+                        │       │
+                        │       └──► agent/worker     (execution)
+                        │
+                        ├──► workflow/context/         (context storage)
+                        │       │
+                        │       └──► context/mcp-server (Daemon MCP)
+                        │                │
+                        │                └ ─ ─ MCP ─ ─ ► agent/worker connects
+                        │
+                        └──► backends/                 (worker LLM adapters)
 ```
 
 Rules:
 - `cli/` imports nothing from `daemon/` except registry (reading daemon.json)
 - `daemon/` imports from `workflow/`, `agent/`, `backends/`
-- `workflow/controller/` imports from `agent/`, `workflow/context/`, `backends/`
-- `agent/` imports from `backends/` (types only)
-- `workflow/context/` imports nothing from other app modules (pure domain)
+- `workflow/controller/` is a daemon concern — scheduling, retry, prompt assembly
+- `agent/` is a worker concern — pure execution, no scheduling awareness
+- `workflow/context/` is a daemon concern — workers access via MCP only
+- `backends/` is a worker concern — LLM communication adapters
 - No circular dependencies. No upward imports.
-
-## Key Design Decisions
-
-### Why daemon as the top-level service?
-
-Without a daemon, each agent is its own process. N agents = N processes, N sockets, stale registry files when processes crash. With one daemon, there's one process, one HTTP server, one MCP endpoint. Agent lifecycle, health checks, context — all centralized.
-
-### Why one interface, multiple protocols?
-
-CLI and Web UI speak REST. AI tools (Claude Code, Cursor) speak MCP. Both need the same operations (send message, read channel, manage workflows). Implementing the operations once and exposing through multiple protocols eliminates duplication and keeps behavior consistent.
-
-### Why all agents live in workflows?
-
-Eliminates the split between "single-agent daemon" and "multi-agent workflow" code paths. `agent new` creates an agent under `@global` — it's just a 1-agent workflow with simplified CLI ergonomics. The runtime doesn't know or care.
-
-### Why AgentWorker vs AgentController?
-
-Separation of concerns:
-- **Worker** answers "how to talk to an LLM" — stateful conversation, tool loop, streaming
-- **Controller** answers "when to talk and what to do with results" — inbox polling, retry, error recovery
-
-The controller calls `session.send()` when it decides the agent should act. The daemon doesn't do inbox polling — controllers do.
-
-### Why Context lives under workflow/?
-
-Context (channel, inbox, documents, resources) is the collaboration substrate within a workflow. It is exposed to agents via MCP tools and to the daemon for REST/MCP endpoints. The `ContextProvider` interface keeps it backend-agnostic.
 
 ---
 
-## Phase 3: Service Refactoring (Design)
+## Key Design Decisions
 
-> This section describes the planned refactoring from per-agent processes to a single daemon service. It is the implementation plan — not yet implemented.
+### Why three tiers?
 
-### Current → Target
+Without explicit tiers, responsibilities bleed. The CLI accumulates business logic. The daemon embeds execution details. Workers grow scheduling awareness. Three tiers with strict contracts prevent this:
 
-```
-Current: CLI spawns N child processes, each with random port
-         CLI reads ~/.agent-worker/sessions/{uuid}.json to find agents
-         20+ REST endpoints + WebSocket streaming
+- Interface → "How do users/tools talk to us?" (protocol)
+- Daemon → "Who runs when with what?" (orchestration)
+- Worker → "How do I execute this prompt?" (execution)
 
-Target:  One daemon process on port 5099
-         ~/.agent-worker/daemon.json = { pid, host, port }
-         9 HTTP endpoints + SSE streaming
-         Agent state lives in daemon memory (Map<name, AgentState>)
-```
+### Why daemon as kernel?
 
-### Daemon HTTP API
+Without a daemon, N agents = N processes, N sockets, stale registry files. With one daemon: one process, one HTTP server, one MCP endpoint. Agent lifecycle, health checks, context, scheduling — all centralized in one authority.
 
-```
-Daemon 级
-  GET  /health                  daemon 状态（pid, uptime, agent count）
-  POST /shutdown                关闭 daemon
+### Why two kinds of MCP?
 
-Agent 管理（纯 CRUD）
-  GET    /agents                列出所有 agent
-  POST   /agents                创建 agent { name, model, backend, system }
-  GET    /agents/:name          agent 信息
-  DELETE /agents/:name          删除 agent
+Daemon MCP is the kernel API — stable, minimal, context-focused. Worker MCP is task-specific tooling that varies per agent. Separating them enforces that workers can only access context through the daemon's controlled interface, while remaining free to load whatever task tools they need.
 
-Workflow 执行
-  POST   /run                   运行 workflow → SSE stream
-  POST   /serve                 运行 workflow → 同步 JSON 响应
+### Why context via MCP, not injected?
 
-System 接口
-  ALL    /mcp                   统一 MCP 端点（agent 通过 initialize 身份区分）
-```
+If the daemon assembles context and injects it into prompts, the worker boundary leaks — the daemon must understand prompt structure, and context size is fixed at invocation time. With MCP, workers pull context on demand. The daemon stays format-agnostic, and workers can read exactly what they need.
 
-**删除的端点**：`/session/*`（history, stats, export, clear）、`/tools`、`/approvals/*`、`/schedule`、`/feedback`、`/ws`。这些能力通过 MCP tools 提供或不再需要。
+### Why workers are stateless about scheduling?
 
-### /run — SSE Workflow Execution
+A worker that knows about polling, retry, and cron is coupled to the daemon's orchestration model. A pure `f(prompt, tools) → result` worker can be invoked by any orchestrator — the current daemon, a future distributed scheduler, or a test harness. Scheduling is policy; execution is mechanism.
 
-```
-POST /run
-Content-Type: application/json
+### Why all agents live in workflows?
 
-{ "agent": "alice", "message": "analyze this code" }
-// or
-{ "workflow": "review", "tag": "pr-123", "message": "start review" }
-// or
-{ "agents": { "reviewer": { "model": "sonnet", ... } }, "message": "..." }
-```
-
-Response: `text/event-stream`
-
-```
-event: chunk
-data: {"agent": "alice", "text": "Let me analyze"}
-
-event: chunk
-data: {"agent": "alice", "text": " the code..."}
-
-event: tool_call
-data: {"agent": "alice", "tool": "bash", "args": {"command": "ls"}}
-
-event: done
-data: {"content": "...", "usage": {...}}
-```
-
-### /serve — Sync Workflow Execution
-
-Same request body as `/run`, returns complete JSON:
-
-```
-POST /serve → { "content": "...", "toolCalls": [...], "usage": {...} }
-```
-
-### MCP — Unified Endpoint
-
-Single `/mcp` route. Agent identity from initialize handshake:
-
-```typescript
-// Agent connects:
-{ method: "initialize", params: { clientInfo: { name: "alice" } } }
-
-// Daemon resolves agent → determines available tools:
-// alice gets: channel.*, proposal.*, resource.*
-// admin gets: channel.*, proposal.*, agent.*, system.*
-```
-
-Tool categories exposed via MCP:
-- `channel_send`, `channel_read`, `my_inbox` — context operations
-- `team_doc_*`, `resource_*` — shared storage
-- `proposal_*` — voting/decisions
-
-### CLI Commands
-
-```
-管理
-  agent-worker new <name> [options]     POST /agents
-  agent-worker ls                       GET /agents
-  agent-worker stop <name>              DELETE /agents/:name
-  agent-worker stop --all               POST /shutdown
-
-执行
-  agent-worker run <workflow|agent> [message]    POST /run (SSE → stdout)
-  agent-worker serve <workflow|agent>            POST /serve (长驻 or 单次)
-
-交互（通过 daemon 转发到 context）
-  agent-worker send <target> <message>  context channel 操作
-  agent-worker peek [target]            context channel 读取
-```
-
-`send`/`peek` 是 context 操作，走 daemon 内部的 context provider 或通过 MCP。
-
-### Daemon State
-
-```typescript
-interface DaemonState {
-  agents: Map<string, AgentState>;
-  server: { stop(): void };
-  port: number;
-  startedAt: string;
-}
-
-interface AgentState {
-  worker: AgentWorker;
-  name: string;
-  model: string;
-  backend: BackendType;
-  system: string;
-  createdAt: string;
-}
-```
-
-### Discovery
-
-```
-~/.agent-worker/daemon.json
-{
-  "pid": 12345,
-  "host": "127.0.0.1",
-  "port": 5099,
-  "startedAt": "2026-02-10T..."
-}
-```
-
-CLI 启动 flow:
-1. 读 `daemon.json` → PID 还活着？→ 直接用
-2. 没有或进程已死 → spawn daemon 进程 → 等 `daemon.json` 出现
-3. 发 HTTP 请求
-
-### Implementation Steps
-
-```
-Step 1: daemon.json + port 5099          ← 基础设施
-Step 2: DaemonState + 多 agent 管理       ← 状态模型
-Step 3: 9 端点路由 + SSE /run             ← API 重建
-Step 4: CLI 适配                          ← 客户端
-Step 5: 清理旧代码                         ← sessions/, WebSocket, handler.ts
-```
-
-每步一个 commit，按步验证。
+Eliminates the split between "single-agent" and "multi-agent" code paths. `agent new` creates an agent under `@global` — it's a 1-agent workflow with simplified CLI ergonomics. The runtime doesn't know or care.
 
 ---
 
 ## Target Architecture
 
-> The following describes the theoretical direction for the system's evolution. It is not the current implementation, but a guiding model that future work can evolve toward.
+> Theoretical direction for the system's evolution. Not the current implementation.
 
 ### Four Primitives
 
 ```
-Message    — 数据
-Proposal   — 逻辑（schema + function，状态转移）
-Agent      — 执行者（ToolLoop）
-System     — 运行时（提供 tools，驱动求值循环）
+Message    — Data
+Proposal   — Logic (schema + function, state transitions)
+Agent      — Executor (ToolLoop)
+System     — Runtime (provides tools, drives evaluation loop)
 ```
 
 Tool is the interface System exposes to Agent. Agent is sandboxed — what tools it gets determines what it can do.
+
+In the three-tier model:
+- **System** = Daemon (kernel)
+- **Agent** = Worker (execution unit)
+- **Tool** = Daemon MCP (kernel API) + Worker MCP (task tools)
 
 ### Core Rule
 
@@ -431,11 +381,9 @@ message + proposal → message | task
 task = agent.execute(prompt, tools, message) → message
 ```
 
-Message enters. Proposal (state transition function) evaluates. Produces new Message or Task. Task is one Agent execution. Result becomes Message. Cycle continues.
+Message enters. Proposal evaluates. Produces new Message or Task. Task is one Worker execution. Result becomes Message. Cycle continues.
 
 ### Proposal — Schema + Function
-
-Proposal is a composable state transition function: receives Message (validated by schema), executes function, produces new Messages or Tasks.
 
 ```typescript
 interface Proposal<T> {
@@ -444,40 +392,7 @@ interface Proposal<T> {
 }
 ```
 
-Proposals compose — function body can invoke sub-Proposals. YAML/JSON are serialization formats for schema data.
-
-**Workflow as Proposal composition**:
-
-```typescript
-const WorkflowProposal = defineProposal({
-  schema: WorkflowSchema,
-  execute(data, ctx) {
-    for (const agent of data.agents) {
-      ctx.propose(CreateAgentProposal, agent)
-    }
-    for (const trigger of data.triggers) {
-      ctx.propose(RegisterTriggerProposal, trigger)
-    }
-  }
-})
-```
-
-### Agent — ToolLoop
-
-Agent receives `(prompt, tools, message)`, runs LLM tool loop, returns result. Closed system — can only interact via tools. Does not know why it was invoked, what workflow it belongs to, or what happened before.
-
-### System — Runtime
-
-Drives the Message + Proposal evaluation loop. Manages Agent lifecycle. Holds state. Exposes interface to Agents via Tools:
-
-| Tool category | Purpose |
-|---------------|---------|
-| `channel.*` | Message read/write |
-| `space.*` | Space/workflow management |
-| `proposal.*` | Proposal operations |
-| `auth.*` | Authorization operations |
-
-What tools an Agent gets = what it's authorized to do.
+Proposals compose — function body can invoke sub-Proposals. Workflow is a composition of Proposals.
 
 ### Emergent Concepts
 
@@ -485,25 +400,12 @@ All other concepts emerge from the four primitives:
 
 | Concept | Emerges from |
 |---------|-------------|
-| **Routing** | Proposal that routes Message to Agent |
-| **Workflow** | Chain of Proposals (each `when` references prior step's completion) |
+| **Routing** | Proposal that routes Message to Worker |
+| **Workflow** | Chain of Proposals |
 | **Permission** | Proposal that gates on authorization Message |
-| **Authorization** | Special Message type (agent grants a right) |
 | **Channel** | Messages accumulating in a Space |
 | **Inbox** | Proposal filtering Messages by @mention |
-| **Space** | Scoped binding of Proposals + Agents + Messages |
-| **Organization** | Space with fixed Proposals + fixed members |
-
-### Current System as Degenerate Case
-
-| Primitive | Current implementation |
-|-----------|----------------------|
-| **Message** | `ChannelMessage` in `workflow/context/types.ts` |
-| **Proposal** | Implicit, hardcoded in controller (inbox polling), approval mechanism, workflow YAML |
-| **Agent** | `AgentWorker` in `agent/worker.ts` |
-| **System** | `Daemon` in `daemon/daemon.ts` |
-
-Evolution direction: make implicit Proposals explicit (schema + function).
+| **Space** | Scoped binding of Proposals + Workers + Messages |
 
 ### Evolution Path
 
@@ -511,6 +413,6 @@ Evolution direction: make implicit Proposals explicit (schema + function).
 
 **Phase 2**: Define `Proposal<T>` interface. Refactor controller inbox polling, approval mechanism, and workflow YAML parser into explicit Proposals.
 
-**Phase 3**: Composable Proposals. Agent can define new Proposals via `proposal.*` tools. Hot-loading at runtime.
+**Phase 3**: Composable Proposals. Worker can define new Proposals via `proposal.*` tools. Hot-loading at runtime.
 
 **Phase 4**: Authorization as special Message type. Space as scoped binding. `@global` as default Space.

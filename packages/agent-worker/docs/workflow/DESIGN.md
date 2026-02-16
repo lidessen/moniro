@@ -8,7 +8,7 @@ Multi-agent orchestration with shared context and @mention-driven collaboration.
 
 ## Overview
 
-Agent Worker enables multiple AI agents to collaborate on tasks through a shared communication channel and workspace. Agents coordinate via @mentions, similar to team chat.
+Agent Worker enables multiple AI workers to collaborate on tasks through a shared communication channel and workspace. Workers coordinate via @mentions, similar to team chat. The daemon (kernel) manages all scheduling, context, and lifecycle; workers are pure execution units that access context via Daemon MCP tools.
 
 ### Key Concepts
 
@@ -218,7 +218,7 @@ Binding proposals are enforced by the system. Advisory proposals rely on agent c
 └─────────────────────────────────────────────────────┘
 ```
 
-**Idle condition**: All controllers idle + no unread inbox + no active proposals + debounce elapsed.
+**Idle condition**: All schedulers idle + no unread inbox + no active proposals + debounce elapsed.
 
 ### Start Mode
 
@@ -361,7 +361,7 @@ No need for explicit completion config—the command choice determines behavior.
 
 ### 6. Why Inbox Explicit Acknowledgment?
 
-Controller acknowledges inbox **only on successful agent run**. This enables:
+The daemon scheduler acknowledges inbox **only on successful worker execution**. This enables:
 
 - Retry on failure (messages redelivered)
 - Exactly-once processing guarantee
@@ -375,15 +375,19 @@ Prevents concurrent write conflicts in multi-agent workflows. Single-writer mode
 
 ---
 
-## Agent Controller Design
+## Daemon Scheduling (Controller)
+
+The daemon owns all scheduling decisions. For each agent in a workflow, the daemon runs a scheduling loop (currently implemented as `AgentController`) that decides **when** to invoke the worker and **what to do** with the results.
+
+This is a daemon concern, not a worker concern. The worker is a pure execution unit — `f(prompt, tools) → result` — and knows nothing about polling, retry, or inbox.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Workflow Runner                           │
+│                    Daemon Workflow                            │
 │                                                              │
 │  For each agent:                                            │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │              Agent Controller                        │   │
+│  │         Scheduler (daemon concern)                   │   │
 │  │                                                      │   │
 │  │  State: idle | running | stopped                    │   │
 │  │                                                      │   │
@@ -391,13 +395,15 @@ Prevents concurrent write conflicts in multi-agent workflows. Single-writer mode
 │  │  │                   IDLE                         │ │   │
 │  │  │  - Polling inbox every N seconds               │ │   │
 │  │  │  - Or: wake() called on @mention               │ │   │
+│  │  │  - Or: cron/interval schedule fires            │ │   │
 │  │  └─────────────────────┬──────────────────────────┘ │   │
-│  │                        │ unread?                     │   │
+│  │                        │ trigger?                    │   │
 │  │                        ▼                             │   │
 │  │  ┌────────────────────────────────────────────────┐ │   │
 │  │  │                  RUNNING                       │ │   │
-│  │  │  - Spawn agent (backend-specific)              │ │   │
-│  │  │  - Agent uses MCP tools                        │ │   │
+│  │  │  - Invoke worker (backend-specific)            │ │   │
+│  │  │  - Worker connects to Daemon MCP for context   │ │   │
+│  │  │  - Worker uses own MCP for task tools          │ │   │
 │  │  │  - Retry on failure (exponential backoff)      │ │   │
 │  │  └─────────────────────┬──────────────────────────┘ │   │
 │  │                        │ success → ack inbox         │   │
@@ -405,9 +411,27 @@ Prevents concurrent write conflicts in multi-agent workflows. Single-writer mode
 │  │                   back to IDLE                       │   │
 │  └─────────────────────────────────────────────────────┘   │
 │                                                              │
-│  @mention → controller.wake()                               │
+│  @mention → scheduler.wake()                                │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### Context Access via Daemon MCP
+
+Workers access context (channel, inbox, documents) through MCP tools provided by the daemon. The daemon starts an MCP server per workflow; workers connect to it.
+
+```
+✗  Daemon assembles context → injects into prompt → passes to worker
+✓  Daemon starts MCP server → worker connects → calls tools on demand
+```
+
+This enforces sandboxing: a worker can only do what its tools allow.
+
+### Two Kinds of MCP
+
+| MCP | Held by | Purpose | Analogy |
+|-----|---------|---------|---------|
+| **Daemon MCP** | Daemon | Context tools (channel_send, inbox_read, document_write, ...) | syscall interface |
+| **Worker MCP** | Worker | Task tools (bash, file ops, custom MCP servers) | process libraries |
 
 ### Backend Support
 
