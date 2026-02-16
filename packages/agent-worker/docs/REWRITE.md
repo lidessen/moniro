@@ -1,8 +1,8 @@
 # Rewrite Design
 
-从已确立的决策出发（三级结构、SQLite、subprocess、结构化消息），重新设计整个系统。不受现有实现约束。
+Starting from established decisions (three-tier architecture, SQLite, subprocess, structured messages), redesign the entire system. Not constrained by existing implementation.
 
-重写顺序：**Daemon → Worker → Interface**。Interface 跟着 Daemon 走。
+Rewrite order: **Daemon → Worker → Interface**. Interface follows the Daemon.
 
 **Related decisions**:
 - [Three-Tier Architecture](../../../.memory/decisions/2026-02-16-three-tier-architecture.md)
@@ -10,37 +10,37 @@
 
 ---
 
-## Part 0: Product Form（保留什么）
+## Part 0: Product Form (What to Keep)
 
-重写改的是实现，不是产品。用户看到的东西要保留。
+The rewrite changes the implementation, not the product. What the user sees should be preserved.
 
-### CLI 命令
+### CLI Commands
 
 ```bash
-# Agent 生命周期
+# Agent lifecycle
 agent-worker new <name> [--model] [--backend] [--system]
 agent-worker list
 agent-worker stop <target>
 agent-worker info <name>
 
-# 对话（单 agent）
+# Conversation (single agent)
 agent-worker ask <agent> <message>       # SSE streaming
 agent-worker serve <agent> <message>     # JSON response
 
-# Workflow（多 agent）
+# Workflow (multi-agent)
 agent-worker run <workflow.yaml> [--tag]
 agent-worker start <workflow.yaml> [--tag] [--background]
 agent-worker stop <target>
 
-# 消息
+# Messages
 agent-worker send <target> <message>
 agent-worker peek [target]
 
-# 文档
+# Documents
 agent-worker doc read [--file]
 agent-worker doc write <content> [--file]
 
-# 调度
+# Scheduling
 agent-worker schedule <target> set <interval>
 agent-worker schedule <target> clear
 ```
@@ -74,7 +74,7 @@ kickoff: |
   @reviewer please review.
 ```
 
-### MCP Tools（Daemon MCP，暴露给 worker）
+### MCP Tools (Daemon MCP, exposed to workers)
 
 ```
 Channel:    channel_send, channel_read
@@ -86,7 +86,7 @@ Proposal:   team_proposal_create, team_vote, team_proposal_status, team_proposal
 Resource:   resource_create, resource_read
 ```
 
-### Target 语法
+### Target Syntax
 
 ```
 alice                → alice@global:main
@@ -97,33 +97,33 @@ alice@review:pr-123  → full specification
 
 ---
 
-## Part 1: Daemon（内核）
+## Part 1: Daemon (Kernel)
 
-单进程，单 SQLite 文件，所有状态的唯一权威。
+Single process, single SQLite file, the sole authority for all state.
 
-### 职责
+### Responsibilities
 
 ```
 Daemon
-├── Database        ── SQLite，所有状态
-├── Registry        ── agent/workflow 注册、配置
-├── Scheduler       ── 决定 when（poll, cron, wake）
-├── Context         ── 决定 what（channel, inbox, document, proposal）
-├── ProcessManager  ── 决定 how（spawn, kill, monitor child processes）
-├── MCP Server      ── context tools，worker 连接
-└── HTTP Server     ── interface API，CLI/Web 连接
+├── Database        ── SQLite, all state
+├── Registry        ── agent/workflow registration, configuration
+├── Scheduler       ── decides when (poll, cron, wake)
+├── Context         ── decides what (channel, inbox, document, proposal)
+├── ProcessManager  ── decides how (spawn, kill, monitor child processes)
+├── MCP Server      ── context tools, worker connections
+└── HTTP Server     ── interface API, CLI/Web connections
 ```
 
 ### SQLite Schema
 
 ```sql
--- Daemon 自身
+-- Daemon self-state
 CREATE TABLE daemon_state (
   key   TEXT PRIMARY KEY,
   value TEXT
 );
 
--- Agent 注册
+-- Agent registration
 CREATE TABLE agents (
   name        TEXT PRIMARY KEY,
   model       TEXT NOT NULL,
@@ -137,7 +137,7 @@ CREATE TABLE agents (
   created_at  INTEGER NOT NULL
 );
 
--- Workflow 配置
+-- Workflow configuration
 CREATE TABLE workflows (
   name        TEXT NOT NULL,
   tag         TEXT NOT NULL,
@@ -147,21 +147,21 @@ CREATE TABLE workflows (
   PRIMARY KEY (name, tag)
 );
 
--- 消息（Channel + Inbox 统一存储）
+-- Messages (Channel + Inbox unified storage)
 CREATE TABLE messages (
   id          TEXT PRIMARY KEY,
   workflow    TEXT NOT NULL,
   tag         TEXT NOT NULL,
   sender      TEXT NOT NULL,     -- agent name or 'system'
   content     TEXT NOT NULL,
-  recipients  TEXT,              -- JSON array, @mention 写入时解析
+  recipients  TEXT,              -- JSON array, @mention parsed at write time
   kind        TEXT NOT NULL DEFAULT 'message',  -- message | system | tool_call
   metadata    TEXT,              -- JSON, tool_call data etc.
   created_at  INTEGER NOT NULL
 );
 CREATE INDEX idx_messages_workflow ON messages(workflow, tag, created_at);
 
--- Inbox 确认状态（per agent per workflow）
+-- Inbox acknowledgment state (per agent per workflow)
 CREATE TABLE inbox_ack (
   agent     TEXT NOT NULL,
   workflow  TEXT NOT NULL,
@@ -170,7 +170,7 @@ CREATE TABLE inbox_ack (
   PRIMARY KEY (agent, workflow, tag)
 );
 
--- 文档
+-- Documents
 CREATE TABLE documents (
   workflow  TEXT NOT NULL,
   tag       TEXT NOT NULL,
@@ -181,7 +181,7 @@ CREATE TABLE documents (
   PRIMARY KEY (workflow, tag, path)
 );
 
--- 资源（大内容）
+-- Resources (large content)
 CREATE TABLE resources (
   id          TEXT PRIMARY KEY,
   workflow    TEXT NOT NULL,
@@ -192,7 +192,7 @@ CREATE TABLE resources (
   created_at  INTEGER NOT NULL
 );
 
--- 提案
+-- Proposals
 CREATE TABLE proposals (
   id          TEXT PRIMARY KEY,
   workflow    TEXT NOT NULL,
@@ -219,7 +219,7 @@ CREATE TABLE votes (
   FOREIGN KEY (proposal_id) REFERENCES proposals(id)
 );
 
--- Worker 进程状态
+-- Worker process state
 CREATE TABLE workers (
   agent       TEXT NOT NULL,
   workflow    TEXT NOT NULL,
@@ -231,7 +231,7 @@ CREATE TABLE workers (
   PRIMARY KEY (agent, workflow, tag)
 );
 
--- 会话历史（可选，用于 agent 续接对话）
+-- Session history (optional, for agent conversation continuation)
 CREATE TABLE sessions (
   agent       TEXT NOT NULL,
   workflow    TEXT NOT NULL,
@@ -243,43 +243,43 @@ CREATE TABLE sessions (
 );
 ```
 
-### Daemon 启动流程
+### Daemon Startup Flow
 
 ```
 daemon start
   │
-  ├── 打开/创建 SQLite (WAL mode)
-  ├── 执行 schema migration（如果新库）
-  ├── 从 DB 恢复 agents + workflows
-  ├── 启动 HTTP server
-  ├── 启动 MCP server
-  ├── 写 daemon.json（pid, host, port）── Interface 用于发现
+  ├── Open/create SQLite (WAL mode)
+  ├── Execute schema migration (if new database)
+  ├── Restore agents + workflows from DB
+  ├── Start HTTP server
+  ├── Start MCP server
+  ├── Write daemon.json (pid, host, port) ── used by Interface for discovery
   │
-  ├── 恢复 running workflows：
+  ├── Restore running workflows:
   │   for each workflow where state = 'running':
   │     for each agent in workflow:
-  │       scheduler.resume(agent)  ── 恢复调度
+  │       scheduler.resume(agent)  ── resume scheduling
   │
   └── ready
 ```
 
-### Daemon 关闭流程
+### Daemon Shutdown Flow
 
 ```
 daemon shutdown (SIGINT/SIGTERM)
   │
-  ├── 停止所有 schedulers
-  ├── 通知所有 worker 子进程退出（SIGTERM → wait → SIGKILL）
-  ├── 更新 workers 表（state = 'dead'）
-  ├── 关闭 HTTP server
-  ├── 关闭 MCP server
-  ├── 关闭 SQLite
-  └── 删除 daemon.json
+  ├── Stop all schedulers
+  ├── Notify all worker child processes to exit (SIGTERM → wait → SIGKILL)
+  ├── Update workers table (state = 'dead')
+  ├── Close HTTP server
+  ├── Close MCP server
+  ├── Close SQLite
+  └── Delete daemon.json
 ```
 
 ### Scheduler
 
-每个 agent 一个调度实例。Scheduler 决定 **when**，ProcessManager 执行 **how**。
+One scheduler instance per agent. Scheduler decides **when**, ProcessManager executes **how**.
 
 ```
 Scheduler(agent)
@@ -287,91 +287,91 @@ Scheduler(agent)
   state: idle | waiting | triggered
   │
   ├── triggers:
-  │   ├── inbox_poll    ── 定期检查 inbox（默认 5s）
-  │   ├── cron          ── cron 表达式
-  │   ├── interval      ── 固定间隔
-  │   └── wake          ── 外部信号（@mention 写入时触发）
+  │   ├── inbox_poll    ── periodically check inbox (default 5s)
+  │   ├── cron          ── cron expression
+  │   ├── interval      ── fixed interval
+  │   └── wake          ── external signal (triggered on @mention write)
   │
   └── on trigger:
         │
-        ├── 查询 inbox：
+        ├── Query inbox:
         │   SELECT * FROM messages m
         │   LEFT JOIN inbox_ack a ON ...
         │   WHERE recipients LIKE '%"agent"%'
         │     AND (a.cursor IS NULL OR m.id > a.cursor)
         │
-        ├── 如果有消息 OR 是 cron/interval 触发：
+        ├── If messages exist OR cron/interval trigger:
         │   processManager.run(agent, context)
         │
-        └── 如果无消息且是 poll 触发：
-            sleep → 下一次 poll
+        └── If no messages and poll trigger:
+            sleep → next poll
 ```
 
 ### ProcessManager
 
-管理 worker 子进程的生命周期。
+Manages the lifecycle of worker child processes.
 
 ```
 processManager.run(agent)
   │
-  ├── 准备 worker 配置（只传身份和连接信息，不传 context 数据）：
+  ├── Prepare worker config (only pass identity and connection info, not context data):
   │   {
   │     agent: { name, model, backend, system },
   │     daemon_mcp_url: "http://localhost:<port>/mcp?agent=<name>",
-  │     worker_mcp_configs: [...],   ── agent 自持的 MCP server 配置
+  │     worker_mcp_configs: [...],   ── agent's own MCP server configs
   │   }
   │
-  │   ❌ 不传 inbox, channel, document
-  │   ✅ Worker 启动后通过 Daemon MCP 按需拉取：
+  │   ❌ Do not pass inbox, channel, document
+  │   ✅ Worker fetches on demand via Daemon MCP after startup:
   │      my_inbox() → channel_read() → team_doc_read()
   │
-  ├── spawn child process：
+  ├── Spawn child process:
   │   fork('worker-entry.ts', { env: { WORKER_CONFIG: JSON.stringify(config) } })
-  │   或
+  │   or
   │   spawn(['claude', '--mcp-config', ...])   ── CLI backend
   │
-  ├── 监听子进程：
-  │   on 'message' → IPC 通信（心跳、中间结果）
-  │   on 'exit'    → 处理结果
+  ├── Listen to child process:
+  │   on 'message' → IPC communication (heartbeat, intermediate results)
+  │   on 'exit'    → handle result
   │
-  ├── 超时保护：
-  │   setTimeout → 如果超时，SIGTERM → SIGKILL
+  ├── Timeout protection:
+  │   setTimeout → if timeout, SIGTERM → SIGKILL
   │
-  └── 完成后：
-      ├── 成功 → ack inbox, 写 response 到 channel
-      ├── 失败 → retry（exponential backoff, max 3）
-      └── 更新 workers 表
+  └── On completion:
+      ├── Success → ack inbox, write response to channel
+      ├── Failure → retry (exponential backoff, max 3)
+      └── Update workers table
 ```
 
-### @mention 写入时解析
+### @mention Parsing at Write Time
 
-`channel_send` 是消息写入的唯一入口。Daemon 负责解析 @mention。
+`channel_send` is the sole entry point for writing messages. Daemon is responsible for parsing @mentions.
 
 ```typescript
-// daemon 内部
+// daemon internal
 function channelSend(sender: string, content: string, workflow: string, tag: string) {
-  // 1. 解析 @mentions
+  // 1. Parse @mentions
   const recipients = parseMentions(content)  // ["reviewer", "all", ...]
 
-  // 2. 展开 @all
+  // 2. Expand @all
   if (recipients.includes('all')) {
     recipients = getAllAgents(workflow, tag)
   }
 
-  // 3. 长消息自动转 resource
+  // 3. Auto-convert long messages to resource
   let finalContent = content
   if (content.length > THRESHOLD) {
     const resourceId = createResource(content, sender, workflow, tag)
     finalContent = `[See resource: ${resourceId}]`
   }
 
-  // 4. 写入 messages 表
+  // 4. Write to messages table
   const id = nanoid()
   db.run(`INSERT INTO messages (id, workflow, tag, sender, content, recipients, created_at)
           VALUES (?, ?, ?, ?, ?, ?, ?)`,
     id, workflow, tag, sender, finalContent, JSON.stringify(recipients), Date.now())
 
-  // 5. 触发 wake（如果有 recipient 的 scheduler 在等）
+  // 5. Trigger wake (if any recipient's scheduler is waiting)
   for (const r of recipients) {
     scheduler.wake(r)
   }
@@ -380,10 +380,10 @@ function channelSend(sender: string, content: string, workflow: string, tag: str
 }
 ```
 
-### Inbox 查询
+### Inbox Query
 
 ```sql
--- 获取 agent 的未读消息
+-- Get agent's unread messages
 SELECT m.* FROM messages m
 LEFT JOIN inbox_ack a
   ON a.agent = ? AND a.workflow = m.workflow AND a.tag = m.tag
@@ -394,27 +394,27 @@ WHERE m.workflow = ? AND m.tag = ?
   ))
 ORDER BY m.created_at ASC;
 
--- Ack: 更新游标
+-- Ack: update cursor
 INSERT OR REPLACE INTO inbox_ack (agent, workflow, tag, cursor)
 VALUES (?, ?, ?, ?);
 ```
 
 ### Daemon MCP Server
 
-暴露给 worker 的 context tools。每个 worker 连接时通过 `?agent=<name>` 标识身份。
+Context tools exposed to workers. Each worker identifies itself via `?agent=<name>` when connecting.
 
 ```
-Tool handlers 全部是 thin wrapper over SQLite queries:
+Tool handlers are all thin wrappers over SQLite queries:
 
 channel_send(message, to?)
   → channelSend(agent, message, workflow, tag)
-  → 写入时解析 @mention
+  → parse @mention at write time
 
 channel_read(since?, limit?)
   → SELECT FROM messages WHERE workflow = ? AND tag = ? ...
 
 my_inbox()
-  → inbox query（上面的 SQL）
+  → inbox query (SQL above)
 
 my_inbox_ack(until)
   → INSERT OR REPLACE INTO inbox_ack ...
@@ -423,19 +423,19 @@ team_doc_read(file?)
   → SELECT content FROM documents WHERE path = ? ...
 
 team_doc_write(content, file?)
-  → 检查 ownership → UPDATE documents SET content = ? ...
+  → check ownership → UPDATE documents SET content = ? ...
 
 team_proposal_create(...)
   → INSERT INTO proposals ...
 
 team_vote(proposal, choice, reason?)
   → INSERT INTO votes ...
-  → 检查 quorum → 如果达到，resolve proposal
+  → check quorum → if reached, resolve proposal
 ```
 
 ### Daemon HTTP API
 
-给 Interface 层用。和 MCP server 是两个入口，同一个数据源。
+For the Interface layer. Separate entry point from MCP server, same data source.
 
 ```
 GET  /health                → { pid, uptime, agents, workflows }
@@ -461,33 +461,33 @@ ALL  /mcp                   → Daemon MCP endpoint
 
 ---
 
-## Part 2: Worker（执行单元）
+## Part 2: Worker (Execution Unit)
 
-Child process。接收配置，执行 LLM 对话，返回结果。不知道调度，不知道生命周期。
+Child process. Receives config, executes LLM conversation, returns result. Knows nothing about scheduling or lifecycle.
 
-### Worker 入口
+### Worker Entry Point
 
 ```typescript
-// worker-entry.ts — 子进程入口
-// 由 daemon processManager fork/spawn
+// worker-entry.ts — child process entry point
+// Forked/spawned by daemon processManager
 
 const config = JSON.parse(process.env.WORKER_CONFIG)
 // config = { agent: { name, model, backend, system }, daemon_mcp_url, worker_mcp_configs }
-// ❌ config 不含 inbox/channel/document — context 全部通过 MCP 按需拉取
+// ❌ config does not contain inbox/channel/document — all context fetched on demand via MCP
 
-// 1. 连接 Daemon MCP（获取 context tools）
+// 1. Connect to Daemon MCP (get context tools)
 const daemonMCP = await connectDaemonMCP(config.daemon_mcp_url)
 
-// 2. 连接 Worker MCP（自持 task tools，如果有）
+// 2. Connect to Worker MCP (own task tools, if any)
 const workerTools = await connectWorkerMCPs(config.worker_mcp_configs)
 
-// 3. 通过 Daemon MCP 拉取 context，构建 prompt
+// 3. Fetch context via Daemon MCP, build prompt
 const inbox    = await daemonMCP.call('my_inbox')
 const channel  = await daemonMCP.call('channel_read', { limit: 50 })
 const document = await daemonMCP.call('team_doc_read')
 const prompt   = buildPrompt({ ...config, inbox, channel, document })
 
-// 4. 执行 LLM 会话（LLM 运行中也可随时调用 MCP tools）
+// 4. Execute LLM session (LLM can also call MCP tools at any time during execution)
 const result = await runSession({
   model: config.agent.model,
   backend: config.agent.backend,
@@ -496,45 +496,45 @@ const result = await runSession({
   tools: { ...daemonMCP.tools, ...workerTools },
 })
 
-// 5. 返回结果（IPC 或 stdout）
+// 5. Return result (IPC or stdout)
 process.send?.({ type: 'result', data: result })
 process.exit(0)
 ```
 
-### Backend 适配
+### Backend Adaptation
 
-Worker 内部根据 backend 类型选择执行方式：
+Worker internally selects execution method based on backend type:
 
 ```
 backend = 'default' (SDK)
   → Vercel AI SDK generateText() + tool loop
-  → 直接用 daemonTools + workerTools
+  → directly uses daemonTools + workerTools
 
 backend = 'claude'
   → spawn claude CLI as sub-subprocess
-  → --mcp-config 指向 daemon MCP
-  → 本身就是 subprocess 的 subprocess
+  → --mcp-config points to daemon MCP
+  → itself is a subprocess of a subprocess
 
 backend = 'codex' | 'cursor'
-  → 类似 claude，spawn 对应 CLI
+  → similar to claude, spawn corresponding CLI
 
 backend = 'mock'
-  → 脚本化响应，用于测试
+  → scripted responses, for testing
 ```
 
-对于 CLI backend（claude/codex/cursor），worker-entry.ts 本身就是一个 thin wrapper：准备好 MCP 配置文件，spawn CLI 进程，等待完成。
+For CLI backends (claude/codex/cursor), worker-entry.ts is itself a thin wrapper: prepares the MCP config file, spawns the CLI process, waits for completion.
 
-### Worker ↔ Daemon 通信
+### Worker ↔ Daemon Communication
 
 ```
                      ┌──────────────────────────┐
                      │        Daemon             │
                      │                           │
            IPC ◄─────┤  ProcessManager           │
-         (控制)       │      │                    │
+       (control)     │      │                    │
                      │      │                    │
            HTTP ─────┤  MCP Server               │
-         (数据)       │                           │
+        (data)       │                           │
                      └──────────────────────────┘
                               ▲
                               │
@@ -545,29 +545,29 @@ backend = 'mock'
                      │  MCP: channel_send, etc.  │
                      └──────────────────────────┘
 
-控制通道（IPC / stdio）：
+Control channel (IPC / stdio):
   daemon → worker: start config
   worker → daemon: heartbeat, result, error
   daemon → worker: stop signal (SIGTERM)
 
-数据通道（MCP over HTTP）：
+Data channel (MCP over HTTP):
   worker → daemon: channel_send, my_inbox, team_doc_read, ...
-  标准 MCP 协议，和 in-process 时接口完全一致
+  Standard MCP protocol, interface identical to in-process
 ```
 
-### Prompt 构建
+### Prompt Building
 
-Worker 启动后通过 Daemon MCP 拉取 context，然后本地构建 prompt。Daemon 不碰 prompt。
+After startup, the worker fetches context via Daemon MCP, then builds the prompt locally. Daemon does not touch the prompt.
 
 ```
-Worker 启动流程：
-  1. connectDaemonMCP(url)     ── 建立连接
-  2. my_inbox()                ── 拉取未读消息
-  3. channel_read(limit: 50)   ── 拉取最近消息
-  4. team_doc_read()           ── 拉取文档
-  5. buildPrompt(...)          ── 本地组装
+Worker startup flow:
+  1. connectDaemonMCP(url)     ── establish connection
+  2. my_inbox()                ── fetch unread messages
+  3. channel_read(limit: 50)   ── fetch recent messages
+  4. team_doc_read()           ── fetch documents
+  5. buildPrompt(...)          ── assemble locally
 
-Prompt 结构：
+Prompt structure:
 
 ## Your Identity
 {system_prompt}
@@ -585,28 +585,28 @@ Prompt 结构：
 Process your inbox messages. Use MCP tools to collaborate with your team.
 ```
 
-Prompt 构建是 worker 的职责——daemon 只提供原始数据（inbox, channel, document），worker 决定如何呈现给 LLM。
+Prompt building is the worker's responsibility — daemon only provides raw data (inbox, channel, document), worker decides how to present it to the LLM.
 
 ---
 
-## Part 3: Interface（接口层）
+## Part 3: Interface (Interface Layer)
 
-无状态。纯协议转换。跟着 Daemon HTTP API 走。
+Stateless. Pure protocol translation. Follows the Daemon HTTP API.
 
-### CLI 实现
+### CLI Implementation
 
 ```
 CLI
-├── 发现 daemon（读 daemon.json → 检查 pid 存活 → 获取 host:port）
-├── 如果 daemon 不在 → 自动启动
-├── 发送 HTTP 请求 → 收到响应 → 格式化输出
-└── 不持有任何状态
+├── Discover daemon (read daemon.json → check pid alive → get host:port)
+├── If daemon not running → auto-start
+├── Send HTTP request → receive response → format output
+└── Holds no state
 ```
 
-每个命令 = 一个 HTTP 调用：
+Each command = one HTTP call:
 
 ```typescript
-// 所有命令都是 thin HTTP wrappers
+// All commands are thin HTTP wrappers
 const commands = {
   'new':      (args) => POST('/agents', { name, model, ... }),
   'list':     ()     => GET('/agents'),
@@ -618,7 +618,7 @@ const commands = {
 }
 ```
 
-SSE 流式输出：
+SSE streaming output:
 
 ```
 POST /run → SSE stream
@@ -628,12 +628,12 @@ POST /run → SSE stream
   event: done    data: {"usage": {...}}
 ```
 
-### Interface 不做什么
+### What Interface Does NOT Do
 
-- 不解析 workflow YAML（daemon 做）
-- 不管 agent 状态（daemon 管）
-- 不构建 prompt（worker 做）
-- 不缓存任何东西
+- Does not parse workflow YAML (daemon does)
+- Does not manage agent state (daemon manages)
+- Does not build prompts (worker does)
+- Does not cache anything
 
 ---
 
@@ -688,7 +688,7 @@ src/
     └── constants.ts               # Tool names, defaults
 ```
 
-### 依赖规则
+### Dependency Rules
 
 ```
 interface/ ── HTTP ──► daemon/
@@ -706,7 +706,7 @@ worker/ imports shared/ only
 daemon/ imports shared/ + workflow/
 interface/ imports shared/ only (+ HTTP client)
 
-禁止：
+Forbidden:
   interface/ ──✗──► daemon/ (direct import)
   worker/ ──✗──► daemon/ (direct import)
   daemon/ ──✗──► interface/
@@ -718,80 +718,80 @@ interface/ imports shared/ only (+ HTTP client)
 
 ### Step 1: Daemon Core
 
-先把内核跑起来。能启动、能关闭、能存数据。
+Get the kernel running first. Can start, can shut down, can persist data.
 
 ```
 daemon/db.ts          ── SQLite schema + migration
 daemon/index.ts       ── start/shutdown lifecycle
 daemon/registry.ts    ── agent/workflow CRUD (DB operations)
-daemon/http.ts        ── 最小 HTTP API（/health, /agents CRUD）
+daemon/http.ts        ── minimal HTTP API (/health, /agents CRUD)
 shared/types.ts       ── core types
 ```
 
-验证：daemon 启动 → SQLite 创建 → HTTP 可用 → 注册 agent → 关闭 → 重启 → agent 还在。
+Verification: daemon starts → SQLite created → HTTP available → register agent → shut down → restart → agent still there.
 
-### Step 2: Context（Channel + Inbox）
+### Step 2: Context (Channel + Inbox)
 
-消息系统。结构化写入，索引查询。
+Messaging system. Structured writes, indexed queries.
 
 ```
 daemon/context.ts     ── channelSend, channelRead, inboxQuery, inboxAck
 daemon/mcp.ts         ── channel_send, channel_read, my_inbox, my_inbox_ack tools
 ```
 
-验证：通过 MCP tool 发消息 → @mention 自动解析 → inbox 查询返回未读 → ack 后消失。
+Verification: send message via MCP tool → @mention auto-parsed → inbox query returns unread → disappears after ack.
 
 ### Step 3: Worker Subprocess
 
-能 spawn worker，能跑 LLM 对话，能连回 daemon MCP。
+Can spawn worker, can run LLM conversation, can connect back to daemon MCP.
 
 ```
-worker/entry.ts       ── subprocess 入口
-worker/session.ts     ── LLM 工具循环
-worker/mcp-client.ts  ── 连接 daemon MCP
+worker/entry.ts       ── subprocess entry point
+worker/session.ts     ── LLM tool loop
+worker/mcp-client.ts  ── connect to daemon MCP
 worker/backends/sdk.ts ── AI SDK backend
-worker/prompt.ts      ── prompt 构建
+worker/prompt.ts      ── prompt building
 daemon/process-manager.ts  ── spawn/kill/monitor
 ```
 
-验证：daemon spawn worker → worker 连接 daemon MCP → 调用 channel_send → daemon 收到消息 → worker 退出。
+Verification: daemon spawns worker → worker connects to daemon MCP → calls channel_send → daemon receives message → worker exits.
 
 ### Step 4: Scheduler
 
-把 step 2 + step 3 串起来。Inbox 有消息 → 触发 worker → worker 处理 → ack。
+Connect step 2 + step 3 together. Inbox has messages → trigger worker → worker processes → ack.
 
 ```
 daemon/scheduler.ts   ── poll/cron/wake
 ```
 
-验证：发消息 @mention agent → scheduler 检测到 → spawn worker → worker 响应 → channel 有回复。
+Verification: send message @mentioning agent → scheduler detects → spawns worker → worker responds → channel has reply.
 
 ### Step 5: Interface CLI
 
-用户能用了。
+Users can use it now.
 
 ```
-interface/            ── 全部
-workflow/             ── YAML 解析
+interface/            ── everything
+workflow/             ── YAML parsing
 ```
 
-验证：完整 workflow 从 CLI 启动到完成。
+Verification: complete workflow from CLI start to finish.
 
-### Step 6: 补全
+### Step 6: Complete Remaining Features
 
 ```
-daemon/context.ts     ── document, proposal, resource 操作
-daemon/mcp.ts         ── 对应的 MCP tools
+daemon/context.ts     ── document, proposal, resource operations
+daemon/mcp.ts         ── corresponding MCP tools
 worker/backends/      ── claude-cli, codex-cli, cursor-cli, mock
 ```
 
 ---
 
-## Design Principles（重写时的指导）
+## Design Principles (Guidance for the Rewrite)
 
-1. **SQLite 是 single source of truth**。不要在内存中维护第二份状态。需要数据就查 DB。
-2. **Worker 是短命的**。每次调用 spawn → 执行 → 退出。不要让 worker 常驻（除非未来有明确需求）。
-3. **Daemon 不碰 prompt**。它提供原始数据（inbox, channel, document），worker 决定如何呈现给 LLM。
-4. **接口层是 1:1 映射**。每个 CLI 命令 = 一个 HTTP 调用。不要在 interface 层加逻辑。
-5. **先跑通最小回路，再加功能**。Step 1-4 完成后应该能跑完一个完整的消息-响应循环。
-6. **保持表结构稳定**。schema 一旦定，加列可以，改列语义不行。设计好了再建表。
+1. **SQLite is the single source of truth**. Do not maintain a second copy of state in memory. Need data? Query the DB.
+2. **Workers are short-lived**. Each invocation: spawn → execute → exit. Do not keep workers persistent (unless a clear future need arises).
+3. **Daemon does not touch the prompt**. It provides raw data (inbox, channel, document); the worker decides how to present it to the LLM.
+4. **Interface layer is a 1:1 mapping**. Each CLI command = one HTTP call. Do not add logic in the interface layer.
+5. **Get the minimal loop working first, then add features**. After steps 1-4, you should be able to run a complete message-response cycle.
+6. **Keep the table schema stable**. Once the schema is defined, adding columns is fine, but changing column semantics is not. Design well before creating tables.

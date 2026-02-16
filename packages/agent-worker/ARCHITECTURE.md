@@ -6,7 +6,7 @@ agent-worker is a multi-agent collaboration system built on three layers: **Inte
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  Interface（接口层）                              │
+│  Interface (Protocol Layer)                      │
 │                                                  │
 │  CLI / Web UI / External MCP clients             │
 │  Stateless. Pure protocol translation.           │
@@ -14,7 +14,7 @@ agent-worker is a multi-agent collaboration system built on three layers: **Inte
                │ Daemon Protocol (HTTP / MCP)
                ▼
 ┌──────────────────────────────────────────────────┐
-│  Daemon（内核层）                                 │
+│  Daemon (Kernel Layer)                           │
 │                                                  │
 │  Registry / Scheduler / Context / StateStore     │
 │  Single process. Single source of truth.         │
@@ -25,7 +25,7 @@ agent-worker is a multi-agent collaboration system built on three layers: **Inte
                │ (system_prompt, daemon_mcp_url, worker_mcp_configs)
                ▼
 ┌──────────────────────────────────────────────────┐
-│  Worker（工人层）                                  │
+│  Worker (Execution Layer)                         │
 │                                                  │
 │  LLM communication / Tool Loop / Streaming       │
 │  Pure execution: f(prompt, tools) → result       │
@@ -133,13 +133,13 @@ Daemon
 The daemon hosts an MCP server (Daemon MCP). Workers connect to it for collaboration capabilities. Workers also have their own MCP connections (Worker MCP) for task-specific tools.
 
 ```
-Daemon MCP（内核 API）
+Daemon MCP (Kernel API)
   Daemon holds. Exposes to workers and external clients.
   Provides: context tools (channel_send, inbox_read, document_write, ...)
   Provides: management tools (for external interface clients)
   Analogy: syscall interface
 
-Worker MCP（自持工具）
+Worker MCP (Self-held Tools)
   Worker holds/connects independently.
   Loads: task tools (bash, file ops, custom MCP servers)
   Source: agent config declarations
@@ -212,7 +212,7 @@ interface Message {
 Inbox becomes a database query, not text scanning:
 
 ```
-channel_send("@reviewer 代码有问题")
+channel_send("@reviewer this code has issues")
   → daemon parses recipients: ["reviewer"]
   → INSERT INTO messages (sender, recipients, content, ...)
 

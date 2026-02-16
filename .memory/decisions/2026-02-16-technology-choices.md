@@ -9,128 +9,128 @@ created: 2026-02-16
 
 ## Context
 
-三级结构（Interface → Daemon → Worker）确定后，需要为几个关键子系统选择具体技术方案。
+After establishing the three-tier architecture (Interface → Daemon → Worker), specific technology choices are needed for several key subsystems.
 
-当前实现：
-- **Context 存储**：文件系统（channel.md 追加写入 + inbox-state.json 已读状态 + documents/ 目录）
-- **消息 @mention**：读取时正则解析
-- **Daemon 状态**：内存中，重启丢失（daemon.json 只存 pid/host/port）
-- **Worker 进程模型**：in-process（LocalWorker 在 daemon 进程内执行）
+Current implementation:
+- **Context storage**: filesystem (channel.md append-write + inbox-state.json read state + documents/ directory)
+- **Message @mention**: regex parsing at read time
+- **Daemon state**: in-memory, lost on restart (daemon.json only stores pid/host/port)
+- **Worker process model**: in-process (LocalWorker executes within daemon process)
 
-灵感来源：
-- **NanoClaw**: "One LLM. One database. One machine." — SQLite 作为唯一存储后端，所有状态一个文件
-- **nanobot**: BaseChannel 抽象 + 多存储后端，ContextProvider 接口已在代码中
+Inspiration:
+- **NanoClaw**: "One LLM. One database. One machine." — SQLite as the sole storage backend, all state in one file
+- **nanobot**: BaseChannel abstraction + multiple storage backends, ContextProvider interface already in the code
 
 ## Decisions
 
-### 1. Context 存储：SQLite（`bun:sqlite`）
+### 1. Context Storage: SQLite (`bun:sqlite`)
 
-**选择**：用 SQLite 替代文件系统作为 context 的生产存储后端。
+**Choice**: Replace filesystem with SQLite as the production storage backend for context.
 
-**理由**：
+**Rationale**:
 
-| 维度 | File | SQLite |
-|------|------|--------|
-| 并发安全 | 无保证（两个 worker 同时 channel_send 可能丢消息） | WAL 模式，ACID 保证 |
-| Inbox 查询 | 全文扫描 channel.md + 解析 @mention + 比对 inbox-state.json | `SELECT * FROM messages WHERE recipient = ? AND ack = false` |
-| Proposal/投票 | JSON 文件 | 关系表，天然适合 |
-| 人可读 | channel.md 可直接看 | 需要工具查看 |
-| 备份 | 复制目录 | 复制单文件 |
+| Dimension | File | SQLite |
+|-----------|------|--------|
+| Concurrency safety | No guarantees (two workers calling channel_send simultaneously may lose messages) | WAL mode, ACID guarantees |
+| Inbox query | Full-text scan of channel.md + parse @mention + compare inbox-state.json | `SELECT * FROM messages WHERE recipient = ? AND ack = false` |
+| Proposal/voting | JSON file | Relational tables, naturally suited |
+| Human readable | channel.md can be read directly | Requires tooling to view |
+| Backup | Copy directory | Copy single file |
 
-**人可读性的损失可接受**：在三级结构下，worker 通过 Daemon MCP 访问 context，不直接读文件。用户通过 CLI（Interface 层）查看。两者都不依赖文件格式。
+**Loss of human readability is acceptable**: Under the three-tier architecture, workers access context via Daemon MCP, not by reading files directly. Users view via CLI (Interface layer). Neither depends on file format.
 
-**接口不变**：`ContextProvider` 接口保持不变，新增 `SqliteContextProvider` 实现。`MemoryContextProvider` 保留用于测试。`FileContextProvider` 可保留但降为备选。
+**Interface unchanged**: `ContextProvider` interface remains unchanged; add new `SqliteContextProvider` implementation. `MemoryContextProvider` retained for testing. `FileContextProvider` can be retained but demoted to fallback.
 
-### 2. 消息 @mention：写入时解析
+### 2. Message @mention: Parse at Write Time
 
-**选择**：`channel_send` 时由 daemon 解析 @mention，写入结构化数据。
+**Choice**: Daemon parses @mentions at `channel_send` time, writing structured data.
 
-**理由**：
+**Rationale**:
 
 ```
-当前（读取时解析）：
-  channel_send("@reviewer 代码有问题") → 追加到 channel.md
-  inbox_check("reviewer") → 读全文 → 正则匹配 @reviewer → 过滤已读
+Current (parse at read time):
+  channel_send("@reviewer there's a code issue") → append to channel.md
+  inbox_check("reviewer") → read full text → regex match @reviewer → filter read
 
-目标（写入时解析）：
-  channel_send("@reviewer 代码有问题")
-    → daemon 解析出 recipients: ["reviewer"]
-    → 写入 messages 表：{ sender, recipients, content, timestamp }
+Target (parse at write time):
+  channel_send("@reviewer there's a code issue")
+    → daemon parses out recipients: ["reviewer"]
+    → writes to messages table: { sender, recipients, content, timestamp }
   inbox_check("reviewer")
     → SELECT FROM messages m LEFT JOIN inbox_ack a ON ...
       WHERE recipients LIKE '%"reviewer"%' AND (a.cursor IS NULL OR m.id > a.cursor)
 ```
 
-**写入时解析意味着**：
-- Inbox 查询变成数据库操作，不是文本处理
-- 消息结构化，元数据（发送者、时间、接收者）与内容分离
-- @mention 规则在一个地方定义（daemon），不是每个读取者各自解析
+**Parsing at write time means**:
+- Inbox queries become database operations, not text processing
+- Messages are structured; metadata (sender, timestamp, recipients) separated from content
+- @mention rules defined in one place (daemon), not each reader parsing independently
 
-### 3. Daemon 状态持久化：SQLite
+### 3. Daemon State Persistence: SQLite
 
-**选择**：Daemon 的所有状态持久化到 SQLite，支持 crash-recovery。
+**Choice**: Persist all daemon state to SQLite, supporting crash-recovery.
 
-**数据库 schema 方向**：
+**Database schema direction**:
 
 ```
 agent-worker.db
-├── agents          # Registry（agent configs）
+├── agents          # Registry (agent configs)
 ├── workflows       # Workflow configs + state
-├── messages        # Channel + inbox（结构化消息）
-├── documents       # Document metadata（内容可能仍在文件系统）
+├── messages        # Channel + inbox (structured messages)
+├── documents       # Document metadata (content may still be on filesystem)
 ├── proposals       # Proposal + voting state
-└── daemon_state    # Daemon 自身状态（uptime, etc.）
+└── daemon_state    # Daemon self-state (uptime, etc.)
 ```
 
-**daemon.json 仍然保留**：用于 CLI 发现 daemon 进程（pid/host/port）。这是 Interface 层的发现机制，不是状态持久化。
+**daemon.json is still retained**: Used by CLI to discover the daemon process (pid/host/port). This is the Interface layer's discovery mechanism, not state persistence.
 
-**crash-recovery 语义**：daemon 重启后从 SQLite 恢复 agent registry、workflow 状态、未完成的消息。Worker 作为子进程会随 daemon 一起终止，重启后由 daemon 重新调度。
+**crash-recovery semantics**: After daemon restart, agent registry, workflow state, and pending messages are recovered from SQLite. Workers as child processes terminate with the daemon; after restart, the daemon reschedules them.
 
-### 4. Worker 进程模型：Child Process（非 Worker Threads）
+### 4. Worker Process Model: Child Process (Not Worker Threads)
 
-**选择**：Worker 作为独立子进程运行（`child_process.fork()` / `Bun.spawn()`），不使用 Worker Threads。
+**Choice**: Workers run as independent child processes (`child_process.fork()` / `Bun.spawn()`), not Worker Threads.
 
-**对比**：
+**Comparison**:
 
 ```
 Worker Threads (Bun.Worker / worker_threads)
-├── 共享进程内存空间
-├── 一个 worker OOM/crash → 整个进程可能挂
-├── 设计目的：CPU 密集型并行计算
-└── 不是隔离
+├── Shared process memory space
+├── One worker OOM/crash → entire process may go down
+├── Designed for: CPU-intensive parallel computation
+└── Not isolation
 
 Child Process (Bun.spawn / child_process.fork)
-├── 独立进程，独立内存空间
-├── worker crash → daemon 收到 exit event，无影响
-├── 可以 spawn 不同运行时（claude CLI, codex, 任意可执行文件）
-└── 真正的进程隔离
+├── Independent process, independent memory space
+├── Worker crash → daemon receives exit event, unaffected
+├── Can spawn different runtimes (claude CLI, codex, any executable)
+└── True process isolation
 ```
 
-**通信模型（两条路）**：
+**Communication model (two paths)**:
 
 ```
-控制通道（daemon → worker）：
-  IPC / stdio — 启动参数、停止信号、心跳
-  daemon 单向控制 worker 生命周期
+Control channel (daemon → worker):
+  IPC / stdio — startup parameters, stop signals, heartbeat
+  Daemon unilaterally controls worker lifecycle
 
-数据通道（worker → daemon）：
-  MCP over HTTP — worker 调用 channel_send、inbox_check 等
-  worker 主动连接 daemon 的 MCP server
-  接口与 in-process 完全一致，只是传输层变了
+Data channel (worker → daemon):
+  MCP over HTTP — worker calls channel_send, inbox_check, etc.
+  Worker actively connects to daemon's MCP server
+  Interface identical to in-process, only transport layer changes
 ```
 
-**Worker 不需要知道自己的进程模型**：它只知道"我有一个 MCP server URL 可以访问 context"。`WorkerBackend` 接口不变，新增 `SubprocessWorkerBackend` 实现。`LocalWorker`（in-process）保留用于开发/测试。
+**Worker does not need to know its process model**: It only knows "I have an MCP server URL to access context". `WorkerBackend` interface unchanged; add new `SubprocessWorkerBackend` implementation. `LocalWorker` (in-process) retained for development/testing.
 
 ## Consequences
 
-1. **新增 `SqliteContextProvider`**：实现 `ContextProvider` 接口，用 `bun:sqlite`。这是最大的实现工作量。
-2. **消息模型变更**：`ChannelMessage` 从 markdown 字符串变为结构化对象（sender, recipients, content, timestamp, ack）。影响 context 的 type 定义和 MCP tool handlers。
-3. **新增 `SubprocessWorkerBackend`**：`fork()` 子进程 + IPC 通信。需要 worker-entry.ts 入口文件。
-4. **Schema migration**：未来 schema 变更需要迁移策略。SQLite 初始版本需要设计好表结构。
-5. **测试策略**：`MemoryContextProvider` 继续用于单元测试。集成测试用 `SqliteContextProvider` + 临时数据库。
+1. **Add `SqliteContextProvider`**: Implements the `ContextProvider` interface using `bun:sqlite`. This is the largest implementation effort.
+2. **Message model change**: `ChannelMessage` changes from markdown string to structured object (sender, recipients, content, timestamp, ack). Affects context type definitions and MCP tool handlers.
+3. **Add `SubprocessWorkerBackend`**: `fork()` child process + IPC communication. Requires worker-entry.ts entry file.
+4. **Schema migration**: Future schema changes require a migration strategy. The initial SQLite version must have a well-designed table structure.
+5. **Testing strategy**: `MemoryContextProvider` continues for unit tests. Integration tests use `SqliteContextProvider` + temporary database.
 
 ## Related
 
-- [Three-Tier Architecture](./2026-02-16-three-tier-architecture.md) — 架构决策（前置）
-- [ARCHITECTURE.md](../../packages/agent-worker/ARCHITECTURE.md) — 主架构文档
-- [workflow/DESIGN.md](../../packages/agent-worker/docs/workflow/DESIGN.md) — 工作流设计
+- [Three-Tier Architecture](./2026-02-16-three-tier-architecture.md) — architecture decision (prerequisite)
+- [ARCHITECTURE.md](../../packages/agent-worker/ARCHITECTURE.md) — main architecture document
+- [workflow/DESIGN.md](../../packages/agent-worker/docs/workflow/DESIGN.md) — workflow design
