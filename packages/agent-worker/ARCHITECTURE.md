@@ -165,25 +165,28 @@ Context provides the collaboration substrate within a workflow. Each workflow ha
 | **Resources** | Content-addressed large content storage |
 | **Proposals** | Voting system for collaborative decisions |
 
-Context is backend-agnostic via `ContextProvider` interface:
+Two storage subsystems with different concerns:
 
-| Provider | Use |
-|----------|-----|
-| **SqliteContextProvider** | Production — `bun:sqlite`, single file per workflow, ACID, WAL mode |
-| **MemoryContextProvider** | Testing — in-memory, no persistence |
-| **FileContextProvider** | Legacy — markdown + JSON files, retained as fallback |
-
-All state in one database file:
+**System state** (SQLite — `bun:sqlite`, ACID, WAL mode):
 
 ```
 agent-worker.db
 ├── agents          # Registry (agent configs)
 ├── workflows       # Workflow configs + state
 ├── messages        # Channel + inbox (structured messages)
-├── documents       # Document metadata (content may remain on filesystem)
 ├── proposals       # Proposal + voting state
+├── resources       # Content-addressed large content
 └── daemon_state    # Daemon self-state (uptime, etc.)
 ```
+
+**Documents** (pluggable `DocumentProvider`, independent from SQLite):
+
+| Provider | Storage | Default |
+|----------|---------|---------|
+| **FileDocumentProvider** | `.workflow/<wf>/<tag>/documents/` | Yes — human-readable, editable, git-friendly |
+| **SqliteDocumentProvider** | `documents` table in SQLite | No — optional, for ephemeral workflows |
+
+Documents are user-facing workspace content (findings, goals, decisions). They benefit from being real files on disk. Messages, proposals, and inbox state are internal system state that needs ACID — these always live in SQLite.
 
 ### Message Model
 

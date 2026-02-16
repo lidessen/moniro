@@ -128,25 +128,28 @@ Agents interact with three complementary context layers:
 
 ## Storage
 
-All workflow state lives in a single SQLite database (`bun:sqlite`), managed by the daemon. Workers access storage only through Daemon MCP tools — never directly.
+Two storage subsystems with different concerns. Workers access both only through Daemon MCP tools — never directly.
 
-### Database Schema (direction)
+### System State (SQLite)
+
+Messages, proposals, agents, workflows — internal system state that needs ACID. Lives in a single SQLite database (`bun:sqlite`).
 
 ```
 agent-worker.db
 ├── messages        # Channel + inbox (structured, @mention pre-parsed)
 │   ├── id, sender, recipients[], content, timestamp
-│   ├── workflow, tag
-│   └── ack (per-recipient acknowledgment state)
+│   └── workflow, tag
 │
-├── documents       # Document metadata
-│   ├── path, owner, workflow, tag
-│   └── content (or filesystem reference for large files)
+├── inbox_ack       # Per-agent read cursor (separate from messages)
+│   └── agent, workflow, tag, cursor
 │
 ├── proposals       # Proposal + voting state
 │   ├── id, type, status, creator
 │   ├── options[], votes[], quorum
 │   └── resolved_at, result
+│
+├── resources       # Content-addressed large content
+│   └── id, workflow, tag, content, type, created_by
 │
 ├── agents          # Registry
 │   ├── name, model, backend, system_prompt
@@ -159,20 +162,37 @@ agent-worker.db
     └── pid, host, port, started_at, uptime
 ```
 
-### Why SQLite?
+### Documents (Pluggable Provider)
+
+Documents are user-facing workspace content (findings, goals, decisions). They have a separate `DocumentProvider` interface, independent from SQLite:
+
+| Provider | Storage | Default |
+|----------|---------|---------|
+| **FileDocumentProvider** | `.workflow/<wf>/<tag>/documents/` | Yes — human-readable, editable by IDE, git-friendly |
+| **SqliteDocumentProvider** | `documents` table in SQLite | No — optional, for ephemeral workflows |
+
+```yaml
+# Default: documents on filesystem (no config needed)
+context:
+  documents: file
+
+# All-in-one: documents in SQLite
+context:
+  documents: sqlite
+```
+
+**Why separate?** Messages need ACID guarantees for concurrent writes. Documents need to be inspectable and editable by humans and tools outside the system. Different concerns, different storage.
+
+### Why SQLite for System State?
 
 - **ACID** — Two workers calling `channel_send` simultaneously is safe (WAL mode)
-- **Indexed inbox** — `SELECT * FROM messages WHERE "reviewer" IN recipients AND NOT ack` instead of full-text scan
-- **Single file** — All state in one file, easy backup/restore, crash-recovery
+- **Indexed inbox** — `SELECT ... WHERE recipients LIKE '%"reviewer"%' AND cursor > ...` instead of full-text scan
+- **Single file** — Easy backup/restore, crash-recovery
 - **No external deps** — `bun:sqlite` is built-in
-
-### Documents on Filesystem
-
-Document content may remain on filesystem for large files, with metadata (path, owner, timestamps) in SQLite. Small documents can be stored inline. The exact boundary is an implementation detail.
 
 ### Legacy File Layout
 
-The previous file-based layout is retained for reference and as fallback (`FileContextProvider`):
+The previous file-based layout is retained for reference and as fallback:
 
 ```
 .workflow/<workflow>/<tag>/
@@ -182,11 +202,6 @@ The previous file-based layout is retained for reference and as fallback (`FileC
 ├── channel.md              # Channel: communication log
 └── documents/              # Document: user workspace
 ```
-
-Example paths:
-- `.workflow/global/main/` - standalone agents (default)
-- `.workflow/review/main/` - review workflow, main tag
-- `.workflow/review/pr-123/` - review workflow, pr-123 tag
 
 ---
 

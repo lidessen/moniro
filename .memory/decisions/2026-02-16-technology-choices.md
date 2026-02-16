@@ -73,14 +73,20 @@ Target (parse at write time):
 **Database schema direction**:
 
 ```
-agent-worker.db
+agent-worker.db (system state — always SQLite)
 ├── agents          # Registry (agent configs)
 ├── workflows       # Workflow configs + state
 ├── messages        # Channel + inbox (structured messages)
-├── documents       # Document metadata (content may still be on filesystem)
 ├── proposals       # Proposal + voting state
+├── resources       # Content-addressed large content
 └── daemon_state    # Daemon self-state (uptime, etc.)
+
+documents/ (user-facing — pluggable DocumentProvider)
+├── FileDocumentProvider    # Default: .workflow/<wf>/<tag>/documents/
+└── SqliteDocumentProvider  # Optional: documents table in SQLite
 ```
+
+**Documents are independent from SQLite**: Documents are user-facing workspace content (findings, goals, decisions) — they benefit from being real files on disk (human-readable, editable by IDE, git-friendly). System state (messages, proposals, inbox) needs ACID — that stays in SQLite. Different concerns, different storage, pluggable provider.
 
 **daemon.json is still retained**: Used by CLI to discover the daemon process (pid/host/port). This is the Interface layer's discovery mechanism, not state persistence.
 

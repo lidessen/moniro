@@ -105,12 +105,13 @@ Single process, single SQLite file, the sole authority for all state.
 
 ```
 Daemon
-├── Database        ── SQLite, all state
+├── Database        ── SQLite, system state (messages, proposals, agents, workflows)
 ├── Registry        ── agent/workflow registration, configuration
 ├── Scheduler       ── decides when (poll, cron, wake)
-├── Context         ── decides what (channel, inbox, document, proposal)
+├── Context         ── decides what (channel, inbox, proposal)
+├── Documents       ── pluggable provider (file or sqlite)
 ├── ProcessManager  ── decides how (spawn, kill, monitor child processes)
-├── MCP Server      ── context tools, worker connections
+├── MCP Server      ── context + document tools, worker connections
 └── HTTP Server     ── interface API, CLI/Web connections
 ```
 
@@ -170,16 +171,8 @@ CREATE TABLE inbox_ack (
   PRIMARY KEY (agent, workflow, tag)
 );
 
--- Documents
-CREATE TABLE documents (
-  workflow  TEXT NOT NULL,
-  tag       TEXT NOT NULL,
-  path      TEXT NOT NULL,       -- 'notes.md', 'findings/auth.md'
-  content   TEXT NOT NULL,
-  owner     TEXT,                -- single-writer enforcement
-  updated_at INTEGER NOT NULL,
-  PRIMARY KEY (workflow, tag, path)
-);
+-- NOTE: Documents are NOT in SQLite by default.
+-- Documents use a separate pluggable DocumentProvider (see below).
 
 -- Resources (large content)
 CREATE TABLE resources (
@@ -242,6 +235,57 @@ CREATE TABLE sessions (
   PRIMARY KEY (agent, workflow, tag)
 );
 ```
+
+### Document Storage (Independent Provider)
+
+Documents are user-facing workspace content — agents write findings, goals, decisions. Unlike messages and proposals (internal system state that needs ACID), documents benefit from being real files on disk that users and tools can read/edit directly.
+
+Document storage is pluggable via `DocumentProvider`, independent from the SQLite context store:
+
+```typescript
+interface DocumentProvider {
+  read(workflow: string, tag: string, path: string): Promise<string | null>
+  write(workflow: string, tag: string, path: string, content: string): Promise<void>
+  append(workflow: string, tag: string, path: string, content: string): Promise<void>
+  list(workflow: string, tag: string): Promise<string[]>
+  create(workflow: string, tag: string, path: string, content: string): Promise<void>
+}
+```
+
+| Provider | Storage | Use case |
+|----------|---------|----------|
+| **FileDocumentProvider** | `.workflow/<wf>/<tag>/documents/` | Default. Human-readable, editable by IDE/editor, git-friendly |
+| **SqliteDocumentProvider** | `documents` table in SQLite | All-in-one. No filesystem footprint. Useful for ephemeral workflows |
+
+Default is file-based. Configurable in workflow YAML:
+
+```yaml
+# Default: documents on filesystem
+context:
+  documents: file    # or omit — file is default
+
+# All-in-one: documents in SQLite
+context:
+  documents: sqlite
+
+# Custom path
+context:
+  documents:
+    provider: file
+    dir: ./my-docs/
+```
+
+**Ownership enforcement** lives in the daemon (not in the provider). The daemon checks ownership before calling `provider.write()`. This keeps providers simple — they're pure storage adapters.
+
+**Why separate from SQLite?**
+
+| | Messages/Proposals | Documents |
+|--|-------------------|-----------|
+| Nature | Internal system state | User-facing workspace content |
+| Access pattern | Write-once, query-many | Read-write by agents and humans |
+| Concurrency | Multiple writers, needs ACID | Usually single-writer (ownership) |
+| Human readability | Not needed (CLI/MCP access) | Valuable (inspect, edit, diff, git) |
+| Lifecycle | Permanent log | Evolving content |
 
 ### Daemon Startup Flow
 
@@ -420,10 +464,10 @@ my_inbox_ack(until)
   → INSERT OR REPLACE INTO inbox_ack ...
 
 team_doc_read(file?)
-  → SELECT content FROM documents WHERE path = ? ...
+  → documentProvider.read(workflow, tag, file)
 
 team_doc_write(content, file?)
-  → check ownership → UPDATE documents SET content = ? ...
+  → check ownership → documentProvider.write(workflow, tag, file, content)
 
 team_proposal_create(...)
   → INSERT INTO proposals ...
@@ -648,8 +692,12 @@ src/
 │   ├── scheduler.ts               # Poll / cron / wake logic
 │   ├── process-manager.ts         # Spawn / kill / monitor child processes
 │   ├── http.ts                    # HTTP API (Hono)
-│   ├── mcp.ts                     # Daemon MCP server (context tools)
-│   └── context.ts                 # Channel, inbox, document, proposal operations
+│   ├── mcp.ts                     # Daemon MCP server (context + document tools)
+│   ├── context.ts                 # Channel, inbox, proposal operations (SQLite)
+│   └── documents/                 # Document storage (pluggable, independent from SQLite)
+│       ├── types.ts               # DocumentProvider interface
+│       ├── file-provider.ts       # Default: filesystem (.workflow/<wf>/<tag>/documents/)
+│       └── sqlite-provider.ts     # Optional: documents table in SQLite
 │
 ├── worker/                        # The execution unit
 │   ├── entry.ts                   # Subprocess entry point (main)
@@ -789,7 +837,7 @@ worker/backends/      ── claude-cli, codex-cli, cursor-cli, mock
 
 ## Design Principles (Guidance for the Rewrite)
 
-1. **SQLite is the single source of truth**. Do not maintain a second copy of state in memory. Need data? Query the DB.
+1. **SQLite is the single source of truth for system state** (messages, proposals, agents, workflows). Documents are independent — pluggable provider, default file-based. Do not maintain a second copy of state in memory.
 2. **Workers are short-lived**. Each invocation: spawn → execute → exit. Do not keep workers persistent (unless a clear future need arises).
 3. **Daemon does not touch the prompt**. It provides raw data (inbox, channel, document); the worker decides how to present it to the LLM.
 4. **Interface layer is a 1:1 mapping**. Each CLI command = one HTTP call. Do not add logic in the interface layer.
