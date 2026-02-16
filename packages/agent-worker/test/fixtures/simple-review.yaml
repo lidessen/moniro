@@ -1,0 +1,14 @@
+name: simple-review
+
+agents:
+  reviewer:
+    backend: mock
+    system_prompt: You are a code reviewer. Find issues and report them.
+
+  coder:
+    backend: mock
+    system_prompt: You are a developer. Fix issues reported by the reviewer.
+
+kickoff: |
+  @reviewer please review the changes and report any issues.
+  When done, @coder will fix them.
