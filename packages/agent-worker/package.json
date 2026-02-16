@@ -7,7 +7,7 @@
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
   "bin": {
-    "agent-worker": "./dist/cli/index.mjs"
+    "agent-worker": "./dist/cli.mjs"
   },
   "exports": {
     ".": {
@@ -21,9 +21,7 @@
   "scripts": {
     "dev": "tsdown --watch",
     "build": "tsdown",
-    "test": "bun test test/*.test.ts test/unit/",
-    "test:e2e": "bun test test/e2e/",
-    "e2e:setup": "bash scripts/e2e-setup.sh",
+    "test": "bun test test/",
     "lint": "oxlint src",
     "lint:fix": "oxlint src --fix",
     "format": "oxfmt src",
@@ -32,20 +30,13 @@
     "prepublishOnly": "bun run build"
   },
   "dependencies": {
-    "@clack/prompts": "^1.0.0",
+    "@hono/node-server": "^1.19.9",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "ai": "^6.0.69",
-    "bash-tool": "^1.3.12",
-    "chalk": "^5.6.2",
     "commander": "^14.0.3",
     "execa": "^9.6.1",
-    "@hono/node-server": "^1.19.9",
     "hono": "^4.11.9",
-    "just-bash": "^2.8.0",
     "nanoid": "^5.1.6",
-    "picocolors": "^1.1.1",
-    "string-width": "^8.1.1",
-    "wrap-ansi": "^9.0.2",
     "yaml": "^2.7.0",
     "zod": "^3.24.1"
   },

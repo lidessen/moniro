@@ -1,39 +1,27 @@
-# Workflow Implementation Status
+# Implementation Status
 
-**Related**: [DESIGN.md](./DESIGN.md) | [REFERENCE.md](./REFERENCE.md)
+**Related**: [DESIGN.md](./DESIGN.md) | [REFERENCE.md](./REFERENCE.md) | [REWRITE.md](../REWRITE.md)
 
-## Progress
+## Rewrite Progress
 
 | Phase | Status | Summary |
 |-------|--------|---------|
-| 0. Migration | ✅ | Refactored storage structure, provider/types rename |
-| 1. Context Provider | ✅ | File + Memory providers with inbox/multi-doc |
-| 2. Context MCP Server | ✅ | inbox_check/ack, document_*, channel_* tools |
-| 3. Kickoff Model | ✅ | Setup + kickoff execution |
-| 4. CLI Updates | ✅ | start/stop/list + context subcommand |
-| 5. Run/Start Modes | ✅ | Idle detection + background + graceful shutdown |
-| 6. Agent MCP Integration | ✅ | mcp-config + mcp-stdio bridge |
-| 7. Inbox Model | ✅ | Priority detection |
-| 8. Agent Controller | ✅ | Controller + backends + idle detection |
-| 9. Multi-File Documents | ✅ | Nested dirs support |
-| 10. Document Ownership | 🔄 | Optional, requires election |
-| 11. Proposal & Voting | ✅ | ProposalManager, MCP tools, resolution logic |
+| 0. Preparation | ✅ | Archived old code, created new directory structure |
+| 1. Daemon Core | ✅ | SQLite + HTTP + agent/workflow CRUD + persistence |
+| 2. Context | ✅ | Channel, inbox, @mention parsing, MCP tools |
+| 3. Worker Subprocess | ✅ | fork, MCP client, session, prompt builder |
+| 4. Scheduler | ✅ | Poll/cron/wake, process manager integration |
+| 5. Interface CLI | ✅ | Commander CLI, daemon discovery, HTTP client, workflow parser |
+| 6. Remaining Features | ✅ | Proposals, documents, backends (SDK, Claude, Codex, Cursor) |
+| 7. Cleanup | ✅ | Deleted src-old/, updated package.json, pruned deps |
 
-## Pending: Phase 10 — Document Ownership
-
-Single-writer model to prevent concurrent document conflicts.
-
-- [ ] Ownership enforcement: owner can write, non-owner gets error
-- [ ] `document_suggest` MCP tool for non-owners (posts @mention to owner)
-- [ ] Election-before-kickoff for document owner (blocking)
-- [ ] Block `document_write` during active election
-
-**When to use**: 3+ agents, document consistency matters.
+**Result**: 14,709 lines → ~4,800 lines (67% reduction). 93 tests across 6 files.
 
 ## Deferred Items
 
+- Document ownership enforcement (single-writer model)
 - Proposal archiving to `decisions.md`
-- Sub-channels for large workflows
-- Dynamic tool loading via CLI
-- MCP push notifications (pending SDK support)
-- Manual test coverage for several phases (see git history for full checklist)
+- SQLite document provider (alternative to file-based)
+- E2E tests for real CLI backends (Claude, Codex, Cursor)
+- SSE streaming for `POST /run`
+- Variable interpolation in workflow kickoff (`${{ }}` syntax)
