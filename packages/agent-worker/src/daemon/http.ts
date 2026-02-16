@@ -14,6 +14,7 @@ import {
   type CreateAgentInput,
 } from "./registry.ts";
 import { channelSend, channelRead, inboxQuery } from "./context.ts";
+import { createWorkflow, listWorkflows, removeWorkflow } from "./registry.ts";
 import type { createSchedulerManager } from "./scheduler.ts";
 
 export interface HttpDeps {
@@ -123,6 +124,72 @@ export function createApp(deps: HttpDeps): Hono {
 
     const messages = channelRead(deps.db, workflow, tag, { limit });
     return c.json(messages);
+  });
+
+  // ==================== Workflows ====================
+
+  app.post("/workflows", async (c) => {
+    const body = await c.req.json<{
+      workflow: { name?: string; agents: Record<string, any>; kickoff?: string };
+      tag?: string;
+    }>();
+
+    if (!body.workflow?.agents) {
+      return c.json({ error: "workflow.agents is required" }, 400);
+    }
+
+    const name = body.workflow.name ?? "unnamed";
+    const tag = body.tag ?? "main";
+
+    // Create workflow record
+    createWorkflow(deps.db, { name, tag });
+
+    // Create agents from workflow definition
+    const agentNames: string[] = [];
+    for (const [agentName, agentDef] of Object.entries(body.workflow.agents)) {
+      const existing = getAgent(deps.db, agentName);
+      if (!existing) {
+        createAgent(deps.db, {
+          name: agentName,
+          model: agentDef.model ?? "mock",
+          backend: agentDef.backend ?? "mock",
+          system: agentDef.resolvedSystemPrompt ?? agentDef.system_prompt,
+          workflow: name,
+          tag,
+        });
+      }
+      agentNames.push(agentName);
+
+      // Start scheduler for each agent
+      deps.schedulerManager?.start(agentName, name, tag);
+    }
+
+    // Send kickoff message if present
+    if (body.workflow.kickoff) {
+      channelSend(deps.db, "system", body.workflow.kickoff, name, tag);
+    }
+
+    return c.json({ ok: true, name, tag, agents: agentNames }, 201);
+  });
+
+  app.get("/workflows", (c) => {
+    const workflows = listWorkflows(deps.db);
+    return c.json(workflows);
+  });
+
+  app.delete("/workflows/:name/:tag", (c) => {
+    const name = c.req.param("name");
+    const tag = c.req.param("tag");
+
+    // Stop schedulers for all agents in this workflow
+    const agents = listAgents(deps.db, name, tag);
+    for (const agent of agents) {
+      deps.schedulerManager?.stop(agent.name, name, tag);
+      removeAgent(deps.db, agent.name);
+    }
+
+    removeWorkflow(deps.db, name, tag);
+    return c.json({ ok: true });
   });
 
   return app;

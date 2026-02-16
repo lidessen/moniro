@@ -4,7 +4,7 @@
  * A backend only knows how to send a message and get a response.
  * It does not know about scheduling, context, or lifecycle.
  */
-export type BackendType = "default" | "claude" | "codex" | "cursor" | "mock";
+export type BackendType = "default" | "sdk" | "claude" | "codex" | "cursor" | "mock";
 
 export interface BackendResponse {
   content: string;
@@ -25,6 +25,8 @@ export interface Backend {
   ): Promise<BackendResponse>;
   /** Check if the backend is available */
   isAvailable?(): Promise<boolean>;
+  /** Set up workspace directory with MCP config (for CLI backends) */
+  setWorkspace?(workspaceDir: string, mcpConfig: { mcpServers: Record<string, unknown> }): void;
   /** Abort any running operations */
   abort?(): void;
 }

@@ -19,9 +19,19 @@ import {
   resourceRead,
 } from "./context.ts";
 import { listAgents, getAgent, updateAgentState } from "./registry.ts";
+import {
+  proposalCreate,
+  proposalGet,
+  proposalList,
+  proposalVote,
+  proposalCancel,
+  voteList,
+} from "./proposals.ts";
+import type { DocumentProvider } from "../shared/types.ts";
 
 export interface McpDeps {
   db: Database;
+  documentProvider?: DocumentProvider;
 }
 
 /**
@@ -267,6 +277,214 @@ export function createMcpServer(deps: McpDeps): McpServer {
             }),
           },
         ],
+      };
+    },
+  );
+
+  // ==================== Documents ====================
+
+  if (deps.documentProvider) {
+    const docProvider = deps.documentProvider;
+
+    server.tool(
+      TOOLS.TEAM_DOC_READ,
+      "Read a team document.",
+      {
+        path: z.string().describe("Document path (e.g., 'notes.md')."),
+      },
+      async (args, extra) => {
+        const agent = resolveAgent(extra);
+        const { workflow, tag } = resolveScope(deps.db, agent);
+
+        const content = await docProvider.read(workflow, tag, args.path);
+        if (content === null) {
+          return {
+            content: [{ type: "text" as const, text: JSON.stringify({ error: "Document not found" }) }],
+            isError: true,
+          };
+        }
+
+        return {
+          content: [{ type: "text" as const, text: content }],
+        };
+      },
+    );
+
+    server.tool(
+      TOOLS.TEAM_DOC_WRITE,
+      "Write (create or overwrite) a team document.",
+      {
+        path: z.string().describe("Document path."),
+        content: z.string().describe("Content to write."),
+      },
+      async (args, extra) => {
+        const agent = resolveAgent(extra);
+        const { workflow, tag } = resolveScope(deps.db, agent);
+
+        await docProvider.write(workflow, tag, args.path, args.content);
+
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ written: true, path: args.path }) }],
+        };
+      },
+    );
+
+    server.tool(
+      TOOLS.TEAM_DOC_APPEND,
+      "Append content to a team document.",
+      {
+        path: z.string().describe("Document path."),
+        content: z.string().describe("Content to append."),
+      },
+      async (args, extra) => {
+        const agent = resolveAgent(extra);
+        const { workflow, tag } = resolveScope(deps.db, agent);
+
+        await docProvider.append(workflow, tag, args.path, args.content);
+
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ appended: true, path: args.path }) }],
+        };
+      },
+    );
+
+    server.tool(
+      TOOLS.TEAM_DOC_LIST,
+      "List available team documents.",
+      {},
+      async (_args, extra) => {
+        const agent = resolveAgent(extra);
+        const { workflow, tag } = resolveScope(deps.db, agent);
+
+        const files = await docProvider.list(workflow, tag);
+
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ documents: files }) }],
+        };
+      },
+    );
+
+    server.tool(
+      TOOLS.TEAM_DOC_CREATE,
+      "Create a new team document (fails if it already exists).",
+      {
+        path: z.string().describe("Document path."),
+        content: z.string().describe("Initial content."),
+      },
+      async (args, extra) => {
+        const agent = resolveAgent(extra);
+        const { workflow, tag } = resolveScope(deps.db, agent);
+
+        try {
+          await docProvider.create(workflow, tag, args.path, args.content);
+          return {
+            content: [{ type: "text" as const, text: JSON.stringify({ created: true, path: args.path }) }],
+          };
+        } catch (err) {
+          return {
+            content: [{ type: "text" as const, text: JSON.stringify({ error: (err as Error).message }) }],
+            isError: true,
+          };
+        }
+      },
+    );
+  }
+
+  // ==================== Proposals ====================
+
+  server.tool(
+    TOOLS.TEAM_PROPOSAL_CREATE,
+    "Create a proposal for team voting. Options are the choices agents can vote on.",
+    {
+      type: z.enum(["election", "decision", "approval", "assignment"]).describe("Proposal type."),
+      title: z.string().describe("Proposal title."),
+      options: z.array(z.string()).describe("Voting options."),
+      resolution: z.enum(["plurality", "majority", "unanimous"]).optional().describe("Resolution strategy (default: plurality)."),
+      binding: z.boolean().optional().describe("Whether the result is binding (default: true)."),
+    },
+    (args, extra) => {
+      const agent = resolveAgent(extra);
+      const { workflow, tag } = resolveScope(deps.db, agent);
+
+      const proposal = proposalCreate(deps.db, {
+        type: args.type,
+        title: args.title,
+        options: args.options,
+        resolution: args.resolution,
+        binding: args.binding,
+        creator: agent,
+        workflow,
+        tag,
+      });
+
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify({ id: proposal.id, title: proposal.title, options: proposal.options }) }],
+      };
+    },
+  );
+
+  server.tool(
+    TOOLS.TEAM_VOTE,
+    "Vote on an active proposal.",
+    {
+      proposalId: z.string().describe("Proposal ID."),
+      choice: z.string().describe("Your vote (must be one of the proposal options)."),
+      reason: z.string().optional().describe("Reason for your vote."),
+    },
+    (args, extra) => {
+      const agent = resolveAgent(extra);
+
+      const result = proposalVote(deps.db, args.proposalId, agent, args.choice, args.reason);
+
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result) }],
+        isError: !result.success,
+      };
+    },
+  );
+
+  server.tool(
+    TOOLS.TEAM_PROPOSAL_STATUS,
+    "Check the status of a proposal, including votes.",
+    {
+      proposalId: z.string().describe("Proposal ID."),
+    },
+    (args) => {
+      const proposal = proposalGet(deps.db, args.proposalId);
+      if (!proposal) {
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ error: "Proposal not found" }) }],
+          isError: true,
+        };
+      }
+
+      const votes = voteList(deps.db, args.proposalId);
+
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({
+            ...proposal,
+            votes: votes.map((v) => ({ agent: v.agent, choice: v.choice, reason: v.reason })),
+          }),
+        }],
+      };
+    },
+  );
+
+  server.tool(
+    TOOLS.TEAM_PROPOSAL_CANCEL,
+    "Cancel an active proposal (only the creator can cancel).",
+    {
+      proposalId: z.string().describe("Proposal ID."),
+    },
+    (args, extra) => {
+      const agent = resolveAgent(extra);
+      const result = proposalCancel(deps.db, args.proposalId, agent);
+
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result) }],
+        isError: !result.success,
       };
     },
   );
