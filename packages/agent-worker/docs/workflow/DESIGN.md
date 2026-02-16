@@ -50,16 +50,22 @@ kickoff: |
 
 ### Context Configuration
 
-Context is **enabled by default** with the file provider.
+Context is **enabled by default** with the SQLite provider.
 
 ```yaml
-# Default: file provider (no config needed)
+# Default: sqlite provider (no config needed)
 agents: ...
 
 # Explicit configuration
 context:
+  provider: sqlite           # Default
+  documentOwner: scribe      # Optional: single-writer for documents
+  config:
+    db: .workflow/agent-worker.db  # Default location
+
+# Legacy file provider
+context:
   provider: file
-  documentOwner: scribe  # Optional: single-writer for documents
   config:
     dir: .workflow/${{ workflow.name }}/${{ workflow.tag }}/
 
@@ -120,9 +126,53 @@ Agents interact with three complementary context layers:
 
 ---
 
-## File-Based Storage Structure
+## Storage
 
-Channel and Document are two **independent** systems:
+All workflow state lives in a single SQLite database (`bun:sqlite`), managed by the daemon. Workers access storage only through Daemon MCP tools — never directly.
+
+### Database Schema (direction)
+
+```
+agent-worker.db
+├── messages        # Channel + inbox (structured, @mention pre-parsed)
+│   ├── id, sender, recipients[], content, timestamp
+│   ├── workflow, tag
+│   └── ack (per-recipient acknowledgment state)
+│
+├── documents       # Document metadata
+│   ├── path, owner, workflow, tag
+│   └── content (or filesystem reference for large files)
+│
+├── proposals       # Proposal + voting state
+│   ├── id, type, status, creator
+│   ├── options[], votes[], quorum
+│   └── resolved_at, result
+│
+├── agents          # Registry
+│   ├── name, model, backend, system_prompt
+│   └── workflow, tag, state
+│
+├── workflows       # Workflow configs + runtime state
+│   └── name, tag, config_yaml, state, created_at
+│
+└── daemon_state    # Daemon self-state
+    └── pid, host, port, started_at, uptime
+```
+
+### Why SQLite?
+
+- **ACID** — Two workers calling `channel_send` simultaneously is safe (WAL mode)
+- **Indexed inbox** — `SELECT * FROM messages WHERE "reviewer" IN recipients AND NOT ack` instead of full-text scan
+- **Single file** — All state in one file, easy backup/restore, crash-recovery
+- **No external deps** — `bun:sqlite` is built-in
+
+### Documents on Filesystem
+
+Document content may remain on filesystem for large files, with metadata (path, owner, timestamps) in SQLite. Small documents can be stored inline. The exact boundary is an implementation detail.
+
+### Legacy File Layout
+
+The previous file-based layout is retained for reference and as fallback (`FileContextProvider`):
 
 ```
 .workflow/<workflow>/<tag>/
@@ -131,11 +181,6 @@ Channel and Document are two **independent** systems:
 │   └── proposals.json
 ├── channel.md              # Channel: communication log
 └── documents/              # Document: user workspace
-    ├── notes.md            # Entry point
-    ├── goals.md
-    ├── findings/
-    │   └── auth-issues.md
-    └── decisions.md        # Decision archive
 ```
 
 Example paths:
@@ -372,6 +417,28 @@ Prevents concurrent write conflicts in multi-agent workflows. Single-writer mode
 
 **When to use**: 3+ agents, document consistency matters.
 **When NOT to use**: Simple workflows, speed over consistency.
+
+### 8. Why SQLite Over Files?
+
+File-based storage (channel.md + inbox-state.json) worked for prototyping. For a kernel managing concurrent workers:
+
+- Concurrent `channel_send` from two workers → file corruption risk. SQLite WAL mode → safe.
+- Inbox check = scan entire channel.md + regex parse @mentions + compare JSON state. SQLite → indexed query.
+- State scattered across markdown, JSON, directories. SQLite → single file, ACID, crash-recovery.
+
+Human readability loss is acceptable — workers access context via Daemon MCP, users via CLI. Neither depends on file format.
+
+### 9. Why Parse @mentions at Write Time?
+
+Read-time parsing means every inbox check re-parses the full message history. Write-time parsing: done once by daemon, stored as structured data. One source of truth for @mention rules, not N readers each parsing differently.
+
+### 10. Why Subprocess Workers?
+
+In-process workers (current `LocalWorker`) share daemon memory. Worker OOM can kill daemon. Child processes provide:
+
+- **Isolation**: crash → daemon receives exit event, reschedules
+- **Heterogeneity**: spawn Claude CLI, Codex, any executable — not limited to daemon's runtime
+- **Same interface**: worker only knows "I have an MCP server URL". `WorkerBackend` interface unchanged.
 
 ---
 

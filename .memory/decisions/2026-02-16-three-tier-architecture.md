@@ -69,6 +69,7 @@ Worker 只能通过 Daemon MCP tools 访问 context，不能直接读写 context
 
 ## Related
 
+- [Technology Choices](./2026-02-16-technology-choices.md) — 后续技术选型（SQLite, subprocess, 消息模型）
 - [ARCHITECTURE.md](../../packages/agent-worker/ARCHITECTURE.md) — 主架构文档（已更新）
 - [workflow/DESIGN.md](../../packages/agent-worker/docs/workflow/DESIGN.md) — 工作流设计（已更新）
 - [2026-02-08 CLI Unified Terminology](./2026-02-08-cli-design-unified-terminology.md) — 之前的术语统一决策

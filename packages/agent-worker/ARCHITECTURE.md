@@ -165,7 +165,53 @@ Context provides the collaboration substrate within a workflow. Each workflow ha
 | **Resources** | Content-addressed large content storage |
 | **Proposals** | Voting system for collaborative decisions |
 
-Context is backend-agnostic: `ContextProvider` interface with `FileContextProvider` (production) and `MemoryContextProvider` (testing).
+Context is backend-agnostic via `ContextProvider` interface:
+
+| Provider | Use |
+|----------|-----|
+| **SqliteContextProvider** | Production — `bun:sqlite`, single file per workflow, ACID, WAL mode |
+| **MemoryContextProvider** | Testing — in-memory, no persistence |
+| **FileContextProvider** | Legacy — markdown + JSON files, retained as fallback |
+
+All state in one database file:
+
+```
+agent-worker.db
+├── agents          # Registry (agent configs)
+├── workflows       # Workflow configs + state
+├── messages        # Channel + inbox (structured messages)
+├── documents       # Document metadata (content may remain on filesystem)
+├── proposals       # Proposal + voting state
+└── daemon_state    # Daemon self-state (uptime, etc.)
+```
+
+### Message Model
+
+Messages are structured at write time, not parsed at read time. When `channel_send` is called, the daemon parses @mentions and stores structured data:
+
+```typescript
+interface Message {
+  id: string
+  sender: string
+  recipients: string[]      // @mention parsed at write time by daemon
+  content: string
+  timestamp: number
+  workflow: string
+  tag: string
+  ack: Map<string, boolean>  // per-recipient acknowledgment
+}
+```
+
+Inbox becomes a database query, not text scanning:
+
+```
+channel_send("@reviewer 代码有问题")
+  → daemon parses recipients: ["reviewer"]
+  → INSERT INTO messages (sender, recipients, content, ...)
+
+inbox_check("reviewer")
+  → SELECT * FROM messages WHERE "reviewer" IN recipients AND NOT ack
+```
 
 ---
 
@@ -194,6 +240,54 @@ Worker contract:
 - **Context assembly** — Daemon provides context via MCP, not injected prompts
 - **Retry logic** — Daemon retries on failure
 - **Lifecycle** — Daemon creates and destroys workers
+
+### Process Model — Subprocess Isolation
+
+Workers run as independent child processes (`child_process.fork()` / `Bun.spawn()`), not in-process or as Worker Threads.
+
+```
+Daemon (main process, long-lived)
+│
+├── SQLite ──── all state
+├── MCP Server ── workers connect here for context
+│
+└── Process Manager
+      │
+      ├── fork ── Worker 1 (bun subprocess)
+      │             ├── connects to Daemon MCP (HTTP)
+      │             ├── runs Claude SDK session
+      │             └── exit → daemon receives event
+      │
+      ├── spawn ── Worker 2 (claude CLI)
+      │             └── native subprocess, MCP via --mcp-config
+      │
+      └── spawn ── Worker 3 (any executable)
+                    └── speaks MCP protocol
+```
+
+**Why child processes, not Worker Threads?**
+
+| | Worker Threads | Child Process |
+|--|---------------|--------------|
+| Memory | Shared process space | Isolated |
+| Crash impact | Can bring down daemon | Daemon unaffected |
+| Spawn target | Same runtime only | Any executable |
+| Design purpose | CPU parallelism | Process isolation |
+
+**Two communication channels:**
+
+```
+Control (daemon → worker):
+  IPC / stdio — start config, stop signal, heartbeat
+  Daemon controls worker lifecycle
+
+Data (worker → daemon):
+  MCP over HTTP — channel_send, inbox_check, etc.
+  Worker connects to Daemon MCP server
+  Same interface as in-process, only transport changes
+```
+
+Workers don't know their own process model — they only know "I have an MCP server URL for context access." `LocalWorker` (in-process) is retained for development and testing.
 
 ### Backend Abstraction
 
@@ -352,6 +446,24 @@ A worker that knows about polling, retry, and cron is coupled to the daemon's or
 
 Eliminates the split between "single-agent" and "multi-agent" code paths. `agent new` creates an agent under `@global` — it's a 1-agent workflow with simplified CLI ergonomics. The runtime doesn't know or care.
 
+### Why SQLite, not files?
+
+File-based storage (channel.md + inbox-state.json) was good for prototyping but has structural problems for a kernel:
+
+- **No concurrent write safety** — Two workers calling `channel_send` simultaneously can corrupt channel.md
+- **Inbox = full text scan** — Every inbox check reads entire channel, parses @mentions, compares JSON state
+- **State scattered** — Messages in markdown, read state in JSON, proposals in another JSON, documents in a directory
+
+SQLite (`bun:sqlite`) solves all three: WAL mode for concurrency, indexed queries for inbox, single file for all state. The `ContextProvider` interface stays the same — only the implementation changes.
+
+### Why parse @mentions at write time?
+
+If @mentions are parsed at read time, every inbox check re-parses the entire message history. If parsed at write time, it's done once, stored as structured data, and inbox becomes a database query. The daemon owns the @mention rules — one source of truth, not N readers each parsing differently.
+
+### Why subprocess, not in-process?
+
+In-process workers share the daemon's memory space. A worker OOM or crash can kill the daemon. With child processes: worker crash → daemon receives an exit event, cleans up, reschedules. Also enables spawning different runtimes (Claude CLI, Codex, any executable) — not limited to the daemon's runtime.
+
 ---
 
 ## Target Architecture
@@ -409,10 +521,12 @@ All other concepts emerge from the four primitives:
 
 ### Evolution Path
 
-**Phase 1 (current)**: System = daemon. Proposal hardcoded in controller. Agent = AgentWorker. Single process, file storage.
+**Phase 1 (current)**: System = daemon. Proposal hardcoded in controller. Agent = AgentWorker. Single process, file storage, in-process workers.
 
-**Phase 2**: Define `Proposal<T>` interface. Refactor controller inbox polling, approval mechanism, and workflow YAML parser into explicit Proposals.
+**Phase 2 (next)**: SQLite storage (`SqliteContextProvider`). Structured messages with write-time @mention parsing. Daemon state persistence and crash-recovery. Subprocess worker model (`SubprocessWorkerBackend`).
 
-**Phase 3**: Composable Proposals. Worker can define new Proposals via `proposal.*` tools. Hot-loading at runtime.
+**Phase 3**: Define `Proposal<T>` interface. Refactor controller inbox polling, approval mechanism, and workflow YAML parser into explicit Proposals.
 
-**Phase 4**: Authorization as special Message type. Space as scoped binding. `@global` as default Space.
+**Phase 4**: Composable Proposals. Worker can define new Proposals via `proposal.*` tools. Hot-loading at runtime.
+
+**Phase 5**: Authorization as special Message type. Space as scoped binding. `@global` as default Space.
