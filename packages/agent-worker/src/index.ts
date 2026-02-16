@@ -27,3 +27,12 @@ export { TOOLS, DEFAULT_WORKFLOW, DEFAULT_TAG } from "./shared/constants.ts";
 
 // Daemon
 export { startDaemon, type DaemonOptions, type DaemonHandle } from "./daemon/index.ts";
+
+// Interface
+export { findDaemon, ensureDaemon, type DaemonInfo } from "./interface/discovery.ts";
+export { parseTarget, buildTarget, buildTargetDisplay, type TargetIdentifier } from "./interface/target.ts";
+export * as client from "./interface/client.ts";
+
+// Workflow
+export { parseWorkflowFile, validateWorkflow, getKickoffMentions } from "./workflow/parser.ts";
+export type { ParsedWorkflow, ResolvedAgent, WorkflowFile } from "./workflow/types.ts";
