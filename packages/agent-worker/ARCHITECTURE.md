@@ -198,8 +198,15 @@ interface Message {
   timestamp: number
   workflow: string
   tag: string
-  ack: Map<string, boolean>  // per-recipient acknowledgment
 }
+
+// Acknowledgment is a separate table, not a Message field.
+// One row per (agent, workflow, tag) — tracks the last acked message ID.
+//
+// CREATE TABLE inbox_ack (
+//   agent TEXT, workflow TEXT, tag TEXT, cursor TEXT,
+//   PRIMARY KEY (agent, workflow, tag)
+// )
 ```
 
 Inbox becomes a database query, not text scanning:
@@ -210,7 +217,10 @@ channel_send("@reviewer 代码有问题")
   → INSERT INTO messages (sender, recipients, content, ...)
 
 inbox_check("reviewer")
-  → SELECT * FROM messages WHERE "reviewer" IN recipients AND NOT ack
+  → SELECT m.* FROM messages m
+    LEFT JOIN inbox_ack a ON a.agent = 'reviewer' AND a.workflow = m.workflow ...
+    WHERE m.recipients LIKE '%"reviewer"%'
+      AND (a.cursor IS NULL OR m.id > a.cursor)
 ```
 
 ---

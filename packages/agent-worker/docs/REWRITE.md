@@ -312,17 +312,18 @@ Scheduler(agent)
 管理 worker 子进程的生命周期。
 
 ```
-processManager.run(agent, context)
+processManager.run(agent)
   │
-  ├── 准备 worker 配置：
+  ├── 准备 worker 配置（只传身份和连接信息，不传 context 数据）：
   │   {
   │     agent: { name, model, backend, system },
   │     daemon_mcp_url: "http://localhost:<port>/mcp?agent=<name>",
   │     worker_mcp_configs: [...],   ── agent 自持的 MCP server 配置
-  │     inbox: Message[],            ── 当前 inbox 内容
-  │     recent_channel: Message[],   ── 最近 N 条消息
-  │     document: string | null      ── 当前文档内容
   │   }
+  │
+  │   ❌ 不传 inbox, channel, document
+  │   ✅ Worker 启动后通过 Daemon MCP 按需拉取：
+  │      my_inbox() → channel_read() → team_doc_read()
   │
   ├── spawn child process：
   │   fork('worker-entry.ts', { env: { WORKER_CONFIG: JSON.stringify(config) } })
@@ -471,23 +472,28 @@ Child process。接收配置，执行 LLM 对话，返回结果。不知道调�
 // 由 daemon processManager fork/spawn
 
 const config = JSON.parse(process.env.WORKER_CONFIG)
+// config = { agent: { name, model, backend, system }, daemon_mcp_url, worker_mcp_configs }
+// ❌ config 不含 inbox/channel/document — context 全部通过 MCP 按需拉取
 
 // 1. 连接 Daemon MCP（获取 context tools）
-const daemonTools = await connectDaemonMCP(config.daemon_mcp_url)
+const daemonMCP = await connectDaemonMCP(config.daemon_mcp_url)
 
 // 2. 连接 Worker MCP（自持 task tools，如果有）
 const workerTools = await connectWorkerMCPs(config.worker_mcp_configs)
 
-// 3. 构建 prompt
-const prompt = buildPrompt(config)
+// 3. 通过 Daemon MCP 拉取 context，构建 prompt
+const inbox    = await daemonMCP.call('my_inbox')
+const channel  = await daemonMCP.call('channel_read', { limit: 50 })
+const document = await daemonMCP.call('team_doc_read')
+const prompt   = buildPrompt({ ...config, inbox, channel, document })
 
-// 4. 执行 LLM 会话
+// 4. 执行 LLM 会话（LLM 运行中也可随时调用 MCP tools）
 const result = await runSession({
   model: config.agent.model,
   backend: config.agent.backend,
   system: config.agent.system,
   prompt,
-  tools: { ...daemonTools, ...workerTools },
+  tools: { ...daemonMCP.tools, ...workerTools },
 })
 
 // 5. 返回结果（IPC 或 stdout）
@@ -551,9 +557,18 @@ backend = 'mock'
 
 ### Prompt 构建
 
-Worker 收到 config 后本地构建 prompt。不再由 daemon 构建。
+Worker 启动后通过 Daemon MCP 拉取 context，然后本地构建 prompt。Daemon 不碰 prompt。
 
 ```
+Worker 启动流程：
+  1. connectDaemonMCP(url)     ── 建立连接
+  2. my_inbox()                ── 拉取未读消息
+  3. channel_read(limit: 50)   ── 拉取最近消息
+  4. team_doc_read()           ── 拉取文档
+  5. buildPrompt(...)          ── 本地组装
+
+Prompt 结构：
+
 ## Your Identity
 {system_prompt}
 

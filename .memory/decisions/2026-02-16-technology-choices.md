@@ -57,7 +57,8 @@ created: 2026-02-16
     → daemon 解析出 recipients: ["reviewer"]
     → 写入 messages 表：{ sender, recipients, content, timestamp }
   inbox_check("reviewer")
-    → SELECT * FROM messages WHERE "reviewer" IN recipients AND NOT ack
+    → SELECT FROM messages m LEFT JOIN inbox_ack a ON ...
+      WHERE recipients LIKE '%"reviewer"%' AND (a.cursor IS NULL OR m.id > a.cursor)
 ```
 
 **写入时解析意味着**：
