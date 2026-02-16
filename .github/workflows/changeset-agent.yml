@@ -68,7 +68,7 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          bun packages/agent-worker/src/cli/index.ts run .workflows/agent-changeset.yaml
+          bun packages/agent-worker/src/interface/cli.ts run .workflows/agent-changeset.yaml
 
       - name: Check result
         id: result
