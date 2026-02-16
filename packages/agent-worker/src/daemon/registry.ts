@@ -1,449 +1,197 @@
 /**
- * Daemon Registry
+ * Registry — agent and workflow CRUD, backed by SQLite.
  *
- * Discovery: daemon.json = { pid, host, port, startedAt }
- * One daemon process on a fixed port. Clients read daemon.json to find it.
- *
- * Legacy: per-session files in sessions/{id}.json (deprecated, kept for transition)
+ * Pure data operations. No scheduling, no lifecycle management.
+ * Every function takes a Database as its first argument.
  */
+import type { Database } from "bun:sqlite";
+import type { AgentConfig, AgentState, Workflow, WorkflowState } from "../shared/types.ts";
 
-import {
-  existsSync,
-  unlinkSync,
-  writeFileSync,
-  readFileSync,
-  mkdirSync,
-  readdirSync,
-} from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
-import type { BackendType } from "../backends/types.ts";
+// ==================== Agents ====================
 
-export const CONFIG_DIR = join(homedir(), ".agent-worker");
-export const SESSIONS_DIR = join(CONFIG_DIR, "sessions");
-export const DEFAULT_PORT = 5099;
-
-const DAEMON_FILE = join(CONFIG_DIR, "daemon.json");
-const DEFAULT_FILE = join(CONFIG_DIR, "default");
-
-// ==================== Daemon Discovery ====================
-
-export interface DaemonInfo {
-  pid: number;
-  host: string;
-  port: number;
-  startedAt: string;
-  /** Auth token for API access (random per daemon instance) */
-  token?: string;
+export interface CreateAgentInput {
+  name: string;
+  model: string;
+  backend?: string;
+  system?: string;
+  workflow?: string;
+  tag?: string;
+  schedule?: string;
+  configJson?: Record<string, unknown>;
 }
 
-/** Write daemon.json for client discovery */
-export function writeDaemonInfo(info: DaemonInfo): void {
-  mkdirSync(CONFIG_DIR, { recursive: true });
-  writeFileSync(DAEMON_FILE, JSON.stringify(info, null, 2));
-}
-
-/** Read daemon.json. Returns null if missing or malformed. */
-export function readDaemonInfo(): DaemonInfo | null {
-  try {
-    return JSON.parse(readFileSync(DAEMON_FILE, "utf-8"));
-  } catch {
-    return null;
-  }
-}
-
-/** Remove daemon.json (on shutdown) */
-export function removeDaemonInfo(): void {
-  try {
-    unlinkSync(DAEMON_FILE);
-  } catch {
-    // Already removed
-  }
-}
-
-/** Check if a daemon is already running (daemon.json exists + PID alive) */
-export function isDaemonRunning(): DaemonInfo | null {
-  const info = readDaemonInfo();
-  if (!info) return null;
-  try {
-    process.kill(info.pid, 0);
-    return info;
-  } catch {
-    // PID dead, clean up stale daemon.json
-    removeDaemonInfo();
-    return null;
-  }
-}
-
-/**
- * Schedule configuration for periodic agent wakeup.
- *
- * The `wakeup` field accepts three mutually exclusive formats:
- * - **number (ms)**: idle-based interval, resets on activity. e.g. `60000`
- * - **duration string**: idle-based interval, resets on activity. e.g. `"30s"`, `"5m"`, `"2h"`
- * - **cron expression**: fixed schedule, NOT reset by activity. e.g. `"0 9 * * 1-5"`
- */
-export interface ScheduleConfig {
-  /** Wakeup schedule: number (ms), duration string ("30s"/"5m"/"2h"), or cron expression. */
-  wakeup: string | number;
-  /** Custom wakeup prompt (default provided by daemon). */
-  prompt?: string;
-}
-
-export interface ResolvedSchedule {
-  type: "interval" | "cron";
-  /** ms for interval type */
-  ms?: number;
-  /** cron expression for cron type */
-  expr?: string;
-  /** custom prompt */
-  prompt?: string;
-}
-
-const DURATION_RE = /^(\d+(?:\.\d+)?)\s*(ms|s|m|h|d)$/;
-
-/**
- * Parse a duration string like "30s", "5m", "2h" into milliseconds.
- * Returns null if not a valid duration format.
- */
-export function parseDuration(value: string): number | null {
-  const match = value.match(DURATION_RE);
-  if (!match) return null;
-
-  const amount = parseFloat(match[1]!);
-  const unit = match[2]!;
-
-  const multipliers: Record<string, number> = {
-    ms: 1,
-    s: 1000,
-    m: 60 * 1000,
-    h: 60 * 60 * 1000,
-    d: 24 * 60 * 60 * 1000,
+export function createAgent(db: Database, input: CreateAgentInput): AgentConfig {
+  const agent: AgentConfig = {
+    name: input.name,
+    model: input.model,
+    backend: input.backend ?? "default",
+    system: input.system,
+    workflow: input.workflow ?? "global",
+    tag: input.tag ?? "main",
+    schedule: input.schedule,
+    configJson: input.configJson,
+    state: "idle",
+    createdAt: Date.now(),
   };
 
-  return amount * multipliers[unit]!;
+  db.run(
+    `INSERT INTO agents (name, model, backend, system, workflow, tag, schedule, config_json, state, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      agent.name,
+      agent.model,
+      agent.backend,
+      agent.system ?? null,
+      agent.workflow,
+      agent.tag,
+      agent.schedule ?? null,
+      agent.configJson ? JSON.stringify(agent.configJson) : null,
+      agent.state,
+      agent.createdAt,
+    ],
+  );
+
+  return agent;
 }
 
-/**
- * Resolve a wakeup value into a typed schedule.
- * - number → interval (ms)
- * - "30s"/"5m"/"2h" → interval (converted to ms)
- * - cron expression → cron
- */
-export function resolveSchedule(config: ScheduleConfig): ResolvedSchedule {
-  const { wakeup, prompt } = config;
-
-  // Number → interval in ms
-  if (typeof wakeup === "number") {
-    if (wakeup <= 0) throw new Error("Wakeup interval must be positive");
-    return { type: "interval", ms: wakeup, prompt };
-  }
-
-  // Duration string → interval
-  const ms = parseDuration(wakeup);
-  if (ms !== null) {
-    if (ms <= 0) throw new Error("Wakeup duration must be positive");
-    return { type: "interval", ms, prompt };
-  }
-
-  // Otherwise treat as cron expression
-  return { type: "cron", expr: wakeup, prompt };
+export function getAgent(db: Database, name: string): AgentConfig | null {
+  const row = db.query("SELECT * FROM agents WHERE name = ?").get(name) as AgentRow | null;
+  return row ? rowToAgent(row) : null;
 }
 
-export interface SessionInfo {
-  id: string;
-  name?: string;
-  /** Workflow name (namespace for agents) */
-  workflow: string;
-  /** Workflow instance tag */
-  tag: string;
-  /** @deprecated Use workflow instead. Kept for backward compatibility. */
-  instance?: string;
-  /** Absolute path to context directory (runtime mapping, stored on creation) */
-  contextDir: string;
+export function listAgents(db: Database, workflow?: string, tag?: string): AgentConfig[] {
+  let sql = "SELECT * FROM agents";
+  const params: unknown[] = [];
+
+  if (workflow) {
+    sql += " WHERE workflow = ?";
+    params.push(workflow);
+    if (tag) {
+      sql += " AND tag = ?";
+      params.push(tag);
+    }
+  }
+
+  sql += " ORDER BY created_at ASC";
+  const rows = db.query(sql).all(...params) as AgentRow[];
+  return rows.map(rowToAgent);
+}
+
+export function updateAgentState(db: Database, name: string, state: AgentState): void {
+  db.run("UPDATE agents SET state = ? WHERE name = ?", [state, name]);
+}
+
+export function removeAgent(db: Database, name: string): boolean {
+  const result = db.run("DELETE FROM agents WHERE name = ?", [name]);
+  return result.changes > 0;
+}
+
+// ==================== Workflows ====================
+
+export interface CreateWorkflowInput {
+  name: string;
+  tag?: string;
+  configYaml?: string;
+}
+
+export function createWorkflow(db: Database, input: CreateWorkflowInput): Workflow {
+  const wf: Workflow = {
+    name: input.name,
+    tag: input.tag ?? "main",
+    configYaml: input.configYaml,
+    state: "running",
+    createdAt: Date.now(),
+  };
+
+  db.run(
+    `INSERT OR REPLACE INTO workflows (name, tag, config_yaml, state, created_at)
+     VALUES (?, ?, ?, ?, ?)`,
+    [wf.name, wf.tag, wf.configYaml ?? null, wf.state, wf.createdAt],
+  );
+
+  return wf;
+}
+
+export function getWorkflow(db: Database, name: string, tag: string): Workflow | null {
+  const row = db
+    .query("SELECT * FROM workflows WHERE name = ? AND tag = ?")
+    .get(name, tag) as WorkflowRow | null;
+  return row ? rowToWorkflow(row) : null;
+}
+
+export function listWorkflows(db: Database): Workflow[] {
+  const rows = db.query("SELECT * FROM workflows ORDER BY created_at ASC").all() as WorkflowRow[];
+  return rows.map(rowToWorkflow);
+}
+
+export function updateWorkflowState(
+  db: Database,
+  name: string,
+  tag: string,
+  state: WorkflowState,
+): void {
+  db.run("UPDATE workflows SET state = ? WHERE name = ? AND tag = ?", [state, name, tag]);
+}
+
+export function removeWorkflow(db: Database, name: string, tag: string): boolean {
+  const result = db.run("DELETE FROM workflows WHERE name = ? AND tag = ?", [name, tag]);
+  return result.changes > 0;
+}
+
+// ==================== Ensure global workflow ====================
+
+/** Ensure the @global:main workflow exists */
+export function ensureGlobalWorkflow(db: Database): void {
+  const existing = getWorkflow(db, "global", "main");
+  if (!existing) {
+    createWorkflow(db, { name: "global", tag: "main" });
+  }
+}
+
+// ==================== Row mappers ====================
+
+interface AgentRow {
+  name: string;
   model: string;
-  system: string;
-  backend: BackendType;
-  /** HTTP port the daemon listens on */
-  port: number;
-  /** Host the daemon binds to (default: 127.0.0.1) */
-  host?: string;
-  /** @deprecated Replaced by HTTP port. Kept for backward compat cleanup. */
-  socketPath?: string;
-  pidFile: string;
-  readyFile: string;
-  pid: number;
-  createdAt: string;
-  idleTimeout?: number; // ms, 0 = no timeout
-  schedule?: ScheduleConfig; // periodic wakeup when idle
+  backend: string;
+  system: string | null;
+  workflow: string;
+  tag: string;
+  schedule: string | null;
+  config_json: string | null;
+  state: string;
+  created_at: number;
 }
 
-export function ensureDirs(): void {
-  mkdirSync(SESSIONS_DIR, { recursive: true });
+function rowToAgent(row: AgentRow): AgentConfig {
+  return {
+    name: row.name,
+    model: row.model,
+    backend: row.backend,
+    system: row.system ?? undefined,
+    workflow: row.workflow,
+    tag: row.tag,
+    schedule: row.schedule ?? undefined,
+    configJson: row.config_json ? JSON.parse(row.config_json) : undefined,
+    state: row.state as AgentState,
+    createdAt: row.created_at,
+  };
 }
 
-/**
- * Clean up stale sessions left behind by crashed daemons.
- * Should be called once at startup before registering a new session.
- * Checks each registered session — if its process is dead, removes all artifacts.
- */
-export function cleanupStaleSessions(): number {
-  ensureDirs();
-  let cleaned = 0;
-  for (const session of readAllSessions()) {
-    try {
-      process.kill(session.pid, 0);
-      // Process alive — leave it
-    } catch {
-      // Process dead — clean up artifacts
-      for (const path of [session.socketPath, session.pidFile, session.readyFile]) {
-        if (path && existsSync(path)) {
-          try {
-            unlinkSync(path);
-          } catch {
-            // Best-effort cleanup
-          }
-        }
-      }
-      try {
-        unlinkSync(sessionFile(session.id));
-      } catch {
-        // Already removed
-      }
-      cleaned++;
-    }
-  }
-  // Update default if it pointed to a stale session
-  if (cleaned > 0) {
-    const defaultId = readDefault();
-    if (defaultId) {
-      const remaining = readAllSessions();
-      const defaultAlive = remaining.some((s) => s.id === defaultId);
-      if (!defaultAlive) {
-        if (remaining.length > 0) {
-          writeFileSync(DEFAULT_FILE, remaining[0]!.id);
-        } else {
-          try {
-            unlinkSync(DEFAULT_FILE);
-          } catch {}
-        }
-      }
-    }
-  }
-  return cleaned;
+interface WorkflowRow {
+  name: string;
+  tag: string;
+  config_yaml: string | null;
+  state: string;
+  created_at: number;
 }
 
-/** Path to a session's metadata file */
-function sessionFile(id: string): string {
-  return join(SESSIONS_DIR, `${id}.json`);
-}
-
-/** Read all session metadata files from the sessions directory */
-function readAllSessions(): SessionInfo[] {
-  ensureDirs();
-  const entries: SessionInfo[] = [];
-  for (const file of readdirSync(SESSIONS_DIR)) {
-    if (!file.endsWith(".json")) continue;
-    try {
-      entries.push(JSON.parse(readFileSync(join(SESSIONS_DIR, file), "utf-8")));
-    } catch {
-      // Ignore malformed files
-    }
-  }
-  return entries;
-}
-
-function readDefault(): string | undefined {
-  try {
-    return readFileSync(DEFAULT_FILE, "utf-8").trim() || undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-export function registerSession(info: SessionInfo): void {
-  ensureDirs();
-  writeFileSync(sessionFile(info.id), JSON.stringify(info, null, 2));
-  // Set as default if it's the first session
-  if (!readDefault()) {
-    writeFileSync(DEFAULT_FILE, info.id);
-  }
-}
-
-export function unregisterSession(idOrName: string): void {
-  const info = getSessionInfo(idOrName);
-  if (!info) return;
-  try {
-    unlinkSync(sessionFile(info.id));
-  } catch {
-    // Already removed
-  }
-  // Update default if needed
-  const currentDefault = readDefault();
-  if (currentDefault === info.id) {
-    const remaining = readAllSessions();
-    if (remaining.length > 0) {
-      writeFileSync(DEFAULT_FILE, remaining[0]!.id);
-    } else {
-      try {
-        unlinkSync(DEFAULT_FILE);
-      } catch {}
-    }
-  }
-}
-
-export function getSessionInfo(idOrName?: string): SessionInfo | null {
-  if (!idOrName) {
-    // Return default session
-    const defaultId = readDefault();
-    if (defaultId) {
-      return getSessionInfo(defaultId);
-    }
-    // Return the only session if there's just one
-    const sessions = readAllSessions();
-    if (sessions.length === 1) {
-      return sessions[0] ?? null;
-    }
-    return null;
-  }
-
-  // Try exact ID match (direct file lookup — O(1))
-  const filePath = sessionFile(idOrName);
-  if (existsSync(filePath)) {
-    try {
-      return JSON.parse(readFileSync(filePath, "utf-8"));
-    } catch {
-      return null;
-    }
-  }
-
-  // Scan for name match or ID prefix match
-  const sessions = readAllSessions();
-
-  // Name match
-  const byName = sessions.find((s) => s.name === idOrName);
-  if (byName) return byName;
-
-  // Prefix match on IDs (supports short IDs like "e8ab33e7")
-  const prefixMatches = sessions.filter((s) => s.id.startsWith(idOrName));
-  if (prefixMatches.length === 1) {
-    return prefixMatches[0]!;
-  }
-
-  return null;
-}
-
-export function listSessions(): SessionInfo[] {
-  return readAllSessions();
-}
-
-export function setDefaultSession(idOrName: string): boolean {
-  const info = getSessionInfo(idOrName);
-  if (!info) return false;
-  ensureDirs();
-  writeFileSync(DEFAULT_FILE, info.id);
-  return true;
-}
-
-export function isSessionRunning(idOrName?: string): boolean {
-  const info = getSessionInfo(idOrName);
-  if (!info) return false;
-
-  try {
-    // Check if process exists
-    process.kill(info.pid, 0);
-    return true;
-  } catch {
-    // Process doesn't exist, clean up
-    for (const path of [info.socketPath, info.pidFile, info.readyFile]) {
-      if (path && existsSync(path)) {
-        try {
-          unlinkSync(path);
-        } catch {
-          /* best-effort */
-        }
-      }
-    }
-    unregisterSession(info.id);
-    return false;
-  }
-}
-
-/**
- * Wait for a session to be ready (ready file exists)
- * Returns session info if ready, null if timeout
- */
-export async function waitForReady(
-  nameOrId: string | undefined,
-  timeoutMs: number = 5000,
-): Promise<SessionInfo | null> {
-  const start = Date.now();
-  const pollInterval = 50;
-
-  while (Date.now() - start < timeoutMs) {
-    const info = getSessionInfo(nameOrId);
-    if (info?.readyFile && existsSync(info.readyFile)) {
-      return info;
-    }
-    await new Promise((resolve) => setTimeout(resolve, pollInterval));
-  }
-
-  return null;
-}
-
-// ==================== Instance Agents ====================
-
-/**
- * Get all sessions belonging to an instance.
- */
-export function getInstanceAgents(instance: string): SessionInfo[] {
-  return readAllSessions().filter((s) => s.instance === instance);
-}
-
-/**
- * Get agent display names (before @) for all agents in an instance.
- */
-export function getInstanceAgentNames(instance: string): string[] {
-  return getInstanceAgents(instance)
-    .map((s) => {
-      if (!s.name) return null;
-      const atIndex = s.name.indexOf("@");
-      return atIndex === -1 ? s.name : s.name.slice(0, atIndex);
-    })
-    .filter((n): n is string => n !== null);
-}
-
-/**
- * Extract agent display name from session name (part before @).
- */
-export function getAgentDisplayName(sessionName: string): string {
-  const atIndex = sessionName.indexOf("@");
-  return atIndex === -1 ? sessionName : sessionName.slice(0, atIndex);
-}
-
-// ==================== Auto-naming ====================
-
-/**
- * Generate next available agent name in sequence: a0, a1, ..., a9, b0, ..., z9.
- * Checks existing sessions to avoid collisions.
- */
-export function generateAutoName(): string {
-  const sessions = readAllSessions();
-  const usedNames = new Set<string>();
-  for (const s of sessions) {
-    if (s.name) {
-      const atIndex = s.name.indexOf("@");
-      usedNames.add(atIndex === -1 ? s.name : s.name.slice(0, atIndex));
-    }
-  }
-
-  for (let letter = 0; letter < 26; letter++) {
-    for (let digit = 0; digit < 10; digit++) {
-      const name = String.fromCharCode(97 + letter) + digit;
-      if (!usedNames.has(name)) return name;
-    }
-  }
-
-  // Fallback if all 260 names taken
-  return `agent-${crypto.randomUUID().slice(0, 6)}`;
+function rowToWorkflow(row: WorkflowRow): Workflow {
+  return {
+    name: row.name,
+    tag: row.tag,
+    configYaml: row.config_yaml ?? undefined,
+    state: row.state as WorkflowState,
+    createdAt: row.created_at,
+  };
 }
