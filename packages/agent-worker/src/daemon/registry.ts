@@ -54,8 +54,20 @@ export function createAgent(db: Database, input: CreateAgentInput): AgentConfig 
   return agent;
 }
 
-export function getAgent(db: Database, name: string): AgentConfig | null {
-  const row = db.query("SELECT * FROM agents WHERE name = ?").get(name) as AgentRow | null;
+export function getAgent(
+  db: Database,
+  name: string,
+  workflow?: string,
+  tag?: string,
+): AgentConfig | null {
+  if (workflow !== undefined && tag !== undefined) {
+    const row = db
+      .query("SELECT * FROM agents WHERE name = ? AND workflow = ? AND tag = ?")
+      .get(name, workflow, tag) as AgentRow | null;
+    return row ? rowToAgent(row) : null;
+  }
+  // Fallback: find first agent with this name (for lookups without workflow context)
+  const row = db.query("SELECT * FROM agents WHERE name = ? LIMIT 1").get(name) as AgentRow | null;
   return row ? rowToAgent(row) : null;
 }
 
@@ -77,11 +89,30 @@ export function listAgents(db: Database, workflow?: string, tag?: string): Agent
   return rows.map(rowToAgent);
 }
 
-export function updateAgentState(db: Database, name: string, state: AgentState): void {
-  db.run("UPDATE agents SET state = ? WHERE name = ?", [state, name]);
+export function updateAgentState(
+  db: Database,
+  name: string,
+  state: AgentState,
+  workflow?: string,
+  tag?: string,
+): void {
+  if (workflow !== undefined && tag !== undefined) {
+    db.run("UPDATE agents SET state = ? WHERE name = ? AND workflow = ? AND tag = ?", [state, name, workflow, tag]);
+  } else {
+    db.run("UPDATE agents SET state = ? WHERE name = ?", [state, name]);
+  }
 }
 
-export function removeAgent(db: Database, name: string): boolean {
+export function removeAgent(
+  db: Database,
+  name: string,
+  workflow?: string,
+  tag?: string,
+): boolean {
+  if (workflow !== undefined && tag !== undefined) {
+    const result = db.run("DELETE FROM agents WHERE name = ? AND workflow = ? AND tag = ?", [name, workflow, tag]);
+    return result.changes > 0;
+  }
   const result = db.run("DELETE FROM agents WHERE name = ?", [name]);
   return result.changes > 0;
 }

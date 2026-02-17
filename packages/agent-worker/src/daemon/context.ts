@@ -85,10 +85,22 @@ export function channelSend(
 export interface ChannelReadOptions {
   since?: string;
   limit?: number;
+  /** Agent requesting the read — used to filter DM visibility */
+  agent?: string;
+}
+
+/**
+ * DM filter: exclude DMs not involving the reader.
+ * If no agent is specified (e.g., CLI peek), show all messages.
+ */
+function dmFilter(agent?: string): string {
+  if (!agent) return "";
+  return `AND ("to" IS NULL OR sender = ? OR "to" = ?)`;
 }
 
 /**
  * Read channel messages for a workflow.
+ * DM messages are only visible to sender and recipient.
  */
 export function channelRead(
   db: Database,
@@ -97,6 +109,8 @@ export function channelRead(
   options?: ChannelReadOptions,
 ): Message[] {
   const limit = options?.limit ?? 100;
+  const dmSql = dmFilter(options?.agent);
+  const dmParams = options?.agent ? [options.agent, options.agent] : [];
 
   if (options?.since) {
     // Get the rowid of the 'since' message (sequential, no timestamp collision)
@@ -108,9 +122,10 @@ export function channelRead(
       const rows = db
         .query(
           `SELECT * FROM messages WHERE workflow = ? AND tag = ? AND rowid > ?
+           ${dmSql}
            ORDER BY rowid ASC LIMIT ?`,
         )
-        .all(workflow, tag, sinceMsg.rowid, limit) as MessageRow[];
+        .all(workflow, tag, sinceMsg.rowid, ...dmParams, limit) as MessageRow[];
       return rows.map(rowToMessage);
     }
   }
@@ -118,15 +133,25 @@ export function channelRead(
   const rows = db
     .query(
       `SELECT * FROM messages WHERE workflow = ? AND tag = ?
+       ${dmSql}
        ORDER BY rowid DESC LIMIT ?`,
     )
-    .all(workflow, tag, limit) as MessageRow[];
+    .all(workflow, tag, ...dmParams, limit) as MessageRow[];
 
   // Reverse to chronological order
   return rows.reverse().map(rowToMessage);
 }
 
 // ==================== Inbox ====================
+
+/**
+ * SQL fragment for matching messages addressed to an agent.
+ * Uses json_each() to safely match recipients without LIKE injection.
+ */
+const RECIPIENT_MATCH_SQL = `EXISTS (
+  SELECT 1 FROM json_each(messages.recipients) AS r
+  WHERE r.value = ? OR r.value = 'all'
+)`;
 
 /**
  * Get unread messages for an agent (inbox).
@@ -154,15 +179,11 @@ export function inboxQuery(
         .query(
           `SELECT * FROM messages
            WHERE workflow = ? AND tag = ? AND rowid > ?
-             AND (recipients LIKE ? OR recipients LIKE ?)
+             AND ${RECIPIENT_MATCH_SQL}
              AND sender != ?
            ORDER BY rowid ASC`,
         )
-        .all(
-          workflow, tag, cursorMsg.rowid,
-          `%"${agent}"%`, `%"all"%`,
-          agent,
-        ) as MessageRow[];
+        .all(workflow, tag, cursorMsg.rowid, agent, agent) as MessageRow[];
     } else {
       rows = [];
     }
@@ -172,15 +193,11 @@ export function inboxQuery(
       .query(
         `SELECT * FROM messages
          WHERE workflow = ? AND tag = ?
-           AND (recipients LIKE ? OR recipients LIKE ?)
+           AND ${RECIPIENT_MATCH_SQL}
            AND sender != ?
          ORDER BY rowid ASC`,
       )
-      .all(
-        workflow, tag,
-        `%"${agent}"%`, `%"all"%`,
-        agent,
-      ) as MessageRow[];
+      .all(workflow, tag, agent, agent) as MessageRow[];
   }
 
   return rows.map((row) => {
@@ -219,10 +236,10 @@ export function inboxAckAll(
     .query(
       `SELECT id FROM messages
        WHERE workflow = ? AND tag = ?
-         AND (recipients LIKE ? OR recipients LIKE ?)
+         AND ${RECIPIENT_MATCH_SQL}
        ORDER BY rowid DESC LIMIT 1`,
     )
-    .get(workflow, tag, `%"${agent}"%`, `%"all"%`) as { id: string } | null;
+    .get(workflow, tag, agent) as { id: string } | null;
 
   if (lastMsg) {
     inboxAck(db, agent, workflow, tag, lastMsg.id);

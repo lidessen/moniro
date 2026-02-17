@@ -319,7 +319,7 @@ describe("CLI → daemon integration", () => {
     const peekRes = await fetch(`${base}/peek?workflow=review&tag=pr-1`);
     const messages = await peekRes.json();
     expect(messages.length).toBe(1);
-    expect(messages[0].sender).toBe("alice");
+    expect(messages[0].sender).toBe("user");
     expect(messages[0].content).toContain("auth module");
 
     // Health check

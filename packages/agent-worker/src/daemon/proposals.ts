@@ -98,9 +98,12 @@ export function proposalVote(
     [proposalId, agent, choice, reason ?? null, Date.now()],
   );
 
-  // Check if resolved
+  // Check if resolved — eligible voters = all agents in same workflow:tag
   const votes = voteList(db, proposalId);
-  const resolution = checkResolution(proposal, votes);
+  const eligibleCount = (db
+    .query("SELECT COUNT(*) as cnt FROM agents WHERE workflow = ? AND tag = ?")
+    .get(proposal.workflow, proposal.tag) as { cnt: number })?.cnt ?? 0;
+  const resolution = checkResolution(proposal, votes, eligibleCount);
 
   if (resolution) {
     db.run(
@@ -175,7 +178,7 @@ export function proposalCancel(
 
 // ==================== Resolution ====================
 
-function checkResolution(proposal: Proposal, votes: Vote[]): string | null {
+function checkResolution(proposal: Proposal, votes: Vote[], eligibleCount: number): string | null {
   if (votes.length === 0) return null;
 
   // Count votes per option
@@ -188,6 +191,8 @@ function checkResolution(proposal: Proposal, votes: Vote[]): string | null {
   }
 
   const totalVotes = votes.length;
+  // Use eligible voter count for threshold calculations; fall back to vote count
+  const voterPool = eligibleCount > 0 ? eligibleCount : totalVotes;
   const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
   const top = entries[0];
   if (!top) return null;
@@ -200,13 +205,13 @@ function checkResolution(proposal: Proposal, votes: Vote[]): string | null {
       break;
 
     case "majority":
-      // Need > 50% of votes, with at least 2 votes cast
-      if (totalVotes >= 2 && topCount > totalVotes / 2) return topChoice;
+      // Need > 50% of eligible voters, not just votes cast
+      if (topCount > voterPool / 2) return topChoice;
       break;
 
     case "unanimous":
-      // All votes must agree
-      if (topCount === totalVotes && totalVotes >= 2) return topChoice;
+      // ALL eligible voters must vote and agree
+      if (topCount === voterPool && totalVotes === voterPool) return topChoice;
       break;
   }
 

@@ -237,6 +237,13 @@ export function createSchedulerManager(deps: SchedulerDeps) {
       schedulers.clear();
     },
 
+    /** Check if a specific agent's scheduler is idle */
+    isIdle(agentName: string, workflow: string, tag: string): boolean {
+      const k = key(agentName, workflow, tag);
+      const scheduler = schedulers.get(k);
+      return !scheduler || scheduler.state !== "running";
+    },
+
     /** Check if all schedulers are idle (for idle detection) */
     allIdle(): boolean {
       for (const [, scheduler] of schedulers) {

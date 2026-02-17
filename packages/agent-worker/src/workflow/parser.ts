@@ -152,7 +152,7 @@ export function validateWorkflow(workflow: unknown): ValidationResult {
 }
 
 /** Backends that don't require an explicit model field */
-const CLI_BACKENDS = ["claude", "cursor", "codex", "opencode", "mock"];
+const CLI_BACKENDS = ["claude", "cursor", "codex", "mock"];
 
 function validateAgent(name: string, agent: unknown, errors: ValidationError[]): void {
   const path = `agents.${name}`;

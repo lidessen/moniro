@@ -118,6 +118,7 @@ export function deleteAgent(name: string): Promise<ApiResponse> {
 export function send(body: {
   agent: string;
   message: string;
+  sender?: string;
   workflow?: string;
   tag?: string;
 }): Promise<ApiResponse> {

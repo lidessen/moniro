@@ -78,12 +78,34 @@ async function main() {
     mcpConfig,
   });
 
-  // 7. Send result via IPC
-  sendIpc({ type: "result", data: result });
+  // 7. Send result via IPC, then exit after flush
+  await sendIpcAsync({ type: "result", data: result });
   process.exit(0);
 }
 
-/** Send IPC message to daemon, with fallback to stdout. */
+/** Send IPC message to daemon, waiting for delivery. Fallback to stdout. */
+function sendIpcAsync(msg: WorkerIpcMessage): Promise<void> {
+  return new Promise((resolve) => {
+    try {
+      if (process.send) {
+        // process.send() callback fires when message is serialized and handed to OS
+        process.send(msg, undefined, undefined, (err) => {
+          if (err) console.error(JSON.stringify(msg));
+          resolve();
+        });
+      } else {
+        console.log(JSON.stringify(msg));
+        resolve();
+      }
+    } catch {
+      // IPC channel already closed — write to stderr as last resort
+      console.error(JSON.stringify(msg));
+      resolve();
+    }
+  });
+}
+
+/** Synchronous send for error paths where we can't await. */
 function sendIpc(msg: WorkerIpcMessage): void {
   try {
     if (process.send) {
@@ -92,7 +114,6 @@ function sendIpc(msg: WorkerIpcMessage): void {
       console.log(JSON.stringify(msg));
     }
   } catch {
-    // IPC channel already closed — write to stderr as last resort
     console.error(JSON.stringify(msg));
   }
 }

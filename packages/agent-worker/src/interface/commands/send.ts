@@ -20,11 +20,18 @@ export function registerSendCommands(program: Command) {
       }
 
       const target = parseTarget(targetInput);
-      const agent = target.agent ?? "user";
+      const agent = target.agent;
+
+      // Auto-mention target agent if message doesn't already @mention them
+      let finalMessage = message;
+      if (agent && !message.includes(`@${agent}`)) {
+        finalMessage = `@${agent} ${message}`;
+      }
 
       const res = await send({
-        agent,
-        message,
+        agent: agent ?? "user",
+        message: finalMessage,
+        sender: "user",
         workflow: target.workflow,
         tag: target.tag,
       });

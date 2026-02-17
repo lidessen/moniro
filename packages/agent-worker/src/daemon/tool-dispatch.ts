@@ -86,6 +86,7 @@ export async function dispatchToolCall(
       const messages = channelRead(db, workflow, tag, {
         since: args.since as string | undefined,
         limit: (args.limit as number) ?? 50,
+        agent,
       });
       return ok(
         messages.map((m) => ({

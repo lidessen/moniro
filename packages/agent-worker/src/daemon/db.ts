@@ -8,12 +8,12 @@
 import { Database } from "bun:sqlite";
 
 /** Schema version — bump when tables change */
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 const SCHEMA = `
--- Agents
+-- Agents (name is unique within a workflow:tag scope)
 CREATE TABLE IF NOT EXISTS agents (
-  name        TEXT PRIMARY KEY,
+  name        TEXT NOT NULL,
   model       TEXT NOT NULL,
   backend     TEXT NOT NULL DEFAULT 'default',
   system      TEXT,
@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS agents (
   schedule    TEXT,
   config_json TEXT,
   state       TEXT NOT NULL DEFAULT 'idle',
-  created_at  INTEGER NOT NULL
+  created_at  INTEGER NOT NULL,
+  PRIMARY KEY (name, workflow, tag)
 );
 
 -- Workflows
@@ -141,10 +142,45 @@ export function openMemoryDatabase(): Database {
 
 function migrate(db: Database) {
   const version = getSchemaVersion(db);
-  if (version < SCHEMA_VERSION) {
+
+  if (version === 0) {
+    // Fresh database — create all tables
     db.exec(SCHEMA);
     setSchemaVersion(db, SCHEMA_VERSION);
+    return;
   }
+
+  // Incremental migrations
+  if (version < 2) {
+    migrateV1toV2(db);
+  }
+
+  setSchemaVersion(db, SCHEMA_VERSION);
+}
+
+/**
+ * V1 → V2: Change agents PK from (name) to (name, workflow, tag).
+ * SQLite doesn't support ALTER TABLE to change PK, so we recreate.
+ */
+function migrateV1toV2(db: Database) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS agents_v2 (
+      name        TEXT NOT NULL,
+      model       TEXT NOT NULL,
+      backend     TEXT NOT NULL DEFAULT 'default',
+      system      TEXT,
+      workflow    TEXT NOT NULL DEFAULT 'global',
+      tag         TEXT NOT NULL DEFAULT 'main',
+      schedule    TEXT,
+      config_json TEXT,
+      state       TEXT NOT NULL DEFAULT 'idle',
+      created_at  INTEGER NOT NULL,
+      PRIMARY KEY (name, workflow, tag)
+    );
+    INSERT OR IGNORE INTO agents_v2 SELECT * FROM agents;
+    DROP TABLE agents;
+    ALTER TABLE agents_v2 RENAME TO agents;
+  `);
 }
 
 function getSchemaVersion(db: Database): number {

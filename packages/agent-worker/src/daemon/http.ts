@@ -57,10 +57,12 @@ export function createApp(deps: HttpDeps): Hono {
       return c.json({ error: "name and model are required" }, 400);
     }
 
-    // Check for duplicate
-    const existing = getAgent(deps.db, body.name);
+    // Check for duplicate within same workflow:tag scope
+    const workflow = body.workflow ?? "global";
+    const tag = body.tag ?? "main";
+    const existing = getAgent(deps.db, body.name, workflow, tag);
     if (existing) {
-      return c.json({ error: `Agent '${body.name}' already exists` }, 409);
+      return c.json({ error: `Agent '${body.name}' already exists in ${workflow}:${tag}` }, 409);
     }
 
     const agent = createAgent(deps.db, body);
@@ -96,6 +98,7 @@ export function createApp(deps: HttpDeps): Hono {
     const body = await c.req.json<{
       agent: string;
       message: string;
+      sender?: string;
       workflow?: string;
       tag?: string;
     }>();
@@ -104,11 +107,14 @@ export function createApp(deps: HttpDeps): Hono {
       return c.json({ error: "agent and message are required" }, 400);
     }
 
+    // `agent` is the target for workflow/tag resolution.
+    // `sender` is who the message is from (defaults to "user" for CLI callers).
+    const sender = body.sender ?? "user";
     const agentConfig = getAgent(deps.db, body.agent);
     const workflow = body.workflow ?? agentConfig?.workflow ?? "global";
     const tag = body.tag ?? agentConfig?.tag ?? "main";
 
-    const result = channelSend(deps.db, body.agent, body.message, workflow, tag);
+    const result = channelSend(deps.db, sender, body.message, workflow, tag);
 
     // Wake schedulers for recipients
     if (deps.schedulerManager) {
@@ -150,7 +156,7 @@ export function createApp(deps: HttpDeps): Hono {
     // Create agents from workflow definition
     const agentNames: string[] = [];
     for (const [agentName, agentDef] of Object.entries(body.workflow.agents)) {
-      const existing = getAgent(deps.db, agentName);
+      const existing = getAgent(deps.db, agentName, name, tag);
       if (!existing) {
         // Normalize provider config (string or object form) for storage
         const provider = agentDef.provider;
@@ -209,8 +215,10 @@ export function createApp(deps: HttpDeps): Hono {
       return c.json({ complete: true, reason: "no_agents" });
     }
 
-    // Check: all schedulers idle?
-    const allIdle = deps.schedulerManager?.allIdle() ?? true;
+    // Check: all schedulers in THIS workflow idle?
+    const allIdle = agents.every(
+      (a) => deps.schedulerManager?.isIdle(a.name, name, tag) ?? true,
+    );
 
     // Check: any unread inbox messages?
     let pendingInbox = false;
@@ -238,7 +246,7 @@ export function createApp(deps: HttpDeps): Hono {
     const agents = listAgents(deps.db, name, tag);
     for (const agent of agents) {
       deps.schedulerManager?.stop(agent.name, name, tag);
-      removeAgent(deps.db, agent.name);
+      removeAgent(deps.db, agent.name, name, tag);
     }
 
     removeWorkflow(deps.db, name, tag);
