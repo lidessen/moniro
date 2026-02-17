@@ -62,8 +62,13 @@ export function createAgentScheduler(
   async function tick() {
     if (state === "stopped" || running) return;
 
-    // Check inbox
-    const inbox = inboxQuery(deps.db, agentName, workflow, tag);
+    // Check inbox (guard against DB closed during shutdown)
+    let inbox;
+    try {
+      inbox = inboxQuery(deps.db, agentName, workflow, tag);
+    } catch {
+      return; // DB closed — bail
+    }
     if (inbox.length === 0) {
       schedulePoll();
       return;
@@ -72,7 +77,13 @@ export function createAgentScheduler(
     // Inbox has messages — run worker
     running = true;
     state = "running";
-    updateAgentState(deps.db, agentName, "running");
+    try {
+      updateAgentState(deps.db, agentName, "running");
+    } catch {
+      running = false;
+      state = "idle";
+      return;
+    }
 
     try {
       const config = agent();
@@ -98,7 +109,7 @@ export function createAgentScheduler(
       const result = await spawned.promise;
 
       // Success — write response to channel and ack inbox
-      if (result.content) {
+      if (result.content != null && result.content !== "") {
         channelSend(deps.db, agentName, result.content, workflow, tag);
       }
       inboxAckAll(deps.db, agentName, workflow, tag);
@@ -108,17 +119,21 @@ export function createAgentScheduler(
 
       retryCount = 0;
     } catch (err) {
+      console.error(`[scheduler] ${agentName}: worker error (attempt ${retryCount + 1}/${DEFAULT_MAX_RETRIES}):`, (err as Error).message ?? err);
       retryCount++;
       if (retryCount >= DEFAULT_MAX_RETRIES) {
-        // Max retries — messages stay unread for next cycle
+        console.error(`[scheduler] ${agentName}: max retries reached, giving up until next cycle`);
         retryCount = 0;
       }
     } finally {
       running = false;
-      state = state === "stopped" ? "stopped" : "idle";
-      updateAgentState(deps.db, agentName, "idle");
-
       if (state !== "stopped") {
+        state = "idle";
+        try {
+          updateAgentState(deps.db, agentName, "idle");
+        } catch {
+          // DB may be closed during shutdown
+        }
         schedulePoll();
       }
     }

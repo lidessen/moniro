@@ -7,6 +7,8 @@
 import { openDatabase, openMemoryDatabase } from "./db.ts";
 import { createApp, type HttpDeps } from "./http.ts";
 import { ensureGlobalWorkflow } from "./registry.ts";
+import { createProcessManager } from "./process-manager.ts";
+import { createSchedulerManager } from "./scheduler.ts";
 import type { Database } from "bun:sqlite";
 import { existsSync, mkdirSync, writeFileSync, unlinkSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -60,12 +62,12 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<DaemonHa
   // 2. Ensure @global workflow exists
   ensureGlobalWorkflow(db);
 
-  // 3. Shutdown handler
+  // 3. Mutable state — declared early so shutdown closure can reference them
   let server: ReturnType<typeof Bun.serve> | null = null;
   let isShuttingDown = false;
-
-  // Signal handler references — stored for cleanup
   let onSignal: (() => void) | null = null;
+  let processManager: ReturnType<typeof createProcessManager> | null = null;
+  let schedulerManager: ReturnType<typeof createSchedulerManager> | null = null;
 
   const shutdown = async () => {
     if (isShuttingDown) return;
@@ -78,7 +80,9 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<DaemonHa
       onSignal = null;
     }
 
-    // TODO: stop schedulers, kill workers
+    // Stop schedulers and workers
+    schedulerManager?.stopAll();
+    processManager?.killAll();
 
     // Close HTTP server
     if (server) {
@@ -98,7 +102,7 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<DaemonHa
     }
   };
 
-  // 4. Create HTTP app
+  // 4. Create HTTP app (schedulerManager injected after server starts)
   const deps: HttpDeps = { db, startedAt, shutdown: () => void shutdown() };
   const app = createApp(deps);
 
@@ -112,7 +116,12 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<DaemonHa
 
   const port = server.port;
 
-  // 6. Write daemon.json
+  // 6. Create process manager + scheduler (needs host:port from server)
+  processManager = createProcessManager({ db, daemonHost: host, daemonPort: port });
+  schedulerManager = createSchedulerManager({ db, processManager });
+  deps.schedulerManager = schedulerManager;
+
+  // 7. Write daemon.json
   if (!options.inMemory) {
     const djPath = getDaemonJsonPath();
     const djDir = dirname(djPath);
@@ -123,7 +132,7 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<DaemonHa
     );
   }
 
-  // 7. Signal handlers (stored for cleanup on shutdown)
+  // 8. Signal handlers (stored for cleanup on shutdown)
   onSignal = () => void shutdown();
   process.on("SIGINT", onSignal);
   process.on("SIGTERM", onSignal);

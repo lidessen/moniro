@@ -33,18 +33,18 @@ async function main() {
   // 1. Connect to Daemon MCP
   const daemon = createDaemonClient(config.daemonMcpUrl);
 
-  // 2. Pull context via MCP
+  // 2. Pull context via MCP (returns wire format — flat objects, not nested)
   const [inbox, channel, teamMembers] = await Promise.all([
-    daemon.myInbox(),
-    daemon.channelRead({ limit: 50 }),
+    daemon.myInbox() as Promise<unknown>,
+    daemon.channelRead({ limit: 50 }) as Promise<unknown>,
     daemon.teamMembers(),
   ]);
 
   // 3. Build prompt
   const prompt = buildPrompt({
     system: config.agent.system,
-    inbox,
-    channel,
+    inbox: inbox as any[],
+    channel: channel as any[],
     teamMembers,
   });
 

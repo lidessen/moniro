@@ -93,11 +93,15 @@ export function createProcessManager(deps: ProcessManagerDeps) {
         clearTimeout(timer);
         active.delete(key);
 
-        // Update DB
-        deps.db.run(
-          `UPDATE workers SET state = 'idle', pid = NULL WHERE agent = ? AND workflow = ? AND tag = ?`,
-          [config.agent.name, config.workflow, config.tag],
-        );
+        // Update DB (best-effort — DB may be closed during shutdown)
+        try {
+          deps.db.run(
+            `UPDATE workers SET state = 'idle', pid = NULL WHERE agent = ? AND workflow = ? AND tag = ?`,
+            [config.agent.name, config.workflow, config.tag],
+          );
+        } catch {
+          // DB closed during shutdown — expected race condition
+        }
 
         if (timedOut) return; // Already rejected
 

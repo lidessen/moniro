@@ -152,6 +152,11 @@ export function stopWorkflow(name: string, tag: string = "main"): Promise<ApiRes
   return request("DELETE", `/workflows/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`);
 }
 
+/** GET /workflows/:name/:tag/status — check workflow completion */
+export function workflowStatus(name: string, tag: string = "main"): Promise<ApiResponse> {
+  return request("GET", `/workflows/${encodeURIComponent(name)}/${encodeURIComponent(tag)}/status`);
+}
+
 /** Check if daemon is running */
 export function isDaemonActive(): boolean {
   return findDaemon() !== null;

@@ -22,7 +22,8 @@ export function createMockBackend(options: MockBackendOptions = {}): Backend {
         }
         return result;
       }
-      return { content: options.response ?? `Mock response to: ${message}` };
+      // Default: safe response that won't trigger @mention loops
+      return { content: options.response ?? `[mock] Processed ${message.length} chars. Done.` };
     },
   };
 }

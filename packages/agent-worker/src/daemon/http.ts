@@ -13,7 +13,7 @@ import {
   removeAgent,
   type CreateAgentInput,
 } from "./registry.ts";
-import { channelSend, channelRead } from "./context.ts";
+import { channelSend, channelRead, inboxQuery } from "./context.ts";
 import { createWorkflow, listWorkflows, removeWorkflow } from "./registry.ts";
 import type { createSchedulerManager } from "./scheduler.ts";
 import { dispatchToolCall, type DispatchDeps } from "./tool-dispatch.ts";
@@ -155,7 +155,7 @@ export function createApp(deps: HttpDeps): Hono {
         createAgent(deps.db, {
           name: agentName,
           model: agentDef.model ?? "mock",
-          backend: agentDef.backend ?? "mock",
+          backend: agentDef.backend ?? (agentDef.model ? "sdk" : "mock"),
           system: agentDef.resolvedSystemPrompt ?? agentDef.system_prompt,
           workflow: name,
           tag,
@@ -167,9 +167,14 @@ export function createApp(deps: HttpDeps): Hono {
       deps.schedulerManager?.start(agentName, name, tag);
     }
 
-    // Send kickoff message if present
+    // Send kickoff message if present, then wake mentioned agents
     if (body.workflow.kickoff) {
-      channelSend(deps.db, "system", body.workflow.kickoff, name, tag);
+      const result = channelSend(deps.db, "system", body.workflow.kickoff, name, tag);
+      if (deps.schedulerManager) {
+        for (const recipient of result.recipients) {
+          deps.schedulerManager.wake(recipient, name, tag);
+        }
+      }
     }
 
     return c.json({ ok: true, name, tag, agents: agentNames }, 201);
@@ -178,6 +183,38 @@ export function createApp(deps: HttpDeps): Hono {
   app.get("/workflows", (c) => {
     const workflows = listWorkflows(deps.db);
     return c.json(workflows);
+  });
+
+  // ── Workflow status (for run-mode idle detection) ──────────
+
+  app.get("/workflows/:name/:tag/status", (c) => {
+    const name = c.req.param("name");
+    const tag = c.req.param("tag");
+
+    const agents = listAgents(deps.db, name, tag);
+    if (agents.length === 0) {
+      return c.json({ complete: true, reason: "no_agents" });
+    }
+
+    // Check: all schedulers idle?
+    const allIdle = deps.schedulerManager?.allIdle() ?? true;
+
+    // Check: any unread inbox messages?
+    let pendingInbox = false;
+    for (const agent of agents) {
+      const inbox = inboxQuery(deps.db, agent.name, name, tag);
+      if (inbox.length > 0) {
+        pendingInbox = true;
+        break;
+      }
+    }
+
+    const complete = allIdle && !pendingInbox;
+    return c.json({
+      complete,
+      agents: agents.map((a) => ({ name: a.name, state: a.state })),
+      pendingInbox,
+    });
   });
 
   app.delete("/workflows/:name/:tag", (c) => {

@@ -23,7 +23,7 @@ export async function createBackend(options: BackendOptions): Promise<Backend> {
 
   switch (type) {
     case "mock":
-      return createMockBackend({ response: "" });
+      return createMockBackend();
 
     case "sdk": {
       const { createSdkBackend } = await import("./sdk.ts");

@@ -3,16 +3,35 @@
  *
  * The worker pulls context via Daemon MCP, then builds the prompt locally.
  * This is a worker concern — daemon provides data, worker decides presentation.
+ *
+ * NOTE: Types here reflect the MCP wire format (flattened), not internal types.
  */
-import type { InboxMessage, Message } from "../shared/types.ts";
+
+/** Inbox message as returned by the my_inbox MCP tool */
+export interface WireInboxMessage {
+  id: string;
+  sender: string;
+  content: string;
+  priority: string;
+  createdAt: number;
+}
+
+/** Channel message as returned by the channel_read MCP tool */
+export interface WireChannelMessage {
+  id: string;
+  sender: string;
+  content: string;
+  recipients: string[];
+  createdAt: number;
+}
 
 export interface PromptInput {
   /** Agent's system prompt */
   system?: string;
-  /** Unread inbox messages */
-  inbox: InboxMessage[];
-  /** Recent channel messages */
-  channel: Message[];
+  /** Unread inbox messages (MCP wire format) */
+  inbox: WireInboxMessage[];
+  /** Recent channel messages (MCP wire format) */
+  channel: WireChannelMessage[];
   /** Document content (optional) */
   document?: string;
   /** Team members for context */
@@ -30,7 +49,7 @@ export function buildPrompt(input: PromptInput): string {
   if (input.inbox.length > 0) {
     const lines = input.inbox.map((m) => {
       const priority = m.priority === "high" ? " [HIGH]" : "";
-      return `- From @${m.message.sender}${priority}: ${m.message.content}`;
+      return `- From @${m.sender}${priority}: ${m.content}`;
     });
     sections.push(`## Inbox (${input.inbox.length} messages for you)\n${lines.join("\n")}`);
   } else {

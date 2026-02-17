@@ -11,8 +11,6 @@ import { channelRead } from "../src/daemon/context.ts";
 import { buildPrompt } from "../src/worker/prompt.ts";
 import { runSession } from "../src/worker/session.ts";
 import { createMockBackend } from "../src/worker/backends/mock.ts";
-import type { InboxMessage, Message } from "../src/shared/types.ts";
-
 // ==================== Prompt building ====================
 
 describe("buildPrompt", () => {
@@ -20,17 +18,11 @@ describe("buildPrompt", () => {
     const prompt = buildPrompt({
       inbox: [
         {
-          message: {
-            id: "1",
-            sender: "alice",
-            content: "@bob please review",
-            recipients: ["bob"],
-            kind: "message",
-            workflow: "review",
-            tag: "pr-1",
-            createdAt: Date.now(),
-          },
+          id: "1",
+          sender: "alice",
+          content: "@bob please review",
           priority: "normal",
+          createdAt: Date.now(),
         },
       ],
       channel: [],
@@ -50,9 +42,6 @@ describe("buildPrompt", () => {
           sender: "alice",
           content: "starting review",
           recipients: [],
-          kind: "message",
-          workflow: "review",
-          tag: "pr-1",
           createdAt: Date.now(),
         },
       ],
@@ -147,17 +136,11 @@ describe("daemon + worker integration", () => {
       system: "You are a code reviewer.",
       prompt: buildPrompt({
         inbox: [{
-          message: {
-            id: "kick",
-            sender: "system",
-            content: "@reviewer please review the PR",
-            recipients: ["reviewer"],
-            kind: "message",
-            workflow: "review",
-            tag: "pr-1",
-            createdAt: Date.now(),
-          },
+          id: "kick",
+          sender: "system",
+          content: "@reviewer please review the PR",
           priority: "normal",
+          createdAt: Date.now(),
         }],
         channel: [],
       }),

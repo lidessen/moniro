@@ -2,8 +2,8 @@
  * Workflow commands: run, start
  */
 import type { Command } from "commander";
-import { DEFAULT_TAG } from "../../shared/constants.ts";
-import { startWorkflow, stopWorkflow } from "../client.ts";
+import { DEFAULT_TAG, DEFAULT_WORKER_TIMEOUT, DEFAULT_IDLE_DEBOUNCE } from "../../shared/constants.ts";
+import { startWorkflow, stopWorkflow, workflowStatus } from "../client.ts";
 import { ensureDaemon } from "../discovery.ts";
 import type { ParsedWorkflow, SetupTask } from "../../workflow/types.ts";
 
@@ -38,15 +38,20 @@ export function registerWorkflowCommands(program: Command) {
       const agents = (res.agents ?? []) as string[];
       const workflowName = parsedWorkflow.name;
 
+      const displayName = `@${workflowName}${tag !== "main" ? ":" + tag : ""}`;
+
       if (options.json) {
         console.log(JSON.stringify({ name: workflowName, tag, agents }, null, 2));
       } else {
-        console.log(`Workflow: @${workflowName}${tag !== "main" ? ":" + tag : ""}`);
+        console.log(`Workflow: ${displayName}`);
         console.log(`Agents:   ${agents.join(", ")}`);
       }
 
-      // TODO: In run mode, wait for workflow completion (idle detection)
-      // For now, start and return like the start command
+      // Wait for workflow completion (all agents idle + no pending inbox)
+      await waitForCompletion(workflowName, tag, displayName, options.debug);
+
+      // Cleanup: stop workflow and daemon
+      await stopWorkflow(workflowName, tag);
     });
 
   // ── start ──────────────────────────────────────────────────────
@@ -156,6 +161,51 @@ async function prepareWorkflow(
   }
 
   return { ...workflow, agents, kickoff };
+}
+
+/**
+ * Poll daemon until workflow completes (all agents idle + no pending inbox).
+ * Uses debounce: must see "complete" twice with a gap to confirm.
+ */
+async function waitForCompletion(
+  name: string,
+  tag: string,
+  displayName: string,
+  debug?: boolean,
+): Promise<void> {
+  const POLL_MS = 1_000;
+  const TIMEOUT_MS = DEFAULT_WORKER_TIMEOUT; // 10 minutes
+  const start = Date.now();
+  let firstCompleteAt: number | null = null;
+
+  while (Date.now() - start < TIMEOUT_MS) {
+    await new Promise((r) => setTimeout(r, POLL_MS));
+
+    const status = await workflowStatus(name, tag);
+    if (status.error) {
+      if (debug) console.log(`[run] status error: ${status.error}`);
+      continue;
+    }
+
+    if (status.complete) {
+      if (firstCompleteAt === null) {
+        firstCompleteAt = Date.now();
+        if (debug) console.log("[run] idle detected, debouncing...");
+      } else if (Date.now() - firstCompleteAt >= DEFAULT_IDLE_DEBOUNCE) {
+        if (debug) console.log("[run] workflow complete.");
+        return;
+      }
+    } else {
+      firstCompleteAt = null;
+      if (debug) {
+        const agents = (status.agents as Array<{ name: string; state: string }>) ?? [];
+        const states = agents.map((a) => `${a.name}=${a.state}`).join(", ");
+        console.log(`[run] waiting... ${states} pending_inbox=${status.pendingInbox}`);
+      }
+    }
+  }
+
+  console.error(`Timeout: workflow ${displayName} did not complete within ${TIMEOUT_MS / 1000}s`);
 }
 
 /**
