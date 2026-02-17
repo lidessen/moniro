@@ -1,0 +1,19 @@
+name: deepseek-tools-test
+
+agents:
+  alice:
+    model: deepseek:deepseek-chat
+    system_prompt: |
+      You are Alice. When you receive a message, use the channel_send tool to reply ONCE.
+      Keep your reply to ONE short sentence. Then call my_inbox_ack.
+      IMPORTANT: Only reply once per wake. Do NOT continue the conversation.
+
+  bob:
+    model: deepseek:deepseek-chat
+    system_prompt: |
+      You are Bob. When you receive a message, use the channel_send tool to reply ONCE.
+      Keep your reply to ONE short sentence. Then call my_inbox_ack.
+      IMPORTANT: Only reply once per wake. Do NOT continue the conversation.
+
+kickoff: |
+  @alice Please say hello to @bob using the channel_send tool.

@@ -10,6 +10,7 @@
  */
 import type { WorkerConfig, WorkerIpcMessage } from "../shared/types.ts";
 import { createDaemonClient } from "./mcp-client.ts";
+import { createDaemonTools } from "./daemon-tools.ts";
 import { buildPrompt } from "./prompt.ts";
 import { runSession } from "./session.ts";
 import { createBackend } from "./backends/index.ts";
@@ -54,7 +55,10 @@ async function main() {
     model: config.agent.model,
   });
 
-  // 5. Prepare MCP config for CLI backends
+  // 5. Prepare tools and MCP config
+  // SDK backend: create explicit tool definitions (generateText needs them)
+  // CLI backends: pass MCP config (CLI handles tool calling internally)
+  const tools = backend.type === "sdk" ? createDaemonTools(daemon) : undefined;
   const mcpConfig = config.daemonMcpUrl
     ? {
         mcpServers: {
@@ -70,6 +74,7 @@ async function main() {
     backend,
     system: config.agent.system,
     prompt,
+    tools,
     mcpConfig,
   });
 
