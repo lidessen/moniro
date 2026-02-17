@@ -152,6 +152,18 @@ export function createApp(deps: HttpDeps): Hono {
     for (const [agentName, agentDef] of Object.entries(body.workflow.agents)) {
       const existing = getAgent(deps.db, agentName);
       if (!existing) {
+        // Normalize provider config (string or object form) for storage
+        const provider = agentDef.provider;
+        const providerConfig = provider
+          ? typeof provider === "string"
+            ? { name: provider }
+            : {
+                name: provider.name,
+                apiKey: provider.api_key,
+                baseUrl: provider.base_url,
+              }
+          : undefined;
+
         createAgent(deps.db, {
           name: agentName,
           model: agentDef.model ?? "mock",
@@ -159,6 +171,7 @@ export function createApp(deps: HttpDeps): Hono {
           system: agentDef.resolvedSystemPrompt ?? agentDef.system_prompt,
           workflow: name,
           tag,
+          configJson: providerConfig ? { provider: providerConfig } : undefined,
         });
       }
       agentNames.push(agentName);

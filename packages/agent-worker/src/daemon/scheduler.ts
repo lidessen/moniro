@@ -93,12 +93,17 @@ export function createAgentScheduler(
         return;
       }
 
+      const provider = config.configJson?.provider as
+        | { name?: string; apiKey?: string; baseUrl?: string }
+        | undefined;
+
       const workerConfig: WorkerConfig = {
         agent: {
           name: config.name,
           model: config.model,
           backend: config.backend,
           system: config.system,
+          provider,
         },
         daemonMcpUrl: "", // ProcessManager will fill this
         workflow,

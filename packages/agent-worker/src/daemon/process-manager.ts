@@ -47,9 +47,13 @@ export function createProcessManager(deps: ProcessManagerDeps) {
     const daemonMcpUrl = `http://${deps.daemonHost}:${deps.daemonPort}/mcp?agent=${config.agent.name}`;
     const fullConfig: WorkerConfig = { ...config, daemonMcpUrl };
 
+    // Map provider config to env vars so SDK providers and CLI backends can find API keys
+    const providerEnv = resolveProviderEnv(fullConfig.agent.provider, fullConfig.agent.model);
+
     const child = fork(WORKER_ENTRY, [], {
       env: {
         ...process.env,
+        ...providerEnv,
         WORKER_CONFIG: JSON.stringify(fullConfig),
       },
       stdio: ["pipe", "pipe", "pipe", "ipc"],
@@ -158,4 +162,48 @@ export function createProcessManager(deps: ProcessManagerDeps) {
   }
 
   return { spawn, killAll, activeCount };
+}
+
+// ==================== Provider → Env Var Mapping ====================
+
+/** Env var names per provider for the Vercel AI SDK */
+const PROVIDER_ENV_KEYS: Record<string, { apiKey: string; baseUrl?: string }> = {
+  anthropic: { apiKey: "ANTHROPIC_API_KEY", baseUrl: "ANTHROPIC_BASE_URL" },
+  openai: { apiKey: "OPENAI_API_KEY", baseUrl: "OPENAI_BASE_URL" },
+  deepseek: { apiKey: "DEEPSEEK_API_KEY" },
+  google: { apiKey: "GOOGLE_GENERATIVE_AI_API_KEY" },
+  groq: { apiKey: "GROQ_API_KEY" },
+  mistral: { apiKey: "MISTRAL_API_KEY" },
+  xai: { apiKey: "XAI_API_KEY" },
+};
+
+/**
+ * Map provider config to environment variables.
+ * Falls back to inferring provider from model string (e.g., "anthropic/claude-sonnet-4-5").
+ */
+function resolveProviderEnv(
+  provider?: { name?: string; apiKey?: string; baseUrl?: string },
+  model?: string,
+): Record<string, string> {
+  if (!provider?.apiKey) return {};
+
+  // Determine provider name: explicit > parsed from model string
+  let providerName = provider.name;
+  if (!providerName && model) {
+    const slash = model.indexOf("/");
+    if (slash > 0) providerName = model.slice(0, slash);
+    const colon = model.indexOf(":");
+    if (!providerName && colon > 0) providerName = model.slice(0, colon);
+  }
+  if (!providerName) return {};
+
+  const envKeys = PROVIDER_ENV_KEYS[providerName];
+  if (!envKeys) return {};
+
+  const env: Record<string, string> = {};
+  env[envKeys.apiKey] = provider.apiKey;
+  if (provider.baseUrl && envKeys.baseUrl) {
+    env[envKeys.baseUrl] = provider.baseUrl;
+  }
+  return env;
 }

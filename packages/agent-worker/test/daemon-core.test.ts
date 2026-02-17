@@ -204,6 +204,59 @@ describe("daemon HTTP", () => {
     expect(agents2.length).toBe(0);
   });
 
+  test("workflow creation stores provider config in agent configJson", async () => {
+    daemon = await startDaemon({ inMemory: true, port: 0 });
+    const base = `http://${daemon.host}:${daemon.port}`;
+
+    // Create workflow with provider config (object form)
+    await fetch(`${base}/workflows`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workflow: {
+          name: "test-provider",
+          agents: {
+            bot: {
+              model: "anthropic/claude-sonnet-4-5",
+              provider: { name: "anthropic", api_key: "sk-test-123", base_url: "https://custom.api" },
+            },
+          },
+        },
+        tag: "main",
+      }),
+    });
+
+    // Verify agent has provider in configJson
+    const agentRes = await fetch(`${base}/agents/bot`);
+    const agent = await agentRes.json();
+    expect(agent.configJson).toEqual({
+      provider: { name: "anthropic", apiKey: "sk-test-123", baseUrl: "https://custom.api" },
+    });
+  });
+
+  test("workflow creation handles string provider", async () => {
+    daemon = await startDaemon({ inMemory: true, port: 0 });
+    const base = `http://${daemon.host}:${daemon.port}`;
+
+    await fetch(`${base}/workflows`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workflow: {
+          name: "test-str-provider",
+          agents: {
+            bot2: { model: "openai/gpt-4.1", provider: "openai" },
+          },
+        },
+        tag: "main",
+      }),
+    });
+
+    const agentRes = await fetch(`${base}/agents/bot2`);
+    const agent = await agentRes.json();
+    expect(agent.configJson).toEqual({ provider: { name: "openai" } });
+  });
+
   test("persistence across restarts (file-based DB)", async () => {
     const { mkdtempSync } = await import("node:fs");
     const { tmpdir } = await import("node:os");

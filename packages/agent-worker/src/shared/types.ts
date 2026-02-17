@@ -154,6 +154,8 @@ export interface WorkerConfig {
     model: string;
     backend: string;
     system?: string;
+    /** Provider config from workflow YAML (api_key, base_url) */
+    provider?: { name?: string; apiKey?: string; baseUrl?: string };
   };
   daemonMcpUrl: string;
   workerMcpConfigs?: McpServerConfig[];
