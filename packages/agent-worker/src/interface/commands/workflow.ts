@@ -3,7 +3,7 @@
  */
 import type { Command } from "commander";
 import { DEFAULT_TAG, DEFAULT_WORKER_TIMEOUT, DEFAULT_IDLE_DEBOUNCE } from "../../shared/constants.ts";
-import { startWorkflow, stopWorkflow, workflowStatus } from "../client.ts";
+import { startWorkflow, stopWorkflow, workflowStatus, peek } from "../client.ts";
 import { ensureDaemon } from "../discovery.ts";
 import type { ParsedWorkflow, SetupTask } from "../../workflow/types.ts";
 
@@ -15,6 +15,7 @@ export function registerWorkflowCommands(program: Command) {
     .option("--tag <tag>", "Workflow instance tag", DEFAULT_TAG)
     .option("-d, --debug", "Show debug details")
     .option("--json", "Output results as JSON")
+    .option("-o, --output <file>", "Write last agent response to file")
     .action(async (file, options) => {
       const { parseWorkflowFile } = await import("../../workflow/parser.ts");
 
@@ -49,6 +50,11 @@ export function registerWorkflowCommands(program: Command) {
 
       // Wait for workflow completion (all agents idle + no pending inbox)
       await waitForCompletion(workflowName, tag, displayName, options.debug);
+
+      // Capture agent output to file if requested
+      if (options.output) {
+        await captureOutput(workflowName, tag, options.output, options.debug);
+      }
 
       // Cleanup: stop workflow and daemon
       await stopWorkflow(workflowName, tag);
@@ -206,6 +212,43 @@ async function waitForCompletion(
   }
 
   console.error(`Timeout: workflow ${displayName} did not complete within ${TIMEOUT_MS / 1000}s`);
+}
+
+/**
+ * Capture the last non-system agent message from the channel and write to file.
+ * Used by `run --output` to extract the agent's final response.
+ */
+async function captureOutput(
+  workflow: string,
+  tag: string,
+  outputPath: string,
+  debug?: boolean,
+): Promise<void> {
+  const { writeFileSync } = await import("node:fs");
+
+  const res = await peek(workflow, tag, 50);
+  const messages = res as unknown as Array<{
+    sender: string;
+    content: string;
+    kind: string;
+  }>;
+
+  if (!Array.isArray(messages) || messages.length === 0) {
+    if (debug) console.log("[output] no messages to capture");
+    return;
+  }
+
+  // Find last agent message (not from system/user)
+  const agentMsg = [...messages]
+    .reverse()
+    .find((m) => m.sender !== "system" && m.sender !== "user" && m.kind !== "system");
+
+  if (agentMsg) {
+    writeFileSync(outputPath, agentMsg.content, "utf-8");
+    if (debug) console.log(`[output] wrote ${agentMsg.content.length} chars to ${outputPath}`);
+  } else if (debug) {
+    console.log("[output] no agent message found");
+  }
 }
 
 /**

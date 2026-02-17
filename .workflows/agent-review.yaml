@@ -6,6 +6,24 @@ agents:
       Focus on: bugs, security issues, logic errors, bad patterns, and notable improvements.
       Be constructive. Reference specific files and line numbers.
 
+      IMPORTANT: Your entire response must be valid JSON matching this schema:
+      {
+        "summary": "Brief overview of the changes and their quality",
+        "issues": [
+          {
+            "severity": "error|warning|suggestion",
+            "file": "path/to/file.ts",
+            "line": 42,
+            "message": "Description of the issue"
+          }
+        ],
+        "highlights": [
+          "Positive things worth mentioning"
+        ]
+      }
+
+      Output ONLY the JSON object. No markdown, no code fences, no explanation.
+
 context:
   provider: memory
 
@@ -16,27 +34,29 @@ setup:
   - shell: echo "$GITHUB_REPOSITORY"
     as: repo
 
-  # Write PR metadata to file (avoids context overflow)
+  # Read PR metadata directly (not to file)
   - shell: |
       gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
-        --json title,body,baseRefName,headRefName,author,additions,deletions,changedFiles \
-        > /tmp/pr-info.json
-      echo "/tmp/pr-info.json"
-    as: pr_info_file
+        --json title,body,baseRefName,headRefName,author,additions,deletions,changedFiles
+    as: pr_info
 
   - shell: gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json files --jq '.files[].path'
     as: changed_files
 
-  # Write the appropriate diff to file
-  # Incremental: only changes between BEFORE_SHA and AFTER_SHA
-  # Initial: full PR diff
+  # Read the diff content directly (truncate to ~3000 lines to fit context)
   - shell: |
       if [ "$TRIGGER_TYPE" = "synchronize" ] && [ -n "$BEFORE_SHA" ] && [ -n "$AFTER_SHA" ]; then
         gh api "repos/$GITHUB_REPOSITORY/compare/$BEFORE_SHA...$AFTER_SHA" \
-          -H "Accept: application/vnd.github.v3.diff" > /tmp/review-diff.txt 2>/dev/null || true
+          -H "Accept: application/vnd.github.v3.diff" 2>/dev/null | head -3000
+      else
+        gh pr diff "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" 2>/dev/null | head -3000
+      fi
+    as: diff_content
+
+  - shell: |
+      if [ "$TRIGGER_TYPE" = "synchronize" ] && [ -n "$BEFORE_SHA" ] && [ -n "$AFTER_SHA" ]; then
         echo "incremental"
       else
-        gh pr diff "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" > /tmp/review-diff.txt 2>/dev/null || true
         echo "initial"
       fi
     as: review_type
@@ -56,6 +76,11 @@ kickoff: |
 
   ## Review Type: ${{ review_type }}
 
+  ## PR Metadata
+  ```json
+  ${{ pr_info }}
+  ```
+
   ## Changed Files
   ```
   ${{ changed_files }}
@@ -66,43 +91,14 @@ kickoff: |
   ${{ new_commits }}
   ```
 
+  ## Diff
+  ```diff
+  ${{ diff_content }}
+  ```
+
   ## Instructions
 
-  1. Read the PR metadata:
-     ```bash
-     cat ${{ pr_info_file }} | jq .
-     ```
-
-  2. Read the diff to review:
-     ```bash
-     cat /tmp/review-diff.txt
-     ```
-
-  3. If the diff is large, read specific files:
-     ```bash
-     # View a specific file's changes from the diff
-     grep -A 100 "^diff --git a/path/to/file" /tmp/review-diff.txt
-     ```
-
-  4. Write your analysis as JSON to `/tmp/review-result.json`:
-     ```bash
-     cat > /tmp/review-result.json << 'REVIEW_EOF'
-     {
-       "summary": "Brief overview of the changes and their quality",
-       "issues": [
-         {
-           "severity": "error|warning|suggestion",
-           "file": "path/to/file.ts",
-           "line": 42,
-           "message": "Description of the issue"
-         }
-       ],
-       "highlights": [
-         "Positive things worth mentioning"
-       ]
-     }
-     REVIEW_EOF
-     ```
+  Analyze the diff above and produce your review as a JSON object.
 
   Severity guide:
   - **error**: bugs, security issues, broken logic, data loss risks
@@ -113,5 +109,5 @@ kickoff: |
   - If no issues found, use `"issues": []`
   - Always include file paths and line numbers for issues
   - For incremental reviews, focus ONLY on the new changes in the diff
-  - Be specific and actionable — vague feedback is not helpful
-  - The JSON must be valid — the CI will parse it to post the review
+  - Be specific and actionable
+  - Output ONLY valid JSON — no markdown, no code fences, no explanation

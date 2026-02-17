@@ -157,7 +157,7 @@ jobs:
           BEFORE_SHA: ${{ steps.pr.outputs.before_sha }}
           AFTER_SHA: ${{ steps.pr.outputs.after_sha }}
         run: |
-          bun packages/agent-worker/src/interface/cli.ts run ${{ steps.resolve.outputs.file }}
+          bun packages/agent-worker/src/interface/cli.ts run ${{ steps.resolve.outputs.file }} --output /tmp/review-result.json
 
       # Post-processing: publish agent-review results from JSON
       - name: Publish review
