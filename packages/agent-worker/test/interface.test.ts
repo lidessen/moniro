@@ -108,7 +108,7 @@ describe("validateWorkflow", () => {
   test("requires agents", () => {
     const result = validateWorkflow({});
     expect(result.valid).toBe(false);
-    expect(result.errors[0].path).toBe("agents");
+    expect(result.errors[0]!.path).toBe("agents");
   });
 
   test("validates agent model", () => {
@@ -118,7 +118,7 @@ describe("validateWorkflow", () => {
       },
     });
     expect(result.valid).toBe(false);
-    expect(result.errors[0].path).toContain("model");
+    expect(result.errors[0]!.path).toContain("model");
   });
 
   test("model not required for CLI backends", () => {
@@ -136,7 +136,7 @@ describe("validateWorkflow", () => {
       setup: [{ invalid: true }],
     });
     expect(result.valid).toBe(false);
-    expect(result.errors[0].path).toContain("setup");
+    expect(result.errors[0]!.path).toContain("setup");
   });
 
   test("validates wakeup_prompt requires wakeup", () => {
@@ -146,7 +146,7 @@ describe("validateWorkflow", () => {
       },
     });
     expect(result.valid).toBe(false);
-    expect(result.errors[0].path).toContain("wakeup_prompt");
+    expect(result.errors[0]!.path).toContain("wakeup_prompt");
   });
 });
 
@@ -183,7 +183,7 @@ kickoff: "@reviewer check the PR"
     expect(parsed.name).toBe("review");
     expect(parsed.agents.reviewer).toBeDefined();
     expect(parsed.agents.coder).toBeDefined();
-    expect(parsed.agents.reviewer.resolvedSystemPrompt).toBe("You review code.");
+    expect(parsed.agents.reviewer!.resolvedSystemPrompt).toBe("You review code.");
     expect(parsed.kickoff).toBe("@reviewer check the PR");
   });
 
@@ -218,8 +218,8 @@ kickoff: "@reviewer check the PR"
     );
 
     const parsed = await parseWorkflowFile(yamlPath);
-    expect(parsed.agents.reviewer.resolvedSystemPrompt).toContain("expert reviewer");
-    expect(parsed.agents.reviewer.resolvedSystemPrompt).toContain("security");
+    expect(parsed.agents.reviewer!.resolvedSystemPrompt).toContain("expert reviewer");
+    expect(parsed.agents.reviewer!.resolvedSystemPrompt).toContain("security");
   });
 
   test("resolves wakeup into schedule", async () => {
@@ -236,7 +236,7 @@ kickoff: "@reviewer check the PR"
     );
 
     const parsed = await parseWorkflowFile(yamlPath);
-    expect(parsed.agents.monitor.schedule).toEqual({
+    expect(parsed.agents.monitor!.schedule).toEqual({
       wakeup: "30s",
       prompt: "Check status",
     });

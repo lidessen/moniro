@@ -46,7 +46,7 @@ export function interpolate(template: string, ctx: InterpolationContext): string
 
     // setup output (bare name)
     if (key in ctx.setup) {
-      return ctx.setup[key];
+      return ctx.setup[key] ?? match;
     }
 
     // Unresolved — leave as-is

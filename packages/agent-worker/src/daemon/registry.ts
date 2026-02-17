@@ -61,7 +61,7 @@ export function getAgent(db: Database, name: string): AgentConfig | null {
 
 export function listAgents(db: Database, workflow?: string, tag?: string): AgentConfig[] {
   let sql = "SELECT * FROM agents";
-  const params: unknown[] = [];
+  const params: (string | number | null)[] = [];
 
   if (workflow) {
     sql += " WHERE workflow = ?";

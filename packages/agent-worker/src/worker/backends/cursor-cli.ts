@@ -42,7 +42,7 @@ export function createCursorCliBackend(options: CursorCliOptions = {}): Backend 
   return {
     type: "cursor",
 
-    async send(message, sendOptions) {
+    async send(message, _sendOptions) {
       const { cmd, args: baseArgs } = await resolveCommand();
       const args = [
         ...baseArgs,

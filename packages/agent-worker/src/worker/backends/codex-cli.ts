@@ -20,7 +20,7 @@ export function createCodexCliBackend(options: CodexCliOptions = {}): Backend {
   return {
     type: "codex",
 
-    async send(message, sendOptions) {
+    async send(message, _sendOptions) {
       const args = ["exec", "--full-auto", "--json", "--skip-git-repo-check", message];
 
       if (options.model) args.push("--model", options.model);

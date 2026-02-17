@@ -6,7 +6,7 @@
  */
 import { describe, test, expect, afterEach } from "bun:test";
 import { startDaemon, type DaemonHandle } from "../src/daemon/index.ts";
-import { createAgent, createWorkflow, listAgents } from "../src/daemon/registry.ts";
+import { createAgent, createWorkflow } from "../src/daemon/registry.ts";
 import { channelRead } from "../src/daemon/context.ts";
 import { buildPrompt } from "../src/worker/prompt.ts";
 import { runSession } from "../src/worker/session.ts";
@@ -156,13 +156,13 @@ describe("daemon + worker integration", () => {
 
     const messages = channelRead(db, "review", "pr-1");
     expect(messages.length).toBe(1);
-    expect(messages[0].sender).toBe("reviewer");
-    expect(messages[0].content).toContain("3 issues");
+    expect(messages[0]!.sender).toBe("reviewer");
+    expect(messages[0]!.content).toContain("3 issues");
 
     // Verify: coder's inbox has the message
     const { inboxQuery } = await import("../src/daemon/context.ts");
     const coderInbox = inboxQuery(db, "coder", "review", "pr-1");
     expect(coderInbox.length).toBe(1);
-    expect(coderInbox[0].message.sender).toBe("reviewer");
+    expect(coderInbox[0]!.message.sender).toBe("reviewer");
   });
 });

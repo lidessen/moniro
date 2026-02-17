@@ -11,7 +11,7 @@
 import type { Database } from "bun:sqlite";
 import { inboxQuery, inboxAckAll, channelSend } from "./context.ts";
 import { getAgent, updateAgentState } from "./registry.ts";
-import { createProcessManager, type ProcessManagerDeps } from "./process-manager.ts";
+import { createProcessManager } from "./process-manager.ts";
 import type { WorkerConfig, SessionResult } from "../shared/types.ts";
 import { DEFAULT_POLL_INTERVAL, DEFAULT_MAX_RETRIES } from "../shared/constants.ts";
 
@@ -139,7 +139,7 @@ export function createAgentScheduler(
       }
     } finally {
       running = false;
-      if (state !== "stopped") {
+      if ((state as SchedulerState) !== "stopped") {
         state = "idle";
         try {
           updateAgentState(deps.db, agentName, "idle");
@@ -258,8 +258,8 @@ export function createSchedulerManager(deps: SchedulerDeps) {
 export function parseInterval(s: string): number {
   const match = s.match(/^(\d+)(ms|s|m|h)$/);
   if (!match) return DEFAULT_POLL_INTERVAL;
-  const [, num, unit] = match;
-  const n = Number.parseInt(num, 10);
+  const [, num, unit] = match as RegExpMatchArray;
+  const n = Number.parseInt(num!, 10);
   switch (unit) {
     case "ms":
       return n;

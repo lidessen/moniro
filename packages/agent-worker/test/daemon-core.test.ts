@@ -54,7 +54,7 @@ describe("registry", () => {
     });
     const reviewAgents = listAgents(db, "review", "pr-1");
     expect(reviewAgents.length).toBe(1);
-    expect(reviewAgents[0].name).toBe("charlie");
+    expect(reviewAgents[0]!.name).toBe("charlie");
 
     // Delete
     const removed = removeAgent(db, "alice");
@@ -70,7 +70,7 @@ describe("registry", () => {
   test("agent with full config", () => {
     const db = openMemoryDatabase();
 
-    const agent = createAgent(db, {
+    createAgent(db, {
       name: "reviewer",
       model: "claude-sonnet-4-5",
       backend: "claude",

@@ -28,7 +28,7 @@ export interface ParseOptions {
  */
 export async function parseWorkflowFile(
   filePath: string,
-  options?: ParseOptions,
+  _options?: ParseOptions,
 ): Promise<ParsedWorkflow> {
   const absolutePath = resolve(filePath);
 

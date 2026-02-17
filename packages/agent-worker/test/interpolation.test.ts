@@ -81,9 +81,9 @@ describe("workflow parser", () => {
 
     expect(wf.name).toBe("simple-review");
     expect(Object.keys(wf.agents)).toEqual(["reviewer", "coder"]);
-    expect(wf.agents.reviewer.backend).toBe("mock");
-    expect(wf.agents.reviewer.resolvedSystemPrompt).toContain("code reviewer");
-    expect(wf.agents.coder.resolvedSystemPrompt).toContain("Fix issues");
+    expect(wf.agents.reviewer!.backend).toBe("mock");
+    expect(wf.agents.reviewer!.resolvedSystemPrompt).toContain("code reviewer");
+    expect(wf.agents.coder!.resolvedSystemPrompt).toContain("Fix issues");
     expect(wf.kickoff).toContain("@reviewer");
     expect(wf.setup).toEqual([]);
   });
@@ -93,8 +93,8 @@ describe("workflow parser", () => {
 
     expect(wf.name).toBe("setup-test");
     expect(wf.setup).toHaveLength(2);
-    expect(wf.setup[0].shell).toBe('echo "hello world"');
-    expect(wf.setup[0].as).toBe("greeting");
+    expect(wf.setup[0]!.shell).toBe('echo "hello world"');
+    expect(wf.setup[0]!.as).toBe("greeting");
     expect(wf.kickoff).toContain("${{ greeting }}");
     expect(wf.kickoff).toContain("${{ workflow.name }}");
   });

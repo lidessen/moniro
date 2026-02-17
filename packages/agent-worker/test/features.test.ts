@@ -4,7 +4,7 @@
  * Verifies: proposals, documents, workflow lifecycle, backend factory.
  */
 import { describe, test, expect, afterEach } from "bun:test";
-import { writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
+import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { openMemoryDatabase } from "../src/daemon/db.ts";
@@ -227,9 +227,9 @@ describe("proposals", () => {
 
     const votes = voteList(db, proposal.id);
     expect(votes).toHaveLength(2);
-    expect(votes[0].agent).toBe("alice");
-    expect(votes[0].choice).toBe("A");
-    expect(votes[0].reason).toBe("I prefer A");
+    expect(votes[0]!.agent).toBe("alice");
+    expect(votes[0]!.choice).toBe("A");
+    expect(votes[0]!.reason).toBe("I prefer A");
 
     db.close();
   });

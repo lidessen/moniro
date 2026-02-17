@@ -56,7 +56,7 @@ describe("workflow run integration", () => {
       // Worker success = inbox cleared + bot's response in channel
       if (currentInbox.length === 0 && messages.length > 1) {
         processed = true;
-        console.log("[test] bot responded:", messages[messages.length - 1].content.slice(0, 100));
+        console.log("[test] bot responded:", messages[messages.length - 1]!.content.slice(0, 100));
         break;
       }
     }

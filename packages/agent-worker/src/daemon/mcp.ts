@@ -41,9 +41,17 @@ export function createMcpServer(deps: McpDeps): McpServer {
     version: "1.0.0",
   });
 
+  // Typed wrapper — tsgo can't resolve McpServer.tool() overloads with zod v3/v4 compat
+  const tool = server.tool.bind(server) as (
+    name: string,
+    description: string,
+    schema: Record<string, unknown>,
+    cb: (...args: any[]) => any,
+  ) => void;
+
   // ==================== Channel ====================
 
-  server.tool(
+  tool(
     TOOLS.CHANNEL_SEND,
     "Send a message to the team channel. Use @name to mention specific agents.",
     {
@@ -73,7 +81,7 @@ export function createMcpServer(deps: McpDeps): McpServer {
     },
   );
 
-  server.tool(
+  tool(
     TOOLS.CHANNEL_READ,
     "Read recent messages from the team channel.",
     {
@@ -110,7 +118,7 @@ export function createMcpServer(deps: McpDeps): McpServer {
 
   // ==================== Inbox ====================
 
-  server.tool(
+  tool(
     TOOLS.MY_INBOX,
     "Check your inbox for unread @mentions. Returns messages directed to you that you haven't acknowledged yet.",
     {},
@@ -139,7 +147,7 @@ export function createMcpServer(deps: McpDeps): McpServer {
     },
   );
 
-  server.tool(
+  tool(
     TOOLS.MY_INBOX_ACK,
     "Acknowledge inbox messages up to a specific message ID. Acknowledged messages won't appear in your inbox again.",
     {
@@ -166,7 +174,7 @@ export function createMcpServer(deps: McpDeps): McpServer {
 
   // ==================== Team ====================
 
-  server.tool(
+  tool(
     TOOLS.TEAM_MEMBERS,
     "List all agents in your workflow.",
     {
@@ -195,7 +203,7 @@ export function createMcpServer(deps: McpDeps): McpServer {
     },
   );
 
-  server.tool(
+  tool(
     TOOLS.MY_STATUS_SET,
     "Update your status and current task.",
     {
@@ -217,7 +225,7 @@ export function createMcpServer(deps: McpDeps): McpServer {
 
   // ==================== Resources ====================
 
-  server.tool(
+  tool(
     TOOLS.RESOURCE_CREATE,
     "Store large content as a resource. Returns a resource ID that can be referenced in messages.",
     {
@@ -248,7 +256,7 @@ export function createMcpServer(deps: McpDeps): McpServer {
     },
   );
 
-  server.tool(
+  tool(
     TOOLS.RESOURCE_READ,
     "Read a stored resource by ID.",
     {
@@ -284,7 +292,7 @@ export function createMcpServer(deps: McpDeps): McpServer {
   if (deps.documentProvider) {
     const docProvider = deps.documentProvider;
 
-    server.tool(
+    tool(
       TOOLS.TEAM_DOC_READ,
       "Read a team document.",
       {
@@ -308,7 +316,7 @@ export function createMcpServer(deps: McpDeps): McpServer {
       },
     );
 
-    server.tool(
+    tool(
       TOOLS.TEAM_DOC_WRITE,
       "Write (create or overwrite) a team document.",
       {
@@ -327,7 +335,7 @@ export function createMcpServer(deps: McpDeps): McpServer {
       },
     );
 
-    server.tool(
+    tool(
       TOOLS.TEAM_DOC_APPEND,
       "Append content to a team document.",
       {
@@ -346,7 +354,7 @@ export function createMcpServer(deps: McpDeps): McpServer {
       },
     );
 
-    server.tool(
+    tool(
       TOOLS.TEAM_DOC_LIST,
       "List available team documents.",
       {},
@@ -362,7 +370,7 @@ export function createMcpServer(deps: McpDeps): McpServer {
       },
     );
 
-    server.tool(
+    tool(
       TOOLS.TEAM_DOC_CREATE,
       "Create a new team document (fails if it already exists).",
       {
@@ -390,7 +398,7 @@ export function createMcpServer(deps: McpDeps): McpServer {
 
   // ==================== Proposals ====================
 
-  server.tool(
+  tool(
     TOOLS.TEAM_PROPOSAL_CREATE,
     "Create a proposal for team voting. Options are the choices agents can vote on.",
     {
@@ -421,7 +429,7 @@ export function createMcpServer(deps: McpDeps): McpServer {
     },
   );
 
-  server.tool(
+  tool(
     TOOLS.TEAM_VOTE,
     "Vote on an active proposal.",
     {
@@ -441,7 +449,7 @@ export function createMcpServer(deps: McpDeps): McpServer {
     },
   );
 
-  server.tool(
+  tool(
     TOOLS.TEAM_PROPOSAL_STATUS,
     "Check the status of a proposal, including votes.",
     {
@@ -470,7 +478,7 @@ export function createMcpServer(deps: McpDeps): McpServer {
     },
   );
 
-  server.tool(
+  tool(
     TOOLS.TEAM_PROPOSAL_CANCEL,
     "Cancel an active proposal (only the creator can cancel).",
     {

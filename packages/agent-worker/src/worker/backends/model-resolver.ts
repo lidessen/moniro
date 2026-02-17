@@ -58,31 +58,31 @@ export async function createModelAsync(modelId: string): Promise<LanguageModel> 
   switch (provider) {
     case "anthropic": {
       const { anthropic } = await import("@ai-sdk/anthropic");
-      return anthropic(model);
+      return anthropic(model) as LanguageModel;
     }
     case "openai": {
       const { openai } = await import("@ai-sdk/openai");
-      return openai(model);
+      return openai(model) as LanguageModel;
     }
     case "deepseek": {
       const { deepseek } = await import("@ai-sdk/deepseek");
-      return deepseek(model);
+      return deepseek(model) as LanguageModel;
     }
     case "google": {
       const { google } = await import("@ai-sdk/google");
-      return google(model);
+      return google(model) as unknown as LanguageModel;
     }
     case "groq": {
       const { groq } = await import("@ai-sdk/groq");
-      return groq(model);
+      return groq(model) as unknown as LanguageModel;
     }
     case "mistral": {
       const { mistral } = await import("@ai-sdk/mistral");
-      return mistral(model);
+      return mistral(model) as unknown as LanguageModel;
     }
     case "xai": {
       const { xai } = await import("@ai-sdk/xai");
-      return xai(model);
+      return xai(model) as unknown as LanguageModel;
     }
     default:
       throw new Error(`Unknown provider: ${provider}. Supported: anthropic, openai, deepseek, google, groq, mistral, xai`);

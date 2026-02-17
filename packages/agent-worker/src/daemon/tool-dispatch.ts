@@ -27,7 +27,7 @@ import {
   proposalCancel,
   voteList,
 } from "./proposals.ts";
-import type { DocumentProvider } from "../shared/types.ts";
+import type { AgentState, DocumentProvider, ResourceType } from "../shared/types.ts";
 
 export interface ToolCallResult {
   content: Array<{ type: "text"; text: string }>;
@@ -131,7 +131,7 @@ export async function dispatchToolCall(
     }
 
     case TOOLS.MY_STATUS_SET: {
-      if (args.state) updateAgentState(db, agent, args.state as string);
+      if (args.state) updateAgentState(db, agent, args.state as AgentState);
       return ok({ updated: true });
     }
 
@@ -141,7 +141,7 @@ export async function dispatchToolCall(
       const resource = resourceCreate(
         db,
         args.content as string,
-        (args.type as string) ?? "text",
+        (args.type as ResourceType) ?? "text",
         agent,
         workflow,
         tag,

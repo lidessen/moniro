@@ -6,7 +6,7 @@
  */
 import { describe, test, expect, afterEach } from "bun:test";
 import { startDaemon, type DaemonHandle } from "../src/daemon/index.ts";
-import { createAgent, createWorkflow, listAgents } from "../src/daemon/registry.ts";
+import { createAgent, createWorkflow } from "../src/daemon/registry.ts";
 import { channelSend, channelRead, inboxQuery } from "../src/daemon/context.ts";
 import { parseInterval } from "../src/daemon/scheduler.ts";
 
@@ -121,7 +121,7 @@ describe("scheduler + context flow", () => {
     // 5. Now reviewer and coder have messages
     const reviewerInbox = inboxQuery(db, "reviewer", "review", "pr-1");
     expect(reviewerInbox.length).toBe(1);
-    expect(reviewerInbox[0].message.sender).toBe("coordinator");
+    expect(reviewerInbox[0]!.message.sender).toBe("coordinator");
 
     const coderInbox = inboxQuery(db, "coder", "review", "pr-1");
     expect(coderInbox.length).toBe(1);

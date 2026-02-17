@@ -71,10 +71,10 @@ describe("channelSend", () => {
 
     const messages = channelRead(db, "review", "pr-1");
     expect(messages.length).toBe(1);
-    expect(messages[0].sender).toBe("alice");
-    expect(messages[0].content).toBe("@bob please review this code");
-    expect(messages[0].recipients).toEqual(["bob"]);
-    expect(messages[0].kind).toBe("message");
+    expect(messages[0]!.sender).toBe("alice");
+    expect(messages[0]!.content).toBe("@bob please review this code");
+    expect(messages[0]!.recipients).toEqual(["bob"]);
+    expect(messages[0]!.kind).toBe("message");
 
     db.close();
   });
@@ -105,10 +105,10 @@ describe("channelSend", () => {
     const db = setup();
 
     const longContent = "x".repeat(1500);
-    const result = channelSend(db, "alice", longContent, "review", "pr-1");
+    channelSend(db, "alice", longContent, "review", "pr-1");
 
     const messages = channelRead(db, "review", "pr-1");
-    expect(messages[0].content).toContain("[Resource res_");
+    expect(messages[0]!.content).toContain("[Resource res_");
 
     db.close();
   });
@@ -124,9 +124,9 @@ describe("channelRead", () => {
 
     const messages = channelRead(db, "review", "pr-1");
     expect(messages.length).toBe(3);
-    expect(messages[0].content).toBe("first");
-    expect(messages[1].content).toBe("second");
-    expect(messages[2].content).toBe("third");
+    expect(messages[0]!.content).toBe("first");
+    expect(messages[1]!.content).toBe("second");
+    expect(messages[2]!.content).toBe("third");
 
     db.close();
   });
@@ -141,8 +141,8 @@ describe("channelRead", () => {
     const messages = channelRead(db, "review", "pr-1", { limit: 3 });
     expect(messages.length).toBe(3);
     // Should be the last 3 messages (most recent)
-    expect(messages[0].content).toBe("msg-7");
-    expect(messages[2].content).toBe("msg-9");
+    expect(messages[0]!.content).toBe("msg-7");
+    expect(messages[2]!.content).toBe("msg-9");
 
     db.close();
   });
@@ -156,8 +156,8 @@ describe("channelRead", () => {
 
     const messages = channelRead(db, "review", "pr-1", { since: r1.id });
     expect(messages.length).toBe(2);
-    expect(messages[0].content).toBe("msg-2");
-    expect(messages[1].content).toBe("msg-3");
+    expect(messages[0]!.content).toBe("msg-2");
+    expect(messages[1]!.content).toBe("msg-3");
 
     db.close();
   });
@@ -189,11 +189,11 @@ describe("inboxQuery", () => {
 
     const bobInbox = inboxQuery(db, "bob", "review", "pr-1");
     expect(bobInbox.length).toBe(1);
-    expect(bobInbox[0].message.content).toBe("@bob please review");
+    expect(bobInbox[0]!.message.content).toBe("@bob please review");
 
     const charlieInbox = inboxQuery(db, "charlie", "review", "pr-1");
     expect(charlieInbox.length).toBe(1);
-    expect(charlieInbox[0].message.content).toBe("@charlie check tests");
+    expect(charlieInbox[0]!.message.content).toBe("@charlie check tests");
 
     db.close();
   });
@@ -224,7 +224,7 @@ describe("inboxQuery", () => {
     // After ack: 1 message (only second)
     const remaining = inboxQuery(db, "bob", "review", "pr-1");
     expect(remaining.length).toBe(1);
-    expect(remaining[0].message.content).toBe("@bob second task");
+    expect(remaining[0]!.message.content).toBe("@bob second task");
 
     db.close();
   });
@@ -254,7 +254,7 @@ describe("inboxQuery", () => {
 
     const inbox = inboxQuery(db, "bob", "review", "pr-1");
     expect(inbox.length).toBe(1);
-    expect(inbox[0].message.content).toBe("@bob new message");
+    expect(inbox[0]!.message.content).toBe("@bob new message");
 
     db.close();
   });

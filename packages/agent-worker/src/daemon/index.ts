@@ -117,7 +117,7 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<DaemonHa
   const port = server.port;
 
   // 6. Create process manager + scheduler (needs host:port from server)
-  processManager = createProcessManager({ db, daemonHost: host, daemonPort: port });
+  processManager = createProcessManager({ db, daemonHost: host, daemonPort: port as number });
   schedulerManager = createSchedulerManager({ db, processManager });
   deps.schedulerManager = schedulerManager;
 

@@ -4,9 +4,9 @@
  * Primary backend for LLM calls. Supports any provider
  * compatible with the Vercel AI SDK (Anthropic, OpenAI, etc.).
  */
-import { generateText } from "ai";
+import { generateText, stepCountIs } from "ai";
 import type { LanguageModel } from "ai";
-import type { Backend, BackendResponse } from "./types.ts";
+import type { Backend } from "./types.ts";
 
 export interface SdkBackendOptions {
   /** Model identifier (e.g., 'anthropic/claude-sonnet-4-5') */
@@ -42,7 +42,7 @@ export function createSdkBackend(options: SdkBackendOptions): Backend {
         prompt: message,
         maxOutputTokens: maxTokens,
         tools: toolDefs,
-        maxSteps: toolDefs ? 10 : undefined,
+        stopWhen: toolDefs ? stepCountIs(10) : undefined,
       });
 
       // Collect tool calls from all steps
@@ -50,8 +50,8 @@ export function createSdkBackend(options: SdkBackendOptions): Backend {
         ?.flatMap((step) =>
           (step.toolCalls ?? []).map((tc) => ({
             name: tc.toolName,
-            arguments: tc.args,
-            result: (step.toolResults ?? []).find((r) => r.toolCallId === tc.toolCallId)?.result,
+            arguments: tc.input,
+            result: (step.toolResults ?? []).find((r) => r.toolCallId === tc.toolCallId)?.output,
           })),
         )
         .filter((tc) => tc.name);
