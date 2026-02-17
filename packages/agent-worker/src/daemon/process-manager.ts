@@ -11,8 +11,13 @@ import type { Database } from "bun:sqlite";
 import type { WorkerConfig, WorkerIpcMessage, SessionResult } from "../shared/types.ts";
 import { DEFAULT_WORKER_TIMEOUT } from "../shared/constants.ts";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const WORKER_ENTRY = resolve(__dirname, "../worker/entry.ts");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+// Dev: running from src/daemon/ → entry at ../worker/entry.ts
+// Built: running from dist/ (chunk files) → entry at worker/entry.mjs
+const WORKER_ENTRY = __filename.endsWith(".ts")
+  ? resolve(__dirname, "../worker/entry.ts")
+  : resolve(__dirname, "worker/entry.mjs");
 
 export interface SpawnResult {
   /** OS process ID */
