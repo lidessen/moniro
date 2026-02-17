@@ -154,3 +154,56 @@ describe("scheduler + context flow", () => {
     db.close();
   });
 });
+
+// ==================== Scheduler failure → inbox ack ====================
+
+describe("scheduler failure handling", () => {
+  test("acks inbox after max retries to prevent infinite pending_inbox loop", async () => {
+    // Reproduces the bug: agent=idle + pending_inbox=true → workflow never completes.
+    // After max retries (3), scheduler should ack inbox so pending_inbox becomes false.
+    const { openMemoryDatabase } = require("../src/daemon/db.ts");
+    const { createAgentScheduler } = require("../src/daemon/scheduler.ts");
+    const db = openMemoryDatabase();
+
+    createWorkflow(db, { name: "test-wf", tag: "t1" });
+    createAgent(db, { name: "bot", model: "mock", workflow: "test-wf", tag: "t1" });
+
+    // Send kickoff → bot has 1 inbox message
+    channelSend(db, "system", "@bot do something", "test-wf", "t1");
+    expect(inboxQuery(db, "bot", "test-wf", "t1").length).toBe(1);
+
+    // Create a process manager that always fails
+    const failingProcessManager = {
+      spawn() {
+        return {
+          pid: 0,
+          promise: Promise.reject(new Error("simulated worker failure")),
+          kill() {},
+        };
+      },
+      killAll() {},
+      activeCount() { return 0; },
+    };
+
+    const scheduler = createAgentScheduler("bot", "test-wf", "t1", {
+      db,
+      processManager: failingProcessManager,
+    });
+
+    scheduler.start();
+
+    // Wait for retries to exhaust (3 failures × ~5s poll, but wake speeds it up)
+    // The scheduler uses DEFAULT_POLL_INTERVAL (5s) between ticks, but we can wake it
+    for (let i = 0; i < 5; i++) {
+      await new Promise((r) => setTimeout(r, 200));
+      scheduler.wake(); // trigger immediate tick
+    }
+
+    // After max retries, inbox should be acked
+    const inbox = inboxQuery(db, "bot", "test-wf", "t1");
+    expect(inbox.length).toBe(0);
+
+    scheduler.stop();
+    db.close();
+  }, 10_000);
+});

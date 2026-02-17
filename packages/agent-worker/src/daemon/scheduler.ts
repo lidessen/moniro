@@ -122,8 +122,15 @@ export function createAgentScheduler(
       console.error(`[scheduler] ${agentName}: worker error (attempt ${retryCount + 1}/${DEFAULT_MAX_RETRIES}):`, (err as Error).message ?? err);
       retryCount++;
       if (retryCount >= DEFAULT_MAX_RETRIES) {
-        console.error(`[scheduler] ${agentName}: max retries reached, giving up until next cycle`);
+        console.error(`[scheduler] ${agentName}: max retries exhausted, acking inbox to prevent infinite loop`);
         retryCount = 0;
+        // Ack inbox so workflow completion can detect idle state.
+        // Without this, unacked messages keep pending_inbox=true forever.
+        try {
+          inboxAckAll(deps.db, agentName, workflow, tag);
+        } catch {
+          // DB may be closed during shutdown
+        }
       }
     } finally {
       running = false;
