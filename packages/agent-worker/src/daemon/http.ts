@@ -188,7 +188,9 @@ export function createApp(deps: HttpDeps): Hono {
 
     // Send kickoff message if present, then wake mentioned agents
     if (body.workflow.kickoff) {
-      const result = channelSend(deps.db, "system", body.workflow.kickoff, name, tag);
+      const result = channelSend(deps.db, "system", body.workflow.kickoff, name, tag, {
+        skipAutoResource: true,
+      });
       if (deps.schedulerManager) {
         for (const recipient of result.recipients) {
           deps.schedulerManager.wake(recipient, name, tag);

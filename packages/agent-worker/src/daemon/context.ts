@@ -20,6 +20,8 @@ export interface ChannelSendOptions {
   kind?: string;
   /** Extra metadata */
   metadata?: Record<string, unknown>;
+  /** Skip auto-resource for long messages (e.g., kickoff must be delivered in full) */
+  skipAutoResource?: boolean;
 }
 
 export interface ChannelSendResult {
@@ -53,9 +55,9 @@ export function channelSend(
     recipients = [options.to];
   }
 
-  // 4. Auto-resource for long messages
+  // 4. Auto-resource for long messages (skip for kickoff / system messages)
   let finalContent = content;
-  if (content.length > RESOURCE_THRESHOLD) {
+  if (!options?.skipAutoResource && content.length > RESOURCE_THRESHOLD) {
     const resource = resourceCreate(db, content, "text", sender, workflow, tag);
     finalContent = `[Resource ${resource.id}]: ${content.slice(0, 200)}...`;
   }
