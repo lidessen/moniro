@@ -170,7 +170,7 @@ export function createProcessManager(deps: ProcessManagerDeps) {
 const PROVIDER_ENV_KEYS: Record<string, { apiKey: string; baseUrl?: string }> = {
   anthropic: { apiKey: "ANTHROPIC_API_KEY", baseUrl: "ANTHROPIC_BASE_URL" },
   openai: { apiKey: "OPENAI_API_KEY", baseUrl: "OPENAI_BASE_URL" },
-  deepseek: { apiKey: "DEEPSEEK_API_KEY" },
+  deepseek: { apiKey: "DEEPSEEK_API_KEY", baseUrl: "DEEPSEEK_BASE_URL" },
   google: { apiKey: "GOOGLE_GENERATIVE_AI_API_KEY" },
   groq: { apiKey: "GROQ_API_KEY" },
   mistral: { apiKey: "MISTRAL_API_KEY" },

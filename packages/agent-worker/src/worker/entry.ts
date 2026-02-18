@@ -51,9 +51,13 @@ async function main() {
   });
 
   // 4. Create backend (async — CLI backends use dynamic imports)
+  const providerOptions = config.agent.provider
+    ? { apiKey: config.agent.provider.apiKey, baseURL: config.agent.provider.baseUrl }
+    : undefined;
   const backend = await createBackend({
     type: config.agent.backend as BackendType,
     model: config.agent.model,
+    providerOptions,
   });
 
   // 5. Prepare tools and MCP config

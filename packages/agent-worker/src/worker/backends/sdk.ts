@@ -13,6 +13,8 @@ export interface SdkBackendOptions {
   model: string;
   /** Maximum tokens to generate */
   maxTokens?: number;
+  /** Provider options (apiKey, baseURL) from workflow YAML */
+  providerOptions?: { apiKey?: string; baseURL?: string };
 }
 
 export function createSdkBackend(options: SdkBackendOptions): Backend {
@@ -24,7 +26,7 @@ export function createSdkBackend(options: SdkBackendOptions): Backend {
 
     // Dynamic import to support various providers
     const { createModelAsync } = await import("./model-resolver.ts");
-    model = await createModelAsync(options.model);
+    model = await createModelAsync(options.model, options.providerOptions);
     return model;
   }
 

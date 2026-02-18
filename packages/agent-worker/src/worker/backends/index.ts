@@ -12,6 +12,8 @@ export interface BackendOptions {
   maxTokens?: number;
   timeout?: number;
   cwd?: string;
+  /** Provider options (apiKey, baseURL) for SDK backend */
+  providerOptions?: { apiKey?: string; baseURL?: string };
 }
 
 /**
@@ -30,6 +32,7 @@ export async function createBackend(options: BackendOptions): Promise<Backend> {
       return createSdkBackend({
         model: options.model ?? "anthropic/claude-sonnet-4-5",
         maxTokens: options.maxTokens,
+        providerOptions: options.providerOptions,
       });
     }
 
