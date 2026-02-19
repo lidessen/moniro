@@ -30,14 +30,11 @@ import { createContextMCPServer } from "./context/mcp/server.ts";
 import { runWithHttp, type HttpMCPServer } from "./context/http-transport.ts";
 import type { ContextProvider } from "./context/provider.ts";
 import {
-  createAgentController,
   checkWorkflowIdle,
-  getBackendForModel,
-  getBackendByType,
   type AgentController,
 } from "./controller/index.ts";
+import { createWiredController } from "./factory.ts";
 import type { Backend } from "../backends/types.ts";
-import type { StreamParserCallbacks } from "../backends/stream-json.ts";
 import { EventLog } from "./context/event-log.ts";
 import { startChannelWatcher } from "./display.ts";
 import { createChannelLogger, createSilentLogger, type Logger } from "./logger.ts";
@@ -594,63 +591,17 @@ export async function runWorkflowWithControllers(
         model: agentDef.model,
       });
 
-      // Create agent-specific logger for backend debug messages
-      const agentLogger = logger.child(agentName);
-
-      // Build structured stream callbacks for this agent
-      const streamCallbacks: StreamParserCallbacks = {
-        debugLog: (msg) => agentLogger.debug(msg),
-        outputLog: (msg) => runtime.eventLog.output(agentName, msg),
-        toolCallLog: (name, args) => runtime.eventLog.toolCall(agentName, name, args, "backend"),
-        mcpToolNames: runtime.mcpToolNames,
-      };
-
-      // Get backend for this agent
-      let backend: Backend;
-      if (createBackend) {
-        backend = createBackend(agentName, agentDef);
-      } else if (agentDef.backend) {
-        backend = getBackendByType(agentDef.backend, {
-          model: agentDef.model,
-          provider: agentDef.provider,
-          debugLog: (msg) => agentLogger.debug(msg),
-          streamCallbacks,
-          timeout: agentDef.timeout,
-        });
-      } else if (agentDef.model) {
-        backend = getBackendForModel(agentDef.model, {
-          provider: agentDef.provider,
-          debugLog: (msg) => agentLogger.debug(msg),
-          streamCallbacks,
-        });
-      } else {
-        throw new Error(`Agent "${agentName}" requires either a backend or model field`);
-      }
-
-      logger.debug(`Using backend: ${backend.type} for ${agentName}`);
-
-      // Each agent gets an isolated workspace directory
-      const workspaceDir = join(runtime.contextDir, "workspaces", agentName);
-      if (!existsSync(workspaceDir)) {
-        mkdirSync(workspaceDir, { recursive: true });
-      }
-
-      const controllerLogger = logger.child(agentName);
-      const controller = createAgentController({
+      const { controller, backend } = createWiredController({
         name: agentName,
         agent: agentDef,
-        contextProvider: runtime.contextProvider,
-        eventLog: runtime.eventLog,
-        mcpUrl: runtime.mcpUrl,
-        workspaceDir,
-        projectDir: runtime.projectDir,
-        backend,
+        runtime,
         pollInterval,
-        log: (msg) => controllerLogger.debug(msg),
-        infoLog: (msg) => controllerLogger.info(msg),
-        errorLog: (msg) => controllerLogger.error(msg),
         feedback: feedbackEnabled,
+        createBackend,
+        logger: logger.child(agentName),
       });
+
+      logger.debug(`Using backend: ${backend.type} for ${agentName}`);
 
       controllers.set(agentName, controller);
       await controller.start();
