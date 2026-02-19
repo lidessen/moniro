@@ -103,14 +103,14 @@ export function registerAgentCommands(program: Command) {
         process.exit(1);
       }
 
-      const agents = (res as unknown as Array<{
+      const agents = res as unknown as Array<{
         name: string;
         model: string;
         backend: string;
         workflow: string;
         tag: string;
         state?: string;
-      }>);
+      }>;
 
       if (options.json) {
         outputJson({ agents });

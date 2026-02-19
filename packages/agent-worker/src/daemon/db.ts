@@ -185,9 +185,9 @@ function migrateV1toV2(db: Database) {
 
 function getSchemaVersion(db: Database): number {
   try {
-    const row = db.query("SELECT value FROM meta WHERE key = 'schema_version'").get() as
-      | { value: string }
-      | null;
+    const row = db.query("SELECT value FROM meta WHERE key = 'schema_version'").get() as {
+      value: string;
+    } | null;
     return row ? Number.parseInt(row.value, 10) : 0;
   } catch {
     // meta table doesn't exist yet
@@ -196,8 +196,7 @@ function getSchemaVersion(db: Database): number {
 }
 
 function setSchemaVersion(db: Database, version: number) {
-  db.run(
-    "INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', ?)",
-    [String(version)],
-  );
+  db.run("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', ?)", [
+    String(version),
+  ]);
 }

@@ -218,9 +218,7 @@ export function createApp(deps: HttpDeps): Hono {
     }
 
     // Check: all schedulers in THIS workflow idle?
-    const allIdle = agents.every(
-      (a) => deps.schedulerManager?.isIdle(a.name, name, tag) ?? true,
-    );
+    const allIdle = agents.every((a) => deps.schedulerManager?.isIdle(a.name, name, tag) ?? true);
 
     // Check: any unread inbox messages?
     let pendingInbox = false;
@@ -262,7 +260,11 @@ export function createApp(deps: HttpDeps): Hono {
     const agent = c.req.query("agent");
     if (!agent) {
       return c.json(
-        { jsonrpc: "2.0", id: null, error: { code: -32600, message: "Missing ?agent= query param" } },
+        {
+          jsonrpc: "2.0",
+          id: null,
+          error: { code: -32600, message: "Missing ?agent= query param" },
+        },
         400,
       );
     }

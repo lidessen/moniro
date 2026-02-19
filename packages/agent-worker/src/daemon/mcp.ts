@@ -249,9 +249,7 @@ export function createMcpServer(deps: McpDeps): McpServer {
       );
 
       return {
-        content: [
-          { type: "text" as const, text: JSON.stringify({ id: resource.id }) },
-        ],
+        content: [{ type: "text" as const, text: JSON.stringify({ id: resource.id }) }],
       };
     },
   );
@@ -266,7 +264,9 @@ export function createMcpServer(deps: McpDeps): McpServer {
       const resource = resourceRead(deps.db, args.id);
       if (!resource) {
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ error: "Resource not found" }) }],
+          content: [
+            { type: "text" as const, text: JSON.stringify({ error: "Resource not found" }) },
+          ],
           isError: true,
         };
       }
@@ -305,7 +305,9 @@ export function createMcpServer(deps: McpDeps): McpServer {
         const content = await docProvider.read(workflow, tag, args.path);
         if (content === null) {
           return {
-            content: [{ type: "text" as const, text: JSON.stringify({ error: "Document not found" }) }],
+            content: [
+              { type: "text" as const, text: JSON.stringify({ error: "Document not found" }) },
+            ],
             isError: true,
           };
         }
@@ -330,7 +332,9 @@ export function createMcpServer(deps: McpDeps): McpServer {
         await docProvider.write(workflow, tag, args.path, args.content);
 
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ written: true, path: args.path }) }],
+          content: [
+            { type: "text" as const, text: JSON.stringify({ written: true, path: args.path }) },
+          ],
         };
       },
     );
@@ -349,26 +353,23 @@ export function createMcpServer(deps: McpDeps): McpServer {
         await docProvider.append(workflow, tag, args.path, args.content);
 
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ appended: true, path: args.path }) }],
+          content: [
+            { type: "text" as const, text: JSON.stringify({ appended: true, path: args.path }) },
+          ],
         };
       },
     );
 
-    tool(
-      TOOLS.TEAM_DOC_LIST,
-      "List available team documents.",
-      {},
-      async (_args, extra) => {
-        const agent = resolveAgent(extra);
-        const { workflow, tag } = resolveScope(deps.db, agent);
+    tool(TOOLS.TEAM_DOC_LIST, "List available team documents.", {}, async (_args, extra) => {
+      const agent = resolveAgent(extra);
+      const { workflow, tag } = resolveScope(deps.db, agent);
 
-        const files = await docProvider.list(workflow, tag);
+      const files = await docProvider.list(workflow, tag);
 
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify({ documents: files }) }],
-        };
-      },
-    );
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify({ documents: files }) }],
+      };
+    });
 
     tool(
       TOOLS.TEAM_DOC_CREATE,
@@ -384,11 +385,15 @@ export function createMcpServer(deps: McpDeps): McpServer {
         try {
           await docProvider.create(workflow, tag, args.path, args.content);
           return {
-            content: [{ type: "text" as const, text: JSON.stringify({ created: true, path: args.path }) }],
+            content: [
+              { type: "text" as const, text: JSON.stringify({ created: true, path: args.path }) },
+            ],
           };
         } catch (err) {
           return {
-            content: [{ type: "text" as const, text: JSON.stringify({ error: (err as Error).message }) }],
+            content: [
+              { type: "text" as const, text: JSON.stringify({ error: (err as Error).message }) },
+            ],
             isError: true,
           };
         }
@@ -405,7 +410,10 @@ export function createMcpServer(deps: McpDeps): McpServer {
       type: z.enum(["election", "decision", "approval", "assignment"]).describe("Proposal type."),
       title: z.string().describe("Proposal title."),
       options: z.array(z.string()).describe("Voting options."),
-      resolution: z.enum(["plurality", "majority", "unanimous"]).optional().describe("Resolution strategy (default: plurality)."),
+      resolution: z
+        .enum(["plurality", "majority", "unanimous"])
+        .optional()
+        .describe("Resolution strategy (default: plurality)."),
       binding: z.boolean().optional().describe("Whether the result is binding (default: true)."),
     },
     (args, extra) => {
@@ -424,7 +432,16 @@ export function createMcpServer(deps: McpDeps): McpServer {
       });
 
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ id: proposal.id, title: proposal.title, options: proposal.options }) }],
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({
+              id: proposal.id,
+              title: proposal.title,
+              options: proposal.options,
+            }),
+          },
+        ],
       };
     },
   );
@@ -459,7 +476,9 @@ export function createMcpServer(deps: McpDeps): McpServer {
       const proposal = proposalGet(deps.db, args.proposalId);
       if (!proposal) {
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ error: "Proposal not found" }) }],
+          content: [
+            { type: "text" as const, text: JSON.stringify({ error: "Proposal not found" }) },
+          ],
           isError: true,
         };
       }
@@ -467,13 +486,15 @@ export function createMcpServer(deps: McpDeps): McpServer {
       const votes = voteList(deps.db, args.proposalId);
 
       return {
-        content: [{
-          type: "text" as const,
-          text: JSON.stringify({
-            ...proposal,
-            votes: votes.map((v) => ({ agent: v.agent, choice: v.choice, reason: v.reason })),
-          }),
-        }],
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({
+              ...proposal,
+              votes: votes.map((v) => ({ agent: v.agent, choice: v.choice, reason: v.reason })),
+            }),
+          },
+        ],
       };
     },
   );
@@ -513,10 +534,7 @@ function resolveAgent(extra: Record<string, unknown>): string {
 /**
  * Resolve workflow/tag scope for an agent.
  */
-function resolveScope(
-  db: Database,
-  agent: string,
-): { workflow: string; tag: string } {
+function resolveScope(db: Database, agent: string): { workflow: string; tag: string } {
   const agentConfig = getAgent(db, agent);
   if (!agentConfig) {
     return { workflow: "global", tag: "main" };

@@ -9,7 +9,12 @@
 import type { Database } from "bun:sqlite";
 import { nanoid } from "nanoid";
 import type { Message, InboxMessage, Resource, ResourceType } from "../shared/types.ts";
-import { extractMentions, calculatePriority, RESOURCE_PREFIX, RESOURCE_THRESHOLD } from "../shared/types.ts";
+import {
+  extractMentions,
+  calculatePriority,
+  RESOURCE_PREFIX,
+  RESOURCE_THRESHOLD,
+} from "../shared/types.ts";
 
 // ==================== Channel ====================
 
@@ -116,9 +121,9 @@ export function channelRead(
 
   if (options?.since) {
     // Get the rowid of the 'since' message (sequential, no timestamp collision)
-    const sinceMsg = db
-      .query("SELECT rowid FROM messages WHERE id = ?")
-      .get(options.since) as { rowid: number } | null;
+    const sinceMsg = db.query("SELECT rowid FROM messages WHERE id = ?").get(options.since) as {
+      rowid: number;
+    } | null;
 
     if (sinceMsg) {
       const rows = db
@@ -172,9 +177,9 @@ export function inboxQuery(
   let rows: MessageRow[];
   if (ackRow) {
     // Get the rowid of the cursor message (sequential, no timestamp collision)
-    const cursorMsg = db
-      .query("SELECT rowid FROM messages WHERE id = ?")
-      .get(ackRow.cursor) as { rowid: number } | null;
+    const cursorMsg = db.query("SELECT rowid FROM messages WHERE id = ?").get(ackRow.cursor) as {
+      rowid: number;
+    } | null;
 
     if (cursorMsg) {
       rows = db
@@ -218,21 +223,18 @@ export function inboxAck(
   tag: string,
   cursor: string,
 ): void {
-  db.run(
-    "INSERT OR REPLACE INTO inbox_ack (agent, workflow, tag, cursor) VALUES (?, ?, ?, ?)",
-    [agent, workflow, tag, cursor],
-  );
+  db.run("INSERT OR REPLACE INTO inbox_ack (agent, workflow, tag, cursor) VALUES (?, ?, ?, ?)", [
+    agent,
+    workflow,
+    tag,
+    cursor,
+  ]);
 }
 
 /**
  * Acknowledge all current inbox messages for an agent.
  */
-export function inboxAckAll(
-  db: Database,
-  agent: string,
-  workflow: string,
-  tag: string,
-): void {
+export function inboxAckAll(db: Database, agent: string, workflow: string, tag: string): void {
   // Find the last message mentioning this agent (by rowid, not timestamp)
   const lastMsg = db
     .query(
@@ -295,12 +297,7 @@ export function resourceRead(db: Database, id: string): Resource | null {
 /**
  * Update agent status (task, state).
  */
-export function agentStatusSet(
-  db: Database,
-  agent: string,
-  state?: string,
-  _task?: string,
-): void {
+export function agentStatusSet(db: Database, agent: string, state?: string, _task?: string): void {
   if (state) {
     db.run("UPDATE agents SET state = ? WHERE name = ?", [state, agent]);
   }

@@ -103,6 +103,8 @@ export async function createModelAsync(
       return createXai(opts)(model) as unknown as LanguageModel;
     }
     default:
-      throw new Error(`Unknown provider: ${provider}. Supported: anthropic, openai, deepseek, google, groq, mistral, xai`);
+      throw new Error(
+        `Unknown provider: ${provider}. Supported: anthropic, openai, deepseek, google, groq, mistral, xai`,
+      );
   }
 }

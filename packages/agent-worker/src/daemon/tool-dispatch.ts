@@ -39,10 +39,7 @@ export interface DispatchDeps {
   documentProvider?: DocumentProvider;
 }
 
-function resolveScope(
-  db: Database,
-  agent: string,
-): { workflow: string; tag: string } {
+function resolveScope(db: Database, agent: string): { workflow: string; tag: string } {
   const agentConfig = getAgent(db, agent);
   if (!agentConfig) return { workflow: "global", tag: "main" };
   return { workflow: agentConfig.workflow, tag: agentConfig.tag };

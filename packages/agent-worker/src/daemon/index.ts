@@ -126,10 +126,7 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<DaemonHa
     const djPath = getDaemonJsonPath();
     const djDir = dirname(djPath);
     if (!existsSync(djDir)) mkdirSync(djDir, { recursive: true });
-    writeFileSync(
-      djPath,
-      JSON.stringify({ pid: process.pid, host, port, startedAt }, null, 2),
-    );
+    writeFileSync(djPath, JSON.stringify({ pid: process.pid, host, port, startedAt }, null, 2));
   }
 
   // 8. Signal handlers (stored for cleanup on shutdown)

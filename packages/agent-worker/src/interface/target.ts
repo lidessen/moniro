@@ -128,7 +128,11 @@ export function buildTarget(agent: string | undefined, workflow?: string, tag?: 
 /**
  * Build display string from parts.
  */
-export function buildTargetDisplay(agent: string | undefined, workflow?: string, tag?: string): string {
+export function buildTargetDisplay(
+  agent: string | undefined,
+  workflow?: string,
+  tag?: string,
+): string {
   return buildDisplay(agent, workflow || DEFAULT_WORKFLOW, tag || DEFAULT_TAG);
 }
 

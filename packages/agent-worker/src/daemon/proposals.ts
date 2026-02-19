@@ -84,7 +84,8 @@ export function proposalVote(
   // Check proposal exists and is active
   const proposal = proposalGet(db, proposalId);
   if (!proposal) return { success: false, error: "Proposal not found" };
-  if (proposal.status !== "active") return { success: false, error: `Proposal is ${proposal.status}` };
+  if (proposal.status !== "active")
+    return { success: false, error: `Proposal is ${proposal.status}` };
 
   // Validate choice
   if (!proposal.options.includes(choice)) {
@@ -100,16 +101,20 @@ export function proposalVote(
 
   // Check if resolved — eligible voters = all agents in same workflow:tag
   const votes = voteList(db, proposalId);
-  const eligibleCount = (db
-    .query("SELECT COUNT(*) as cnt FROM agents WHERE workflow = ? AND tag = ?")
-    .get(proposal.workflow, proposal.tag) as { cnt: number })?.cnt ?? 0;
+  const eligibleCount =
+    (
+      db
+        .query("SELECT COUNT(*) as cnt FROM agents WHERE workflow = ? AND tag = ?")
+        .get(proposal.workflow, proposal.tag) as { cnt: number }
+    )?.cnt ?? 0;
   const resolution = checkResolution(proposal, votes, eligibleCount);
 
   if (resolution) {
-    db.run(
-      `UPDATE proposals SET status = 'resolved', result = ?, resolved_at = ? WHERE id = ?`,
-      [resolution, Date.now(), proposalId],
-    );
+    db.run(`UPDATE proposals SET status = 'resolved', result = ?, resolved_at = ? WHERE id = ?`, [
+      resolution,
+      Date.now(),
+      proposalId,
+    ]);
     return { success: true, resolved: true, result: resolution };
   }
 
@@ -133,7 +138,9 @@ export function proposalList(
   let rows: ProposalRow[];
   if (status) {
     rows = db
-      .query("SELECT * FROM proposals WHERE workflow = ? AND tag = ? AND status = ? ORDER BY created_at DESC")
+      .query(
+        "SELECT * FROM proposals WHERE workflow = ? AND tag = ? AND status = ? ORDER BY created_at DESC",
+      )
       .all(workflow, tag, status) as ProposalRow[];
   } else {
     rows = db
@@ -165,13 +172,14 @@ export function proposalCancel(
 ): { success: boolean; error?: string } {
   const proposal = proposalGet(db, proposalId);
   if (!proposal) return { success: false, error: "Proposal not found" };
-  if (proposal.status !== "active") return { success: false, error: `Proposal is ${proposal.status}` };
+  if (proposal.status !== "active")
+    return { success: false, error: `Proposal is ${proposal.status}` };
   if (proposal.creator !== cancelledBy) return { success: false, error: "Only creator can cancel" };
 
-  db.run(
-    `UPDATE proposals SET status = 'cancelled', resolved_at = ? WHERE id = ?`,
-    [Date.now(), proposalId],
-  );
+  db.run(`UPDATE proposals SET status = 'cancelled', resolved_at = ? WHERE id = ?`, [
+    Date.now(),
+    proposalId,
+  ]);
 
   return { success: true };
 }

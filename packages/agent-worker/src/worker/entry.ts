@@ -63,9 +63,8 @@ async function main() {
   // 5. Prepare tools and MCP config
   // SDK backend: daemon tools (collaboration) + local tools (bash/file)
   // CLI backends: pass MCP config (CLI handles tool calling internally)
-  const tools = backend.type === "sdk"
-    ? { ...createDaemonTools(daemon), ...createLocalTools() }
-    : undefined;
+  const tools =
+    backend.type === "sdk" ? { ...createDaemonTools(daemon), ...createLocalTools() } : undefined;
   const mcpConfig = config.daemonMcpUrl
     ? {
         mcpServers: {

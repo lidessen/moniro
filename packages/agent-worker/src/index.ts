@@ -30,7 +30,12 @@ export { startDaemon, type DaemonOptions, type DaemonHandle } from "./daemon/ind
 
 // Interface
 export { findDaemon, ensureDaemon, type DaemonInfo } from "./interface/discovery.ts";
-export { parseTarget, buildTarget, buildTargetDisplay, type TargetIdentifier } from "./interface/target.ts";
+export {
+  parseTarget,
+  buildTarget,
+  buildTargetDisplay,
+  type TargetIdentifier,
+} from "./interface/target.ts";
 export * as client from "./interface/client.ts";
 
 // Workflow

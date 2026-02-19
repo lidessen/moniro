@@ -97,20 +97,24 @@ export function updateAgentState(
   tag?: string,
 ): void {
   if (workflow !== undefined && tag !== undefined) {
-    db.run("UPDATE agents SET state = ? WHERE name = ? AND workflow = ? AND tag = ?", [state, name, workflow, tag]);
+    db.run("UPDATE agents SET state = ? WHERE name = ? AND workflow = ? AND tag = ?", [
+      state,
+      name,
+      workflow,
+      tag,
+    ]);
   } else {
     db.run("UPDATE agents SET state = ? WHERE name = ?", [state, name]);
   }
 }
 
-export function removeAgent(
-  db: Database,
-  name: string,
-  workflow?: string,
-  tag?: string,
-): boolean {
+export function removeAgent(db: Database, name: string, workflow?: string, tag?: string): boolean {
   if (workflow !== undefined && tag !== undefined) {
-    const result = db.run("DELETE FROM agents WHERE name = ? AND workflow = ? AND tag = ?", [name, workflow, tag]);
+    const result = db.run("DELETE FROM agents WHERE name = ? AND workflow = ? AND tag = ?", [
+      name,
+      workflow,
+      tag,
+    ]);
     return result.changes > 0;
   }
   const result = db.run("DELETE FROM agents WHERE name = ?", [name]);

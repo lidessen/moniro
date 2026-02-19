@@ -64,7 +64,8 @@ export function createDaemonTools(daemon: DaemonMcpClient) {
     // ==================== Inbox ====================
 
     my_inbox: tool({
-      description: "Read your unread inbox messages. These are messages that mention you or are addressed to you.",
+      description:
+        "Read your unread inbox messages. These are messages that mention you or are addressed to you.",
       inputSchema: jsonSchema<Record<string, never>>({
         type: "object",
         properties: {},
@@ -125,7 +126,8 @@ export function createDaemonTools(daemon: DaemonMcpClient) {
     // ==================== Resources ====================
 
     resource_create: tool({
-      description: "Store a large piece of content as a resource. Returns a resource ID that can be shared with other agents.",
+      description:
+        "Store a large piece of content as a resource. Returns a resource ID that can be shared with other agents.",
       inputSchema: jsonSchema<{ content: string; type?: string }>({
         type: "object",
         properties: {
@@ -283,7 +285,8 @@ export function createDaemonTools(daemon: DaemonMcpClient) {
           },
           resolution: {
             type: "string",
-            description: "Resolution strategy: plurality, majority, or unanimous. Defaults to plurality.",
+            description:
+              "Resolution strategy: plurality, majority, or unanimous. Defaults to plurality.",
           },
           binding: {
             type: "boolean",
@@ -293,7 +296,13 @@ export function createDaemonTools(daemon: DaemonMcpClient) {
         required: ["type", "title", "options"],
       }),
       execute: async ({ type, title, options, resolution, binding }) => {
-        return await daemon.call("team_proposal_create", { type, title, options, resolution, binding });
+        return await daemon.call("team_proposal_create", {
+          type,
+          title,
+          options,
+          resolution,
+          binding,
+        });
       },
     }),
 

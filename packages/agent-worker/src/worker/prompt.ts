@@ -72,9 +72,7 @@ export function buildPrompt(input: PromptInput): string {
 
   // Team members
   if (input.teamMembers && input.teamMembers.length > 0) {
-    const lines = input.teamMembers.map(
-      (m) => `- @${m.name} (${m.model}) [${m.state}]`,
-    );
+    const lines = input.teamMembers.map((m) => `- @${m.name} (${m.model}) [${m.state}]`);
     sections.push(`## Team\n${lines.join("\n")}`);
   }
 

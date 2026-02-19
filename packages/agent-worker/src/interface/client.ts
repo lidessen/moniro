@@ -136,10 +136,7 @@ export function peek(workflow?: string, tag?: string, limit?: number): Promise<A
 }
 
 /** POST /workflows — start a workflow */
-export function startWorkflow(body: {
-  workflow: unknown;
-  tag?: string;
-}): Promise<ApiResponse> {
+export function startWorkflow(body: { workflow: unknown; tag?: string }): Promise<ApiResponse> {
   return request("POST", "/workflows", body);
 }
 
