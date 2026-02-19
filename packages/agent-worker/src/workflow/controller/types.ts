@@ -29,6 +29,22 @@ export interface AgentController {
 
   /** Interrupt: immediately check inbox (skip poll wait) */
   wake(): void;
+
+  /**
+   * Direct send — synchronous request-response mode.
+   *
+   * Bypasses the poll loop: writes message to channel, immediately runs the
+   * agent, writes response to channel, and returns the result.
+   *
+   * Used by the daemon for `POST /run` and `POST /serve` on standalone agents
+   * that live inside a 1-agent workflow. This gives them full context
+   * infrastructure (channel, MCP tools) while preserving request-response UX.
+   *
+   * Can be called regardless of controller state (idle or stopped).
+   * If the poll loop is running, it won't interfere — sendDirect acquires
+   * a logical lock so the two paths don't race.
+   */
+  sendDirect(message: string): Promise<AgentRunResult>;
 }
 
 /** Retry configuration */

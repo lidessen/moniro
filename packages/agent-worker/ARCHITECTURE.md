@@ -123,7 +123,8 @@ src/
 │   └── cron.ts                    # Cron schedule management
 │
 ├── workflow/                      # Execution model
-│   ├── runner.ts                  # Single workflow execution
+│   ├── factory.ts                 # Composable primitives (createMinimalRuntime, createWiredController)
+│   ├── runner.ts                  # Workflow execution (uses factory primitives)
 │   ├── parser.ts                  # YAML workflow definition → typed config
 │   ├── interpolate.ts             # Variable interpolation (${{ }})
 │   ├── types.ts                   # Workflow types
@@ -197,19 +198,23 @@ src/
 ```
 cli/ ──── HTTP ────► daemon/
                        │
-                       ├──► workflow/
+                       ├──► workflow/factory.ts  (createMinimalRuntime, createWiredController)
                        │       │
-                       │       ├──► workflow/controller/  (AgentController)
+                       │       ├──► workflow/controller/  (AgentController + sendDirect)
                        │       │       └──► agent/        (AgentWorker)
                        │       │
                        │       └──► workflow/context/     (ContextProvider)
                        │
-                       └──► backends/                     (backend factory)
+                       ├──► workflow/runner.ts   (also uses factory primitives)
+                       │
+                       └──► backends/            (backend factory)
 ```
 
 Rules:
 - `cli/` imports nothing from `daemon/` except registry (reading daemon.json)
-- `daemon/` imports from `workflow/`, `agent/`, `backends/`
+- `daemon/` imports from `workflow/factory`, `workflow/runner`, `agent/`, `backends/`
+- `workflow/factory` imports from `workflow/controller/`, `workflow/context/`, `backends/`
+- `workflow/runner` imports from `workflow/factory` (delegates controller creation)
 - `workflow/controller/` imports from `agent/`, `workflow/context/`, `backends/`
 - `agent/` imports from `backends/` (types only)
 - `workflow/context/` imports nothing from other app modules (pure domain)
@@ -228,6 +233,13 @@ CLI and Web UI speak REST. AI tools (Claude Code, Cursor) speak MCP. Both need t
 ### Why all agents live in workflows?
 
 Eliminates the split between "single-agent daemon" and "multi-agent workflow" code paths. `agent new` creates an agent under `@global` — it's just a 1-agent workflow with simplified CLI ergonomics. The runtime doesn't know or care.
+
+This is now implemented via the factory layer (`factory.ts`). The daemon creates workflows lazily for standalone agents on first `/run` or `/serve` call via `ensureAgentController()`. The factory provides two composable primitives:
+
+- **`createMinimalRuntime()`** — shared infrastructure (context provider + MCP server + event log)
+- **`createWiredController()`** — per-agent setup (backend + workspace + controller)
+
+Both the workflow runner (CLI direct) and the daemon use these same primitives, ensuring consistent behavior.
 
 ### Why AgentWorker vs AgentController?
 

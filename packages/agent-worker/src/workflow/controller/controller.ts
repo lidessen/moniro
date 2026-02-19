@@ -67,6 +67,8 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
   let state: AgentState = "stopped";
   let wakeResolver: (() => void) | null = null;
   let pollTimeout: ReturnType<typeof setTimeout> | null = null;
+  // Logical lock to prevent sendDirect and poll loop from racing
+  let directRunning = false;
 
   // Schedule support: resolve agent's wakeup config into a typed schedule.
   // Validate eagerly so invalid cron expressions fail at creation, not at runtime.
@@ -105,6 +107,9 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
 
       // Check if stopped during wait
       if (!shouldContinue(state)) break;
+
+      // Skip if a sendDirect call is in progress
+      if (directRunning) continue;
 
       // Check inbox
       const inbox = await contextProvider.getInbox(name);
@@ -323,6 +328,82 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
         }
         wakeResolver();
         wakeResolver = null;
+      }
+    },
+
+    async sendDirect(message: string): Promise<AgentRunResult> {
+      // Prevent concurrent runs (poll loop or another sendDirect)
+      if (directRunning) {
+        return {
+          success: false,
+          error: "Agent is already processing a direct request",
+          duration: 0,
+        };
+      }
+      if (state === "running") {
+        return {
+          success: false,
+          error: "Agent is currently running (poll loop)",
+          duration: 0,
+        };
+      }
+
+      directRunning = true;
+      const prevState = state;
+      state = "running";
+      await contextProvider.setAgentStatus(name, { state: "running" });
+
+      try {
+        // Write user message to channel for history
+        await contextProvider.appendChannel("user", `@${name} ${message}`);
+
+        // Build a synthetic inbox from the message we just wrote
+        const inbox = await contextProvider.getInbox(name);
+        const latestId = inbox.length > 0 ? inbox[inbox.length - 1]!.entry.id : undefined;
+
+        if (latestId) {
+          await contextProvider.markInboxSeen(name, latestId);
+        }
+
+        // Build run context (same as poll loop)
+        const runContext: AgentRunContext = {
+          name,
+          agent,
+          inbox,
+          recentChannel: await contextProvider.readChannel({
+            limit: CONTROLLER_DEFAULTS.recentChannelLimit,
+            agent: name,
+          }),
+          documentContent: await contextProvider.readDocument(),
+          mcpUrl,
+          workspaceDir,
+          projectDir,
+          retryAttempt: 1,
+          provider: contextProvider,
+          eventLog,
+          feedback,
+        };
+
+        infoLog(`Direct send (${message.length} chars)`);
+        const result = await runAgent(backend, runContext, log, infoLog);
+
+        if (result.success) {
+          // Write response to channel
+          if (result.content) {
+            await contextProvider.appendChannel(name, result.content);
+          }
+          // Acknowledge inbox
+          if (latestId) {
+            await contextProvider.ackInbox(name, latestId);
+          }
+          lastActivityTime = Date.now();
+        }
+
+        return result;
+      } finally {
+        directRunning = false;
+        state = prevState === "stopped" ? "stopped" : "idle";
+        await contextProvider.setAgentStatus(name, { state }).catch(() => {});
       }
     },
   };
