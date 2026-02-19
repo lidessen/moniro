@@ -61,20 +61,11 @@ async function main() {
   });
 
   // 5. Prepare tools and MCP config
-  // SDK backend: local tools (bash/file) always; daemon tools only for multi-agent
+  // SDK backend: daemon tools (collaboration) + local tools (bash/file)
   // CLI backends: pass MCP config (CLI handles tool calling internally)
-  let tools: Record<string, unknown> | undefined;
-  if (backend.type === "sdk") {
-    const localTools = createLocalTools();
-    const members = teamMembers as Array<{ name: string }>;
-    if (members.length > 1) {
-      // Multi-agent: collaboration + local tools
-      tools = { ...createDaemonTools(daemon), ...localTools };
-    } else {
-      // Single-agent: only local tools (bash, readFile, writeFile)
-      tools = localTools;
-    }
-  }
+  const tools = backend.type === "sdk"
+    ? { ...createDaemonTools(daemon), ...createLocalTools() }
+    : undefined;
   const mcpConfig = config.daemonMcpUrl
     ? {
         mcpServers: {

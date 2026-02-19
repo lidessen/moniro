@@ -33,7 +33,7 @@ describe("buildPrompt", () => {
     expect(prompt).toContain("please review");
   });
 
-  test("builds prompt with channel history (multi-agent)", () => {
+  test("builds prompt with channel history", () => {
     const prompt = buildPrompt({
       inbox: [],
       channel: [
@@ -45,32 +45,10 @@ describe("buildPrompt", () => {
           createdAt: Date.now(),
         },
       ],
-      teamMembers: [
-        { name: "alice", model: "mock", state: "idle" },
-        { name: "bob", model: "mock", state: "idle" },
-      ],
     });
 
     expect(prompt).toContain("## Recent Activity");
     expect(prompt).toContain("@alice: starting review");
-  });
-
-  test("skips channel history for single-agent", () => {
-    const prompt = buildPrompt({
-      inbox: [],
-      channel: [
-        {
-          id: "1",
-          sender: "system",
-          content: "kickoff message",
-          recipients: [],
-          createdAt: Date.now(),
-        },
-      ],
-      teamMembers: [{ name: "reviewer", model: "mock", state: "running" }],
-    });
-
-    expect(prompt).not.toContain("## Recent Activity");
   });
 
   test("includes document content", () => {
@@ -84,29 +62,10 @@ describe("buildPrompt", () => {
     expect(prompt).toContain("# Project Goals");
   });
 
-  test("includes collaboration instructions for multi-agent", () => {
-    const prompt = buildPrompt({
-      inbox: [],
-      channel: [],
-      teamMembers: [
-        { name: "alice", model: "mock", state: "idle" },
-        { name: "bob", model: "mock", state: "idle" },
-      ],
-    });
+  test("includes instructions", () => {
+    const prompt = buildPrompt({ inbox: [], channel: [] });
     expect(prompt).toContain("## Instructions");
     expect(prompt).toContain("channel_send");
-  });
-
-  test("includes local tool instructions for single-agent", () => {
-    const prompt = buildPrompt({
-      inbox: [],
-      channel: [],
-      teamMembers: [{ name: "reviewer", model: "mock", state: "running" }],
-    });
-    expect(prompt).toContain("## Instructions");
-    expect(prompt).toContain("bash");
-    expect(prompt).toContain("writeFile");
-    expect(prompt).not.toContain("channel_send");
   });
 });
 
