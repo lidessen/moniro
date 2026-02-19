@@ -124,11 +124,18 @@ export function createAgentScheduler(
 
       retryCount = 0;
     } catch (err) {
-      console.error(`[scheduler] ${agentName}: worker error (attempt ${retryCount + 1}/${DEFAULT_MAX_RETRIES}):`, (err as Error).message ?? err);
+      const errMsg = (err as Error).message ?? String(err);
+      console.error(`[scheduler] ${agentName}: worker error (attempt ${retryCount + 1}/${DEFAULT_MAX_RETRIES}):`, errMsg);
       retryCount++;
       if (retryCount >= DEFAULT_MAX_RETRIES) {
         console.error(`[scheduler] ${agentName}: max retries exhausted, acking inbox to prevent infinite loop`);
         retryCount = 0;
+        // Write error to channel so CLI/CI can see what went wrong
+        try {
+          channelSend(deps.db, agentName, `[error] Worker failed after ${DEFAULT_MAX_RETRIES} attempts: ${errMsg.slice(0, 500)}`, workflow, tag);
+        } catch {
+          // Best effort — DB may be closed
+        }
         // Ack inbox so workflow completion can detect idle state.
         // Without this, unacked messages keep pending_inbox=true forever.
         try {

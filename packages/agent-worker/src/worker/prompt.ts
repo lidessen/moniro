@@ -56,8 +56,9 @@ export function buildPrompt(input: PromptInput): string {
     sections.push("## Inbox\nNo unread messages.");
   }
 
-  // Recent channel activity
-  if (input.channel.length > 0) {
+  // Recent channel activity (skip for single-agent to avoid duplicating inbox content)
+  const isMultiAgent = input.teamMembers && input.teamMembers.length > 1;
+  if (input.channel.length > 0 && isMultiAgent) {
     const lines = input.channel.map((m) => {
       const time = new Date(m.createdAt).toISOString().slice(11, 19);
       return `[${time}] @${m.sender}: ${m.content}`;
@@ -78,10 +79,16 @@ export function buildPrompt(input: PromptInput): string {
     sections.push(`## Team\n${lines.join("\n")}`);
   }
 
-  // Instructions
-  sections.push(
-    "## Instructions\nProcess your inbox messages. Use MCP tools to collaborate with your team. Call channel_send to share your work. Call my_inbox_ack when done processing messages.",
-  );
+  // Instructions — context-aware based on team size
+  if (isMultiAgent) {
+    sections.push(
+      "## Instructions\nProcess your inbox messages. Use tools to collaborate with your team. Call channel_send to share your work. Call my_inbox_ack when done processing messages.",
+    );
+  } else {
+    sections.push(
+      "## Instructions\nComplete the task described above. You have bash, readFile, and writeFile tools available. Use them to accomplish the requested work.",
+    );
+  }
 
   return sections.join("\n\n");
 }
