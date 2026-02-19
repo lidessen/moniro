@@ -7,24 +7,23 @@
  * Coverage:
  *   GET  /health
  *   GET  /agents, POST /agents, GET /agents/:name, DELETE /agents/:name
- *   POST /run, POST /serve (validation only — no real backend)
+ *   POST /run, POST /serve
  *   GET  /workflows, DELETE /workflows/:name/:tag
  *   Invalid JSON body handling
  */
 
 import { describe, test, expect, beforeEach } from "bun:test";
-import { createDaemonApp, type DaemonState } from "../../src/daemon/daemon.ts";
+import { createDaemonApp, type DaemonState, type WorkflowHandle } from "../../src/daemon/daemon.ts";
 import { MemoryStateStore } from "../../src/agent/store.ts";
-import type { WorkerHandle } from "../../src/agent/handle.ts";
 import type { AgentConfig } from "../../src/agent/config.ts";
-import type { AgentResponse, SessionState } from "../../src/agent/types.ts";
+import type { AgentController, AgentRunResult } from "../../src/workflow/controller/types.ts";
+import type { ContextProvider } from "../../src/workflow/context/provider.ts";
 
 // ── Test Helpers ──────────────────────────────────────────────────
 
 function createTestState(overrides?: Partial<DaemonState>): DaemonState {
   return {
     configs: new Map(),
-    workers: new Map(),
     workflows: new Map(),
     store: new MemoryStateStore(),
     port: 5099,
@@ -34,46 +33,40 @@ function createTestState(overrides?: Partial<DaemonState>): DaemonState {
   };
 }
 
-/** Create a minimal mock WorkerHandle */
-function createMockWorker(response: string = "Hello!"): WorkerHandle {
-  const messages: Array<{ role: string; content: string }> = [];
+/** Create a minimal mock AgentController */
+function createMockController(response: string = "Hello!"): AgentController {
   return {
-    async send(input: string): Promise<AgentResponse> {
-      messages.push({ role: "user", content: input });
-      messages.push({ role: "assistant", content: response });
+    name: "mock",
+    state: "idle",
+    async start() {},
+    async stop() {},
+    wake() {},
+    async sendDirect(message: string): Promise<AgentRunResult> {
       return {
+        success: true,
         content: response,
-        toolCalls: [],
-        pendingApprovals: [],
-        usage: { input: 10, output: 5, total: 15 },
-        latency: 100,
+        duration: 100,
+        steps: 1,
+        toolCalls: 0,
       };
     },
-    async *sendStream(input: string): AsyncGenerator<string, AgentResponse> {
-      messages.push({ role: "user", content: input });
-      yield response;
-      return {
-        content: response,
-        toolCalls: [],
-        pendingApprovals: [],
-        usage: { input: 10, output: 5, total: 15 },
-        latency: 100,
-      };
-    },
-    getState(): SessionState {
-      return {
-        id: "test-id",
-        createdAt: new Date().toISOString(),
-        messages: messages.map((m) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-          status: "complete" as const,
-          timestamp: new Date().toISOString(),
-        })),
-        totalUsage: { input: 10, output: 5, total: 15 },
-        pendingApprovals: [],
-      };
-    },
+  };
+}
+
+/** Create a mock WorkflowHandle with a single agent controller */
+function createMockWorkflow(
+  agentName: string,
+  controller: AgentController,
+): WorkflowHandle {
+  return {
+    name: "global",
+    tag: "main",
+    key: `standalone:${agentName}`,
+    agents: [agentName],
+    controllers: new Map([[agentName, controller]]),
+    contextProvider: {} as ContextProvider,
+    shutdown: async () => {},
+    startedAt: new Date().toISOString(),
   };
 }
 
@@ -186,9 +179,8 @@ describe("Daemon API", () => {
       expect(data.workflow).toBe("global");
       expect(data.tag).toBe("main");
 
-      // Verify state was updated
+      // Verify config was stored (controller created lazily on first /run or /serve)
       expect(testState.configs.has("bob")).toBe(true);
-      expect(testState.workers.has("bob")).toBe(true);
     });
 
     test("rejects missing required fields", async () => {
@@ -260,9 +252,8 @@ describe("Daemon API", () => {
   // ── DELETE /agents/:name ─────────────────────────────────────
 
   describe("DELETE /agents/:name", () => {
-    test("removes agent", async () => {
+    test("removes agent config", async () => {
       testState.configs.set("alice", createTestAgent("alice"));
-      testState.workers.set("alice", createMockWorker());
 
       const res = await app.request("/agents/alice", { method: "DELETE" });
       expect(res.status).toBe(200);
@@ -270,20 +261,20 @@ describe("Daemon API", () => {
       expect(data.success).toBe(true);
 
       expect(testState.configs.has("alice")).toBe(false);
-      expect(testState.workers.has("alice")).toBe(false);
     });
 
-    test("persists state before removal", async () => {
-      const store = new MemoryStateStore();
-      testState.store = store;
+    test("shuts down workflow on removal", async () => {
       testState.configs.set("alice", createTestAgent("alice"));
-      testState.workers.set("alice", createMockWorker());
+      let shutdownCalled = false;
+      const ctrl = createMockController();
+      const wf = createMockWorkflow("alice", ctrl);
+      wf.shutdown = async () => { shutdownCalled = true; };
+      testState.workflows.set(`standalone:alice`, wf);
 
       await app.request("/agents/alice", { method: "DELETE" });
 
-      const saved = await store.load("alice");
-      expect(saved).not.toBeNull();
-      expect(saved!.id).toBe("test-id");
+      expect(shutdownCalled).toBe(true);
+      expect(testState.workflows.has("standalone:alice")).toBe(false);
     });
 
     test("returns 404 for unknown agent", async () => {
@@ -330,27 +321,29 @@ describe("Daemon API", () => {
       expect(res.status).toBe(404);
     });
 
-    test("sends message and returns response", async () => {
+    test("sends message and returns response via controller", async () => {
       testState.configs.set("alice", createTestAgent("alice"));
-      testState.workers.set("alice", createMockWorker("I'm Alice!"));
+      const ctrl = createMockController("I'm Alice!");
+      testState.workflows.set("standalone:alice", createMockWorkflow("alice", ctrl));
 
       const res = await post(app, "/serve", { agent: "alice", message: "hello" });
       expect(res.status).toBe(200);
       const data = await json(res);
       expect(data.content).toBe("I'm Alice!");
-      expect(data.latency).toBe(100);
+      expect(data.duration).toBe(100);
+      expect(data.success).toBe(true);
     });
 
-    test("persists state after serve", async () => {
-      const store = new MemoryStateStore();
-      testState.store = store;
+    test("returns error when sendDirect fails", async () => {
       testState.configs.set("alice", createTestAgent("alice"));
-      testState.workers.set("alice", createMockWorker());
+      const ctrl = createMockController();
+      ctrl.sendDirect = async () => ({ success: false, error: "Backend unavailable", duration: 0 });
+      testState.workflows.set("standalone:alice", createMockWorkflow("alice", ctrl));
 
-      await post(app, "/serve", { agent: "alice", message: "hello" });
-
-      const saved = await store.load("alice");
-      expect(saved).not.toBeNull();
+      const res = await post(app, "/serve", { agent: "alice", message: "hello" });
+      expect(res.status).toBe(500);
+      const data = await json(res);
+      expect(data.error).toBe("Backend unavailable");
     });
 
     test("rejects invalid JSON body", async () => {
