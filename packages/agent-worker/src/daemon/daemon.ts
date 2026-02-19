@@ -1,15 +1,14 @@
 /**
  * Daemon — Centralized agent coordinator.
  *
- * Architecture: Interface → Daemon → Worker (three layers)
+ * Architecture: Interface → Daemon → Controller (three layers)
  *   Interface: CLI/REST/MCP clients talk to daemon via HTTP
  *   Daemon:    This module — owns lifecycle, creates workflows + controllers
- *   Worker:    AgentController + Backend — executes agent reasoning
+ *   Controller: AgentController + Backend — executes agent reasoning
  *
  * Data ownership:
  *   Registry (configs)    — what agents exist and their configuration
  *   Workflows (workflows) — running workflow instances with controllers + context
- *   Workers (workers)     — legacy execution handles (deprecated, fallback only)
  *
  * Key principle: every agent lives in a workflow. Standalone agents created via
  * POST /agents get a 1-agent workflow (created lazily on first /run or /serve).
@@ -28,8 +27,6 @@ import { streamSSE } from "hono/streaming";
 import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import type { AgentConfig } from "../agent/config.ts";
-import type { WorkerHandle } from "../agent/handle.ts";
-import { LocalWorker } from "../agent/handle.ts";
 import type { StateStore } from "../agent/store.ts";
 import { MemoryStateStore } from "../agent/store.ts";
 import type { BackendType } from "../backends/types.ts";
@@ -74,12 +71,6 @@ export interface WorkflowHandle {
 export interface DaemonState {
   /** Agent configs — the registry (what agents exist) */
   configs: Map<string, AgentConfig>;
-  /**
-   * Worker handles — legacy direct execution (deprecated).
-   * Kept for backward compatibility: tests and callers that set workers directly
-   * still work. New code should go through the workflow/controller path.
-   */
-  workers: Map<string, WorkerHandle>;
   /** Running workflows — keyed by "name:tag" */
   workflows: Map<string, WorkflowHandle>;
   /** State store — conversation persistence (pluggable) */
@@ -108,7 +99,7 @@ async function gracefulShutdown(): Promise<void> {
   shuttingDown = true;
 
   if (state) {
-    // Stop all workflows
+    // Stop all workflows (controllers + context)
     for (const [, wf] of state.workflows) {
       try {
         await wf.shutdown();
@@ -118,14 +109,6 @@ async function gracefulShutdown(): Promise<void> {
     }
     state.workflows.clear();
 
-    // Persist all agent states before stopping
-    for (const [name, handle] of state.workers) {
-      try {
-        await state.store.save(name, handle.getState());
-      } catch {
-        /* best-effort */
-      }
-    }
     if (state.server) {
       await state.server.close();
     }
@@ -203,7 +186,7 @@ async function ensureAgentController(
   if (!cfg) throw new Error(`Agent not found: ${agentName}`);
 
   const agentDef = configToResolvedAgent(cfg);
-  const wfKey = `agent:${agentName}`;
+  const wfKey = `standalone:${agentName}`;
 
   // Create minimal runtime (context + MCP server)
   const runtime = await createMinimalRuntime({
@@ -409,14 +392,8 @@ export function createDaemonApp(
       schedule,
     };
 
-    // Store config. Workflow + controller are created lazily on first /run or /serve.
+    // Store config only. Workflow + controller are created lazily on first /run or /serve.
     s.configs.set(name, agentConfig);
-
-    // Legacy: also create a worker handle for backward compatibility.
-    // POST /run and /serve prefer the controller path; this is the fallback.
-    const savedState = await s.store.load(name);
-    const handle = new LocalWorker(agentConfig, savedState ?? undefined);
-    s.workers.set(name, handle);
 
     return c.json({ name, model, backend, workflow, tag, schedule }, 201);
   });
@@ -452,7 +429,7 @@ export function createDaemonApp(
     }
 
     // Clean up workflow if this agent had one (lazily created via ensureAgentController)
-    const wfKey = `agent:${name}`;
+    const wfKey = `standalone:${name}`;
     const wf = s.workflows.get(wfKey);
     if (wf) {
       try {
@@ -462,17 +439,6 @@ export function createDaemonApp(
       }
       s.workflows.delete(wfKey);
     }
-
-    // Legacy: persist final state before removing worker
-    const handle = s.workers.get(name);
-    if (handle) {
-      try {
-        await s.store.save(name, handle.getState());
-      } catch {
-        /* best-effort */
-      }
-    }
-    s.workers.delete(name);
 
     return c.json({ success: true });
   });
@@ -494,101 +460,46 @@ export function createDaemonApp(
       return c.json({ error: "agent and message required" }, 400);
     }
 
-    // Preferred path: find or create a controller for this agent
+    // Find or create a controller for this agent
+    let controller: AgentController | undefined;
     const controllerResult = findController(s, agentName);
-    if (controllerResult) {
-      return streamSSE(c, async (stream) => {
-        try {
-          const result = await controllerResult.controller.sendDirect(message);
-          if (result.success) {
-            if (result.content) {
-              await stream.writeSSE({
-                event: "chunk",
-                data: JSON.stringify({ agent: agentName, text: result.content }),
-              });
-            }
-            await stream.writeSSE({
-              event: "done",
-              data: JSON.stringify(result),
-            });
-          } else {
-            await stream.writeSSE({
-              event: "error",
-              data: JSON.stringify({ error: result.error }),
-            });
-          }
-        } catch (error) {
-          const msg = error instanceof Error ? error.message : String(error);
-          await stream.writeSSE({
-            event: "error",
-            data: JSON.stringify({ error: msg }),
-          });
-        }
-      });
-    }
 
-    // Lazy creation: if agent has a config but no controller yet, create one
-    if (s.configs.has(agentName) && !s.workers.has(agentName)) {
+    if (controllerResult) {
+      controller = controllerResult.controller;
+    } else if (s.configs.has(agentName)) {
+      // Lazy creation: agent has a config but no controller yet
       try {
-        const { controller } = await ensureAgentController(s, agentName);
-        return streamSSE(c, async (stream) => {
-          try {
-            const result = await controller.sendDirect(message);
-            if (result.success) {
-              if (result.content) {
-                await stream.writeSSE({
-                  event: "chunk",
-                  data: JSON.stringify({ agent: agentName, text: result.content }),
-                });
-              }
-              await stream.writeSSE({
-                event: "done",
-                data: JSON.stringify(result),
-              });
-            } else {
-              await stream.writeSSE({
-                event: "error",
-                data: JSON.stringify({ error: result.error }),
-              });
-            }
-          } catch (error) {
-            const msg = error instanceof Error ? error.message : String(error);
-            await stream.writeSSE({
-              event: "error",
-              data: JSON.stringify({ error: msg }),
-            });
-          }
-        });
+        const ensured = await ensureAgentController(s, agentName);
+        controller = ensured.controller;
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         return c.json({ error: `Failed to create agent runtime: ${msg}` }, 500);
       }
     }
 
-    // Legacy fallback: use worker handle directly
-    const handle = s.workers.get(agentName);
-    if (!handle) return c.json({ error: `Agent not found: ${agentName}` }, 404);
+    if (!controller) {
+      return c.json({ error: `Agent not found: ${agentName}` }, 404);
+    }
 
+    const ctrl = controller;
     return streamSSE(c, async (stream) => {
       try {
-        const gen = handle.sendStream(message);
-        while (true) {
-          const { value, done } = await gen.next();
-          if (done) {
-            // Persist state after execution
-            const currentState = getState();
-            if (currentState) {
-              await currentState.store.save(agentName, handle.getState());
-            }
+        const result = await ctrl.sendDirect(message);
+        if (result.success) {
+          if (result.content) {
             await stream.writeSSE({
-              event: "done",
-              data: JSON.stringify(value),
+              event: "chunk",
+              data: JSON.stringify({ agent: agentName, text: result.content }),
             });
-            break;
           }
           await stream.writeSSE({
-            event: "chunk",
-            data: JSON.stringify({ agent: agentName, text: value }),
+            event: "done",
+            data: JSON.stringify(result),
+          });
+        } else {
+          await stream.writeSSE({
+            event: "error",
+            data: JSON.stringify({ error: result.error }),
           });
         }
       } catch (error) {
@@ -618,55 +529,37 @@ export function createDaemonApp(
       return c.json({ error: "agent and message required" }, 400);
     }
 
-    // Preferred path: find controller in existing workflows
+    // Find or create a controller for this agent
+    let controller: AgentController | undefined;
     const controllerResult = findController(s, agentName);
+
     if (controllerResult) {
+      controller = controllerResult.controller;
+    } else if (s.configs.has(agentName)) {
+      // Lazy creation: config exists but no controller yet
       try {
-        const result = await controllerResult.controller.sendDirect(message);
-        if (!result.success) {
-          return c.json({ error: result.error }, 500);
-        }
-        return c.json({
-          content: result.content ?? "",
-          duration: result.duration,
-          success: true,
-        });
+        const ensured = await ensureAgentController(s, agentName);
+        controller = ensured.controller;
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         return c.json({ error: msg }, 500);
       }
     }
 
-    // Lazy creation: config exists but no controller yet
-    if (s.configs.has(agentName) && !s.workers.has(agentName)) {
-      try {
-        const { controller } = await ensureAgentController(s, agentName);
-        const result = await controller.sendDirect(message);
-        if (!result.success) {
-          return c.json({ error: result.error }, 500);
-        }
-        return c.json({
-          content: result.content ?? "",
-          duration: result.duration,
-          success: true,
-        });
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        return c.json({ error: msg }, 500);
-      }
+    if (!controller) {
+      return c.json({ error: `Agent not found: ${agentName}` }, 404);
     }
-
-    // Legacy fallback: use worker handle directly
-    const handle = s.workers.get(agentName);
-    if (!handle) return c.json({ error: `Agent not found: ${agentName}` }, 404);
 
     try {
-      const response = await handle.send(message);
-
-      // Persist state after execution
-      await s.store.save(agentName, handle.getState());
-
-      return c.json(response);
+      const result = await controller.sendDirect(message);
+      if (!result.success) {
+        return c.json({ error: result.error }, 500);
+      }
+      return c.json({
+        content: result.content ?? "",
+        duration: result.duration,
+        success: true,
+      });
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       return c.json({ error: msg }, 500);
@@ -928,7 +821,6 @@ export async function startDaemon(
 
   state = {
     configs: new Map(),
-    workers: new Map(),
     workflows: new Map(),
     store,
     server,
