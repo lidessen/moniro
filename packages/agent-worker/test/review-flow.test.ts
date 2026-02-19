@@ -14,26 +14,34 @@ import { generateText, stepCountIs } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { existsSync, unlinkSync, readFileSync, writeFileSync } from "node:fs";
 
+/** Extract the return type of doGenerate from the mock model */
+type GenerateResult = Awaited<ReturnType<MockLanguageModelV3["doGenerate"]>>;
+
 /** Shorthand for tool execute context */
 const ctx = { toolCallId: "test", messages: [] as never[], abortSignal: new AbortController().signal };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helpers for V3 mock results
-function toolCallResult(toolCallId: string, toolName: string, input: object): any {
+function v3Usage(input: number, output: number): GenerateResult["usage"] {
+  return {
+    inputTokens: { total: input, noCache: input, cacheRead: undefined, cacheWrite: undefined },
+    outputTokens: { total: output, text: output, reasoning: undefined },
+  };
+}
+
+function toolCallResult(toolCallId: string, toolName: string, input: object): GenerateResult {
   return {
     content: [{ type: "tool-call", toolCallId, toolName, input: JSON.stringify(input) }],
-    usage: { inputTokens: 100, outputTokens: 50 },
-    finishReason: "tool-calls",
+    usage: v3Usage(100, 50),
+    finishReason: { unified: "tool-calls", raw: undefined },
     providerMetadata: {},
     warnings: [],
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helpers for V3 mock results
-function textResult(text: string): any {
+function textResult(text: string): GenerateResult {
   return {
     content: [{ type: "text", text }],
-    usage: { inputTokens: 200, outputTokens: 30 },
-    finishReason: "stop",
+    usage: v3Usage(200, 30),
+    finishReason: { unified: "stop", raw: undefined },
     providerMetadata: {},
     warnings: [],
   };
