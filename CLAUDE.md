@@ -121,10 +121,13 @@ Also available: `authoring-skills` (create skills), `frontend-init` (bootstrap f
 ## Structure
 
 ```
-skills/skill-name/
+packages/package-name/   # Core packages (libraries, runtimes, infrastructure)
+skills/skill-name/       # Skills (workflow instructions built on top of packages)
 ├── SKILL.md      # Hub (~500 lines max)
 └── reference/    # Details (loaded on demand, one level deep)
 ```
+
+**Important distinction**: `packages/agent-worker` is the core agent runtime library. `skills/agent-worker` is a skill (workflow instructions) built *on top of* that package. When investigating or modifying agent-worker functionality, start with `packages/agent-worker/`.
 
 Every SKILL.md needs YAML frontmatter with `name` and `description` (trigger keywords).
 
