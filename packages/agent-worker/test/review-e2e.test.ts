@@ -11,7 +11,7 @@
 import { describe, test, expect, afterEach } from "bun:test";
 import { startDaemon, type DaemonHandle } from "../src/daemon/index.ts";
 import { channelRead, inboxQuery } from "../src/daemon/context.ts";
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 
 /**

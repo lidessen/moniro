@@ -8,12 +8,36 @@
  */
 import { describe, test, expect, afterEach } from "bun:test";
 import { startDaemon, type DaemonHandle } from "../src/daemon/index.ts";
-import { channelRead, inboxQuery } from "../src/daemon/context.ts";
+import { channelRead } from "../src/daemon/context.ts";
 import { createLocalTools } from "../src/worker/local-tools.ts";
 import { generateText, stepCountIs } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
-import { existsSync, unlinkSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, unlinkSync, readFileSync, writeFileSync } from "node:fs";
+
+/** Shorthand for tool execute context */
+const ctx = { toolCallId: "test", messages: [] as never[], abortSignal: new AbortController().signal };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helpers for V3 mock results
+function toolCallResult(toolCallId: string, toolName: string, input: object): any {
+  return {
+    content: [{ type: "tool-call", toolCallId, toolName, input: JSON.stringify(input) }],
+    usage: { inputTokens: 100, outputTokens: 50 },
+    finishReason: "tool-calls",
+    providerMetadata: {},
+    warnings: [],
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helpers for V3 mock results
+function textResult(text: string): any {
+  return {
+    content: [{ type: "text", text }],
+    usage: { inputTokens: 200, outputTokens: 30 },
+    finishReason: "stop",
+    providerMetadata: {},
+    warnings: [],
+  };
+}
 
 describe("review workflow critical path", () => {
   let daemon: DaemonHandle | null = null;
@@ -115,10 +139,6 @@ describe("review workflow critical path", () => {
     expect(kickoffMsg!.content).toContain("cat /tmp/review-diff.txt");
     expect(kickoffMsg!.content).toContain("/tmp/review-result.json");
     expect(kickoffMsg!.content.length).toBeGreaterThan(1200);
-
-    // Also check inbox — agent should see full content
-    // Need to re-read before ack happens
-    // The mock worker runs fast, so inbox may be acked. Check channel instead.
   }, 10_000);
 
   test("short kickoff still works normally", async () => {
@@ -152,13 +172,13 @@ describe("review workflow critical path", () => {
 
   test("bash tool executes commands", async () => {
     const tools = createLocalTools();
-    const result = await tools.bash.execute({ command: "echo hello-world" }, { toolCallId: "test", messages: [], abortSignal: new AbortController().signal });
+    const result = await tools.bash.execute!({ command: "echo hello-world" }, ctx) as { stdout: string; stderr: string; exitCode: number };
     expect(result).toEqual({ stdout: "hello-world\n", stderr: "", exitCode: 0 });
   });
 
   test("bash tool returns error for failing commands", async () => {
     const tools = createLocalTools();
-    const result = await tools.bash.execute({ command: "exit 42" }, { toolCallId: "test", messages: [], abortSignal: new AbortController().signal });
+    const result = await tools.bash.execute!({ command: "exit 42" }, ctx) as { stdout: string; stderr: string; exitCode: number };
     expect(result.exitCode).toBe(42);
   });
 
@@ -168,13 +188,13 @@ describe("review workflow critical path", () => {
     tmpFiles.push(tmpPath);
     writeFileSync(tmpPath, "test content here", "utf-8");
 
-    const result = await tools.readFile.execute({ path: tmpPath }, { toolCallId: "test", messages: [], abortSignal: new AbortController().signal });
+    const result = await tools.readFile.execute!({ path: tmpPath }, ctx) as { content: string; error: null };
     expect(result).toEqual({ content: "test content here", error: null });
   });
 
   test("readFile tool returns error for missing files", async () => {
     const tools = createLocalTools();
-    const result = await tools.readFile.execute({ path: "/tmp/nonexistent-file-xyz-123" }, { toolCallId: "test", messages: [], abortSignal: new AbortController().signal });
+    const result = await tools.readFile.execute!({ path: "/tmp/nonexistent-file-xyz-123" }, ctx) as { content: null; error: string };
     expect(result.content).toBeNull();
     expect(result.error).toBeDefined();
   });
@@ -184,10 +204,10 @@ describe("review workflow critical path", () => {
     const tmpPath = `/tmp/test-local-tools-write-${Date.now()}/nested/result.json`;
     tmpFiles.push(tmpPath);
 
-    const result = await tools.writeFile.execute(
+    const result = await tools.writeFile.execute!(
       { path: tmpPath, content: '{"summary":"test"}' },
-      { toolCallId: "test", messages: [], abortSignal: new AbortController().signal },
-    );
+      ctx,
+    ) as { written: boolean; path: string; bytes: number };
     expect(result.written).toBe(true);
     expect(existsSync(tmpPath)).toBe(true);
   });
@@ -208,37 +228,20 @@ describe("review workflow critical path", () => {
 
     const tools = createLocalTools();
 
-    // Mock LLM: first call returns a writeFile tool call (V3: tool calls in content[])
+    // Mock LLM: first call returns a writeFile tool call, second returns text
     let callCount = 0;
     const model = new MockLanguageModelV3({
       doGenerate: async () => {
         callCount++;
         if (callCount === 1) {
-          return {
-            content: [
-              {
-                type: "tool-call" as const,
-                toolCallId: "tc_1",
-                toolName: "writeFile",
-                input: JSON.stringify({ path: resultPath, content: reviewJson }),
-              },
-            ],
-            usage: { inputTokens: 100, outputTokens: 50 },
-            finishReason: "tool-calls" as const,
-            providerMetadata: {},
-          };
+          return toolCallResult("tc_1", "writeFile", { path: resultPath, content: reviewJson });
         }
-        return {
-          content: [{ type: "text" as const, text: "Review complete. Written to " + resultPath }],
-          usage: { inputTokens: 200, outputTokens: 30 },
-          finishReason: "stop" as const,
-          providerMetadata: {},
-        };
+        return textResult("Review complete. Written to " + resultPath);
       },
     });
 
     const result = await generateText({
-      model: model as any,
+      model,
       prompt: "Review this PR and write results to a file",
       tools,
       stopWhen: stepCountIs(5),
@@ -274,31 +277,14 @@ describe("review workflow critical path", () => {
       doGenerate: async () => {
         callCount++;
         if (callCount === 1) {
-          return {
-            content: [
-              {
-                type: "tool-call" as const,
-                toolCallId: "tc_1",
-                toolName: "bash",
-                input: JSON.stringify({ command: `echo "hello from bash" > ${resultPath}` }),
-              },
-            ],
-            usage: { inputTokens: 100, outputTokens: 50 },
-            finishReason: "tool-calls" as const,
-            providerMetadata: {},
-          };
+          return toolCallResult("tc_1", "bash", { command: `echo "hello from bash" > ${resultPath}` });
         }
-        return {
-          content: [{ type: "text" as const, text: "Done." }],
-          usage: { inputTokens: 200, outputTokens: 10 },
-          finishReason: "stop" as const,
-          providerMetadata: {},
-        };
+        return textResult("Done.");
       },
     });
 
     const result = await generateText({
-      model: model as any,
+      model,
       prompt: "Write hello to a file using bash",
       tools,
       stopWhen: stepCountIs(5),
@@ -323,49 +309,24 @@ describe("review workflow critical path", () => {
       doGenerate: async () => {
         callCount++;
         if (callCount === 1) {
-          return {
-            content: [{
-              type: "tool-call" as const,
-              toolCallId: "tc_read",
-              toolName: "readFile",
-              input: JSON.stringify({ path: infoPath }),
-            }],
-            usage: { inputTokens: 100, outputTokens: 50 },
-            finishReason: "tool-calls" as const,
-            providerMetadata: {},
-          };
+          return toolCallResult("tc_read", "readFile", { path: infoPath });
         }
         if (callCount === 2) {
-          return {
-            content: [{
-              type: "tool-call" as const,
-              toolCallId: "tc_write",
-              toolName: "writeFile",
-              input: JSON.stringify({
-                path: resultPath,
-                content: JSON.stringify({
-                  summary: "Auth feature looks good",
-                  issues: [{ severity: "warning", file: "auth.ts", line: 10, message: "Missing rate limiting" }],
-                  highlights: ["Good test coverage"],
-                }),
-              }),
-            }],
-            usage: { inputTokens: 200, outputTokens: 80 },
-            finishReason: "tool-calls" as const,
-            providerMetadata: {},
-          };
+          return toolCallResult("tc_write", "writeFile", {
+            path: resultPath,
+            content: JSON.stringify({
+              summary: "Auth feature looks good",
+              issues: [{ severity: "warning", file: "auth.ts", line: 10, message: "Missing rate limiting" }],
+              highlights: ["Good test coverage"],
+            }),
+          });
         }
-        return {
-          content: [{ type: "text" as const, text: "Review written to " + resultPath }],
-          usage: { inputTokens: 300, outputTokens: 20 },
-          finishReason: "stop" as const,
-          providerMetadata: {},
-        };
+        return textResult("Review written to " + resultPath);
       },
     });
 
     const result = await generateText({
-      model: model as any,
+      model,
       prompt: "Review this PR",
       tools,
       stopWhen: stepCountIs(10),
