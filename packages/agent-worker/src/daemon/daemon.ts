@@ -195,12 +195,19 @@ async function ensureAgentController(
     agentNames: [agentName],
   });
 
-  // Create wired controller (backend + workspace)
-  const { controller } = createWiredController({
-    name: agentName,
-    agent: agentDef,
-    runtime,
-  });
+  // Create wired controller (backend + workspace).
+  // If this fails, clean up the runtime we just created.
+  let controller: AgentController;
+  try {
+    ({ controller } = createWiredController({
+      name: agentName,
+      agent: agentDef,
+      runtime,
+    }));
+  } catch (err) {
+    await runtime.shutdown();
+    throw err;
+  }
 
   // Store as a workflow handle
   const handle: WorkflowHandle = {
@@ -211,8 +218,12 @@ async function ensureAgentController(
     controllers: new Map([[agentName, controller]]),
     contextProvider: runtime.contextProvider,
     shutdown: async () => {
-      await controller.stop();
-      await runtime.shutdown();
+      // Ensure runtime is always cleaned up even if controller.stop() throws
+      try {
+        await controller.stop();
+      } finally {
+        await runtime.shutdown();
+      }
     },
     startedAt: new Date().toISOString(),
   };
