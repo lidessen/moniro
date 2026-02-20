@@ -14,8 +14,7 @@
  */
 
 import { existsSync, mkdirSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import type { ContextProvider } from "./context/provider.ts";
 import {
@@ -23,7 +22,6 @@ import {
   FileContextProvider,
   getDefaultContextDir,
 } from "./context/file-provider.ts";
-import { createMemoryContextProvider } from "./context/memory-provider.ts";
 import { createContextMCPServer } from "./context/mcp/server.ts";
 import { runWithHttp, type HttpMCPServer } from "./context/http-transport.ts";
 import { EventLog } from "./context/event-log.ts";
@@ -33,7 +31,7 @@ import type { Backend } from "../backends/types.ts";
 import type { StreamParserCallbacks } from "../backends/stream-json.ts";
 import { createAgentController } from "./controller/controller.ts";
 import { getBackendByType, getBackendForModel } from "./controller/backend.ts";
-import type { AgentController, AgentControllerConfig } from "./controller/types.ts";
+import type { AgentController } from "./controller/types.ts";
 import type { Logger } from "./logger.ts";
 import { createSilentLogger } from "./logger.ts";
 import type { FeedbackEntry } from "../agent/tools/feedback.ts";
