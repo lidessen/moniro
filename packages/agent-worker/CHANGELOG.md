@@ -1,5 +1,21 @@
 # agent-worker
 
+## 0.14.0
+
+### Minor Changes
+
+- [`3a62dc7`](https://github.com/lidessen/moniro/commit/3a62dc778db286e9dccb77deaf6fab445c0db079) - Add wakeup/schedule support for agents via CLI flags and workflow YAML
+
+- [`47578d3`](https://github.com/lidessen/moniro/commit/47578d38ef89d5128c0b7921d389ccbaa1b47a39) - Add schedule-based wakeup support for agents with interval and cron expressions
+
+- [`bb7b1a6`](https://github.com/lidessen/moniro/commit/bb7b1a6ee1012b887ba3287af5950cf4649d4257) - feat: unify interface-daemon-worker three-layer architecture with factory primitives and sendDirect()
+
+### Patch Changes
+
+- [`60c37a7`](https://github.com/lidessen/moniro/commit/60c37a7067ecb1ee3c2464199199f1d1c8973846) - Add startup timeout for unresponsive backends and support standalone cursor agent CLI
+
+- [`aa2ad97`](https://github.com/lidessen/moniro/commit/aa2ad978664c5f86316af4af2806c769732176e8) - Fix validation to require wakeup when wakeup_prompt is specified in CLI and workflow parser
+
 ## 0.13.0
 
 ### Minor Changes
