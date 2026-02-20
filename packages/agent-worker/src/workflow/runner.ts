@@ -29,10 +29,7 @@ import { createMemoryContextProvider } from "./context/memory-provider.ts";
 import { createContextMCPServer } from "./context/mcp/server.ts";
 import { runWithHttp, type HttpMCPServer } from "./context/http-transport.ts";
 import type { ContextProvider } from "./context/provider.ts";
-import {
-  checkWorkflowIdle,
-  type AgentController,
-} from "./controller/index.ts";
+import { checkWorkflowIdle, type AgentController } from "./controller/index.ts";
 import { createWiredController } from "./factory.ts";
 import type { Backend } from "../backends/types.ts";
 import { EventLog } from "./context/event-log.ts";

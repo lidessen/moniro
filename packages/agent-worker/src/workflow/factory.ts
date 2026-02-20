@@ -18,7 +18,11 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
 import type { ContextProvider } from "./context/provider.ts";
-import { createFileContextProvider, FileContextProvider, getDefaultContextDir } from "./context/file-provider.ts";
+import {
+  createFileContextProvider,
+  FileContextProvider,
+  getDefaultContextDir,
+} from "./context/file-provider.ts";
 import { createMemoryContextProvider } from "./context/memory-provider.ts";
 import { createContextMCPServer } from "./context/mcp/server.ts";
 import { runWithHttp, type HttpMCPServer } from "./context/http-transport.ts";
@@ -105,14 +109,7 @@ export interface MinimalRuntimeConfig {
 export async function createMinimalRuntime(
   config: MinimalRuntimeConfig,
 ): Promise<WorkflowRuntimeHandle> {
-  const {
-    workflowName,
-    tag,
-    agentNames,
-    onMention,
-    feedback: feedbackEnabled,
-    debugLog,
-  } = config;
+  const { workflowName, tag, agentNames, onMention, feedback: feedbackEnabled, debugLog } = config;
 
   // Resolve context provider
   let contextProvider: ContextProvider;
@@ -251,13 +248,7 @@ export interface WiredControllerResult {
  * daemon.ts can create controllers with the same quality.
  */
 export function createWiredController(config: WiredControllerConfig): WiredControllerResult {
-  const {
-    name,
-    agent,
-    runtime,
-    pollInterval,
-    feedback: feedbackEnabled,
-  } = config;
+  const { name, agent, runtime, pollInterval, feedback: feedbackEnabled } = config;
 
   const logger = config.logger ?? createSilentLogger();
 
@@ -265,8 +256,7 @@ export function createWiredController(config: WiredControllerConfig): WiredContr
   const streamCallbacks: StreamParserCallbacks = {
     debugLog: (msg) => logger.debug(msg),
     outputLog: (msg) => runtime.eventLog.output(name, msg),
-    toolCallLog: (toolName, args) =>
-      runtime.eventLog.toolCall(name, toolName, args, "backend"),
+    toolCallLog: (toolName, args) => runtime.eventLog.toolCall(name, toolName, args, "backend"),
     mcpToolNames: runtime.mcpToolNames,
   };
 
