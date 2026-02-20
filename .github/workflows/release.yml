@@ -71,11 +71,24 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          LATEST_TAG=""
+          LATEST_VER=""
           for TAG in ${{ steps.publish.outputs.new_tags }}; do
             # Extract package name and version from tag (e.g., @skills/cli@0.1.2)
             if [[ "$TAG" =~ ^(.+)@([0-9]+\..+)$ ]]; then
               PKG="${BASH_REMATCH[1]}"
               VER="${BASH_REMATCH[2]}"
               gh release create "$TAG" --title "${PKG}@${VER}" --generate-notes --latest=false
+
+              # Track the highest version to mark as latest
+              if [[ -z "$LATEST_VER" ]] || printf '%s\n%s\n' "$LATEST_VER" "$VER" | sort -V | tail -1 | grep -qx "$VER"; then
+                LATEST_TAG="$TAG"
+                LATEST_VER="$VER"
+              fi
             fi
           done
+
+          # Mark the release with the highest version as latest
+          if [[ -n "$LATEST_TAG" ]]; then
+            gh release edit "$LATEST_TAG" --latest
+          fi
