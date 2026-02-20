@@ -620,11 +620,13 @@ export function createDaemonApp(
       const workflowAgents = getWorkflowAgentNames(workflow, tag);
       const allNames = [...new Set([...workflowAgents, agentName, "user"])];
 
-      const provider: ContextProvider = existingWf?.contextProvider ?? (() => {
-        const contextDir = getDefaultContextDir(workflow, tag);
-        mkdirSync(contextDir, { recursive: true });
-        return createFileContextProvider(contextDir, allNames);
-      })();
+      const provider: ContextProvider =
+        existingWf?.contextProvider ??
+        (() => {
+          const contextDir = getDefaultContextDir(workflow, tag);
+          mkdirSync(contextDir, { recursive: true });
+          return createFileContextProvider(contextDir, allNames);
+        })();
 
       const transport = new WebStandardStreamableHTTPServerTransport({
         sessionIdGenerator: () => `${agentName}-${randomUUID().slice(0, 8)}`,
