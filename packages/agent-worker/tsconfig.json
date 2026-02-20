@@ -30,5 +30,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noPropertyAccessFromIndexSignature": false
-  }
+  },
+  "include": ["src", "test"],
+  "exclude": ["dist"]
 }
