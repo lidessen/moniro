@@ -41,7 +41,7 @@ function createMockController(response: string = "Hello!"): AgentController {
     async start() {},
     async stop() {},
     wake() {},
-    async sendDirect(message: string): Promise<AgentRunResult> {
+    async sendDirect(_message: string): Promise<AgentRunResult> {
       return {
         success: true,
         content: response,
