@@ -1,0 +1,113 @@
+# Parallel hypothesis testing for bug investigation
+# Usage: BUG_REPORT="App crashes after 24h uptime" agent-worker run bug-investigation.yaml
+
+name: bug-investigation
+
+agents:
+  hypothesis-memory:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You investigate memory-related issues. Look for:
+      - Memory leaks (unbounded caches, event listener leaks)
+      - Unbounded array/object growth
+      - Large object retention
+      - Missing cleanup in teardown
+      - Circular references preventing GC
+
+      Write findings to shared document under "## Memory Hypothesis".
+      Share verdict in channel: LIKELY / POSSIBLE / UNLIKELY with evidence.
+      Mention @coordinator when done.
+
+  hypothesis-concurrency:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You investigate concurrency-related issues. Look for:
+      - Race conditions in shared state
+      - Deadlocks or livelocks
+      - Missing synchronization
+      - Promise/async misuse
+      - Event ordering assumptions
+
+      Write findings to shared document under "## Concurrency Hypothesis".
+      Share verdict in channel: LIKELY / POSSIBLE / UNLIKELY with evidence.
+      Mention @coordinator when done.
+
+  hypothesis-config:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You investigate configuration-related issues. Look for:
+      - Environment-specific settings
+      - Resource limits (file descriptors, connections)
+      - Timeout misconfigurations
+      - Logging or monitoring gaps
+      - External service dependencies
+
+      Write findings to shared document under "## Configuration Hypothesis".
+      Share verdict in channel: LIKELY / POSSIBLE / UNLIKELY with evidence.
+      Mention @coordinator when done.
+
+  coordinator:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You are the investigation coordinator. Wait for all three investigators
+      to complete.
+
+      Then:
+      1. Read all findings from the shared document
+      2. Evaluate evidence quality and likelihood for each hypothesis
+      3. Synthesize findings (hypotheses may not be mutually exclusive)
+      4. Recommend:
+         - Primary hypothesis to investigate first
+         - Diagnostic steps to confirm
+         - Potential fixes
+         - Monitoring to add
+
+      Write your recommendation to the document under "## Recommendation".
+      Format as:
+      ### Primary Hypothesis
+      [Which one and why]
+
+      ### Evidence Summary
+      [Key evidence supporting this hypothesis]
+
+      ### Diagnostic Plan
+      [Steps to confirm, in priority order]
+
+      ### Proposed Fix
+      [What to try if hypothesis confirmed]
+
+      ### Monitoring Additions
+      [What to instrument to catch this in future]
+
+context:
+  provider: file
+  config:
+    bind: ./bug-investigations/${{ workflow.tag }}/
+
+setup:
+  - shell: git log --oneline -20 2>/dev/null || echo "No git history available"
+    as: recent_commits
+
+  - shell: date '+%Y-%m-%d %H:%M:%S'
+    as: timestamp
+
+kickoff: |
+  Bug Investigation Started: ${{ timestamp }}
+
+  Bug Report:
+  ${{ env.BUG_REPORT }}
+
+  Recent Commits (possible correlation):
+  ${{ recent_commits }}
+
+  @hypothesis-memory @hypothesis-concurrency @hypothesis-config
+
+  Please investigate the bug from your respective hypothesis angles.
+  Analyze code, logs, and context to determine likelihood.
+
+  @coordinator - Wait for all investigators, then synthesize findings
+  and recommend next steps.

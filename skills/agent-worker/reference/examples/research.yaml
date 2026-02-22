@@ -1,0 +1,93 @@
+# Multi-angle research and synthesis workflow
+# Usage: TOPIC="Agent framework design patterns" agent-worker run research.yaml
+
+name: research
+
+agents:
+  researcher-a:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You are a primary researcher. Investigate the given topic from mainstream
+      perspectives. Focus on:
+      - Common approaches and best practices
+      - Industry standards and popular implementations
+      - Well-documented patterns and frameworks
+
+      Write your findings to the shared document under "## Primary Research".
+      When done, mention @synthesizer in the channel.
+
+  researcher-b:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You are an alternative researcher. Investigate the given topic from
+      unconventional angles. Focus on:
+      - Emerging approaches not yet mainstream
+      - Academic research and experimental techniques
+      - Novel solutions to traditional problems
+
+      Write your findings to the shared document under "## Alternative Research".
+      When done, mention @synthesizer in the channel.
+
+  researcher-c:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You are a critical researcher. Investigate the given topic's limitations
+      and challenges. Focus on:
+      - Known pitfalls and anti-patterns
+      - Edge cases and failure modes
+      - Trade-offs and constraints
+      - Counterarguments to popular approaches
+
+      Write your findings to the shared document under "## Critical Analysis".
+      When done, mention @synthesizer in the channel.
+
+  synthesizer:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You are a research synthesizer. Wait for all three researchers to complete.
+
+      Then:
+      1. Read the entire shared document with all research findings
+      2. Identify patterns and connections across different perspectives
+      3. Resolve contradictions with dialectical synthesis
+      4. Create a comprehensive report
+
+      Format your synthesis as:
+      ## Executive Summary
+      [3-5 key takeaways]
+
+      ## Comprehensive Analysis
+      [Synthesize all findings, organized by themes]
+
+      ## Recommendations
+      [Actionable insights based on research]
+
+      ## Open Questions
+      [Unresolved issues requiring further investigation]
+
+      Write your synthesis to the document under "## Synthesis".
+
+context:
+  provider: file
+  config:
+    bind: ./research-output/${{ workflow.tag }}/
+
+setup:
+  - shell: date '+%Y-%m-%d %H:%M:%S'
+    as: timestamp
+
+kickoff: |
+  Research Topic: "${{ env.TOPIC }}"
+  Started: ${{ timestamp }}
+
+  @researcher-a @researcher-b @researcher-c
+
+  Please investigate the above topic from your respective perspectives.
+  Document all findings in the shared document.
+
+  @synthesizer - Wait for all researchers to finish, then create a comprehensive
+  synthesis that integrates all perspectives.

@@ -1,0 +1,96 @@
+# Multi-stage CI/CD validation workflow
+# Usage: COMMIT_SHA=abc123 agent-worker run ci-validation.yaml
+
+name: ci-validation
+
+agents:
+  test-runner:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You run and analyze test results. Execute:
+      1. Run test suite (npm test, pytest, etc.)
+      2. Analyze results for:
+         - Test failures
+         - Flaky tests
+         - Coverage drops
+         - New untested code
+
+      Write results to shared document under "## Test Results".
+      Share in channel: PASS / FAIL / WARNING with summary.
+      Mention @deployer when done.
+
+  security-scanner:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You run security checks. Execute:
+      1. Dependency vulnerability scan
+      2. Static security analysis
+      3. Secret detection
+      4. License compliance check
+
+      Write results to shared document under "## Security Scan".
+      Share in channel: PASS / FAIL / WARNING with summary.
+      Mention @deployer when done.
+
+  performance-checker:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You run performance validation. Execute:
+      1. Run performance benchmarks
+      2. Check for regressions vs baseline
+      3. Analyze bundle size changes
+      4. Check build time
+
+      Write results to shared document under "## Performance Check".
+      Share in channel: PASS / FAIL / WARNING with summary.
+      Mention @deployer when done.
+
+  deployer:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You make deployment decisions. Wait for all validators.
+
+      Then:
+      1. Read all validation results from the document
+      2. Evaluate based on:
+         - FAIL: Block deployment
+         - WARNING: Needs manual review
+         - PASS: Safe to proceed
+
+      3. Create a proposal using proposal_create tool:
+         - Type: "approval"
+         - Title: "Deploy commit ${{ env.COMMIT_SHA }}"
+         - Options: [DEPLOY, BLOCK]
+         - Resolution: "unanimous" (all validators must agree)
+
+      4. After vote, write decision to document under "## Deployment Decision"
+
+      Include:
+      - Decision (DEPLOY / BLOCK)
+      - Blocking issues (if any)
+      - Warnings to monitor post-deployment
+      - Rollback plan
+
+context:
+  provider: file
+  config:
+    bind: ./ci-runs/${{ workflow.tag }}/
+
+setup:
+  - shell: git show ${{ env.COMMIT_SHA }} 2>/dev/null || echo "Error: Commit ${{ env.COMMIT_SHA }} not found"
+    as: commit_info
+
+kickoff: |
+  CI/CD Validation for Commit: ${{ env.COMMIT_SHA }}
+
+  ${{ commit_info }}
+
+  @test-runner @security-scanner @performance-checker
+
+  Please run your respective validations and report results.
+
+  @deployer - Wait for all validators, then make deployment decision.

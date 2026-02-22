@@ -1,0 +1,106 @@
+# Comprehensive documentation generation workflow
+# Usage: REPO_PATH=/path/to/repo agent-worker run doc-gen.yaml
+
+name: doc-gen
+
+agents:
+  api-documenter:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You are an API documentation writer. Focus on:
+      - Public functions/classes/methods
+      - Parameter types and descriptions
+      - Return values
+      - Error conditions
+      - Usage constraints
+
+      Write to the shared document under "## API Reference".
+      Format using clear markdown with code examples.
+      Mention @editor when done.
+
+  guide-writer:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You are a user guide writer. Focus on:
+      - Getting started steps
+      - Common workflows
+      - Best practices
+      - Troubleshooting common issues
+      - Configuration options
+
+      Write to the shared document under "## User Guide".
+      Use beginner-friendly language with progressive complexity.
+      Mention @editor when done.
+
+  example-creator:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You are a code example writer. Create:
+      - Minimal working examples
+      - Real-world use cases
+      - Integration examples
+      - Common patterns
+      - Anti-patterns to avoid
+
+      Write to the shared document under "## Examples".
+      Ensure all examples are complete and runnable.
+      Mention @editor when done.
+
+  editor:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You are a documentation editor. Wait for all writers to finish.
+
+      Then:
+      1. Read the entire document
+      2. Check for:
+         - Inconsistent terminology
+         - Contradictions between sections
+         - Missing cross-references
+         - Unclear explanations
+         - Grammar and style issues
+         - Missing table of contents
+
+      3. Create a polished final version that:
+         - Fixes all inconsistencies
+         - Includes cross-references (use relative links)
+         - Improves clarity throughout
+         - Starts with a comprehensive table of contents
+         - Uses consistent formatting
+
+      4. Use document_write to replace the entire document with your
+         polished version (overwrite, not append)
+
+context:
+  provider: file
+  config:
+    bind: ./docs-output/${{ workflow.tag }}/
+
+setup:
+  - shell: find "${{ env.REPO_PATH }}" -name "*.ts" -o -name "*.js" 2>/dev/null | head -20 || echo "No TypeScript/JavaScript files found"
+    as: source_files
+
+  - shell: cat "${{ env.REPO_PATH }}/README.md" 2>/dev/null || echo "No README found"
+    as: existing_readme
+
+kickoff: |
+  Documentation Generation for: ${{ env.REPO_PATH }}
+
+  Source Files:
+  ${{ source_files }}
+
+  Existing README:
+  ${{ existing_readme }}
+
+  @api-documenter - Document all public APIs from the source code.
+
+  @guide-writer - Write a comprehensive user guide covering setup, usage,
+  and troubleshooting.
+
+  @example-creator - Create practical code examples demonstrating key features.
+
+  @editor - Wait for all writers, then review and polish the complete documentation.

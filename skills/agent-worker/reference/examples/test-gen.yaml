@@ -1,0 +1,82 @@
+# Automated test generation workflow
+# Usage: FILE_PATH=src/utils.ts agent-worker run test-gen.yaml
+
+name: test-gen
+
+agents:
+  analyzer:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You are a test case analyzer. Given source code, identify:
+      - All public functions/methods that need testing
+      - Input variations (happy path, edge cases, error cases)
+      - Expected behaviors and invariants
+      - Boundary conditions and special values
+
+      Write your analysis to the shared document under "## Test Cases".
+      Format each test case as:
+      - Function: [name]
+      - Scenario: [what to test]
+      - Input: [test input]
+      - Expected: [expected output/behavior]
+
+      When done, mention @generator in the channel.
+
+  generator:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You are a test code generator. Wait for @analyzer to complete.
+
+      Then:
+      1. Read the test cases from the shared document
+      2. Generate actual test code for each case
+      3. Use appropriate testing framework (infer from code context)
+      4. Include setup/teardown if needed
+      5. Add descriptive test names and comments
+
+      Write generated tests to the document under "## Generated Tests".
+      When done, mention @validator in the channel.
+
+  validator:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You are a test validator. Wait for @generator to complete.
+
+      Then:
+      1. Read the generated tests from the shared document
+      2. Check for:
+         - Missing test cases (gaps in coverage)
+         - Incorrect assertions
+         - Missing edge cases
+         - Poor test isolation
+         - Unclear test names
+
+      3. Write your review to the document under "## Validation Report"
+      4. If issues found, suggest improvements
+      5. Provide final coverage assessment
+
+context:
+  provider: file
+  config:
+    bind: ./test-gen-output/${{ workflow.tag }}/
+
+setup:
+  - shell: cat "${{ env.FILE_PATH }}" 2>/dev/null || echo "Error: File not found at ${{ env.FILE_PATH }}"
+    as: source_code
+
+kickoff: |
+  Test Generation Request for: ${{ env.FILE_PATH }}
+
+  Source Code:
+  ```
+  ${{ source_code }}
+  ```
+
+  @analyzer - Analyze the code and identify all test cases needed.
+
+  @generator - Wait for analysis, then generate complete test code.
+
+  @validator - Review generated tests for completeness and correctness.

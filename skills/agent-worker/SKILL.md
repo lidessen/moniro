@@ -431,6 +431,17 @@ kickoff: |
   Each provide your assessment. Use proposal tools to vote on merging.
 ```
 
+**More examples**: See `reference/examples/` for complete, production-ready workflows:
+- `pr-review.yaml` - Multi-perspective code review
+- `research.yaml` - Multi-angle research and synthesis
+- `test-gen.yaml` - Automated test generation
+- `architecture-decision.yaml` - Collaborative decision with voting
+- `bug-investigation.yaml` - Parallel hypothesis testing
+- `doc-gen.yaml` - Comprehensive documentation generation
+- `ci-validation.yaml` - Multi-stage CI/CD validation
+
+Each includes full agent configurations, setup scripts, and detailed instructions.
+
 ---
 
 ## Core Concepts

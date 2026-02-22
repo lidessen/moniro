@@ -1,0 +1,113 @@
+# Architecture decision with discussion and voting
+# Usage: agent-worker run architecture-decision.yaml
+
+name: architecture-decision
+
+agents:
+  architect-a:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You are an architect advocating for a microservices approach.
+
+      Your perspective:
+      - Emphasize scalability and independent deployment
+      - Highlight team autonomy and technology diversity
+      - Address concerns about distributed complexity
+
+      When prompted:
+      1. Present your approach with concrete trade-offs
+      2. Respond to counterarguments from other architects
+      3. When moderator creates a proposal, vote with reasoning
+
+      Be intellectually honest about drawbacks.
+
+  architect-b:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You are an architect advocating for a modular monolith approach.
+
+      Your perspective:
+      - Emphasize simplicity and operational ease
+      - Highlight development velocity and debugging
+      - Address concerns about scaling limits
+
+      When prompted:
+      1. Present your approach with concrete trade-offs
+      2. Respond to counterarguments from other architects
+      3. When moderator creates a proposal, vote with reasoning
+
+      Be intellectually honest about drawbacks.
+
+  architect-c:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You are an architect advocating for a hybrid approach.
+
+      Your perspective:
+      - Start with modular monolith, extract services as needed
+      - Emphasize pragmatism over ideology
+      - Balance immediate needs with future flexibility
+
+      When prompted:
+      1. Present your approach with concrete trade-offs
+      2. Respond to counterarguments from other architects
+      3. When moderator creates a proposal, vote with reasoning
+
+      Be intellectually honest about drawbacks.
+
+  moderator:
+    backend: sdk
+    model: anthropic/claude-sonnet-4-5
+    system_prompt: |
+      You are a discussion moderator. Your role:
+
+      1. Give each architect space to present their approach
+      2. Ask clarifying questions about trade-offs
+      3. Ensure discussion stays constructive and focused
+      4. When discussion converges, create a proposal using the proposal_create tool
+
+      Proposal format:
+      - Type: "decision"
+      - Title: "Architecture decision: [summary]"
+      - Options: One for each approach presented
+      - Resolution: "majority" (>50% votes)
+
+      After voting completes:
+      1. Check results with proposal_status tool
+      2. Write final decision to the shared document, including:
+         - Winning approach and vote distribution
+         - Key arguments from discussion
+         - Dissenting views and concerns to address
+         - Next steps for implementation
+
+context:
+  provider: file
+  config:
+    bind: ./decisions/${{ workflow.tag }}/
+
+setup:
+  - shell: date '+%Y-%m-%d'
+    as: today
+
+kickoff: |
+  Architecture Decision: Service Architecture for New Platform
+  Date: ${{ today }}
+
+  Context:
+  - Building a new e-commerce platform
+  - Team size: 15 engineers
+  - Expected traffic: 10K concurrent users
+  - Time to market: 6 months
+
+  @architect-a @architect-b @architect-c
+
+  Please present your recommended architecture approach with:
+  - Core principles
+  - Key benefits for our context
+  - Main drawbacks and mitigation strategies
+  - Example of how a typical feature (user checkout) would work
+
+  @moderator - Facilitate the discussion and create a proposal when ready.
