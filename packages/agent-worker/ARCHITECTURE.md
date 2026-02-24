@@ -1,5 +1,7 @@
 # agent-worker Architecture
 
+> **Design rationale**: For *why* the architecture is shaped this way — how each layer exists because the previous one exposed a limitation — see [docs/architecture/OVERVIEW.md](./docs/architecture/OVERVIEW.md).
+
 ## Overview
 
 agent-worker is a daemon service that manages AI agent workflows. The daemon is the single long-lived process — all other interfaces (CLI, Web UI, AI tools) are clients that connect to it.

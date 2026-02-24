@@ -298,9 +298,12 @@ agent-worker new -m deepseek:deepseek-chat          # Direct provider format
 
 ## Documentation
 
-- [ARCHITECTURE.md](./ARCHITECTURE.md) — System architecture
+- [ARCHITECTURE.md](./ARCHITECTURE.md) — System architecture (module structure, dependency graph)
+- [docs/architecture/OVERVIEW.md](./docs/architecture/OVERVIEW.md) — Design overview (why each layer exists)
 - [docs/backends.md](./docs/backends.md) — Backend comparison
 - [docs/workflow/](./docs/workflow/) — Workflow system design
+- [docs/architecture/AGENT-TOP-LEVEL.md](./docs/architecture/AGENT-TOP-LEVEL.md) — Agent-as-entity proposal
+- [docs/architecture/GUARD-AGENT.md](./docs/architecture/GUARD-AGENT.md) — Guard agent proposal
 - [TEST-ARCHITECTURE.md](./TEST-ARCHITECTURE.md) — Testing strategy
 - [examples/](./examples/) — Example workflows
 
