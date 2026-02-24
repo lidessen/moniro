@@ -55,7 +55,7 @@ Reserved: `env.*`, `workflow.name`, `workflow.instance`, `context.channel`, `con
 
 ---
 
-## Controller Loop
+## Agent Loop
 
 ```
 IDLE (polling every 5s, or wake() on @mention)
@@ -79,7 +79,7 @@ Key invariant: **inbox acknowledged only on successful run**. Failed runs keep m
 
 Workflow exits (run mode) when ALL conditions are met:
 
-1. All controllers idle (not running)
+1. All loops idle (not running)
 2. No unread inbox messages for any agent
 3. No active proposals
 4. Debounce elapsed (2s default — prevents premature exit during rapid @mention chains)
@@ -136,7 +136,7 @@ Tie-breakers: `first` | `random` | `creator-decides`
 | `src/workflow/context/mcp-server.ts` | MCP tool handlers |
 | `src/workflow/context/http-transport.ts` | HTTP transport for MCP |
 | `src/workflow/context/proposals.ts` | Voting system |
-| `src/workflow/controller/controller.ts` | Agent polling loop |
-| `src/workflow/controller/prompt.ts` | Prompt building |
-| `src/workflow/controller/backend.ts` | Backend selection |
-| `src/workflow/controller/send.ts` | Send target parsing |
+| `src/workflow/loop/loop.ts` | Agent polling loop |
+| `src/workflow/loop/prompt.ts` | Prompt building |
+| `src/workflow/loop/backend.ts` | Backend selection |
+| `src/workflow/loop/send.ts` | Send target parsing |

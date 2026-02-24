@@ -29,8 +29,8 @@ import { createMemoryContextProvider } from "./context/memory-provider.ts";
 import { createContextMCPServer } from "./context/mcp/server.ts";
 import { runWithHttp, type HttpMCPServer } from "./context/http-transport.ts";
 import type { ContextProvider } from "./context/provider.ts";
-import { checkWorkflowIdle, type AgentController } from "./controller/index.ts";
-import { createWiredController } from "./factory.ts";
+import { checkWorkflowIdle, type AgentLoop } from "./loop/index.ts";
+import { createWiredLoop } from "./factory.ts";
 import type { Backend } from "../backends/types.ts";
 import { EventLog } from "./context/event-log.ts";
 import { startChannelWatcher } from "./display.ts";
@@ -431,10 +431,10 @@ export async function runWorkflow(config: RunConfig): Promise<RunResult> {
   }
 }
 
-// ==================== Controller-based Runner ====================
+// ==================== Loop-based Runner ====================
 
 /**
- * Controller-based run configuration
+ * Loop-based run configuration
  */
 export interface ControllerRunConfig {
   /** Workflow to run */
@@ -453,7 +453,7 @@ export interface ControllerRunConfig {
   log?: (message: string) => void;
   /** Run mode: 'run' exits when idle, 'start' runs until stopped */
   mode?: "run" | "start";
-  /** Poll interval for controllers (ms) */
+  /** Poll interval for loops (ms) */
   pollInterval?: number;
   /** Custom backend factory (optional, defaults to getBackendForModel) */
   createBackend?: (agentName: string, agent: ResolvedAgent) => Backend;
@@ -466,7 +466,7 @@ export interface ControllerRunConfig {
 }
 
 /**
- * Controller-based run result
+ * Loop-based run result
  */
 export interface ControllerRunResult {
   /** Success flag */
@@ -481,8 +481,8 @@ export interface ControllerRunResult {
   mcpUrl?: string;
   /** Context provider */
   contextProvider?: ContextProvider;
-  /** Agent controllers */
-  controllers?: Map<string, AgentController>;
+  /** Agent loops */
+  loops?: Map<string, AgentLoop>;
   /** Shutdown function */
   shutdown?: () => Promise<void>;
   /** Feedback entries collected during workflow (when --feedback enabled, run mode) */
@@ -492,7 +492,7 @@ export interface ControllerRunResult {
 }
 
 /**
- * Run a workflow with agent controllers
+ * Run a workflow with agent loops
  *
  * All output flows through the channel. The channel watcher (display layer)
  * filters what to show: --debug includes kind="debug" entries.
@@ -537,10 +537,10 @@ export async function runWorkflowWithControllers(
 
     logger.info(`Running workflow: ${workflow.name}`);
     logger.info(`Agents: ${Object.keys(workflow.agents).join(", ")}`);
-    logger.debug("Starting workflow with controllers", { mode, instance, pollInterval });
+    logger.debug("Starting workflow with loops", { mode, instance, pollInterval });
 
-    // 3. Create controllers map for wake() on mention
-    const controllers = new Map<string, AgentController>();
+    // 3. Create loops map for wake() on mention
+    const loops = new Map<string, AgentLoop>();
 
     logger.debug("Initializing workflow runtime...");
 
@@ -554,14 +554,14 @@ export async function runWorkflowWithControllers(
       contextDir,
       persistent,
       onMention: (from, target, entry) => {
-        const controller = controllers.get(target);
-        if (controller) {
+        const loop = loops.get(target);
+        if (loop) {
           const preview =
             entry.content.length > 80 ? entry.content.slice(0, 80) + "..." : entry.content;
-          logger.debug(`@mention: ${from} → @${target} (state=${controller.state}): ${preview}`);
-          controller.wake();
+          logger.debug(`@mention: ${from} → @${target} (state=${loop.state}): ${preview}`);
+          loop.wake();
         } else {
-          logger.debug(`@mention: ${from} → @${target} (no controller found!)`);
+          logger.debug(`@mention: ${from} → @${target} (no loop found!)`);
         }
       },
       // MCP server debugLog - only used for non-tool-call logs now
@@ -577,18 +577,18 @@ export async function runWorkflowWithControllers(
       mcpUrl: runtime.mcpUrl,
     });
 
-    // 5. Create and start controllers for each agent
+    // 5. Create and start loops for each agent
     logger.info("Starting agents...");
 
     for (const agentName of runtime.agentNames) {
       const agentDef = workflow.agents[agentName]!;
 
-      logger.debug(`Creating controller for ${agentName}`, {
+      logger.debug(`Creating loop for ${agentName}`, {
         backend: agentDef.backend,
         model: agentDef.model,
       });
 
-      const { controller, backend } = createWiredController({
+      const { loop, backend } = createWiredLoop({
         name: agentName,
         agent: agentDef,
         runtime,
@@ -600,10 +600,10 @@ export async function runWorkflowWithControllers(
 
       logger.debug(`Using backend: ${backend.type} for ${agentName}`);
 
-      controllers.set(agentName, controller);
-      await controller.start();
+      loops.set(agentName, loop);
+      await loop.start();
 
-      logger.debug(`Controller started: ${agentName}`);
+      logger.debug(`Loop started: ${agentName}`);
     }
 
     // 6. Send kickoff
@@ -648,14 +648,14 @@ export async function runWorkflowWithControllers(
 
       let idleCheckCount = 0;
       while (true) {
-        const isIdle = await checkWorkflowIdle(controllers, runtime.contextProvider);
+        const isIdle = await checkWorkflowIdle(loops, runtime.contextProvider);
         idleCheckCount++;
 
         if (idleCheckCount % 10 === 0) {
-          const states = [...controllers.entries()].map(([n, c]) => `${n}=${c.state}`).join(", ");
+          const states = [...loops.entries()].map(([n, c]) => `${n}=${c.state}`).join(", ");
           logger.debug(`Idle check #${idleCheckCount}: ${states}`);
 
-          for (const [agentName] of controllers) {
+          for (const [agentName] of loops) {
             const inbox = await runtime.contextProvider.getInbox(agentName);
             if (inbox.length > 0) {
               const unseenCount = inbox.filter((m) => !m.seen).length;
@@ -680,7 +680,7 @@ export async function runWorkflowWithControllers(
 
       // Stop channel watcher and shutdown
       channelWatcher?.stop();
-      await shutdownControllers(controllers, logger);
+      await shutdownLoops(loops, logger);
       await runtime.shutdown();
 
       logger.debug(`Workflow finished in ${Date.now() - startTime}ms`);
@@ -704,10 +704,10 @@ export async function runWorkflowWithControllers(
       duration: Date.now() - startTime,
       mcpUrl: runtime.mcpUrl,
       contextProvider: runtime.contextProvider,
-      controllers,
+      loops,
       shutdown: async () => {
         channelWatcher?.stop();
-        await shutdownControllers(controllers, logger);
+        await shutdownLoops(loops, logger);
         await runtime.shutdown();
       },
       getFeedback: runtime.getFeedback,
@@ -726,21 +726,21 @@ export async function runWorkflowWithControllers(
 }
 
 /**
- * Gracefully shutdown all controllers
+ * Gracefully shutdown all loops
  */
-export async function shutdownControllers(
-  controllers: Map<string, AgentController>,
+export async function shutdownLoops(
+  loops: Map<string, AgentLoop>,
   logger: Logger,
 ): Promise<void> {
-  logger.debug("Stopping controllers...");
+  logger.debug("Stopping loops...");
 
-  const stopPromises = [...controllers.values()].map(async (controller) => {
-    await controller.stop();
-    logger.debug(`Stopped controller: ${controller.name}`);
+  const stopPromises = [...loops.values()].map(async (loop) => {
+    await loop.stop();
+    logger.debug(`Stopped loop: ${loop.name}`);
   });
 
   await Promise.all(stopPromises);
-  logger.debug("All controllers stopped");
+  logger.debug("All loops stopped");
 }
 
 /**

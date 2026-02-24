@@ -2,7 +2,7 @@
  * Mock AI Backend
  *
  * Simple mock that echoes messages for testing.
- * For workflow integration testing with MCP tools, see controller/mock-runner.ts.
+ * For workflow integration testing with MCP tools, see loop/mock-runner.ts.
  */
 
 import type { Backend, BackendResponse } from "./types.ts";
@@ -11,8 +11,8 @@ import type { Backend, BackendResponse } from "./types.ts";
  * Mock AI Backend for testing
  *
  * In single-agent mode, provides a simple echo send().
- * In workflow mode, the controller handles MCP tool orchestration
- * via the mock runner strategy (controller/mock-runner.ts).
+ * In workflow mode, the loop handles MCP tool orchestration
+ * via the mock runner strategy (loop/mock-runner.ts).
  */
 export class MockAIBackend implements Backend {
   readonly type = "mock" as const;

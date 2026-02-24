@@ -2,17 +2,17 @@
  * Workflow Mock Backend Tests
  *
  * Tests the alice-bob workflow scenario with mock CLI backends.
- * Verifies the full controller-level flow: kickoff → inbox routing →
+ * Verifies the full loop-level flow: kickoff → inbox routing →
  * agent execution → channel communication → idle detection → completion.
  *
- * This tests the same code paths as runWorkflowWithControllers but with
+ * This tests the same code paths as runWorkflowWithLoops but with
  * mock backends instead of real CLIs (cursor agent, claude).
  */
 
 import { describe, test, expect, afterEach } from 'bun:test'
 import { createMemoryContextProvider } from '../src/workflow/context/memory-provider.ts'
-import { createAgentController, checkWorkflowIdle } from '../src/workflow/controller/controller.ts'
-import type { AgentController } from '../src/workflow/controller/types.ts'
+import { createAgentLoop, checkWorkflowIdle } from '../src/workflow/loop/loop.ts'
+import type { AgentLoop } from '../src/workflow/loop/types.ts'
 import type { Backend } from '../src/backends/types.ts'
 import type { ResolvedAgent } from '../src/workflow/types.ts'
 import type { ContextProvider } from '../src/workflow/context/provider.ts'
@@ -47,11 +47,11 @@ async function waitFor(
 
 /**
  * Create a mock backend that simulates agent behavior.
- * The behavior function receives the prompt text (built by the controller from
+ * The behavior function receives the prompt text (built by the loop from
  * the run context) and the shared provider, allowing it to match on inbox
  * content and write to channel (simulating MCP tool calls).
  *
- * Uses type 'claude' so the controller routes through the normal
+ * Uses type 'claude' so the loop routes through the normal
  * build-prompt → send() path (not the mock MCP tool bridge).
  */
 function createMockBackend(
@@ -88,11 +88,11 @@ function createMockBackend(
  *   @bob - When you receive a question, answer it briefly.
  */
 describe('Alice-Bob workflow with mock backends', () => {
-  const controllers: AgentController[] = []
+  const loops: AgentLoop[] = []
 
   afterEach(async () => {
-    await Promise.all(controllers.map((c) => c.stop()))
-    controllers.length = 0
+    await Promise.all(loops.map((c) => c.stop()))
+    loops.length = 0
   })
 
   const aliceAgent: ResolvedAgent = {
@@ -151,7 +151,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       provider
     )
 
-    const alice = createAgentController({
+    const alice = createAgentLoop({
       name: 'alice',
       agent: aliceAgent,
       contextProvider: provider,
@@ -162,7 +162,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       pollInterval: 30,
     })
 
-    const bob = createAgentController({
+    const bob = createAgentLoop({
       name: 'bob',
       agent: bobAgent,
       contextProvider: provider,
@@ -173,7 +173,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       pollInterval: 30,
     })
 
-    controllers.push(alice, bob)
+    loops.push(alice, bob)
     await alice.start()
     await bob.start()
 
@@ -223,15 +223,15 @@ describe('Alice-Bob workflow with mock backends', () => {
     expect(bobRuns.length).toBeGreaterThanOrEqual(1)
 
     // Verify idle detection works after conversation completes
-    const controllerMap = new Map<string, AgentController>()
-    controllerMap.set('alice', alice)
-    controllerMap.set('bob', bob)
+    const loopMap = new Map<string, AgentLoop>()
+    loopMap.set('alice', alice)
+    loopMap.set('bob', bob)
 
     // Wait for all to go idle
     await waitFor(() => alice.state === 'idle' && bob.state === 'idle')
 
     // After ack, inboxes should be empty → workflow idle
-    const isIdle = await checkWorkflowIdle(controllerMap, provider, 50)
+    const isIdle = await checkWorkflowIdle(loopMap, provider, 50)
     expect(isIdle).toBe(true)
   })
 
@@ -262,7 +262,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       },
     }
 
-    const alice = createAgentController({
+    const alice = createAgentLoop({
       name: 'alice',
       agent: aliceAgent,
       contextProvider: provider,
@@ -273,7 +273,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       pollInterval: 30,
     })
 
-    const bob = createAgentController({
+    const bob = createAgentLoop({
       name: 'bob',
       agent: bobAgent,
       contextProvider: provider,
@@ -284,7 +284,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       pollInterval: 30,
     })
 
-    controllers.push(alice, bob)
+    loops.push(alice, bob)
     await alice.start()
     await bob.start()
 
@@ -343,7 +343,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       provider
     )
 
-    const alice = createAgentController({
+    const alice = createAgentLoop({
       name: 'alice',
       agent: aliceAgent,
       contextProvider: provider,
@@ -354,7 +354,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       pollInterval: 30,
     })
 
-    const bob = createAgentController({
+    const bob = createAgentLoop({
       name: 'bob',
       agent: bobAgent,
       contextProvider: provider,
@@ -365,7 +365,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       pollInterval: 30,
     })
 
-    controllers.push(alice, bob)
+    loops.push(alice, bob)
     await alice.start()
     await bob.start()
 
@@ -408,7 +408,7 @@ describe('Alice-Bob workflow with mock backends', () => {
 
     const bobBackend = createMockBackend('mock-claude', async () => {}, provider)
 
-    const alice = createAgentController({
+    const alice = createAgentLoop({
       name: 'alice',
       agent: aliceAgent,
       contextProvider: provider,
@@ -419,7 +419,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       pollInterval: 30,
     })
 
-    const bob = createAgentController({
+    const bob = createAgentLoop({
       name: 'bob',
       agent: bobAgent,
       contextProvider: provider,
@@ -430,7 +430,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       pollInterval: 30,
     })
 
-    controllers.push(alice, bob)
+    loops.push(alice, bob)
     await alice.start()
     await bob.start()
 
@@ -458,7 +458,7 @@ describe('Alice-Bob workflow with mock backends', () => {
     const aliceBackend = createMockBackend('mock-cursor', async () => {}, provider)
     const bobBackend = createMockBackend('mock-claude', async () => {}, provider)
 
-    const alice = createAgentController({
+    const alice = createAgentLoop({
       name: 'alice',
       agent: aliceAgent,
       contextProvider: provider,
@@ -469,7 +469,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       pollInterval: 30,
     })
 
-    const bob = createAgentController({
+    const bob = createAgentLoop({
       name: 'bob',
       agent: bobAgent,
       contextProvider: provider,
@@ -480,22 +480,22 @@ describe('Alice-Bob workflow with mock backends', () => {
       pollInterval: 30,
     })
 
-    controllers.push(alice, bob)
+    loops.push(alice, bob)
     await alice.start()
     await bob.start()
 
-    const controllerMap = new Map<string, AgentController>()
-    controllerMap.set('alice', alice)
-    controllerMap.set('bob', bob)
+    const loopMap = new Map<string, AgentLoop>()
+    loopMap.set('alice', alice)
+    loopMap.set('bob', bob)
 
     // Initially idle (no messages)
     await waitFor(() => alice.state === 'idle' && bob.state === 'idle')
-    const idleBeforeMsg = await checkWorkflowIdle(controllerMap, provider, 50)
+    const idleBeforeMsg = await checkWorkflowIdle(loopMap, provider, 50)
     expect(idleBeforeMsg).toBe(true)
 
     // Send message → not idle anymore (unread inbox)
     await provider.appendChannel('system', '@alice @bob start')
-    const idleWithUnread = await checkWorkflowIdle(controllerMap, provider, 50)
+    const idleWithUnread = await checkWorkflowIdle(loopMap, provider, 50)
     expect(idleWithUnread).toBe(false)
 
     // Wake agents, let them process
@@ -503,11 +503,11 @@ describe('Alice-Bob workflow with mock backends', () => {
     bob.wake()
     await waitFor(() => alice.state === 'idle' && bob.state === 'idle')
 
-    // Let controllers settle into steady idle state
+    // Let loops settle into steady idle state
     await new Promise((r) => setTimeout(r, 100))
 
     // After processing + ack, idle again
-    const idleAfterAck = await checkWorkflowIdle(controllerMap, provider, 50)
+    const idleAfterAck = await checkWorkflowIdle(loopMap, provider, 50)
     expect(idleAfterAck).toBe(true)
   })
 
@@ -550,7 +550,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       provider
     )
 
-    const alice = createAgentController({
+    const alice = createAgentLoop({
       name: 'alice',
       agent: aliceAgent,
       contextProvider: provider,
@@ -561,7 +561,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       pollInterval: 30,
     })
 
-    const bob = createAgentController({
+    const bob = createAgentLoop({
       name: 'bob',
       agent: bobAgent,
       contextProvider: provider,
@@ -572,7 +572,7 @@ describe('Alice-Bob workflow with mock backends', () => {
       pollInterval: 30,
     })
 
-    controllers.push(alice, bob)
+    loops.push(alice, bob)
     await alice.start()
     await bob.start()
 

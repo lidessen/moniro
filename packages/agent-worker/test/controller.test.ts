@@ -1,21 +1,21 @@
 /**
- * Controller Module Tests
- * Tests for agent controller, backend abstraction, and prompt building
+ * Loop Module Tests
+ * Tests for agent loop, backend abstraction, and prompt building
  */
 
 import { describe, test, expect } from 'bun:test'
 import {
-  CONTROLLER_DEFAULTS,
+  LOOP_DEFAULTS,
   type AgentRunContext,
   type AgentRunResult,
-} from '../src/workflow/controller/types.ts'
+} from '../src/workflow/loop/types.ts'
 import type { Backend } from '../src/backends/types.ts'
 import { parseModel, resolveModelAlias } from '../src/backends/model-maps.ts'
-import { formatInbox, formatChannel, buildAgentPrompt } from '../src/workflow/controller/prompt.ts'
-import { createAgentController, checkWorkflowIdle, isWorkflowComplete, buildWorkflowIdleState } from '../src/workflow/controller/controller.ts'
-import { generateWorkflowMCPConfig } from '../src/workflow/controller/mcp-config.ts'
-import { parseSendTarget, sendToWorkflowChannel, formatUserSender } from '../src/workflow/controller/send.ts'
-import type { WorkflowIdleState } from '../src/workflow/controller/types.ts'
+import { formatInbox, formatChannel, buildAgentPrompt } from '../src/workflow/loop/prompt.ts'
+import { createAgentLoop, checkWorkflowIdle, isWorkflowComplete, buildWorkflowIdleState } from '../src/workflow/loop/loop.ts'
+import { generateWorkflowMCPConfig } from '../src/workflow/loop/mcp-config.ts'
+import { parseSendTarget, sendToWorkflowChannel, formatUserSender } from '../src/workflow/loop/send.ts'
+import type { WorkflowIdleState } from '../src/workflow/loop/types.ts'
 import { createMemoryContextProvider } from '../src/workflow/context/memory-provider.ts'
 import type { InboxMessage, Message } from '../src/workflow/context/types.ts'
 import type { ResolvedAgent } from '../src/workflow/types.ts'
@@ -279,9 +279,9 @@ describe('generateWorkflowMCPConfig', () => {
   })
 })
 
-// ==================== Controller Tests ====================
+// ==================== Loop Tests ====================
 
-describe('createAgentController', () => {
+describe('createAgentLoop', () => {
   const mockAgent: ResolvedAgent = {
     model: 'claude-sonnet-4-5',
     system_prompt: 'Test agent',
@@ -295,7 +295,7 @@ describe('createAgentController', () => {
       send: async () => ({ content: 'ok' }),
     }
 
-    const controller = createAgentController({
+    const loop = createAgentLoop({
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
@@ -305,8 +305,8 @@ describe('createAgentController', () => {
       projectDir: '/tmp/project',
     })
 
-    expect(controller.name).toBe('agent1')
-    expect(controller.state).toBe('stopped')
+    expect(loop.name).toBe('agent1')
+    expect(loop.state).toBe('stopped')
   })
 
   test('transitions to idle after start', async () => {
@@ -316,7 +316,7 @@ describe('createAgentController', () => {
       send: async () => ({ content: 'ok' }),
     }
 
-    const controller = createAgentController({
+    const loop = createAgentLoop({
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
@@ -327,14 +327,14 @@ describe('createAgentController', () => {
       pollInterval: 100,
     })
 
-    await controller.start()
+    await loop.start()
 
     // Wait a tick for the loop to start
     await new Promise((r) => setTimeout(r, 10))
 
-    expect(controller.state).toBe('idle')
+    expect(loop.state).toBe('idle')
 
-    await controller.stop()
+    await loop.stop()
   })
 
   test('runs agent when inbox has messages', async () => {
@@ -345,14 +345,14 @@ describe('createAgentController', () => {
       type: 'claude' as const,
       send: async (message) => {
         runCalled = true
-        // Controller builds prompt from context — verify inbox content is included
+        // Loop builds prompt from context — verify inbox content is included
         expect(message).toContain('1 message')
         expect(message).toContain('From @agent2')
         return { content: 'ok' }
       },
     }
 
-    const controller = createAgentController({
+    const loop = createAgentLoop({
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
@@ -366,14 +366,14 @@ describe('createAgentController', () => {
     // Add message to agent1's inbox
     await provider.appendChannel('agent2', 'Hello @agent1')
 
-    await controller.start()
+    await loop.start()
 
     // Wait for poll cycle
     await new Promise((r) => setTimeout(r, 100))
 
     expect(runCalled).toBe(true)
 
-    await controller.stop()
+    await loop.stop()
   })
 
   test('acknowledges inbox only on success', async () => {
@@ -392,7 +392,7 @@ describe('createAgentController', () => {
       },
     }
 
-    const controller = createAgentController({
+    const loop = createAgentLoop({
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
@@ -411,7 +411,7 @@ describe('createAgentController', () => {
     const inboxBefore = await provider.getInbox('agent1')
     expect(inboxBefore.length).toBe(1)
 
-    await controller.start()
+    await loop.start()
 
     // Wait for retry cycle
     await new Promise((r) => setTimeout(r, 200))
@@ -421,7 +421,7 @@ describe('createAgentController', () => {
     expect(inboxAfter.length).toBe(0)
     expect(runCount).toBe(2)
 
-    await controller.stop()
+    await loop.stop()
   })
 
   test('wake() interrupts polling', async () => {
@@ -436,7 +436,7 @@ describe('createAgentController', () => {
       },
     }
 
-    const controller = createAgentController({
+    const loop = createAgentLoop({
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
@@ -447,18 +447,18 @@ describe('createAgentController', () => {
       pollInterval: 5000, // Long poll interval
     })
 
-    await controller.start()
+    await loop.start()
 
     // Add message and wake
     await provider.appendChannel('agent2', 'Hello @agent1')
-    controller.wake()
+    loop.wake()
 
     // Should run almost immediately
     await new Promise((r) => setTimeout(r, 50))
 
     expect(runCalled).toBe(true)
 
-    await controller.stop()
+    await loop.stop()
   })
 
   test('stops cleanly', async () => {
@@ -468,7 +468,7 @@ describe('createAgentController', () => {
       send: async () => ({ content: 'ok' }),
     }
 
-    const controller = createAgentController({
+    const loop = createAgentLoop({
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
@@ -479,11 +479,11 @@ describe('createAgentController', () => {
       pollInterval: 100,
     })
 
-    await controller.start()
-    expect(controller.state).not.toBe('stopped')
+    await loop.start()
+    expect(loop.state).not.toBe('stopped')
 
-    await controller.stop()
-    expect(controller.state).toBe('stopped')
+    await loop.stop()
+    expect(loop.state).toBe('stopped')
   })
 
   test('calls onRunComplete callback', async () => {
@@ -495,7 +495,7 @@ describe('createAgentController', () => {
       send: async () => ({ content: 'ok' }),
     }
 
-    const controller = createAgentController({
+    const loop = createAgentLoop({
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
@@ -510,7 +510,7 @@ describe('createAgentController', () => {
     })
 
     await provider.appendChannel('agent2', 'Hello @agent1')
-    await controller.start()
+    await loop.start()
 
     await new Promise((r) => setTimeout(r, 100))
 
@@ -518,7 +518,7 @@ describe('createAgentController', () => {
     expect(completedResult!.success).toBe(true)
     expect(completedResult!.duration).toBeGreaterThanOrEqual(0)
 
-    await controller.stop()
+    await loop.stop()
   })
 })
 
@@ -536,7 +536,7 @@ describe('checkWorkflowIdle', () => {
       send: async () => ({ content: 'ok' }),
     }
 
-    const controller1 = createAgentController({
+    const loop1 = createAgentLoop({
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
@@ -547,7 +547,7 @@ describe('checkWorkflowIdle', () => {
       pollInterval: 1000,
     })
 
-    const controller2 = createAgentController({
+    const loop2 = createAgentLoop({
       name: 'agent2',
       agent: mockAgent,
       contextProvider: provider,
@@ -558,22 +558,22 @@ describe('checkWorkflowIdle', () => {
       pollInterval: 1000,
     })
 
-    await controller1.start()
-    await controller2.start()
+    await loop1.start()
+    await loop2.start()
 
     // Wait for idle state
     await new Promise((r) => setTimeout(r, 50))
 
-    const controllers = new Map([
-      ['agent1', controller1],
-      ['agent2', controller2],
+    const loops = new Map([
+      ['agent1', loop1],
+      ['agent2', loop2],
     ])
 
-    const isIdle = await checkWorkflowIdle(controllers, provider, 50)
+    const isIdle = await checkWorkflowIdle(loops, provider, 50)
     expect(isIdle).toBe(true)
 
-    await controller1.stop()
-    await controller2.stop()
+    await loop1.stop()
+    await loop2.stop()
   })
 
   test('returns false when messages pending', async () => {
@@ -583,7 +583,7 @@ describe('checkWorkflowIdle', () => {
       send: async () => ({ content: 'ok' }),
     }
 
-    const controller1 = createAgentController({
+    const loop1 = createAgentLoop({
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
@@ -594,31 +594,31 @@ describe('checkWorkflowIdle', () => {
       pollInterval: 10000, // Long poll so it doesn't process
     })
 
-    await controller1.start()
+    await loop1.start()
     await new Promise((r) => setTimeout(r, 50))
 
     // Add message but don't wake
     await provider.appendChannel('agent2', 'Hello @agent1')
 
-    const controllers = new Map([['agent1', controller1]])
+    const loops = new Map([['agent1', loop1]])
 
-    const isIdle = await checkWorkflowIdle(controllers, provider, 10)
+    const isIdle = await checkWorkflowIdle(loops, provider, 10)
     expect(isIdle).toBe(false)
 
-    await controller1.stop()
+    await loop1.stop()
   })
 })
 
 // ==================== Defaults Tests ====================
 
-describe('CONTROLLER_DEFAULTS', () => {
+describe('LOOP_DEFAULTS', () => {
   test('has expected default values', () => {
-    expect(CONTROLLER_DEFAULTS.pollInterval).toBe(5000)
-    expect(CONTROLLER_DEFAULTS.retry.maxAttempts).toBe(3)
-    expect(CONTROLLER_DEFAULTS.retry.backoffMs).toBe(1000)
-    expect(CONTROLLER_DEFAULTS.retry.backoffMultiplier).toBe(2)
-    expect(CONTROLLER_DEFAULTS.recentChannelLimit).toBe(50)
-    expect(CONTROLLER_DEFAULTS.idleDebounceMs).toBe(2000)
+    expect(LOOP_DEFAULTS.pollInterval).toBe(5000)
+    expect(LOOP_DEFAULTS.retry.maxAttempts).toBe(3)
+    expect(LOOP_DEFAULTS.retry.backoffMs).toBe(1000)
+    expect(LOOP_DEFAULTS.retry.backoffMultiplier).toBe(2)
+    expect(LOOP_DEFAULTS.recentChannelLimit).toBe(50)
+    expect(LOOP_DEFAULTS.idleDebounceMs).toBe(2000)
   })
 })
 
@@ -627,7 +627,7 @@ describe('CONTROLLER_DEFAULTS', () => {
 describe('isWorkflowComplete', () => {
   test('returns true when all conditions met', () => {
     const state: WorkflowIdleState = {
-      allControllersIdle: true,
+      allLoopsIdle: true,
       noUnreadMessages: true,
       noActiveProposals: true,
       idleDebounceElapsed: true,
@@ -635,9 +635,9 @@ describe('isWorkflowComplete', () => {
     expect(isWorkflowComplete(state)).toBe(true)
   })
 
-  test('returns false when controllers not idle', () => {
+  test('returns false when loops not idle', () => {
     const state: WorkflowIdleState = {
-      allControllersIdle: false,
+      allLoopsIdle: false,
       noUnreadMessages: true,
       noActiveProposals: true,
       idleDebounceElapsed: true,
@@ -647,7 +647,7 @@ describe('isWorkflowComplete', () => {
 
   test('returns false when unread messages exist', () => {
     const state: WorkflowIdleState = {
-      allControllersIdle: true,
+      allLoopsIdle: true,
       noUnreadMessages: false,
       noActiveProposals: true,
       idleDebounceElapsed: true,
@@ -657,7 +657,7 @@ describe('isWorkflowComplete', () => {
 
   test('returns false when proposals active', () => {
     const state: WorkflowIdleState = {
-      allControllersIdle: true,
+      allLoopsIdle: true,
       noUnreadMessages: true,
       noActiveProposals: false,
       idleDebounceElapsed: true,
@@ -667,7 +667,7 @@ describe('isWorkflowComplete', () => {
 
   test('returns false when debounce not elapsed', () => {
     const state: WorkflowIdleState = {
-      allControllersIdle: true,
+      allLoopsIdle: true,
       noUnreadMessages: true,
       noActiveProposals: true,
       idleDebounceElapsed: false,
@@ -683,14 +683,14 @@ describe('buildWorkflowIdleState', () => {
     resolvedSystemPrompt: 'Test agent',
   }
 
-  test('reports idle when all controllers idle and no messages', async () => {
+  test('reports idle when all loops idle and no messages', async () => {
     const provider = createMemoryContextProvider(['agent1', 'agent2'])
     const mockBackend: Backend = {
       type: 'mock' as const,
       send: async () => ({ content: 'ok' }),
     }
 
-    const controller1 = createAgentController({
+    const loop1 = createAgentLoop({
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
@@ -701,18 +701,18 @@ describe('buildWorkflowIdleState', () => {
       pollInterval: 5000,
     })
 
-    await controller1.start()
+    await loop1.start()
     await new Promise((r) => setTimeout(r, 50))
 
-    const controllers = new Map([['agent1', controller1]])
+    const loops = new Map([['agent1', loop1]])
 
-    const state = await buildWorkflowIdleState(controllers, provider)
+    const state = await buildWorkflowIdleState(loops, provider)
 
-    expect(state.allControllersIdle).toBe(true)
+    expect(state.allLoopsIdle).toBe(true)
     expect(state.noUnreadMessages).toBe(true)
     expect(state.noActiveProposals).toBe(true)
 
-    await controller1.stop()
+    await loop1.stop()
   })
 
   test('reports not idle when messages pending', async () => {
@@ -722,7 +722,7 @@ describe('buildWorkflowIdleState', () => {
       send: async () => ({ content: 'ok' }),
     }
 
-    const controller1 = createAgentController({
+    const loop1 = createAgentLoop({
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
@@ -733,20 +733,20 @@ describe('buildWorkflowIdleState', () => {
       pollInterval: 10000,
     })
 
-    await controller1.start()
+    await loop1.start()
     await new Promise((r) => setTimeout(r, 50))
 
     // Add message but don't wake
     await provider.appendChannel('agent2', 'Hello @agent1')
 
-    const controllers = new Map([['agent1', controller1]])
+    const loops = new Map([['agent1', loop1]])
 
-    const state = await buildWorkflowIdleState(controllers, provider)
+    const state = await buildWorkflowIdleState(loops, provider)
 
-    expect(state.allControllersIdle).toBe(true)
+    expect(state.allLoopsIdle).toBe(true)
     expect(state.noUnreadMessages).toBe(false)
 
-    await controller1.stop()
+    await loop1.stop()
   })
 })
 
@@ -839,20 +839,20 @@ describe('formatUserSender', () => {
 
 describe('getBackendByType mock', () => {
   test('returns mock backend with name "mock"', async () => {
-    const { getBackendByType } = await import('../src/workflow/controller/backend.ts')
+    const { getBackendByType } = await import('../src/workflow/loop/backend.ts')
     const backend = getBackendByType('mock')
     expect(backend.type).toBe('mock')
   })
 
   test('passes debugLog to mock backend', async () => {
-    const { getBackendByType } = await import('../src/workflow/controller/backend.ts')
+    const { getBackendByType } = await import('../src/workflow/loop/backend.ts')
     const logs: string[] = []
     const backend = getBackendByType('mock', { debugLog: (msg) => logs.push(msg) })
     expect(backend.type).toBe('mock')
   })
 
   test('throws for unknown backend type', async () => {
-    const { getBackendByType } = await import('../src/workflow/controller/backend.ts')
+    const { getBackendByType } = await import('../src/workflow/loop/backend.ts')
     expect(() => getBackendByType('nonexistent' as any)).toThrow('Unknown backend type')
   })
 })

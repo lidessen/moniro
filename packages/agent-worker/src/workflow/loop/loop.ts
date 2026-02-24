@@ -1,8 +1,8 @@
 /**
- * Agent Controller Implementation
+ * Agent Loop Implementation
  * Manages agent lifecycle with polling and retry logic
  *
- * The controller owns the full orchestration line:
+ * The loop owns the full orchestration line:
  *   inbox → build prompt → configure workspace → backend.send() → result
  * Backends are pure communication adapters — they only know how to send().
  */
@@ -10,35 +10,35 @@
 import type { ContextProvider } from "../context/provider.ts";
 import type { ProposalManager } from "../context/proposals.ts";
 import type {
-  AgentController,
-  AgentControllerConfig,
+  AgentLoop,
+  AgentLoopConfig,
   AgentState,
   AgentRunContext,
   AgentRunResult,
   WorkflowIdleState,
 } from "./types.ts";
-import { CONTROLLER_DEFAULTS } from "./types.ts";
+import { LOOP_DEFAULTS } from "./types.ts";
 import { buildAgentPrompt } from "./prompt.ts";
 import { generateWorkflowMCPConfig } from "./mcp-config.ts";
 import { resolveSchedule, type ScheduleConfig } from "../../daemon/registry.ts";
 import { msUntilNextCron } from "../../daemon/cron.ts";
 
-/** Check if controller should continue running */
+/** Check if loop should continue running */
 function shouldContinue(state: AgentState): boolean {
   return state !== "stopped";
 }
 
 /**
- * Create an agent controller
+ * Create an agent loop
  *
- * The controller:
+ * The loop:
  * 1. Polls for inbox messages on an interval
  * 2. Runs the agent when messages are found
  * 3. Acknowledges inbox only on successful run
  * 4. Retries with exponential backoff on failure
  * 5. Can be woken early via wake()
  */
-export function createAgentController(config: AgentControllerConfig): AgentController {
+export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
   const {
     name,
     agent,
@@ -56,12 +56,12 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
   const infoLog = config.infoLog ?? log;
   const errorLog = config.errorLog ?? log;
 
-  const pollInterval = config.pollInterval ?? CONTROLLER_DEFAULTS.pollInterval;
+  const pollInterval = config.pollInterval ?? LOOP_DEFAULTS.pollInterval;
   const retryConfig = {
-    maxAttempts: config.retry?.maxAttempts ?? CONTROLLER_DEFAULTS.retry.maxAttempts,
-    backoffMs: config.retry?.backoffMs ?? CONTROLLER_DEFAULTS.retry.backoffMs,
+    maxAttempts: config.retry?.maxAttempts ?? LOOP_DEFAULTS.retry.maxAttempts,
+    backoffMs: config.retry?.backoffMs ?? LOOP_DEFAULTS.retry.backoffMs,
     backoffMultiplier:
-      config.retry?.backoffMultiplier ?? CONTROLLER_DEFAULTS.retry.backoffMultiplier,
+      config.retry?.backoffMultiplier ?? LOOP_DEFAULTS.retry.backoffMultiplier,
   };
 
   let state: AgentState = "stopped";
@@ -98,7 +98,7 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
   }
 
   /**
-   * Main controller loop
+   * Main poll loop
    */
   async function runLoop(): Promise<void> {
     while (shouldContinue(state)) {
@@ -166,7 +166,7 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
       // Get latest message ID for acknowledgment
       const latestId = inbox[inbox.length - 1]!.entry.id;
 
-      // Mark inbox as seen (controller picked it up, now processing)
+      // Mark inbox as seen (loop picked it up, now processing)
       await contextProvider.markInboxSeen(name, latestId);
 
       // Run agent with retry
@@ -188,7 +188,7 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
           agent,
           inbox,
           recentChannel: await contextProvider.readChannel({
-            limit: CONTROLLER_DEFAULTS.recentChannelLimit,
+            limit: LOOP_DEFAULTS.recentChannelLimit,
             agent: name,
           }),
           documentContent: await contextProvider.readDocument(),
@@ -266,7 +266,7 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
 
     async start() {
       if (state !== "stopped") {
-        throw new Error(`Controller ${name} is already running`);
+        throw new Error(`Loop ${name} is already running`);
       }
 
       state = "idle";
@@ -371,7 +371,7 @@ export function createAgentController(config: AgentControllerConfig): AgentContr
           agent,
           inbox,
           recentChannel: await contextProvider.readChannel({
-            limit: CONTROLLER_DEFAULTS.recentChannelLimit,
+            limit: LOOP_DEFAULTS.recentChannelLimit,
             agent: name,
           }),
           documentContent: await contextProvider.readDocument(),
@@ -418,7 +418,7 @@ import { runSdkAgent } from "./sdk-runner.ts";
 /**
  * Run an agent: build prompt, configure workspace, call backend.send()
  *
- * This is the single orchestration function that the controller calls.
+ * This is the single orchestration function that the loop calls.
  * All the "how to run an agent" logic lives here — backends just send().
  *
  * SDK and mock backends get special runners with MCP tool bridge + bash,
@@ -483,16 +483,16 @@ function sleep(ms: number): Promise<void> {
  * Check if workflow is complete (all agents idle, no pending work)
  */
 export async function checkWorkflowIdle(
-  controllers: Map<string, AgentController>,
+  loops: Map<string, AgentLoop>,
   provider: ContextProvider,
-  debounceMs: number = CONTROLLER_DEFAULTS.idleDebounceMs,
+  debounceMs: number = LOOP_DEFAULTS.idleDebounceMs,
 ): Promise<boolean> {
-  // Check all controllers are idle
-  const allIdle = [...controllers.values()].every((c) => c.state === "idle");
+  // Check all loops are idle
+  const allIdle = [...loops.values()].every((c) => c.state === "idle");
   if (!allIdle) return false;
 
   // Check no unread messages for any agent
-  for (const [name] of controllers) {
+  for (const [name] of loops) {
     const inbox = await provider.getInbox(name);
     if (inbox.length > 0) return false;
   }
@@ -501,7 +501,7 @@ export async function checkWorkflowIdle(
   await sleep(debounceMs);
 
   // Verify still idle after debounce
-  return [...controllers.values()].every((c) => c.state === "idle");
+  return [...loops.values()].every((c) => c.state === "idle");
 }
 
 /**
@@ -510,7 +510,7 @@ export async function checkWorkflowIdle(
  */
 export function isWorkflowComplete(state: WorkflowIdleState): boolean {
   return (
-    state.allControllersIdle &&
+    state.allLoopsIdle &&
     state.noUnreadMessages &&
     state.noActiveProposals &&
     state.idleDebounceElapsed
@@ -522,16 +522,16 @@ export function isWorkflowComplete(state: WorkflowIdleState): boolean {
  * Used for run mode exit detection
  */
 export async function buildWorkflowIdleState(
-  controllers: Map<string, AgentController>,
+  loops: Map<string, AgentLoop>,
   provider: ContextProvider,
   proposalManager?: ProposalManager,
 ): Promise<Omit<WorkflowIdleState, "idleDebounceElapsed">> {
-  // Check all controllers are idle
-  const allControllersIdle = [...controllers.values()].every((c) => c.state === "idle");
+  // Check all loops are idle
+  const allLoopsIdle = [...loops.values()].every((c) => c.state === "idle");
 
   // Check no unread messages for any agent
   let noUnreadMessages = true;
-  for (const [name] of controllers) {
+  for (const [name] of loops) {
     const inbox = await provider.getInbox(name);
     if (inbox.length > 0) {
       noUnreadMessages = false;
@@ -543,7 +543,7 @@ export async function buildWorkflowIdleState(
   const noActiveProposals = proposalManager ? !proposalManager.hasActiveProposals() : true;
 
   return {
-    allControllersIdle,
+    allLoopsIdle,
     noUnreadMessages,
     noActiveProposals,
   };
