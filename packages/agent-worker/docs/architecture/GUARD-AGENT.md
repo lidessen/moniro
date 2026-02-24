@@ -10,7 +10,7 @@
 
 The AGENT-TOP-LEVEL design gives agents persistent context (soul, memory, notes, todo). But it leaves several critical questions unanswered:
 
-1. **Who assembles the context prompt?** Currently the controller does naive concatenation: soul + memory + todos + workflow append. As context grows, this becomes a prompt engineering problem — what's relevant? What fits? What should be compressed?
+1. **Who assembles the context prompt?** Currently the loop does naive concatenation: soul + memory + todos + workflow append. As context grows, this becomes a prompt engineering problem — what's relevant? What fits? What should be compressed?
 
 2. **Who manages soul evolution?** The soul is defined statically in YAML. But agents learn, grow, and change. Should they modify their own identity? Unchecked self-modification risks identity drift.
 
@@ -81,7 +81,7 @@ These emerged from studying OpenClaw, Nanobot (HKUDS), Letta/MemGPT, and academi
 The Guard replaces naive prompt concatenation with **intelligent context assembly**:
 
 ```
-Agent Controller requests context for alice
+AgentLoop requests context for alice
          │
          ▼
 Guard.assembleContext(alice, workflow, task)
@@ -441,7 +441,7 @@ Guard initializes
      └── Ready
      │
      ▼
-Agent controller requests context
+Agent loop requests context
      │
      ▼
 Guard.assembleContext(agent, workflow, task)
@@ -547,7 +547,7 @@ Daemon
         ├── workspace: Workspace (ref)
         ├── guard: GuardAgent (ref)       # Shared guard
         ├── agents: [alice, bob]
-        └── controllers: Map<name, Controller>
+        └── loops: Map<name, AgentLoop>
 ```
 
 ---

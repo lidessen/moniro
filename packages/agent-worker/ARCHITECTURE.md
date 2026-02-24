@@ -65,7 +65,7 @@ There is no distinction between "single-agent mode" and "multi-agent mode" at th
 ```
 Workflow Manager
   └── Workflow (@global, @review:pr-123, ...)
-        └── AgentController  (lifecycle: when to run, retry, inbox polling)
+        └── AgentLoop  (lifecycle: when to run, retry, inbox polling)
               └── AgentWorker   (execution: LLM conversation, tool loop, streaming)
 ```
 
@@ -84,7 +84,7 @@ AgentWorker does not know _why_ it is asked to send. It does not know about inbo
 
 (`src/agent/worker.ts`)
 
-### AgentController — Lifecycle Management
+### AgentLoop — Lifecycle Management
 
 The lifecycle manager for a single agent within a workflow. It decides when to run the AgentWorker and what to do with the results:
 
@@ -93,9 +93,9 @@ The lifecycle manager for a single agent within a workflow. It decides when to r
 3. External `wake()` → check inbox immediately
 4. State machine: `stopped → idle → running → idle → ...`
 
-AgentController wraps AgentWorker. The daemon does not do inbox polling or timer management directly — it delegates to controllers.
+AgentLoop wraps AgentWorker. The daemon does not do inbox polling or timer management directly — it delegates to loops.
 
-(`src/workflow/controller/controller.ts`)
+(`src/workflow/loop/loop.ts`)
 
 ### Context — Shared Storage
 
@@ -125,7 +125,7 @@ src/
 │   └── cron.ts                    # Cron schedule management
 │
 ├── workflow/                      # Execution model
-│   ├── factory.ts                 # Composable primitives (createMinimalRuntime, createWiredController)
+│   ├── factory.ts                 # Composable primitives (createMinimalRuntime, createWiredLoop)
 │   ├── runner.ts                  # Workflow execution (uses factory primitives)
 │   ├── parser.ts                  # YAML workflow definition → typed config
 │   ├── interpolate.ts             # Variable interpolation (${{ }})
@@ -133,15 +133,15 @@ src/
 │   ├── layout.ts                  # Layout management
 │   ├── display.ts                 # Workflow display formatting
 │   │
-│   ├── controller/                # Agent lifecycle management
-│   │   ├── controller.ts          # Poll → run → ack → retry loop
+│   ├── loop/                      # Agent lifecycle management
+│   │   ├── loop.ts                # Poll → run → ack → retry loop
 │   │   ├── prompt.ts              # Agent prompt building from context
 │   │   ├── send.ts                # Message sending logic
 │   │   ├── sdk-runner.ts          # AI SDK backend runner
 │   │   ├── mock-runner.ts         # Mock backend runner (testing)
 │   │   ├── backend.ts             # Backend adapter
 │   │   ├── mcp-config.ts          # MCP tool configuration
-│   │   └── types.ts               # Controller types
+│   │   └── types.ts               # Loop types
 │   │
 │   └── context/                   # Shared storage
 │       ├── provider.ts            # ContextProvider interface + implementation
@@ -200,9 +200,9 @@ src/
 ```
 cli/ ──── HTTP ────► daemon/
                        │
-                       ├──► workflow/factory.ts  (createMinimalRuntime, createWiredController)
+                       ├──► workflow/factory.ts  (createMinimalRuntime, createWiredLoop)
                        │       │
-                       │       ├──► workflow/controller/  (AgentController + sendDirect)
+                       │       ├──► workflow/loop/  (AgentLoop + sendDirect)
                        │       │       └──► agent/        (AgentWorker)
                        │       │
                        │       └──► workflow/context/     (ContextProvider)
@@ -215,9 +215,9 @@ cli/ ──── HTTP ────► daemon/
 Rules:
 - `cli/` imports nothing from `daemon/` except registry (reading daemon.json)
 - `daemon/` imports from `workflow/factory`, `workflow/runner`, `agent/`, `backends/`
-- `workflow/factory` imports from `workflow/controller/`, `workflow/context/`, `backends/`
-- `workflow/runner` imports from `workflow/factory` (delegates controller creation)
-- `workflow/controller/` imports from `agent/`, `workflow/context/`, `backends/`
+- `workflow/factory` imports from `workflow/loop/`, `workflow/context/`, `backends/`
+- `workflow/runner` imports from `workflow/factory` (delegates loop creation)
+- `workflow/loop/` imports from `agent/`, `workflow/context/`, `backends/`
 - `agent/` imports from `backends/` (types only)
 - `workflow/context/` imports nothing from other app modules (pure domain)
 - No circular dependencies. No upward imports.
@@ -236,20 +236,20 @@ CLI and Web UI speak REST. AI tools (Claude Code, Cursor) speak MCP. Both need t
 
 Eliminates the split between "single-agent daemon" and "multi-agent workflow" code paths. `agent new` creates an agent under `@global` — it's just a 1-agent workflow with simplified CLI ergonomics. The runtime doesn't know or care.
 
-This is now implemented via the factory layer (`factory.ts`). The daemon creates workflows lazily for standalone agents on first `/run` or `/serve` call via `ensureAgentController()`. The factory provides two composable primitives:
+This is now implemented via the factory layer (`factory.ts`). The daemon creates workflows lazily for standalone agents on first `/run` or `/serve` call via `ensureAgentLoop()`. The factory provides two composable primitives:
 
 - **`createMinimalRuntime()`** — shared infrastructure (context provider + MCP server + event log)
-- **`createWiredController()`** — per-agent setup (backend + workspace + controller)
+- **`createWiredLoop()`** — per-agent setup (backend + workspace + loop)
 
 Both the workflow runner (CLI direct) and the daemon use these same primitives, ensuring consistent behavior.
 
-### Why AgentWorker vs AgentController?
+### Why AgentWorker vs AgentLoop?
 
 Separation of concerns:
 - **Worker** answers "how to talk to an LLM" — stateful conversation, tool loop, streaming
-- **Controller** answers "when to talk and what to do with results" — inbox polling, retry, error recovery
+- **Loop** answers "when to talk and what to do with results" — inbox polling, retry, error recovery
 
-The controller calls `session.send()` when it decides the agent should act. The daemon doesn't do inbox polling — controllers do.
+The loop calls `session.send()` when it decides the agent should act. The daemon doesn't do inbox polling — loops do.
 
 ### Why Context lives under workflow/?
 
@@ -513,7 +513,7 @@ All other concepts emerge from the four primitives:
 | Primitive | Current implementation |
 |-----------|----------------------|
 | **Message** | `ChannelMessage` in `workflow/context/types.ts` |
-| **Proposal** | Implicit, hardcoded in controller (inbox polling), approval mechanism, workflow YAML |
+| **Proposal** | Implicit, hardcoded in loop (inbox polling), approval mechanism, workflow YAML |
 | **Agent** | `AgentWorker` in `agent/worker.ts` |
 | **System** | `Daemon` in `daemon/daemon.ts` |
 
@@ -521,9 +521,9 @@ Evolution direction: make implicit Proposals explicit (schema + function).
 
 ### Evolution Path
 
-**Phase 1 (current)**: System = daemon. Proposal hardcoded in controller. Agent = AgentWorker. Single process, file storage.
+**Phase 1 (current)**: System = daemon. Proposal hardcoded in loop. Agent = AgentWorker. Single process, file storage.
 
-**Phase 2**: Define `Proposal<T>` interface. Refactor controller inbox polling, approval mechanism, and workflow YAML parser into explicit Proposals.
+**Phase 2**: Define `Proposal<T>` interface. Refactor loop inbox polling, approval mechanism, and workflow YAML parser into explicit Proposals.
 
 **Phase 3**: Composable Proposals. Agent can define new Proposals via `proposal.*` tools. Hot-loading at runtime.
 

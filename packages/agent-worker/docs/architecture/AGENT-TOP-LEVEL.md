@@ -380,7 +380,7 @@ project/
 Daemon
 ├── configs: Map<name, AgentConfig>         # Flat config registry
 └── workflows: Map<key, WorkflowHandle>     # Running instances
-    └── controllers: Map<name, Controller>  # One per agent in workflow
+    └── loops: Map<name, AgentLoop>  # One per agent in workflow
 ```
 
 ### Proposed: Agent-Centric
@@ -399,7 +399,7 @@ Daemon
     └── review:pr-123: WorkflowHandle
         ├── workspace: Workspace (ref)
         ├── agents: [alice (ref), bob (ref), helper (local)]
-        └── controllers: Map<name, Controller>
+        └── loops: Map<name, AgentLoop>
 ```
 
 ### Key Types
@@ -438,8 +438,8 @@ interface WorkflowInstance {
   name: string;
   tag: string;
   workspace: Workspace;
-  /** Controllers for all agents in this workflow */
-  controllers: Map<string, AgentController>;
+  /** Loops for all agents in this workflow */
+  loops: Map<string, AgentLoop>;
   /** Agent handles (refs resolved, locals created) */
   agents: Map<string, ResolvedWorkflowAgent>;
   shutdown(): Promise<void>;
@@ -482,7 +482,7 @@ Agent Entry in Workflow YAML
 
 ### Prompt Assembly
 
-When a controller runs an agent, the prompt is assembled from multiple sources:
+When a loop runs an agent, the prompt is assembled from multiple sources:
 
 ```
 ┌─────────────────────────────────────────────────────────┐

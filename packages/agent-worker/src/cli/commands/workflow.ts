@@ -23,7 +23,9 @@ Note: Workflow name is inferred from YAML 'name' field or filename
     `,
     )
     .action(async (file, options) => {
-      const { parseWorkflowFile, runWorkflowWithControllers } = await import("@/workflow/index.ts");
+      const { parseWorkflowFile, runWorkflowWithControllers } = await import(
+        "@/workflow/index.ts"
+      );
 
       const tag = options.tag || DEFAULT_TAG;
 
@@ -33,7 +35,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename
       });
       const workflowName = parsedWorkflow.name;
 
-      let controllers: Map<string, any> | undefined;
+      let loops: Map<string, any> | undefined;
       let isCleaningUp = false;
 
       // Setup graceful shutdown for run mode
@@ -43,11 +45,11 @@ Note: Workflow name is inferred from YAML 'name' field or filename
 
         console.log("\nInterrupted, cleaning up...");
 
-        // Stop all controllers (which will abort backends)
-        if (controllers) {
-          const { shutdownControllers } = await import("@/workflow/index.ts");
+        // Stop all loops (which will abort backends)
+        if (loops) {
+          const { shutdownLoops } = await import("@/workflow/index.ts");
           const { createSilentLogger } = await import("@/workflow/logger.ts");
-          await shutdownControllers(controllers, createSilentLogger());
+          await shutdownLoops(loops, createSilentLogger());
         }
 
         process.exit(130); // 130 = 128 + SIGINT(2)
@@ -74,7 +76,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename
         });
 
         // Store references for cleanup (though run mode completes automatically)
-        controllers = result.controllers;
+        loops = result.loops;
 
         // Remove signal handlers after successful completion
         process.off("SIGINT", cleanup);

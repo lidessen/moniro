@@ -67,7 +67,7 @@ SDK backend:  AgentWorker → AI SDK → Model API (tools managed by us)
 CLI backends: setWorkspace(mcpConfig) → spawn CLI → CLI manages tools
 ```
 
-**The insight**: Backends are pure communication adapters. They don't know about inboxes, channels, or workflows. The controller owns the orchestration line:
+**The insight**: Backends are pure communication adapters. They don't know about inboxes, channels, or workflows. The loop owns the orchestration line:
 
 ```
 inbox → build prompt → configure workspace → backend.send() → result
@@ -123,10 +123,10 @@ channel.append("@reviewer check this code")
          │
          ├── Parse @mentions → ["reviewer"]
          ├── Deliver to reviewer's inbox
-         └── controller.wake("reviewer")  ← Near-real-time response
+         └── loop.wake("reviewer")  ← Near-real-time response
 ```
 
-The `wake()` call is the key mechanism: instead of waiting for the next poll cycle, the system immediately wakes the target agent's controller. This turns a polling-based system into a near-real-time reactive one while keeping the implementation simple.
+The `wake()` call is the key mechanism: instead of waiting for the next poll cycle, the system immediately wakes the target agent's loop. This turns a polling-based system into a near-real-time reactive one while keeping the implementation simple.
 
 **Why @mentions, not message queues?**
 
@@ -134,11 +134,11 @@ Familiar pattern from team chat. Natural language, no special syntax beyond `@na
 
 ---
 
-## Layer 5: Controller — Lifecycle Orchestration
+## Layer 5: Loop — Lifecycle Orchestration
 
 **Problem with Layers 1-4**: We have execution (worker), communication (backend), shared state (context), and routing (@mentions). But who decides *when* to run an agent, *what* to do on failure, and *how* to manage the agent's lifecycle?
 
-**Solution**: `AgentController` (`src/workflow/controller/controller.ts`) — the lifecycle manager for a single agent within a workflow.
+**Solution**: `AgentLoop` (`src/workflow/loop/loop.ts`) — the lifecycle manager for a single agent within a workflow.
 
 ```
 State machine: stopped → idle ⇄ running → stopped
@@ -159,7 +159,7 @@ RUNNING:
 
 **Critical design choice: ack only on success.** The inbox acknowledgment happens only after a successful run. This gives exactly-once processing semantics — if the agent crashes mid-run, the message will be redelivered on the next poll.
 
-**Schedule/Wakeup**: Controllers support two wakeup patterns beyond @mention:
+**Schedule/Wakeup**: Loops support two wakeup patterns beyond @mention:
 - **Interval** (e.g., `30s`, `5m`): Idle-based, resets on activity. Good for periodic checks.
 - **Cron** (e.g., `0 9 * * 1-5`): Fixed schedule, ignores activity. Good for daily standups.
 
@@ -169,7 +169,7 @@ RUNNING:
 
 ## Layer 6: Workflow — The Orchestration Unit
 
-**Problem with Layer 5**: Individual controllers manage individual agents. But who creates the controllers, wires them to shared context, handles startup/shutdown, and decides when the whole team is done?
+**Problem with Layer 5**: Individual loops manage individual agents. But who creates the loops, wires them to shared context, handles startup/shutdown, and decides when the whole team is done?
 
 **Solution**: Workflows. A workflow is a named group of agents with shared context, defined in YAML.
 
@@ -194,13 +194,13 @@ kickoff: |
 
 **The factory layer** (`src/workflow/factory.ts`) provides two composable primitives:
 - `createMinimalRuntime()` — shared infrastructure (context provider + MCP server + event log)
-- `createWiredController()` — per-agent setup (backend + workspace + controller)
+- `createWiredLoop()` — per-agent setup (backend + workspace + loop)
 
 Both the workflow runner (CLI) and the daemon use these same primitives, ensuring consistent behavior regardless of entry point.
 
 **Workflow vs Agent distinction**: There is no "single-agent mode" vs "multi-agent mode" at the runtime level. A standalone agent is a workflow with one agent under `@global`. The runtime doesn't know or care.
 
-**Idle detection**: A workflow is "done" when all controllers are idle + no unread messages + no active proposals + debounce elapsed. This is how `run` mode knows when to exit.
+**Idle detection**: A workflow is "done" when all loops are idle + no unread messages + no active proposals + debounce elapsed. This is how `run` mode knows when to exit.
 
 (`src/workflow/runner.ts`, `src/workflow/factory.ts`)
 
@@ -273,7 +273,7 @@ Agents can fetch the full resource when they need it via MCP tools. This keeps t
 │       Workflow Manager      │
 │       Map<name, Agent>      │
 │             │               │
-│        Controllers          │
+│        Loops                │
 │        + Context            │
 └─────────────────────────────┘
 
@@ -427,7 +427,7 @@ Layer 1  AgentWorker        → "I can talk to an LLM"
 Layer 2  Backend            → "I can talk to any LLM, through any tool"
 Layer 3  Three-Layer Context → "Multiple agents can share state"
 Layer 4  @mention           → "Agents can address each other naturally"
-Layer 5  Controller         → "Agent lifecycle is managed with retry and scheduling"
+Layer 5  Loop               → "Agent lifecycle is managed with retry and scheduling"
 Layer 6  Workflow           → "Teams of agents can be defined and orchestrated"
 Layer 7  Proposals          → "Structured decisions prevent endless disagreement"
 Layer 8  Smart Send         → "Large content doesn't overwhelm context windows"
@@ -449,7 +449,7 @@ These principles emerged from building the layers, not the other way around:
 
 | Principle | Expressed In |
 |-----------|-------------|
-| **Backends are dumb pipes** | Backend only knows `send()`. Controller owns orchestration. |
+| **Backends are dumb pipes** | Backend only knows `send()`. Loop owns orchestration. |
 | **Context answers cognitive questions** | Inbox (what's for me), Channel (what happened), Document (what we're building). |
 | **Ack on success only** | Inbox acknowledgment gives exactly-once semantics with retry. |
 | **No distinction between 1 and N agents** | Single agent = 1-agent workflow under `@global`. |
@@ -485,7 +485,7 @@ These principles emerged from building the layers, not the other way around:
 | Module structure and dependencies | [ARCHITECTURE.md](../../ARCHITECTURE.md) |
 | This design overview (you are here) | [OVERVIEW.md](./OVERVIEW.md) |
 | Workflow context model and coordination | [workflow/DESIGN.md](../workflow/DESIGN.md) |
-| MCP tools and controller details | [workflow/REFERENCE.md](../workflow/REFERENCE.md) |
+| MCP tools and loop details | [workflow/REFERENCE.md](../workflow/REFERENCE.md) |
 | Agent-as-entity proposal | [AGENT-TOP-LEVEL.md](./AGENT-TOP-LEVEL.md) |
 | Guard agent proposal | [GUARD-AGENT.md](./GUARD-AGENT.md) |
 | Backend comparison | [backends.md](../backends.md) |

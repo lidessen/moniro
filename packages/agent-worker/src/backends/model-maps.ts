@@ -2,7 +2,7 @@
  * Model Translation Maps — Single Source of Truth
  *
  * All backend-specific model naming and translation logic lives here.
- * Both `backends/types.ts` and `workflow/controller/types.ts` re-export from this module.
+ * Both `backends/types.ts` and `workflow/loop/types.ts` re-export from this module.
  */
 
 // ==================== Backend Type ====================

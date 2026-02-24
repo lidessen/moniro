@@ -14,7 +14,7 @@
 | 5. Run/Start Modes | ✅ | Idle detection + background + graceful shutdown |
 | 6. Agent MCP Integration | ✅ | mcp-config + mcp-stdio bridge |
 | 7. Inbox Model | ✅ | Priority detection |
-| 8. Agent Controller | ✅ | Controller + backends + idle detection |
+| 8. Agent Loop | ✅ | Loop + backends + idle detection |
 | 9. Multi-File Documents | ✅ | Nested dirs support |
 | 10. Document Ownership | 🔄 | Optional, requires election |
 | 11. Proposal & Voting | ✅ | ProposalManager, MCP tools, resolution logic |

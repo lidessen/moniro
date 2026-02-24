@@ -1,5 +1,5 @@
 /**
- * Agent Controller Types
+ * Agent Loop Types
  * Types for agent lifecycle management and backend abstraction
  */
 
@@ -8,23 +8,23 @@ import type { ContextProvider } from "../context/provider.ts";
 import type { Message, InboxMessage } from "../context/types.ts";
 import type { Backend } from "@/backends/types.ts";
 
-// ==================== Controller ====================
+// ==================== Agent Loop ====================
 
-/** Agent controller state */
+/** Agent loop state */
 export type AgentState = "idle" | "running" | "stopped";
 
-/** Agent controller interface */
-export interface AgentController {
+/** Agent loop interface */
+export interface AgentLoop {
   /** Agent name */
   readonly name: string;
 
   /** Current state */
   readonly state: AgentState;
 
-  /** Start the controller (begin polling loop) */
+  /** Start the loop (begin polling) */
   start(): Promise<void>;
 
-  /** Stop the controller */
+  /** Stop the loop */
   stop(): Promise<void>;
 
   /** Interrupt: immediately check inbox (skip poll wait) */
@@ -40,7 +40,7 @@ export interface AgentController {
    * that live inside a 1-agent workflow. This gives them full context
    * infrastructure (channel, MCP tools) while preserving request-response UX.
    *
-   * Can be called regardless of controller state (idle or stopped).
+   * Can be called regardless of loop state (idle or stopped).
    * If the poll loop is running, it won't interfere — sendDirect acquires
    * a logical lock so the two paths don't race.
    */
@@ -57,8 +57,8 @@ export interface RetryConfig {
   backoffMultiplier?: number;
 }
 
-/** Agent controller configuration */
-export interface AgentControllerConfig {
+/** Agent loop configuration */
+export interface AgentLoopConfig {
   /** Agent name */
   name: string;
   /** Resolved agent definition */
@@ -141,8 +141,8 @@ export interface AgentRunResult {
 
 /** Workflow idle state for run mode exit detection */
 export interface WorkflowIdleState {
-  /** All controllers are idle */
-  allControllersIdle: boolean;
+  /** All loops are idle */
+  allLoopsIdle: boolean;
   /** No unread inbox messages for any agent */
   noUnreadMessages: boolean;
   /** No active/pending proposals */
@@ -153,8 +153,8 @@ export interface WorkflowIdleState {
 
 // ==================== Defaults ====================
 
-/** Default controller configuration values */
-export const CONTROLLER_DEFAULTS = {
+/** Default loop configuration values */
+export const LOOP_DEFAULTS = {
   pollInterval: 5000,
   retry: {
     maxAttempts: 3,

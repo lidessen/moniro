@@ -1,7 +1,7 @@
 /**
  * Mock Backend Helpers
  *
- * Reusable mock backend factories for testing controllers and workflows.
+ * Reusable mock backend factories for testing loops and workflows.
  * Consolidates patterns from workflow-mock-backend.test.ts and workflow-simulation.test.ts.
  */
 

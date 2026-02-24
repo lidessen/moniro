@@ -16,7 +16,7 @@ import { describe, test, expect, beforeEach } from "bun:test";
 import { createDaemonApp, type DaemonState, type WorkflowHandle } from "../../src/daemon/daemon.ts";
 import { MemoryStateStore } from "../../src/agent/store.ts";
 import type { AgentConfig } from "../../src/agent/config.ts";
-import type { AgentController, AgentRunResult } from "../../src/workflow/controller/types.ts";
+import type { AgentLoop, AgentRunResult } from "../../src/workflow/loop/types.ts";
 import type { ContextProvider } from "../../src/workflow/context/provider.ts";
 
 // ── Test Helpers ──────────────────────────────────────────────────
@@ -33,8 +33,8 @@ function createTestState(overrides?: Partial<DaemonState>): DaemonState {
   };
 }
 
-/** Create a minimal mock AgentController */
-function createMockController(response: string = "Hello!"): AgentController {
+/** Create a minimal mock AgentLoop */
+function createMockLoop(response: string = "Hello!"): AgentLoop {
   return {
     name: "mock",
     state: "idle",
@@ -53,17 +53,17 @@ function createMockController(response: string = "Hello!"): AgentController {
   };
 }
 
-/** Create a mock WorkflowHandle with a single agent controller */
+/** Create a mock WorkflowHandle with a single agent loop */
 function createMockWorkflow(
   agentName: string,
-  controller: AgentController,
+  loop: AgentLoop,
 ): WorkflowHandle {
   return {
     name: "global",
     tag: "main",
     key: `standalone:${agentName}`,
     agents: [agentName],
-    controllers: new Map([[agentName, controller]]),
+    loops: new Map([[agentName, loop]]),
     contextProvider: {} as ContextProvider,
     shutdown: async () => {},
     startedAt: new Date().toISOString(),
@@ -179,7 +179,7 @@ describe("Daemon API", () => {
       expect(data.workflow).toBe("global");
       expect(data.tag).toBe("main");
 
-      // Verify config was stored (controller created lazily on first /run or /serve)
+      // Verify config was stored (loop created lazily on first /run or /serve)
       expect(testState.configs.has("bob")).toBe(true);
     });
 
@@ -266,8 +266,8 @@ describe("Daemon API", () => {
     test("shuts down workflow on removal", async () => {
       testState.configs.set("alice", createTestAgent("alice"));
       let shutdownCalled = false;
-      const ctrl = createMockController();
-      const wf = createMockWorkflow("alice", ctrl);
+      const loop = createMockLoop();
+      const wf = createMockWorkflow("alice", loop);
       wf.shutdown = async () => { shutdownCalled = true; };
       testState.workflows.set(`standalone:alice`, wf);
 
@@ -321,10 +321,10 @@ describe("Daemon API", () => {
       expect(res.status).toBe(404);
     });
 
-    test("sends message and returns response via controller", async () => {
+    test("sends message and returns response via loop", async () => {
       testState.configs.set("alice", createTestAgent("alice"));
-      const ctrl = createMockController("I'm Alice!");
-      testState.workflows.set("standalone:alice", createMockWorkflow("alice", ctrl));
+      const loop = createMockLoop("I'm Alice!");
+      testState.workflows.set("standalone:alice", createMockWorkflow("alice", loop));
 
       const res = await post(app, "/serve", { agent: "alice", message: "hello" });
       expect(res.status).toBe(200);
@@ -336,9 +336,9 @@ describe("Daemon API", () => {
 
     test("returns error when sendDirect fails", async () => {
       testState.configs.set("alice", createTestAgent("alice"));
-      const ctrl = createMockController();
-      ctrl.sendDirect = async () => ({ success: false, error: "Backend unavailable", duration: 0 });
-      testState.workflows.set("standalone:alice", createMockWorkflow("alice", ctrl));
+      const loop = createMockLoop();
+      loop.sendDirect = async () => ({ success: false, error: "Backend unavailable", duration: 0 });
+      testState.workflows.set("standalone:alice", createMockWorkflow("alice", loop));
 
       const res = await post(app, "/serve", { agent: "alice", message: "hello" });
       expect(res.status).toBe(500);
@@ -407,7 +407,7 @@ describe("Daemon API", () => {
         tag: "main",
         key: "review:main",
         agents: ["reviewer"],
-        controllers: new Map(),
+        loops: new Map(),
         contextProvider: {} as any,
         shutdown: async () => {
           shutdownCalled = true;

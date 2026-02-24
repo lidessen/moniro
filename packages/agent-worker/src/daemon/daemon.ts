@@ -1,14 +1,14 @@
 /**
  * Daemon — Centralized agent coordinator.
  *
- * Architecture: Interface → Daemon → Controller (three layers)
+ * Architecture: Interface → Daemon → Loop (three layers)
  *   Interface: CLI/REST/MCP clients talk to daemon via HTTP
- *   Daemon:    This module — owns lifecycle, creates workflows + controllers
- *   Controller: AgentController + Backend — executes agent reasoning
+ *   Daemon:    This module — owns lifecycle, creates workflows + loops
+ *   Loop:      AgentLoop + Backend — executes agent reasoning
  *
  * Data ownership:
  *   Registry (configs)    — what agents exist and their configuration
- *   Workflows (workflows) — running workflow instances with controllers + context
+ *   Workflows (workflows) — running workflow instances with loops + context
  *
  * Key principle: every agent lives in a workflow. Standalone agents created via
  * POST /agents get a 1-agent workflow (created lazily on first /run or /serve).
@@ -38,11 +38,11 @@ import {
   getDefaultContextDir,
 } from "../workflow/context/file-provider.ts";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import type { AgentController } from "../workflow/controller/types.ts";
+import type { AgentLoop } from "../workflow/loop/types.ts";
 import type { ContextProvider } from "../workflow/context/provider.ts";
 import type { Context } from "hono";
 import type { ParsedWorkflow, ResolvedAgent } from "../workflow/types.ts";
-import { createMinimalRuntime, createWiredController } from "../workflow/factory.ts";
+import { createMinimalRuntime, createWiredLoop } from "../workflow/factory.ts";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -56,11 +56,11 @@ export interface WorkflowHandle {
   key: string;
   /** Agent names in this workflow */
   agents: string[];
-  /** Agent controllers for lifecycle management */
-  controllers: Map<string, AgentController>;
+  /** Agent loops for lifecycle management */
+  loops: Map<string, AgentLoop>;
   /** Context provider for shared state */
   contextProvider: ContextProvider;
-  /** Shutdown function (stops controllers + cleans context) */
+  /** Shutdown function (stops loops + cleans context) */
   shutdown: () => Promise<void>;
   /** Original workflow file path (for display) */
   workflowPath?: string;
@@ -99,7 +99,7 @@ async function gracefulShutdown(): Promise<void> {
   shuttingDown = true;
 
   if (state) {
-    // Stop all workflows (controllers + context)
+    // Stop all workflows (loops + context)
     for (const [, wf] of state.workflows) {
       try {
         await wf.shutdown();
@@ -138,7 +138,7 @@ async function parseJsonBody(c: { req: { json: () => Promise<unknown> } }): Prom
   }
 }
 
-// ── Agent → Controller bridge ─────────────────────────────────────
+// ── Agent → Loop bridge ───────────────────────────────────────────
 
 /** Map AgentConfig to the ResolvedAgent type needed by the factory */
 function configToResolvedAgent(cfg: AgentConfig): ResolvedAgent {
@@ -152,33 +152,33 @@ function configToResolvedAgent(cfg: AgentConfig): ResolvedAgent {
 }
 
 /**
- * Find an agent's controller across all workflows.
- * Returns the controller if the agent exists in any workflow.
+ * Find an agent's loop across all workflows.
+ * Returns the loop if the agent exists in any workflow.
  */
-function findController(
+function findLoop(
   s: DaemonState,
   agentName: string,
-): { controller: AgentController; workflow: WorkflowHandle } | null {
+): { loop: AgentLoop; workflow: WorkflowHandle } | null {
   for (const wf of s.workflows.values()) {
-    const ctrl = wf.controllers.get(agentName);
-    if (ctrl) return { controller: ctrl, workflow: wf };
+    const l = wf.loops.get(agentName);
+    if (l) return { loop: l, workflow: wf };
   }
   return null;
 }
 
 /**
- * Ensure a standalone agent has a workflow + controller.
+ * Ensure a standalone agent has a workflow + loop.
  * Creates the infrastructure lazily on first call (starts MCP server, etc.).
  *
  * This is the bridge between POST /agents (stores config only) and
- * POST /run or /serve (needs a controller to execute).
+ * POST /run or /serve (needs a loop to execute).
  */
-async function ensureAgentController(
+async function ensureAgentLoop(
   s: DaemonState,
   agentName: string,
-): Promise<{ controller: AgentController; workflow: WorkflowHandle }> {
+): Promise<{ loop: AgentLoop; workflow: WorkflowHandle }> {
   // Check if already in a workflow
-  const existing = findController(s, agentName);
+  const existing = findLoop(s, agentName);
   if (existing) return existing;
 
   // Need to create: get config
@@ -195,11 +195,11 @@ async function ensureAgentController(
     agentNames: [agentName],
   });
 
-  // Create wired controller (backend + workspace).
+  // Create wired loop (backend + workspace).
   // If this fails, clean up the runtime we just created.
-  let controller: AgentController;
+  let loop: AgentLoop;
   try {
-    ({ controller } = createWiredController({
+    ({ loop } = createWiredLoop({
       name: agentName,
       agent: agentDef,
       runtime,
@@ -215,12 +215,12 @@ async function ensureAgentController(
     tag: cfg.tag,
     key: wfKey,
     agents: [agentName],
-    controllers: new Map([[agentName, controller]]),
+    loops: new Map([[agentName, loop]]),
     contextProvider: runtime.contextProvider,
     shutdown: async () => {
-      // Ensure runtime is always cleaned up even if controller.stop() throws
+      // Ensure runtime is always cleaned up even if loop.stop() throws
       try {
-        await controller.stop();
+        await loop.stop();
       } finally {
         await runtime.shutdown();
       }
@@ -229,7 +229,7 @@ async function ensureAgentController(
   };
 
   s.workflows.set(wfKey, handle);
-  return { controller, workflow: handle };
+  return { loop, workflow: handle };
 }
 
 // ── App Factory ──────────────────────────────────────────────────
@@ -322,7 +322,7 @@ export function createDaemonApp(
 
     // Standalone agents (from `new` command, registered in @global or named workflow)
     const standaloneAgents = [...s.configs.values()].map((cfg) => {
-      const ctrl = findController(s, cfg.name);
+      const found = findLoop(s, cfg.name);
       return {
         name: cfg.name,
         model: cfg.model,
@@ -331,14 +331,14 @@ export function createDaemonApp(
         tag: cfg.tag,
         createdAt: cfg.createdAt,
         source: "standalone" as const,
-        state: ctrl?.controller.state,
+        state: found?.loop.state,
       };
     });
 
     // Workflow agents (from `start` command)
     const workflowAgents = [...s.workflows.values()].flatMap((wf) =>
       wf.agents.map((agentName) => {
-        const controller = wf.controllers.get(agentName);
+        const loop = wf.loops.get(agentName);
         return {
           name: agentName,
           model: "", // workflow agents don't expose model at this level
@@ -347,7 +347,7 @@ export function createDaemonApp(
           tag: wf.tag,
           createdAt: wf.startedAt,
           source: "workflow" as const,
-          state: controller?.state ?? "unknown",
+          state: loop?.state ?? "unknown",
         };
       }),
     );
@@ -403,7 +403,7 @@ export function createDaemonApp(
       schedule,
     };
 
-    // Store config only. Workflow + controller are created lazily on first /run or /serve.
+    // Store config only. Workflow + loop are created lazily on first /run or /serve.
     s.configs.set(name, agentConfig);
 
     return c.json({ name, model, backend, workflow, tag, schedule }, 201);
@@ -439,7 +439,7 @@ export function createDaemonApp(
       return c.json({ error: "Agent not found" }, 404);
     }
 
-    // Clean up workflow if this agent had one (lazily created via ensureAgentController)
+    // Clean up workflow if this agent had one (lazily created via ensureAgentLoop)
     const wfKey = `standalone:${name}`;
     const wf = s.workflows.get(wfKey);
     if (wf) {
@@ -471,31 +471,31 @@ export function createDaemonApp(
       return c.json({ error: "agent and message required" }, 400);
     }
 
-    // Find or create a controller for this agent
-    let controller: AgentController | undefined;
-    const controllerResult = findController(s, agentName);
+    // Find or create a loop for this agent
+    let loop: AgentLoop | undefined;
+    const loopResult = findLoop(s, agentName);
 
-    if (controllerResult) {
-      controller = controllerResult.controller;
+    if (loopResult) {
+      loop = loopResult.loop;
     } else if (s.configs.has(agentName)) {
-      // Lazy creation: agent has a config but no controller yet
+      // Lazy creation: agent has a config but no loop yet
       try {
-        const ensured = await ensureAgentController(s, agentName);
-        controller = ensured.controller;
+        const ensured = await ensureAgentLoop(s, agentName);
+        loop = ensured.loop;
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         return c.json({ error: `Failed to create agent runtime: ${msg}` }, 500);
       }
     }
 
-    if (!controller) {
+    if (!loop) {
       return c.json({ error: `Agent not found: ${agentName}` }, 404);
     }
 
-    const ctrl = controller;
+    const agentLoop = loop;
     return streamSSE(c, async (stream) => {
       try {
-        const result = await ctrl.sendDirect(message);
+        const result = await agentLoop.sendDirect(message);
         if (result.success) {
           if (result.content) {
             await stream.writeSSE({
@@ -540,29 +540,29 @@ export function createDaemonApp(
       return c.json({ error: "agent and message required" }, 400);
     }
 
-    // Find or create a controller for this agent
-    let controller: AgentController | undefined;
-    const controllerResult = findController(s, agentName);
+    // Find or create a loop for this agent
+    let loop: AgentLoop | undefined;
+    const loopResult = findLoop(s, agentName);
 
-    if (controllerResult) {
-      controller = controllerResult.controller;
+    if (loopResult) {
+      loop = loopResult.loop;
     } else if (s.configs.has(agentName)) {
-      // Lazy creation: config exists but no controller yet
+      // Lazy creation: config exists but no loop yet
       try {
-        const ensured = await ensureAgentController(s, agentName);
-        controller = ensured.controller;
+        const ensured = await ensureAgentLoop(s, agentName);
+        loop = ensured.loop;
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         return c.json({ error: msg }, 500);
       }
     }
 
-    if (!controller) {
+    if (!loop) {
       return c.json({ error: `Agent not found: ${agentName}` }, 404);
     }
 
     try {
-      const result = await controller.sendDirect(message);
+      const result = await loop.sendDirect(message);
       if (!result.success) {
         return c.json({ error: result.error }, 500);
       }
@@ -615,7 +615,7 @@ export function createDaemonApp(
 
       // Reuse existing workflow's context provider when available
       const existingWf =
-        findController(s, agentName)?.workflow ?? s.workflows.get(`${workflow}:${tag}`);
+        findLoop(s, agentName)?.workflow ?? s.workflows.get(`${workflow}:${tag}`);
 
       const workflowAgents = getWorkflowAgentNames(workflow, tag);
       const allNames = [...new Set([...workflowAgents, agentName, "user"])];
@@ -711,7 +711,7 @@ export function createDaemonApp(
         tag,
         key,
         agents: Object.keys(workflow.agents),
-        controllers: result.controllers!,
+        loops: result.loops!,
         contextProvider: result.contextProvider!,
         shutdown: result.shutdown!,
         workflowPath: workflow.filePath,
@@ -743,8 +743,8 @@ export function createDaemonApp(
 
     const workflows = [...s.workflows.values()].map((wf) => {
       const agentStates: Record<string, string> = {};
-      for (const [name, controller] of wf.controllers) {
-        agentStates[name] = controller.state;
+      for (const [name, loop] of wf.loops) {
+        agentStates[name] = loop.state;
       }
       return {
         name: wf.name,

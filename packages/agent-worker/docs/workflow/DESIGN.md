@@ -218,7 +218,7 @@ Binding proposals are enforced by the system. Advisory proposals rely on agent c
 └─────────────────────────────────────────────────────┘
 ```
 
-**Idle condition**: All controllers idle + no unread inbox + no active proposals + debounce elapsed.
+**Idle condition**: All loops idle + no unread inbox + no active proposals + debounce elapsed.
 
 ### Start Mode
 
@@ -361,7 +361,7 @@ No need for explicit completion config—the command choice determines behavior.
 
 ### 6. Why Inbox Explicit Acknowledgment?
 
-Controller acknowledges inbox **only on successful agent run**. This enables:
+Loop acknowledges inbox **only on successful agent run**. This enables:
 
 - Retry on failure (messages redelivered)
 - Exactly-once processing guarantee
@@ -375,7 +375,7 @@ Prevents concurrent write conflicts in multi-agent workflows. Single-writer mode
 
 ---
 
-## Agent Controller Design
+## Agent Loop Design
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -383,7 +383,7 @@ Prevents concurrent write conflicts in multi-agent workflows. Single-writer mode
 │                                                              │
 │  For each agent:                                            │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │              Agent Controller                        │   │
+│  │              Agent Loop                              │   │
 │  │                                                      │   │
 │  │  State: idle | running | stopped                    │   │
 │  │                                                      │   │
@@ -405,7 +405,7 @@ Prevents concurrent write conflicts in multi-agent workflows. Single-writer mode
 │  │                   back to IDLE                       │   │
 │  └─────────────────────────────────────────────────────┘   │
 │                                                              │
-│  @mention → controller.wake()                               │
+│  @mention → loop.wake()                                     │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -437,6 +437,6 @@ kickoff: |
 
 ## References
 
-- [REFERENCE.md](./REFERENCE.md) - MCP tools, controller loop, prompt structure
+- [REFERENCE.md](./REFERENCE.md) - MCP tools, agent loop, prompt structure
 - [TODO.md](./TODO.md) - Implementation progress
 - [../backends.md](../backends.md) - Backend feature matrix and CLI details

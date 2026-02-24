@@ -3,7 +3,7 @@
  * Generates MCP configuration for workflow HTTP transport.
  *
  * Extracted to its own module to avoid circular dependencies between
- * backends/ and workflow/controller/.
+ * backends/ and workflow/loop/.
  */
 
 /** MCP config format for workflow context */

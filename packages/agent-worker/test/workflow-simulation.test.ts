@@ -8,9 +8,9 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createMemoryContextProvider } from '../src/workflow/context/memory-provider.js'
-import { createAgentController, checkWorkflowIdle } from '../src/workflow/controller/controller.js'
+import { createAgentLoop, checkWorkflowIdle } from '../src/workflow/loop/loop.js'
 import { createProposalManager } from '../src/workflow/context/proposals.js'
-import type { AgentController } from '../src/workflow/controller/types.js'
+import type { AgentLoop } from '../src/workflow/loop/types.js'
 import type { Backend } from '../src/backends/types.js'
 import type { ResolvedAgent } from '../src/workflow/types.js'
 import type { ContextProvider } from '../src/workflow/context/provider.js'
@@ -36,7 +36,7 @@ const mockAgent: ResolvedAgent = {
 }
 
 /** Create a mock backend with custom behavior.
- * Uses type 'claude' so the controller routes through the normal
+ * Uses type 'claude' so the loop routes through the normal
  * build-prompt → send() path (not the mock MCP tool bridge).
  */
 function createMockBackend(
@@ -86,7 +86,7 @@ describe('Workflow Simulation', () => {
 
   test('two agents collaborate via @mentions', async () => {
     const provider = createMemoryContextProvider(['reviewer', 'coder'])
-    const controllers: AgentController[] = []
+    const loops: AgentLoop[] = []
 
     // Reviewer behavior: request code review, then acknowledge
     const reviewerBackend = createMockBackend(
@@ -114,7 +114,7 @@ describe('Workflow Simulation', () => {
       provider
     )
 
-    const reviewer = createAgentController({
+    const reviewer = createAgentLoop({
       name: 'reviewer',
       agent: mockAgent,
       contextProvider: provider,
@@ -125,7 +125,7 @@ describe('Workflow Simulation', () => {
       pollInterval: 30,
     })
 
-    const coder = createAgentController({
+    const coder = createAgentLoop({
       name: 'coder',
       agent: mockAgent,
       contextProvider: provider,
@@ -136,9 +136,9 @@ describe('Workflow Simulation', () => {
       pollInterval: 30,
     })
 
-    controllers.push(reviewer, coder)
+    loops.push(reviewer, coder)
 
-    // Start controllers
+    // Start loops
     await reviewer.start()
     await coder.start()
 
@@ -162,7 +162,7 @@ describe('Workflow Simulation', () => {
     expect(messages).toContainEqual(expect.stringContaining('reviewer: LGTM'))
 
     // Cleanup
-    await Promise.all(controllers.map((c) => c.stop()))
+    await Promise.all(loops.map((c) => c.stop()))
   })
 
   test('agents vote on a proposal', async () => {
@@ -172,7 +172,7 @@ describe('Workflow Simulation', () => {
       validAgents: ['alice', 'bob', 'charlie'],
     })
 
-    const controllers: AgentController[] = []
+    const loops: AgentLoop[] = []
     let proposal: ReturnType<typeof proposalManager.create> | null = null
 
     // Alice creates proposal and votes
@@ -221,7 +221,7 @@ describe('Workflow Simulation', () => {
       provider
     )
 
-    const alice = createAgentController({
+    const alice = createAgentLoop({
       name: 'alice',
       agent: mockAgent,
       contextProvider: provider,
@@ -232,7 +232,7 @@ describe('Workflow Simulation', () => {
       projectDir: '/tmp/project',
     })
 
-    const bob = createAgentController({
+    const bob = createAgentLoop({
       name: 'bob',
       agent: mockAgent,
       contextProvider: provider,
@@ -243,7 +243,7 @@ describe('Workflow Simulation', () => {
       projectDir: '/tmp/project',
     })
 
-    const charlie = createAgentController({
+    const charlie = createAgentLoop({
       name: 'charlie',
       agent: mockAgent,
       contextProvider: provider,
@@ -254,10 +254,10 @@ describe('Workflow Simulation', () => {
       projectDir: '/tmp/project',
     })
 
-    controllers.push(alice, bob, charlie)
+    loops.push(alice, bob, charlie)
 
-    // Start controllers
-    await Promise.all(controllers.map((c) => c.start()))
+    // Start loops
+    await Promise.all(loops.map((c) => c.start()))
 
     // Kickoff
     await provider.appendChannel('user', '@alice please decide on database')
@@ -278,12 +278,12 @@ describe('Workflow Simulation', () => {
     expect(finalProposal?.result?.counts['mysql']).toBe(1)
 
     // Cleanup
-    await Promise.all(controllers.map((c) => c.stop()))
+    await Promise.all(loops.map((c) => c.stop()))
   })
 
   test('idle detection works correctly', async () => {
     const provider = createMemoryContextProvider(['agent1', 'agent2'])
-    const controllers = new Map<string, AgentController>()
+    const loops = new Map<string, AgentLoop>()
 
     const backend: Backend = {
       type: 'claude' as const,
@@ -292,7 +292,7 @@ describe('Workflow Simulation', () => {
       },
     }
 
-    const agent1 = createAgentController({
+    const agent1 = createAgentLoop({
       name: 'agent1',
       agent: mockAgent,
       contextProvider: provider,
@@ -303,7 +303,7 @@ describe('Workflow Simulation', () => {
       projectDir: '/tmp/project',
     })
 
-    const agent2 = createAgentController({
+    const agent2 = createAgentLoop({
       name: 'agent2',
       agent: mockAgent,
       contextProvider: provider,
@@ -314,8 +314,8 @@ describe('Workflow Simulation', () => {
       projectDir: '/tmp/project',
     })
 
-    controllers.set('agent1', agent1)
-    controllers.set('agent2', agent2)
+    loops.set('agent1', agent1)
+    loops.set('agent2', agent2)
 
     await agent1.start()
     await agent2.start()
@@ -323,7 +323,7 @@ describe('Workflow Simulation', () => {
     // Initially should be idle (no messages)
     await waitFor(() => agent1.state === 'idle' && agent2.state === 'idle')
 
-    const isIdle = await checkWorkflowIdle(controllers, provider, 50)
+    const isIdle = await checkWorkflowIdle(loops, provider, 50)
     expect(isIdle).toBe(true)
 
     // Add a message - no longer idle
@@ -354,7 +354,7 @@ describe('Workflow Simulation', () => {
       },
     }
 
-    const worker = createAgentController({
+    const worker = createAgentLoop({
       name: 'worker',
       agent: mockAgent,
       contextProvider: provider,

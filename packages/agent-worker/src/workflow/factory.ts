@@ -9,8 +9,8 @@
  *
  * Usage:
  *   1. createMinimalRuntime()  — context + MCP + event log (the "workspace")
- *   2. createWiredController() — backend + workspace dir + controller (per agent)
- *   3. Caller manages lifecycle  — start/stop controllers, send kickoff, shutdown
+ *   2. createWiredLoop()       — backend + workspace dir + loop (per agent)
+ *   3. Caller manages lifecycle  — start/stop loops, send kickoff, shutdown
  */
 
 import { existsSync, mkdirSync } from "node:fs";
@@ -29,9 +29,9 @@ import type { Message } from "./context/types.ts";
 import type { ResolvedAgent } from "./types.ts";
 import type { Backend } from "../backends/types.ts";
 import type { StreamParserCallbacks } from "../backends/stream-json.ts";
-import { createAgentController } from "./controller/controller.ts";
-import { getBackendByType, getBackendForModel } from "./controller/backend.ts";
-import type { AgentController } from "./controller/types.ts";
+import { createAgentLoop } from "./loop/loop.ts";
+import { getBackendByType, getBackendForModel } from "./loop/backend.ts";
+import type { AgentLoop } from "./loop/types.ts";
 import type { Logger } from "./logger.ts";
 import { createSilentLogger } from "./logger.ts";
 import type { FeedbackEntry } from "../agent/tools/feedback.ts";
@@ -98,7 +98,7 @@ export interface MinimalRuntimeConfig {
  * Create a minimal workflow runtime.
  *
  * Sets up the shared infrastructure (context + MCP + event log) without
- * creating controllers or backends. The daemon can use this to create
+ * creating loops or backends. The daemon can use this to create
  * workflow infrastructure for both standalone and multi-agent workflows.
  *
  * For standalone agents created via `POST /agents`, this gives them
@@ -185,10 +185,10 @@ export async function createMinimalRuntime(
   };
 }
 
-// ── Controller Creation ──────────────────────────────────────────────
+// ── Loop Creation ────────────────────────────────────────────────────
 
 /**
- * Subset of runtime fields needed by createWiredController.
+ * Subset of runtime fields needed by createWiredLoop.
  * Both WorkflowRuntimeHandle and runner's WorkflowRuntime satisfy this.
  */
 export interface RuntimeContext {
@@ -201,12 +201,12 @@ export interface RuntimeContext {
 }
 
 /**
- * Configuration for creating a fully-wired agent controller.
+ * Configuration for creating a fully-wired agent loop.
  *
  * "Wired" means: backend is created, workspace directory is set up,
  * logging is configured. The caller just needs to call start().
  */
-export interface WiredControllerConfig {
+export interface WiredLoopConfig {
   /** Agent name */
   name: string;
   /** Resolved agent definition */
@@ -224,28 +224,28 @@ export interface WiredControllerConfig {
 }
 
 /**
- * Result of creating a wired controller.
+ * Result of creating a wired loop.
  */
-export interface WiredControllerResult {
-  /** The agent controller (call start() to begin) */
-  controller: AgentController;
-  /** The backend used by this controller */
+export interface WiredLoopResult {
+  /** The agent loop (call start() to begin) */
+  loop: AgentLoop;
+  /** The backend used by this loop */
   backend: Backend;
 }
 
 /**
- * Create a fully-wired agent controller.
+ * Create a fully-wired agent loop.
  *
  * This handles the full setup:
  * 1. Create backend from agent definition (or use custom factory)
  * 2. Create isolated workspace directory
  * 3. Configure stream callbacks for structured event logging
- * 4. Create the AgentController with all wiring
+ * 4. Create the AgentLoop with all wiring
  *
  * Extracted from runWorkflowWithControllers() so both runner.ts and
- * daemon.ts can create controllers with the same quality.
+ * daemon.ts can create loops with the same quality.
  */
-export function createWiredController(config: WiredControllerConfig): WiredControllerResult {
+export function createWiredLoop(config: WiredLoopConfig): WiredLoopResult {
   const { name, agent, runtime, pollInterval, feedback: feedbackEnabled } = config;
 
   const logger = config.logger ?? createSilentLogger();
@@ -286,8 +286,8 @@ export function createWiredController(config: WiredControllerConfig): WiredContr
     mkdirSync(workspaceDir, { recursive: true });
   }
 
-  // Create the controller
-  const controller = createAgentController({
+  // Create the loop
+  const loop = createAgentLoop({
     name,
     agent,
     contextProvider: runtime.contextProvider,
@@ -303,5 +303,5 @@ export function createWiredController(config: WiredControllerConfig): WiredContr
     feedback: feedbackEnabled,
   });
 
-  return { controller, backend };
+  return { loop, backend };
 }
