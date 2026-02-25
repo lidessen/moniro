@@ -2,8 +2,7 @@
  * Workflow file parser
  */
 
-import { readFileSync, existsSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { parseArgs } from "node:util";
 import type {
