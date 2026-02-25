@@ -10,13 +10,14 @@
  * all agents get MCP + bash regardless of backend type.
  */
 
-import { generateText, tool, stepCountIs, jsonSchema } from "ai";
+import { generateText, tool, stepCountIs } from "ai";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { execSync } from "node:child_process";
 import { createModelAsync } from "@/agent/models.ts";
 import type { AgentRunContext, AgentRunResult } from "./types.ts";
 import { buildAgentPrompt } from "./prompt.ts";
+import { createTool } from "../../agent/tools/create-tool.ts";
 
 // ==================== Debug Formatting ====================
 
@@ -68,14 +69,14 @@ async function createMCPToolBridge(mcpUrl: string, agentName: string) {
   const aiTools: Record<string, ReturnType<typeof tool>> = {};
   for (const mcpTool of mcpTools) {
     const toolName = mcpTool.name;
-    aiTools[toolName] = tool({
+    aiTools[toolName] = createTool({
       description: mcpTool.description || toolName,
-      inputSchema: jsonSchema(mcpTool.inputSchema as Parameters<typeof jsonSchema>[0]),
+      schema: mcpTool.inputSchema as Record<string, unknown>,
       execute: async (args: Record<string, unknown>) => {
         const result = await client.callTool({ name: toolName, arguments: args });
         return result.content;
       },
-    } as unknown as Parameters<typeof tool>[0]);
+    });
   }
 
   return { tools: aiTools, close: () => client.close() };
@@ -84,16 +85,17 @@ async function createMCPToolBridge(mcpUrl: string, agentName: string) {
 // ==================== Bash Tool ====================
 
 function createBashTool() {
-  return tool({
+  return createTool({
     description: "Execute a shell command and return stdout/stderr.",
-    inputSchema: jsonSchema<{ command: string }>({
+    schema: {
       type: "object",
       properties: {
         command: { type: "string", description: "The shell command to execute" },
       },
       required: ["command"],
-    }),
-    execute: async ({ command }: { command: string }) => {
+    },
+    execute: async (args: Record<string, unknown>) => {
+      const command = args.command as string;
       try {
         return execSync(command, { encoding: "utf-8", timeout: 120_000 }).trim() || "(no output)";
       } catch (error: any) {

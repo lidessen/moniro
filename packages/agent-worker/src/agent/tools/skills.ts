@@ -1,14 +1,14 @@
 import type { SkillsProvider } from "../skills/provider.ts";
-import { tool, jsonSchema } from "ai";
+import { createTool } from "./create-tool.ts";
 
 /**
  * Create a Skills tool as an AI SDK tool() object
  */
 export function createSkillsTool(provider: SkillsProvider): unknown {
-  return tool({
+  return createTool({
     description:
       'Interact with available agent skills. Use "list" to see all skills with their descriptions, "view" to read a complete SKILL.md file, "readFile" to read files within a skill directory (e.g., references/, scripts/, assets/).',
-    inputSchema: jsonSchema({
+    schema: {
       type: "object",
       properties: {
         operation: {
@@ -27,7 +27,7 @@ export function createSkillsTool(provider: SkillsProvider): unknown {
         },
       },
       required: ["operation"],
-    }) as unknown as Parameters<typeof tool>[0]["inputSchema"],
+    },
     execute: async (args: Record<string, unknown>) => {
       const operation = args.operation as string;
       const skillName = args.skillName as string | undefined;
@@ -67,5 +67,5 @@ export function createSkillsTool(provider: SkillsProvider): unknown {
           throw new Error(`Unknown operation: ${operation}`);
       }
     },
-  } as unknown as Parameters<typeof tool>[0]);
+  });
 }

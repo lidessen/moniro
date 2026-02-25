@@ -251,16 +251,8 @@ export interface DaemonAppOptions {
  * When a token is provided, all endpoints require `Authorization: Bearer <token>`.
  * This prevents cross-origin attacks from malicious websites.
  */
-export function createDaemonApp(options: DaemonAppOptions): Hono;
-/** @deprecated Pass DaemonAppOptions instead */
-export function createDaemonApp(getState: () => DaemonState | null): Hono;
-export function createDaemonApp(
-  optionsOrGetState: DaemonAppOptions | (() => DaemonState | null),
-): Hono {
-  const { getState, token } =
-    typeof optionsOrGetState === "function"
-      ? { getState: optionsOrGetState, token: undefined }
-      : optionsOrGetState;
+export function createDaemonApp(options: DaemonAppOptions): Hono {
+  const { getState, token } = options;
 
   const app = new Hono();
 
