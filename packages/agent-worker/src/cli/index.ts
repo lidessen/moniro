@@ -4,9 +4,20 @@
 // These are noise for end users — the SDK works correctly in compatibility mode
 (globalThis as Record<string, unknown>).AI_SDK_LOG_WARNINGS = false;
 
-// Suppress stderr in normal mode to keep output clean
-// In debug mode (--debug or -d), show everything for troubleshooting
+// Suppress AI SDK stderr noise in normal mode to keep output clean.
+// In debug mode (--debug or -d), show everything for troubleshooting.
+//
+// Only suppress known SDK noise patterns — let console.error() from our own
+// CLI code through so CI failures are always visible.
 const originalStderrWrite = process.stderr.write.bind(process.stderr);
+
+const SDK_NOISE_PATTERNS = [
+  "specificationVersion",
+  "AI_SDK",
+  "ai-sdk",
+  "deprecated",
+  "ExperimentalWarning",
+];
 
 process.stderr.write = function (chunk: string | Uint8Array, ...rest: unknown[]): boolean {
   const isDebugMode = process.argv.includes("--debug") || process.argv.includes("-d");
@@ -14,8 +25,12 @@ process.stderr.write = function (chunk: string | Uint8Array, ...rest: unknown[])
     const message = typeof chunk === "string" ? chunk : chunk.toString();
     return (originalStderrWrite as Function).call(process.stderr, message, ...rest) as boolean;
   }
-  // Normal mode: suppress stderr completely
-  return true;
+  // Normal mode: suppress only known SDK noise, let everything else through
+  const message = typeof chunk === "string" ? chunk : chunk.toString();
+  if (SDK_NOISE_PATTERNS.some((pattern) => message.includes(pattern))) {
+    return true;
+  }
+  return (originalStderrWrite as Function).call(process.stderr, message, ...rest) as boolean;
 } as typeof process.stderr.write;
 
 import { Command } from "commander";
