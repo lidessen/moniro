@@ -436,7 +436,7 @@ export async function runWorkflow(config: RunConfig): Promise<RunResult> {
 /**
  * Loop-based run configuration
  */
-export interface ControllerRunConfig {
+export interface LoopRunConfig {
   /** Workflow to run */
   workflow: ParsedWorkflow;
   /** Workflow name (defaults to "global") */
@@ -468,7 +468,7 @@ export interface ControllerRunConfig {
 /**
  * Loop-based run result
  */
-export interface ControllerRunResult {
+export interface LoopRunResult {
   /** Success flag */
   success: boolean;
   /** Error if failed */
@@ -497,9 +497,9 @@ export interface ControllerRunResult {
  * All output flows through the channel. The channel watcher (display layer)
  * filters what to show: --debug includes kind="debug" entries.
  */
-export async function runWorkflowWithControllers(
-  config: ControllerRunConfig,
-): Promise<ControllerRunResult> {
+export async function runWorkflowWithLoops(
+  config: LoopRunConfig,
+): Promise<LoopRunResult> {
   const {
     workflow,
     workflowName: workflowNameParam,
@@ -548,7 +548,7 @@ export async function runWorkflowWithControllers(
     const runtime = await initWorkflow({
       workflow,
       instance,
-      startAgent: async () => {}, // Not used; controllers start agents below
+      startAgent: async () => {}, // Not used; loops start agents below
       logger,
       contextProvider,
       contextDir,

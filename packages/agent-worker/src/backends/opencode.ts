@@ -4,17 +4,15 @@
  *
  * MCP Configuration:
  * OpenCode uses project-level MCP config via opencode.json in the workspace.
- * Use setWorkspace() to set up a dedicated workspace with MCP config.
+ * The loop writes this file; opencode auto-discovers it from cwd.
  *
  * @see https://opencode.ai/docs/
  */
 
-import { execa } from "execa";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import type { Backend, BackendResponse } from "./types.ts";
 import { DEFAULT_IDLE_TIMEOUT } from "./types.ts";
-import { execWithIdleTimeout, IdleTimeoutError } from "./idle-timeout.ts";
+import { execWithIdleTimeout } from "./idle-timeout.ts";
+import { handleCliBackendError, checkCliAvailable } from "./cli-helpers.ts";
 import {
   createStreamParser,
   type StreamParserCallbacks,
@@ -45,43 +43,6 @@ export class OpenCodeBackend implements Backend {
     };
   }
 
-  /**
-   * Set up workspace directory with MCP config
-   * Creates opencode.json in the workspace with MCP server config
-   */
-  setWorkspace(workspaceDir: string, mcpConfig: { mcpServers: Record<string, unknown> }): void {
-    this.options.workspace = workspaceDir;
-
-    if (!existsSync(workspaceDir)) {
-      mkdirSync(workspaceDir, { recursive: true });
-    }
-
-    // Convert mcpServers to OpenCode's mcp format
-    // OpenCode uses { mcp: { name: { type: "local", command: [...] } } }
-    const opencodeMcp: Record<string, unknown> = {};
-    for (const [name, config] of Object.entries(mcpConfig.mcpServers)) {
-      const serverConfig = config as {
-        command?: string;
-        args?: string[];
-        env?: Record<string, string>;
-      };
-      opencodeMcp[name] = {
-        type: "local",
-        command: [serverConfig.command, ...(serverConfig.args || [])],
-        enabled: true,
-        ...(serverConfig.env ? { environment: serverConfig.env } : {}),
-      };
-    }
-
-    const opencodeConfig = {
-      $schema: "https://opencode.ai/config.json",
-      mcp: opencodeMcp,
-    };
-
-    const configPath = join(workspaceDir, "opencode.json");
-    writeFileSync(configPath, JSON.stringify(opencodeConfig, null, 2));
-  }
-
   async send(message: string, _options?: { system?: string }): Promise<BackendResponse> {
     const args = this.buildArgs(message);
     const cwd = this.options.workspace || this.options.cwd;
@@ -100,26 +61,12 @@ export class OpenCodeBackend implements Backend {
 
       return extractOpenCodeResult(stdout);
     } catch (error) {
-      if (error instanceof IdleTimeoutError) {
-        throw new Error(`opencode timed out after ${timeout}ms of inactivity`);
-      }
-      if (error && typeof error === "object" && "exitCode" in error) {
-        const execError = error as { exitCode?: number; stderr?: string; shortMessage?: string };
-        throw new Error(
-          `opencode failed (exit ${execError.exitCode}): ${execError.stderr || execError.shortMessage}`,
-        );
-      }
-      throw error;
+      handleCliBackendError(error, "opencode", timeout);
     }
   }
 
   async isAvailable(): Promise<boolean> {
-    try {
-      await execa("opencode", ["--version"], { stdin: "ignore", timeout: 5000 });
-      return true;
-    } catch {
-      return false;
-    }
+    return checkCliAvailable("opencode");
   }
 
   getInfo(): { name: string; version?: string; model?: string } {

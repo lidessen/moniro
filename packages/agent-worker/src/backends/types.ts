@@ -55,8 +55,6 @@ export interface Backend {
   isAvailable?(): Promise<boolean>;
   /** Get backend info for display */
   getInfo?(): { name: string; version?: string; model?: string };
-  /** Set up workspace directory with MCP config for workflow isolation */
-  setWorkspace?(workspaceDir: string, mcpConfig: { mcpServers: Record<string, unknown> }): void;
   /** Abort any running operations and cleanup resources */
   abort?(): void;
 }

@@ -4,7 +4,7 @@
  * Orchestrates mock agent execution for workflow integration testing.
  * Uses AI SDK generateText with MockLanguageModelV3 and real MCP tool calls.
  *
- * This lives in the controller layer (not backends) because it does orchestration:
+ * This lives in the loop layer (not backends) because it does orchestration:
  * connecting to MCP, building prompts, managing tool loops.
  * The mock backend itself is just a simple send() adapter.
  */
@@ -58,7 +58,7 @@ async function createMCPToolBridge(mcpUrl: string, agentName: string): Promise<M
 /**
  * Run a mock agent with AI SDK and real MCP tools.
  *
- * Used by the controller when backend.type === 'mock'.
+ * Used by the loop when backend.type === 'mock'.
  * Unlike real backends that just send(), the mock runner needs to:
  * 1. Connect to MCP server for real tool execution
  * 2. Generate scripted tool calls via MockLanguageModelV3

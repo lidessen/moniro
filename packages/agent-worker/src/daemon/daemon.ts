@@ -689,9 +689,9 @@ export function createDaemonApp(
     }
 
     try {
-      const { runWorkflowWithControllers } = await import("../workflow/runner.ts");
+      const { runWorkflowWithLoops } = await import("../workflow/runner.ts");
 
-      const result = await runWorkflowWithControllers({
+      const result = await runWorkflowWithLoops({
         workflow,
         workflowName,
         tag,

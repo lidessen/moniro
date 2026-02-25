@@ -270,10 +270,10 @@ const agent = new AgentWorker({
 ### Programmatic Workflows
 
 ```typescript
-import { parseWorkflowFile, runWorkflowWithControllers } from 'agent-worker'
+import { parseWorkflowFile, runWorkflowWithLoops } from 'agent-worker'
 
 const workflow = await parseWorkflowFile('review.yaml', { tag: 'pr-123' })
-const result = await runWorkflowWithControllers({
+const result = await runWorkflowWithLoops({
   workflow,
   workflowName: 'review',
   tag: 'pr-123',

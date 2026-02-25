@@ -41,8 +41,8 @@ Workflow YAML (backend: cursor|claude|codex|opencode)
     │
     ▼
 getBackendByType() → Backend
-    ├── setWorkspace(dir, mcpConfig)  ← writes MCP config to workspace
     └── send(prompt, { system })      ← executes CLI command
+                                        (loop writes MCP config to workspace beforehand)
          └── buildCommand → execa(command, args, { cwd, stdin: 'ignore', timeout })
 ```
 
@@ -165,10 +165,9 @@ agents:
 CLI backends propagate agent identity through MCP:
 
 ```
-Backend.setWorkspace(dir, mcpConfig)
-  → CLI starts, reads MCP config
-  → Spawns agent-worker mcp-stdio subprocess with --agent <name>
-  → Subprocess connects to Unix socket with X-Agent-Id header
+Loop writes MCP config to workspace (writeBackendMcpConfig)
+  → Backend.send() starts CLI in workspace dir
+  → CLI reads MCP config from workspace
   → MCP tools use agentId as message sender
 ```
 

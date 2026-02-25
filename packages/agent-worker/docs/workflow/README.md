@@ -372,7 +372,7 @@ agent-worker run review.yaml
 ## Documentation
 
 - [DESIGN.md](./DESIGN.md) - Design concepts and decisions
-- [REFERENCE.md](./REFERENCE.md) - MCP tools, controller loop, prompt structure
+- [REFERENCE.md](./REFERENCE.md) - MCP tools, agent loop, prompt structure
 - [TODO.md](./TODO.md) - Implementation status
 - [../backends.md](../backends.md) - Backend feature matrix and CLI details
 

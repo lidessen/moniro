@@ -3,19 +3,16 @@
  * Uses `codex exec` for non-interactive mode with JSON event output
  *
  * MCP Configuration:
- * Codex uses project-level MCP config. Use setWorkspace() to set up
- * a dedicated workspace directory with .codex/config.yaml for MCP settings.
+ * Codex uses project-level MCP config via .codex/config.yaml in the workspace.
+ * The loop writes this file; codex auto-discovers it from cwd.
  *
  * @see https://github.com/openai/codex
  */
 
-import { execa } from "execa";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { stringify as yamlStringify } from "yaml";
 import type { Backend, BackendResponse } from "./types.ts";
 import { DEFAULT_IDLE_TIMEOUT } from "./types.ts";
-import { execWithIdleTimeout, IdleTimeoutError } from "./idle-timeout.ts";
+import { execWithIdleTimeout } from "./idle-timeout.ts";
+import { handleCliBackendError, checkCliAvailable } from "./cli-helpers.ts";
 import {
   createStreamParser,
   codexAdapter,
@@ -49,28 +46,6 @@ export class CodexBackend implements Backend {
     };
   }
 
-  /**
-   * Set up workspace directory with MCP config
-   * Creates .codex/config.yaml in the workspace with MCP server config
-   */
-  setWorkspace(workspaceDir: string, mcpConfig: { mcpServers: Record<string, unknown> }): void {
-    this.options.workspace = workspaceDir;
-
-    // Create .codex directory
-    const codexDir = join(workspaceDir, ".codex");
-    if (!existsSync(codexDir)) {
-      mkdirSync(codexDir, { recursive: true });
-    }
-
-    // Convert MCP config to codex format and write as YAML
-    // Codex uses mcp_servers in its config
-    const codexConfig = {
-      mcp_servers: mcpConfig.mcpServers,
-    };
-    const configPath = join(codexDir, "config.yaml");
-    writeFileSync(configPath, yamlStringify(codexConfig));
-  }
-
   async send(message: string, _options?: { system?: string }): Promise<BackendResponse> {
     const args = this.buildArgs(message);
     // Use workspace as cwd if set
@@ -90,26 +65,12 @@ export class CodexBackend implements Backend {
 
       return extractCodexResult(stdout);
     } catch (error) {
-      if (error instanceof IdleTimeoutError) {
-        throw new Error(`codex timed out after ${timeout}ms of inactivity`);
-      }
-      if (error && typeof error === "object" && "exitCode" in error) {
-        const execError = error as { exitCode?: number; stderr?: string; shortMessage?: string };
-        throw new Error(
-          `codex failed (exit ${execError.exitCode}): ${execError.stderr || execError.shortMessage}`,
-        );
-      }
-      throw error;
+      handleCliBackendError(error, "codex", timeout);
     }
   }
 
   async isAvailable(): Promise<boolean> {
-    try {
-      await execa("codex", ["--version"], { stdin: "ignore", timeout: 5000 });
-      return true;
-    } catch {
-      return false;
-    }
+    return checkCliAvailable("codex");
   }
 
   getInfo(): { name: string; version?: string; model?: string } {

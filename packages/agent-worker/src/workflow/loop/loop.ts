@@ -414,6 +414,7 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
 import type { Backend } from "@/backends/types.ts";
 import { runMockAgent } from "./mock-runner.ts";
 import { runSdkAgent } from "./sdk-runner.ts";
+import { writeBackendMcpConfig } from "./mcp-config.ts";
 
 /**
  * Run an agent: build prompt, configure workspace, call backend.send()
@@ -446,11 +447,9 @@ async function runAgent(
   const startTime = Date.now();
 
   try {
-    // Configure workspace with MCP
-    if (backend.setWorkspace) {
-      const mcpConfig = generateWorkflowMCPConfig(ctx.mcpUrl, ctx.name);
-      backend.setWorkspace(ctx.workspaceDir, mcpConfig);
-    }
+    // Write MCP config to workspace (backend-specific format)
+    const mcpConfig = generateWorkflowMCPConfig(ctx.mcpUrl, ctx.name);
+    writeBackendMcpConfig(backend.type, ctx.workspaceDir, mcpConfig);
 
     // Build prompt from context
     const prompt = buildAgentPrompt(ctx);

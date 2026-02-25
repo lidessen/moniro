@@ -154,7 +154,7 @@ function resolveContext(
  * Resolve agent definition (load system prompt from file if needed)
  *
  * Also transforms `wakeup` and `wakeup_prompt` fields into a `ScheduleConfig`
- * object, which is the format expected by the daemon and controller layers
+ * object, which is the format expected by the daemon and loop layers
  * for setting up periodic wakeup timers.
  */
 async function resolveAgent(agent: AgentDefinition, workflowDir: string): Promise<ResolvedAgent> {
