@@ -20,7 +20,7 @@
  * ```
  */
 
-import { tool, jsonSchema } from "ai";
+import { createTool } from "./create-tool.ts";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -73,10 +73,10 @@ export function createFeedbackTool(options: FeedbackToolOptions = {}): FeedbackT
   const { onFeedback, maxEntries = 50 } = options;
   const entries: FeedbackEntry[] = [];
 
-  const feedbackTool = tool({
+  const feedbackTool = createTool({
     description:
       "Report a workflow improvement need. Use when you hit something inconvenient — a missing tool, an awkward step, or a capability you wished you had.",
-    inputSchema: jsonSchema({
+    schema: {
       type: "object",
       properties: {
         target: {
@@ -100,7 +100,7 @@ export function createFeedbackTool(options: FeedbackToolOptions = {}): FeedbackT
         },
       },
       required: ["target", "type", "description"],
-    }) as unknown as Parameters<typeof tool>[0]["inputSchema"],
+    },
     execute: async (args: Record<string, unknown>) => {
       const validTypes = ["missing", "friction", "suggestion"] as const;
       const rawType = args.type as string;
@@ -126,7 +126,7 @@ export function createFeedbackTool(options: FeedbackToolOptions = {}): FeedbackT
 
       return { recorded: true };
     },
-  } as unknown as Parameters<typeof tool>[0]);
+  });
 
   return {
     tool: feedbackTool,

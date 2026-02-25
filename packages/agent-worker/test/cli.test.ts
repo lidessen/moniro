@@ -1,162 +1,199 @@
 import { describe, test, expect } from 'bun:test'
 
-// ==================== Instance Utilities Tests (Backward Compat) ====================
-// These test deprecated APIs for backward compatibility
+// ==================== Target Identifier Tests ====================
 
 import {
-  parseAgentId,
-  buildAgentId,
-  isValidInstanceName,
-  DEFAULT_INSTANCE,
+  parseTarget,
+  buildTarget,
+  isValidName,
+  DEFAULT_WORKFLOW,
+  DEFAULT_TAG,
 } from '../src/cli/target.ts'
 
-describe('parseAgentId (backward compat)', () => {
+describe('parseTarget', () => {
   test('parses simple agent name', () => {
-    const result = parseAgentId('reviewer')
+    const result = parseTarget('reviewer')
     expect(result.agent).toBe('reviewer')
-    expect(result.instance).toBe('global') // Maps to DEFAULT_WORKFLOW
-    expect(result.full).toBe('reviewer@global') // No tag in backward compat
+    expect(result.workflow).toBe('global')
+    expect(result.tag).toBe('main')
+    expect(result.full).toBe('reviewer@global:main')
   })
 
-  test('parses agent@instance format', () => {
-    const result = parseAgentId('reviewer@pr-123')
+  test('parses agent@workflow format', () => {
+    const result = parseTarget('reviewer@pr-123')
     expect(result.agent).toBe('reviewer')
-    expect(result.instance).toBe('pr-123') // Instance maps to workflow
-    expect(result.full).toBe('reviewer@pr-123')
+    expect(result.workflow).toBe('pr-123')
+    expect(result.tag).toBe('main')
   })
 
-  test('handles explicit global instance', () => {
-    const result = parseAgentId('assistant@global')
+  test('handles explicit global workflow', () => {
+    const result = parseTarget('assistant@global')
     expect(result.agent).toBe('assistant')
-    expect(result.instance).toBe('global')
-    expect(result.full).toBe('assistant@global')
+    expect(result.workflow).toBe('global')
   })
 
-  test('handles empty instance after @', () => {
-    const result = parseAgentId('agent@')
+  test('handles empty workflow after @', () => {
+    const result = parseTarget('agent@')
     expect(result.agent).toBe('agent')
-    expect(result.instance).toBe('global')
-    expect(result.full).toBe('agent@global')
+    expect(result.workflow).toBe('global')
   })
 
   test('handles multiple @ symbols', () => {
-    const result = parseAgentId('agent@instance@extra')
+    const result = parseTarget('agent@instance@extra')
     expect(result.agent).toBe('agent')
-    expect(result.instance).toBe('instance@extra')
-    expect(result.full).toBe('agent@instance@extra')
+    expect(result.workflow).toBe('instance@extra')
   })
 
   test('handles hyphenated names', () => {
-    const result = parseAgentId('code-reviewer@feature-branch')
+    const result = parseTarget('code-reviewer@feature-branch')
     expect(result.agent).toBe('code-reviewer')
-    expect(result.instance).toBe('feature-branch')
+    expect(result.workflow).toBe('feature-branch')
   })
 
   test('handles underscored names', () => {
-    const result = parseAgentId('test_agent@test_instance')
+    const result = parseTarget('test_agent@test_workflow')
     expect(result.agent).toBe('test_agent')
-    expect(result.instance).toBe('test_instance')
+    expect(result.workflow).toBe('test_workflow')
   })
 
-  test('handles numeric instance', () => {
-    const result = parseAgentId('worker@123')
+  test('handles numeric workflow', () => {
+    const result = parseTarget('worker@123')
     expect(result.agent).toBe('worker')
-    expect(result.instance).toBe('123')
+    expect(result.workflow).toBe('123')
+  })
+
+  test('parses full agent@workflow:tag format', () => {
+    const result = parseTarget('reviewer@review:pr-123')
+    expect(result.agent).toBe('reviewer')
+    expect(result.workflow).toBe('review')
+    expect(result.tag).toBe('pr-123')
+    expect(result.full).toBe('reviewer@review:pr-123')
+  })
+
+  test('parses workflow-only target @workflow', () => {
+    const result = parseTarget('@review')
+    expect(result.agent).toBeUndefined()
+    expect(result.workflow).toBe('review')
+    expect(result.tag).toBe('main')
+  })
+
+  test('parses workflow-only target @workflow:tag', () => {
+    const result = parseTarget('@review:pr-123')
+    expect(result.agent).toBeUndefined()
+    expect(result.workflow).toBe('review')
+    expect(result.tag).toBe('pr-123')
   })
 })
 
-describe('buildAgentId (backward compat)', () => {
-  test('builds with explicit instance (includes tag)', () => {
-    // buildAgentId now calls buildTarget which includes tag
-    expect(buildAgentId('agent', 'prod')).toBe('agent@prod:main')
+describe('buildTarget', () => {
+  test('builds with explicit workflow', () => {
+    expect(buildTarget('agent', 'prod')).toBe('agent@prod:main')
   })
 
-  test('builds with default instance when undefined', () => {
-    expect(buildAgentId('agent', undefined)).toBe('agent@global:main')
+  test('builds with default workflow when undefined', () => {
+    expect(buildTarget('agent', undefined)).toBe('agent@global:main')
   })
 
-  test('builds with default instance when empty', () => {
-    expect(buildAgentId('agent', '')).toBe('agent@global:main')
+  test('builds with default workflow when empty', () => {
+    expect(buildTarget('agent', '')).toBe('agent@global:main')
   })
 
-  test('preserves special characters in instance', () => {
-    expect(buildAgentId('agent', 'pr-123')).toBe('agent@pr-123:main')
-    expect(buildAgentId('agent', 'feature_branch')).toBe('agent@feature_branch:main')
+  test('preserves special characters in workflow', () => {
+    expect(buildTarget('agent', 'pr-123')).toBe('agent@pr-123:main')
+    expect(buildTarget('agent', 'feature_branch')).toBe('agent@feature_branch:main')
+  })
+
+  test('builds workflow-only target (no agent)', () => {
+    expect(buildTarget(undefined, 'review', 'pr-123')).toBe('@review:pr-123')
+  })
+
+  test('builds with explicit tag', () => {
+    expect(buildTarget('agent', 'review', 'pr-123')).toBe('agent@review:pr-123')
   })
 })
 
-describe('isValidInstanceName', () => {
+describe('isValidName', () => {
   test('accepts alphanumeric', () => {
-    expect(isValidInstanceName('test123')).toBe(true)
-    expect(isValidInstanceName('ABC')).toBe(true)
-    expect(isValidInstanceName('123')).toBe(true)
+    expect(isValidName('test123')).toBe(true)
+    expect(isValidName('ABC')).toBe(true)
+    expect(isValidName('123')).toBe(true)
   })
 
   test('accepts hyphens', () => {
-    expect(isValidInstanceName('my-instance')).toBe(true)
-    expect(isValidInstanceName('pr-123')).toBe(true)
+    expect(isValidName('my-workflow')).toBe(true)
+    expect(isValidName('pr-123')).toBe(true)
   })
 
   test('accepts underscores', () => {
-    expect(isValidInstanceName('my_instance')).toBe(true)
-    expect(isValidInstanceName('test_123')).toBe(true)
+    expect(isValidName('my_workflow')).toBe(true)
+    expect(isValidName('test_123')).toBe(true)
   })
 
   test('accepts dots', () => {
-    expect(isValidInstanceName('test.instance')).toBe(true)
-    expect(isValidInstanceName('v1.2.3')).toBe(true)
+    expect(isValidName('test.workflow')).toBe(true)
+    expect(isValidName('v1.2.3')).toBe(true)
   })
 
   test('accepts mixed valid characters', () => {
-    expect(isValidInstanceName('my-test_instance-123')).toBe(true)
+    expect(isValidName('my-test_workflow-123')).toBe(true)
   })
 
   test('rejects spaces', () => {
-    expect(isValidInstanceName('my instance')).toBe(false)
+    expect(isValidName('my workflow')).toBe(false)
   })
 
   test('rejects special characters', () => {
-    expect(isValidInstanceName('test@instance')).toBe(false)
-    expect(isValidInstanceName('test/instance')).toBe(false)
-    expect(isValidInstanceName('test:instance')).toBe(false)
-    expect(isValidInstanceName('test!instance')).toBe(false)
+    expect(isValidName('test@workflow')).toBe(false)
+    expect(isValidName('test/workflow')).toBe(false)
+    expect(isValidName('test:workflow')).toBe(false)
+    expect(isValidName('test!workflow')).toBe(false)
   })
 
   test('rejects empty string', () => {
-    expect(isValidInstanceName('')).toBe(false)
+    expect(isValidName('')).toBe(false)
   })
 })
 
-describe('DEFAULT_INSTANCE', () => {
-  test('is "global" (maps to DEFAULT_WORKFLOW)', () => {
-    expect(DEFAULT_INSTANCE).toBe('global')
+describe('DEFAULT_WORKFLOW', () => {
+  test('is "global"', () => {
+    expect(DEFAULT_WORKFLOW).toBe('global')
+  })
+
+  test('DEFAULT_TAG is "main"', () => {
+    expect(DEFAULT_TAG).toBe('main')
   })
 })
 
-// ==================== Integration: parseAgentId + buildAgentId ====================
-// Note: These don't roundtrip perfectly due to tag inclusion in buildAgentId
+// ==================== Integration: parseTarget + buildTarget ====================
 
-describe('parseAgentId + buildAgentId', () => {
-  test('parseAgentId extracts workflow part', () => {
-    const parsed = parseAgentId('agent@prod')
-    expect(parsed.instance).toBe('prod')
-    expect(parsed.full).toBe('agent@prod')
+describe('parseTarget + buildTarget roundtrip', () => {
+  test('parseTarget extracts workflow', () => {
+    const parsed = parseTarget('agent@prod')
+    expect(parsed.workflow).toBe('prod')
   })
 
-  test('buildAgentId includes tag', () => {
-    const built = buildAgentId('agent', 'prod')
-    expect(built).toBe('agent@prod:main') // Includes :main tag
+  test('buildTarget includes tag', () => {
+    const built = buildTarget('agent', 'prod')
+    expect(built).toBe('agent@prod:main')
   })
 
-  test('parsing built IDs extracts workflow part', () => {
-    // Build with instance -> parse -> extract instance
-    const built = buildAgentId('agent', 'instance')
-    expect(built).toBe('agent@instance:main') // Includes tag
+  test('roundtrip: build → parse → verify', () => {
+    const built = buildTarget('agent', 'review', 'pr-42')
+    expect(built).toBe('agent@review:pr-42')
 
-    const parsed = parseAgentId(built) // Parses "agent@instance:main"
+    const parsed = parseTarget(built)
     expect(parsed.agent).toBe('agent')
-    // parseAgentId extracts workflow part only (not tag)
-    expect(parsed.instance).toBe('instance')
-    expect(parsed.full).toBe('agent@instance') // No tag in backward compat format
+    expect(parsed.workflow).toBe('review')
+    expect(parsed.tag).toBe('pr-42')
+  })
+
+  test('roundtrip with defaults: build → parse → verify', () => {
+    const built = buildTarget('worker')
+    expect(built).toBe('worker@global:main')
+
+    const parsed = parseTarget(built)
+    expect(parsed.agent).toBe('worker')
+    expect(parsed.workflow).toBe('global')
+    expect(parsed.tag).toBe('main')
   })
 })

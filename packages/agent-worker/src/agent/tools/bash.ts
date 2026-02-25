@@ -5,7 +5,7 @@
  */
 
 import { createBashTool, type CreateBashToolOptions, type BashToolkit } from "bash-tool";
-import { tool, jsonSchema } from "ai";
+import { createTool } from "./create-tool.ts";
 
 export type { CreateBashToolOptions, BashToolkit };
 export { createBashTool };
@@ -49,10 +49,10 @@ export async function createBashTools(
 
   const tools: Record<string, unknown> = {};
 
-  tools.bash = tool({
+  tools.bash = createTool({
     description:
       "Execute bash commands in a sandboxed environment. Returns stdout, stderr, and exit code.",
-    inputSchema: jsonSchema({
+    schema: {
       type: "object",
       properties: {
         command: {
@@ -61,7 +61,7 @@ export async function createBashTools(
         },
       },
       required: ["command"],
-    }) as unknown as Parameters<typeof tool>[0]["inputSchema"],
+    },
     execute: async (args: Record<string, unknown>) => {
       const bashTool = toolkit.tools.bash;
       if (!bashTool?.execute) {
@@ -69,12 +69,12 @@ export async function createBashTools(
       }
       return bashTool.execute(args as { command: string }, {} as never);
     },
-  } as unknown as Parameters<typeof tool>[0]);
+  });
 
   if (includeReadFile) {
-    tools.readFile = tool({
+    tools.readFile = createTool({
       description: "Read the contents of a file from the sandbox filesystem.",
-      inputSchema: jsonSchema({
+      schema: {
         type: "object",
         properties: {
           path: {
@@ -83,7 +83,7 @@ export async function createBashTools(
           },
         },
         required: ["path"],
-      }) as unknown as Parameters<typeof tool>[0]["inputSchema"],
+      },
       execute: async (args: Record<string, unknown>) => {
         const readFileTool = toolkit.tools.readFile;
         if (!readFileTool?.execute) {
@@ -91,14 +91,14 @@ export async function createBashTools(
         }
         return readFileTool.execute(args as { path: string }, {} as never);
       },
-    } as unknown as Parameters<typeof tool>[0]);
+    });
   }
 
   if (includeWriteFile) {
-    tools.writeFile = tool({
+    tools.writeFile = createTool({
       description:
         "Write content to a file in the sandbox filesystem. Creates parent directories if needed.",
-      inputSchema: jsonSchema({
+      schema: {
         type: "object",
         properties: {
           path: {
@@ -111,7 +111,7 @@ export async function createBashTools(
           },
         },
         required: ["path", "content"],
-      }) as unknown as Parameters<typeof tool>[0]["inputSchema"],
+      },
       execute: async (args: Record<string, unknown>) => {
         const writeFileTool = toolkit.tools.writeFile;
         if (!writeFileTool?.execute) {
@@ -119,7 +119,7 @@ export async function createBashTools(
         }
         return writeFileTool.execute(args as { path: string; content: string }, {} as never);
       },
-    } as unknown as Parameters<typeof tool>[0]);
+    });
   }
 
   return { tools, toolkit };

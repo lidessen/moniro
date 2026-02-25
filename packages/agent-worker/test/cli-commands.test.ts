@@ -122,25 +122,25 @@ describe('Client Module', () => {
 
 // ==================== CLI Command Logic Tests ====================
 
-import { buildAgentId, parseAgentId } from '../src/cli/target.ts'
+import { buildTarget, parseTarget } from '../src/cli/target.ts'
 
 describe('CLI Command Logic', () => {
-  describe('agent ID handling', () => {
-    test('builds agent IDs with instance (includes tag)', () => {
-      const agentId = buildAgentId('reviewer', 'pr-123')
-      expect(agentId).toBe('reviewer@pr-123:main') // Now includes :main tag
+  describe('target handling', () => {
+    test('builds targets with workflow (includes tag)', () => {
+      const target = buildTarget('reviewer', 'pr-123')
+      expect(target).toBe('reviewer@pr-123:main')
 
-      const parsed = parseAgentId(agentId)
+      const parsed = parseTarget(target)
       expect(parsed.agent).toBe('reviewer')
-      expect(parsed.instance).toBe('pr-123') // Extracts workflow part only
+      expect(parsed.workflow).toBe('pr-123')
     })
 
-    test('default instance is used when not specified', () => {
-      const id = buildAgentId('worker', undefined)
-      expect(id).toBe('worker@global:main') // Now uses global:main
+    test('default workflow is used when not specified', () => {
+      const id = buildTarget('worker')
+      expect(id).toBe('worker@global:main')
 
-      const parsed = parseAgentId(id)
-      expect(parsed.instance).toBe('global') // Extracts workflow part only
+      const parsed = parseTarget(id)
+      expect(parsed.workflow).toBe('global')
     })
   })
 
@@ -242,26 +242,26 @@ describe('CLI Command Logic', () => {
 
 // ==================== Agent Instance Lifecycle Tests ====================
 
-describe('Agent Instance Lifecycle', () => {
-  test('buildAgentId handles workflow instance naming', () => {
+describe('Agent Workflow Lifecycle', () => {
+  test('buildTarget handles workflow naming', () => {
     // Simulating workflow run --tag pr-123
-    const reviewerId = buildAgentId('reviewer', 'pr-123')
-    const coderId = buildAgentId('coder', 'pr-123')
+    const reviewerId = buildTarget('reviewer', 'pr-123')
+    const coderId = buildTarget('coder', 'pr-123')
 
-    expect(reviewerId).toBe('reviewer@pr-123:main') // Includes tag
-    expect(coderId).toBe('coder@pr-123:main') // Includes tag
+    expect(reviewerId).toBe('reviewer@pr-123:main')
+    expect(coderId).toBe('coder@pr-123:main')
 
-    // All agents in same workflow instance share the instance suffix
-    const parsed1 = parseAgentId(reviewerId)
-    const parsed2 = parseAgentId(coderId)
-    expect(parsed1.instance).toBe(parsed2.instance)
+    // All agents in same workflow share the workflow suffix
+    const parsed1 = parseTarget(reviewerId)
+    const parsed2 = parseTarget(coderId)
+    expect(parsed1.workflow).toBe(parsed2.workflow)
   })
 
-  test('default instance is used when not specified', () => {
-    const id = buildAgentId('worker', undefined)
-    expect(id).toBe('worker@global:main') // Now uses global:main
+  test('default workflow is used when not specified', () => {
+    const id = buildTarget('worker')
+    expect(id).toBe('worker@global:main')
 
-    const parsed = parseAgentId(id)
-    expect(parsed.instance).toBe('global') // Extracts workflow part
+    const parsed = parseTarget(id)
+    expect(parsed.workflow).toBe('global')
   })
 })
