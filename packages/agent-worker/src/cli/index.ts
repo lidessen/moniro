@@ -10,6 +10,7 @@
 // Only suppress known SDK noise patterns — let console.error() from our own
 // CLI code through so CI failures are always visible.
 const originalStderrWrite = process.stderr.write.bind(process.stderr);
+const isDebugMode = process.argv.includes("--debug") || process.argv.includes("-d");
 
 const SDK_NOISE_PATTERNS = [
   "specificationVersion",
@@ -19,18 +20,23 @@ const SDK_NOISE_PATTERNS = [
   "ExperimentalWarning",
 ];
 
-process.stderr.write = function (chunk: string | Uint8Array, ...rest: unknown[]): boolean {
-  const isDebugMode = process.argv.includes("--debug") || process.argv.includes("-d");
+type WriteCallback = (err?: Error | null) => void;
+
+process.stderr.write = function (
+  chunk: string | Uint8Array,
+  encodingOrCb?: BufferEncoding | WriteCallback,
+  cb?: WriteCallback,
+): boolean {
+  const message = typeof chunk === "string" ? chunk : chunk.toString();
+  // Debug mode: pass everything through for troubleshooting
   if (isDebugMode) {
-    const message = typeof chunk === "string" ? chunk : chunk.toString();
-    return (originalStderrWrite as Function).call(process.stderr, message, ...rest) as boolean;
+    return originalStderrWrite(message, encodingOrCb as BufferEncoding, cb);
   }
   // Normal mode: suppress only known SDK noise, let everything else through
-  const message = typeof chunk === "string" ? chunk : chunk.toString();
   if (SDK_NOISE_PATTERNS.some((pattern) => message.includes(pattern))) {
-    return true;
+    return true; // Swallow the write — callers expect boolean from write()
   }
-  return (originalStderrWrite as Function).call(process.stderr, message, ...rest) as boolean;
+  return originalStderrWrite(message, encodingOrCb as BufferEncoding, cb);
 } as typeof process.stderr.write;
 
 import { Command } from "commander";
