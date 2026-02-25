@@ -267,6 +267,10 @@ describe('FRONTIER_MODELS', () => {
 })
 
 describe('createModel', () => {
+  // These tests verify gateway routing and need AI_GATEWAY_API_KEY to be set.
+  // Save/restore to avoid polluting other tests.
+  let savedGatewayKey: string | undefined
+
   test('throws on unknown provider', async () => {
     const { createModel } = await import('../src/agent/models.ts')
 
@@ -276,12 +280,18 @@ describe('createModel', () => {
     )
   })
 
-  test('resolves provider-only format to default model', async () => {
-    const { createModel, FRONTIER_MODELS } = await import('../src/agent/models.ts')
+  test('resolves provider-only format to default model (gateway)', async () => {
+    savedGatewayKey = process.env.AI_GATEWAY_API_KEY
+    process.env.AI_GATEWAY_API_KEY = savedGatewayKey || 'test-key'
+    try {
+      const { createModel, FRONTIER_MODELS } = await import('../src/agent/models.ts')
 
-    // Valid provider should use gateway format with first model
-    const model = createModel('openai') as any
-    expect(model.modelId).toBe(`openai/${FRONTIER_MODELS.openai[0]}`)
+      const model = createModel('openai') as any
+      expect(model.modelId).toBe(`openai/${FRONTIER_MODELS.openai[0]}`)
+    } finally {
+      if (savedGatewayKey !== undefined) process.env.AI_GATEWAY_API_KEY = savedGatewayKey
+      else delete process.env.AI_GATEWAY_API_KEY
+    }
   })
 
   test('throws on empty model name after colon', async () => {
@@ -309,29 +319,38 @@ describe('createModel', () => {
     )
   })
 
-  test('handles gateway format with slash', async () => {
-    const { createModel } = await import('../src/agent/models.ts')
+  test('handles gateway format with slash (gateway)', async () => {
+    savedGatewayKey = process.env.AI_GATEWAY_API_KEY
+    process.env.AI_GATEWAY_API_KEY = savedGatewayKey || 'test-key'
+    try {
+      const { createModel } = await import('../src/agent/models.ts')
 
-    // Gateway format should not throw (creates gateway model)
-    const model = createModel('openai/gpt-5.2') as any
-    expect(model).toBeDefined()
-    expect(model.modelId).toBe('openai/gpt-5.2')
+      const model = createModel('openai/gpt-5.2') as any
+      expect(model).toBeDefined()
+      expect(model.modelId).toBe('openai/gpt-5.2')
+    } finally {
+      if (savedGatewayKey !== undefined) process.env.AI_GATEWAY_API_KEY = savedGatewayKey
+      else delete process.env.AI_GATEWAY_API_KEY
+    }
   })
 
-  test('createModelAsync handles gateway format', async () => {
+  test('createModelAsync resolves model', async () => {
     const { createModelAsync } = await import('../src/agent/models.ts')
 
+    // Works with or without gateway — just verify we get a model back
     const model = await createModelAsync('anthropic/claude-sonnet-4-5') as any
     expect(model).toBeDefined()
-    expect(model.modelId).toBe('anthropic/claude-sonnet-4-5')
+    // Gateway returns "anthropic/claude-sonnet-4-5", direct SDK returns "claude-sonnet-4-5"
+    expect(model.modelId).toMatch(/claude-sonnet-4-5/)
   })
 
-  test('createModelAsync handles provider-only format', async () => {
+  test('createModelAsync resolves provider-only format', async () => {
     const { createModelAsync, FRONTIER_MODELS } = await import('../src/agent/models.ts')
 
     const model = await createModelAsync('anthropic') as any
     expect(model).toBeDefined()
-    expect(model.modelId).toBe(`anthropic/${FRONTIER_MODELS.anthropic[0]}`)
+    // Gateway returns "anthropic/<model>", direct SDK returns just "<model>"
+    expect(model.modelId).toMatch(new RegExp(FRONTIER_MODELS.anthropic[0]!))
   })
 
   test('createModelAsync throws on unknown provider-only format', async () => {
@@ -367,12 +386,19 @@ describe('createModel', () => {
     }
   })
 
-  test('all providers can be resolved via provider-only format', async () => {
-    const { createModel, SUPPORTED_PROVIDERS, FRONTIER_MODELS } = await import('../src/agent/models.ts')
+  test('all providers can be resolved via provider-only format (gateway)', async () => {
+    savedGatewayKey = process.env.AI_GATEWAY_API_KEY
+    process.env.AI_GATEWAY_API_KEY = savedGatewayKey || 'test-key'
+    try {
+      const { createModel, SUPPORTED_PROVIDERS, FRONTIER_MODELS } = await import('../src/agent/models.ts')
 
-    for (const provider of SUPPORTED_PROVIDERS) {
-      const model = createModel(provider) as any
-      expect(model.modelId).toBe(`${provider}/${FRONTIER_MODELS[provider][0]}`)
+      for (const provider of SUPPORTED_PROVIDERS) {
+        const model = createModel(provider) as any
+        expect(model.modelId).toBe(`${provider}/${FRONTIER_MODELS[provider][0]}`)
+      }
+    } finally {
+      if (savedGatewayKey !== undefined) process.env.AI_GATEWAY_API_KEY = savedGatewayKey
+      else delete process.env.AI_GATEWAY_API_KEY
     }
   })
 })

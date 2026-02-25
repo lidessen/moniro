@@ -26,48 +26,65 @@ function createTestRuntime(): RuntimeContext {
 }
 
 describe("createWiredLoop model resolution", () => {
+  // model: "auto" needs at least one provider key for resolution
+  let savedKey: string | undefined;
+
   test("resolves model: auto and passes concrete model to loop agent", () => {
-    const agent: ResolvedAgent = {
-      model: "auto",
-      system_prompt: "test",
-      resolvedSystemPrompt: "test",
-    };
+    savedKey = process.env.AI_GATEWAY_API_KEY;
+    process.env.AI_GATEWAY_API_KEY = savedKey || "test-key";
+    try {
+      const agent: ResolvedAgent = {
+        model: "auto",
+        system_prompt: "test",
+        resolvedSystemPrompt: "test",
+      };
 
-    const { loop } = createWiredLoop({
-      name: "test-agent",
-      agent,
-      runtime: createTestRuntime(),
-      createBackend: () => ({
-        type: "default",
-        send: async () => ({ content: "ok" }),
-      }),
-    });
+      const { loop } = createWiredLoop({
+        name: "test-agent",
+        agent,
+        runtime: createTestRuntime(),
+        createBackend: () => ({
+          type: "default",
+          send: async () => ({ content: "ok" }),
+        }),
+      });
 
-    // The loop should exist and be stoppable
-    expect(loop).toBeDefined();
-    expect(loop.name).toBe("test-agent");
-    expect(loop.state).toBe("stopped");
+      // The loop should exist and be stoppable
+      expect(loop).toBeDefined();
+      expect(loop.name).toBe("test-agent");
+      expect(loop.state).toBe("stopped");
+    } finally {
+      if (savedKey !== undefined) process.env.AI_GATEWAY_API_KEY = savedKey;
+      else delete process.env.AI_GATEWAY_API_KEY;
+    }
   });
 
   test("model: auto does not mutate the original agent object", () => {
-    const agent: ResolvedAgent = {
-      model: "auto",
-      system_prompt: "test",
-      resolvedSystemPrompt: "test",
-    };
+    savedKey = process.env.AI_GATEWAY_API_KEY;
+    process.env.AI_GATEWAY_API_KEY = savedKey || "test-key";
+    try {
+      const agent: ResolvedAgent = {
+        model: "auto",
+        system_prompt: "test",
+        resolvedSystemPrompt: "test",
+      };
 
-    createWiredLoop({
-      name: "test-agent",
-      agent,
-      runtime: createTestRuntime(),
-      createBackend: () => ({
-        type: "default",
-        send: async () => ({ content: "ok" }),
-      }),
-    });
+      createWiredLoop({
+        name: "test-agent",
+        agent,
+        runtime: createTestRuntime(),
+        createBackend: () => ({
+          type: "default",
+          send: async () => ({ content: "ok" }),
+        }),
+      });
 
-    // Original agent should NOT be mutated
-    expect(agent.model).toBe("auto");
+      // Original agent should NOT be mutated
+      expect(agent.model).toBe("auto");
+    } finally {
+      if (savedKey !== undefined) process.env.AI_GATEWAY_API_KEY = savedKey;
+      else delete process.env.AI_GATEWAY_API_KEY;
+    }
   });
 
   test("non-auto model passes through unchanged", () => {
