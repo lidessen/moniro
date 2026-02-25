@@ -7,6 +7,7 @@
  * - ${{ workflow.name }} - workflow name
  * - ${{ workflow.tag }} - workflow instance tag
  * - ${{ params.name }} - workflow parameter value
+ * - ${{ source.dir }} - source directory (repo root for remote, workflow dir for local)
  */
 
 export interface VariableContext {
@@ -15,7 +16,8 @@ export interface VariableContext {
     | string
     | undefined
     | Record<string, string | undefined>
-    | { name: string; tag: string };
+    | { name: string; tag: string }
+    | { dir: string };
 
   /** Environment variables (accessed via env.VAR) */
   env?: Record<string, string | undefined>;
@@ -29,6 +31,12 @@ export interface VariableContext {
 
   /** Workflow parameter values (accessed via params.NAME) */
   params?: Record<string, string | undefined>;
+
+  /** Source directory info */
+  source?: {
+    /** Absolute path to source root (repo root for remote, workflow dir for local) */
+    dir: string;
+  };
 }
 
 const VARIABLE_PATTERN = /\$\{\{\s*([^}]+)\s*\}\}/g;
@@ -72,6 +80,13 @@ function resolveExpression(expression: string, context: VariableContext): string
     const field = expression.slice(9);
     if (field === "name") return context.workflow?.name;
     if (field === "tag") return context.workflow?.tag;
+    return undefined;
+  }
+
+  // Handle source.dir
+  if (expression.startsWith("source.")) {
+    const field = expression.slice(7);
+    if (field === "dir") return context.source?.dir;
     return undefined;
   }
 
@@ -174,6 +189,7 @@ export function createContext(
   tag: string,
   taskOutputs: Record<string, string> = {},
   params?: Record<string, string>,
+  sourceDir?: string,
 ): VariableContext {
   return {
     ...taskOutputs,
@@ -183,5 +199,6 @@ export function createContext(
       tag,
     },
     params,
+    source: sourceDir ? { dir: sourceDir } : undefined,
   };
 }
