@@ -21,8 +21,15 @@ Examples:
   $ agent-worker run review.yaml --json | jq .document  # Machine-readable output
   $ agent-worker run review.yaml --target main -n 3     # With workflow params
 
+Remote workflows (github:owner/repo@ref/path):
+  $ agent-worker run github:acme/workflows/review.yml           # Default branch
+  $ agent-worker run github:acme/workflows@v1.0/review.yml      # Pinned version
+  $ agent-worker run github:acme/workflows#review               # Shorthand
+  $ agent-worker run github:acme/workflows#review --target main  # With params
+
 Note: Workflow name is inferred from YAML 'name' field or filename.
       Workflow-defined params (see 'params:' in YAML) are passed as flags after the file.
+      Set GITHUB_TOKEN env var to access private repositories.
     `,
     )
     .action(async (file, options) => {

@@ -19,6 +19,7 @@ import type {
 import type { ScheduleConfig } from "../daemon/registry.ts";
 import { CONTEXT_DEFAULTS } from "./context/types.ts";
 import { resolveContextDir } from "./context/file-provider.ts";
+import { resolveSource, isRemoteSource } from "./source.ts";
 
 /**
  * Parse options
@@ -31,26 +32,29 @@ export interface ParseOptions {
 }
 
 /**
- * Parse a workflow file
+ * Parse a workflow file (local or remote).
+ *
+ * Supports:
+ *   Local:  review.yml, ./path/to/review.yml
+ *   Remote: github:owner/repo@ref/path/file.yml
+ *           github:owner/repo#name[@ref]
  */
 export async function parseWorkflowFile(
   filePath: string,
   options?: ParseOptions,
 ): Promise<ParsedWorkflow> {
-  const absolutePath = resolve(filePath);
   const workflow = options?.workflow ?? "global";
   const tag = options?.tag ?? "main";
 
-  if (!existsSync(absolutePath)) {
-    throw new Error(`Workflow file not found: ${absolutePath}`);
-  }
+  // Resolve source (local file or remote GitHub reference)
+  const source = await resolveSource(filePath);
 
-  const content = readFileSync(absolutePath, "utf-8");
-  const workflowDir = dirname(absolutePath);
+  // For context resolution: remote workflows use CWD, local use the file's directory
+  const contextBaseDir = isRemoteSource(filePath) ? process.cwd() : dirname(resolve(filePath));
 
   let raw: WorkflowFile;
   try {
-    raw = parseYaml(content) as WorkflowFile;
+    raw = parseYaml(source.content) as WorkflowFile;
   } catch (error) {
     throw new Error(
       `Failed to parse YAML: ${error instanceof Error ? error.message : String(error)}`,
@@ -64,21 +68,21 @@ export async function parseWorkflowFile(
     throw new Error(`Invalid workflow file:\n${messages}`);
   }
 
-  // Extract name from filename if not specified
-  const name = raw.name || basename(absolutePath, ".yml").replace(".yaml", "");
+  // Extract name from YAML or infer from source path
+  const name = raw.name || source.inferredName;
 
-  // Resolve agents
+  // Resolve agents (using source's file reader for system_prompt resolution)
   const agents: Record<string, ResolvedAgent> = {};
   for (const [agentName, agentDef] of Object.entries(raw.agents)) {
-    agents[agentName] = await resolveAgent(agentDef, workflowDir);
+    agents[agentName] = await resolveAgent(agentDef, source.readRelativeFile);
   }
 
   // Resolve context configuration
-  const context = resolveContext(raw.context, workflowDir, name, workflow, tag);
+  const context = resolveContext(raw.context, contextBaseDir, name, workflow, tag);
 
   return {
     name,
-    filePath: absolutePath,
+    filePath: source.displayPath,
     agents,
     context,
     params: raw.params,
@@ -151,23 +155,24 @@ function resolveContext(
 }
 
 /**
- * Resolve agent definition (load system prompt from file if needed)
+ * Resolve agent definition (load system prompt from file if needed).
  *
+ * Uses a `readRelativeFile` function to abstract local vs remote file access.
  * Also transforms `wakeup` and `wakeup_prompt` fields into a `ScheduleConfig`
  * object, which is the format expected by the daemon and loop layers
  * for setting up periodic wakeup timers.
  */
-async function resolveAgent(agent: AgentDefinition, workflowDir: string): Promise<ResolvedAgent> {
+async function resolveAgent(
+  agent: AgentDefinition,
+  readRelativeFile: (path: string) => Promise<string | null>,
+): Promise<ResolvedAgent> {
   let resolvedSystemPrompt = agent.system_prompt;
 
   // Check if system_prompt is a file path
   if (resolvedSystemPrompt?.endsWith(".txt") || resolvedSystemPrompt?.endsWith(".md")) {
-    const promptPath = resolvedSystemPrompt.startsWith("/")
-      ? resolvedSystemPrompt
-      : join(workflowDir, resolvedSystemPrompt);
-
-    if (existsSync(promptPath)) {
-      resolvedSystemPrompt = readFileSync(promptPath, "utf-8");
+    const content = await readRelativeFile(resolvedSystemPrompt);
+    if (content !== null) {
+      resolvedSystemPrompt = content;
     }
     // If file doesn't exist, use as-is (might be intentional literal)
   }
