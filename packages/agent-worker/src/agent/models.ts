@@ -281,3 +281,172 @@ export const FRONTIER_MODELS = {
   mistral: ["mistral-large-latest", "pixtral-large-latest", "magistral-medium-2506"],
   xai: ["grok-4", "grok-4-fast-reasoning"],
 } as const;
+
+// ==================== Provider Auto-Discovery ====================
+
+/**
+ * Environment variable that each provider uses for authentication.
+ * Ordered by priority — first match wins during auto-discovery.
+ *
+ * Gateway is first because it supports all providers via a single key.
+ */
+export const PROVIDER_ENV_KEYS: Record<string, string> = {
+  gateway: "AI_GATEWAY_API_KEY",
+  anthropic: "ANTHROPIC_API_KEY",
+  openai: "OPENAI_API_KEY",
+  deepseek: "DEEPSEEK_API_KEY",
+  google: "GOOGLE_GENERATIVE_AI_API_KEY",
+  groq: "GROQ_API_KEY",
+  mistral: "MISTRAL_API_KEY",
+  xai: "XAI_API_KEY",
+};
+
+/** Provider discovery priority order */
+const DISCOVERY_ORDER = [
+  "gateway",
+  "anthropic",
+  "openai",
+  "deepseek",
+  "google",
+  "groq",
+  "mistral",
+  "xai",
+] as const;
+
+/**
+ * Reverse map: model name → provider name.
+ * Built from FRONTIER_MODELS so "deepseek-chat" → "deepseek", etc.
+ */
+const MODEL_TO_PROVIDER: Record<string, string> = {};
+for (const [provider, models] of Object.entries(FRONTIER_MODELS)) {
+  for (const model of models) {
+    // Strip provider prefix for models like "meta-llama/llama-..."
+    const shortName = model.includes("/") ? model.split("/").pop()! : model;
+    MODEL_TO_PROVIDER[model] = provider;
+    if (shortName !== model) {
+      MODEL_TO_PROVIDER[shortName] = provider;
+    }
+  }
+}
+
+/** Result of provider auto-discovery */
+export interface DiscoveredProvider {
+  /** Provider name (e.g. "anthropic", "deepseek") */
+  provider: string;
+  /** Model identifier in gateway format (e.g. "anthropic/claude-sonnet-4-5") */
+  model: string;
+}
+
+/** Options for provider discovery */
+export interface DiscoverOptions {
+  /** Preferred model — try its provider first */
+  preferredModel?: string;
+  /** Environment to scan (defaults to process.env). Useful for testing. */
+  env?: Record<string, string | undefined>;
+}
+
+/**
+ * Discover the best available provider by scanning environment variables.
+ *
+ * @param options.preferredModel - If set, prefer the provider that owns this model.
+ *   E.g. "deepseek-chat" → prefer "deepseek" if DEEPSEEK_API_KEY is set.
+ * @param options.env - Environment to scan (defaults to process.env).
+ * @returns The discovered provider and model, or null if none available.
+ */
+export function discoverProvider(options?: DiscoverOptions): DiscoveredProvider | null {
+  const env = options?.env ?? (process.env as Record<string, string | undefined>);
+  const preferredModel = options?.preferredModel;
+
+  // AGENT_MODEL env var overrides everything
+  const envModel = env.AGENT_MODEL;
+
+  // If a preferred model is given, try its provider first
+  if (preferredModel && preferredModel !== "auto") {
+    const ownerProvider = MODEL_TO_PROVIDER[preferredModel];
+    if (ownerProvider) {
+      const envKey = PROVIDER_ENV_KEYS[ownerProvider];
+      if (envKey && env[envKey]) {
+        const model = envModel || preferredModel;
+        return {
+          provider: ownerProvider,
+          model: model.includes("/") ? model : `${ownerProvider}/${model}`,
+        };
+      }
+    }
+  }
+
+  // Scan providers in priority order
+  for (const provider of DISCOVERY_ORDER) {
+    const envKey = PROVIDER_ENV_KEYS[provider]!;
+    if (!env[envKey]) continue;
+
+    // Gateway supports all providers — use the preferred model or default
+    if (provider === "gateway") {
+      if (envModel) {
+        const modelStr = envModel.includes("/") ? envModel : `anthropic/${envModel}`;
+        return { provider: "gateway", model: modelStr };
+      }
+      if (preferredModel && preferredModel !== "auto") {
+        const ownerProvider = MODEL_TO_PROVIDER[preferredModel] || "anthropic";
+        return { provider: "gateway", model: `${ownerProvider}/${preferredModel}` };
+      }
+      // Default: anthropic via gateway
+      return { provider: "gateway", model: getDefaultModel() };
+    }
+
+    // Direct provider — use frontier model or provider name as fallback
+    // (createModel("deepseek") auto-resolves via FRONTIER_MODELS lookup)
+    const frontierModels = FRONTIER_MODELS[provider as keyof typeof FRONTIER_MODELS];
+    const defaultModel = frontierModels?.[0];
+    const model = envModel || defaultModel;
+
+    return {
+      provider,
+      model: model ? (model.includes("/") ? model : `${provider}/${model}`) : provider,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Check if a value is the "auto" sentinel.
+ */
+export function isAutoProvider(value: unknown): boolean {
+  return value === "auto";
+}
+
+/**
+ * Resolve "auto" provider/model to concrete values.
+ * Call this before backend creation to replace "auto" with real provider+model.
+ *
+ * @returns Resolved { model, provider } — never contains "auto".
+ * @throws if auto-discovery finds no available provider.
+ */
+export function resolveAutoModel(config: {
+  model?: string;
+  provider?: string;
+  /** Environment to scan (defaults to process.env). Useful for testing. */
+  env?: Record<string, string | undefined>;
+}): { model: string; provider?: string } {
+  const isModelAuto = config.model === "auto";
+  const isProviderAuto = config.provider === "auto";
+
+  // Nothing to auto-resolve
+  if (!isModelAuto && !isProviderAuto) {
+    return { model: config.model!, provider: config.provider };
+  }
+
+  // Preferred model hint (if model is set but provider is auto)
+  const preferredModel = !isModelAuto ? config.model : undefined;
+
+  const discovered = discoverProvider({ preferredModel, env: config.env });
+  if (!discovered) {
+    const envVars = Object.values(PROVIDER_ENV_KEYS).join(", ");
+    throw new Error(
+      `No provider available for auto-discovery. Set one of: ${envVars}`,
+    );
+  }
+
+  return { model: discovered.model, provider: undefined };
+}
