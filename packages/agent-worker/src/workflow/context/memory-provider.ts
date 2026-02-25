@@ -1,15 +1,20 @@
 /**
  * Memory Context Provider
- * Extends ContextProviderImpl with MemoryStorage for testing.
+ * Composes default stores with MemoryStorage for testing.
  */
 
 import type { Message } from "./types.ts";
 import { ContextProviderImpl } from "./provider.ts";
 import { MemoryStorage } from "./storage.ts";
+import { DefaultChannelStore } from "./stores/channel.ts";
+import { DefaultInboxStore } from "./stores/inbox.ts";
+import { DefaultDocumentStore } from "./stores/document.ts";
+import { DefaultResourceStore } from "./stores/resource.ts";
+import { DefaultStatusStore } from "./stores/status.ts";
 
 /**
  * In-memory ContextProvider for testing.
- * All domain logic is inherited from ContextProviderImpl;
+ * All domain logic is in the composed stores;
  * this class adds test helpers for inspection and cleanup.
  */
 export class MemoryContextProvider extends ContextProviderImpl {
@@ -17,14 +22,19 @@ export class MemoryContextProvider extends ContextProviderImpl {
 
   constructor(validAgents: string[]) {
     const storage = new MemoryStorage();
-    super(storage, validAgents);
+    const channel = new DefaultChannelStore(storage, validAgents);
+    const inbox = new DefaultInboxStore(channel, storage);
+    const documents = new DefaultDocumentStore(storage);
+    const resources = new DefaultResourceStore(storage);
+    const status = new DefaultStatusStore(storage);
+    super(channel, inbox, documents, resources, status, validAgents);
     this.memoryStorage = storage;
   }
 
   // ==================== Test Helpers ====================
 
   /** Get underlying MemoryStorage (for testing) */
-  override getStorage(): MemoryStorage {
+  getStorage(): MemoryStorage {
     return this.memoryStorage;
   }
 
