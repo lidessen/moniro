@@ -78,7 +78,8 @@ export interface AgentDefinition {
   backend?: "default" | "claude" | "cursor" | "codex" | "opencode" | "mock";
 
   /** Model identifier. When provider is set, this is just the model name (e.g., 'MiniMax-M2.5').
-   *  Without provider, uses existing formats: 'provider/model', 'provider:model', or 'provider'. */
+   *  Without provider, uses existing formats: 'provider/model', 'provider:model', or 'provider'.
+   *  Use 'auto' for auto-detection from environment. */
   model?: string;
 
   /**

@@ -32,7 +32,7 @@ import type { StreamParserCallbacks } from "../backends/stream-json.ts";
 import { createAgentLoop } from "./loop/loop.ts";
 import { getBackendByType, getBackendForModel } from "./loop/backend.ts";
 import type { AgentLoop } from "./loop/types.ts";
-import { isAutoProvider, resolveAutoModel } from "../agent/models.ts";
+import { isAutoProvider, resolveModelFallback } from "../agent/models.ts";
 import type { Logger } from "./logger.ts";
 import { createSilentLogger } from "./logger.ts";
 import type { FeedbackEntry } from "../agent/tools/feedback.ts";
@@ -265,17 +265,19 @@ export function createWiredLoop(config: WiredLoopConfig): WiredLoopResult {
     mcpToolNames: runtime.mcpToolNames,
   };
 
-  // Resolve "auto" provider/model before backend creation
-  let effectiveModel = agent.model;
+  // Resolve "auto" / fallback chain (AGENT_MODEL env) before backend creation
+  let effectiveModel: string | undefined;
   let effectiveProvider = agent.provider;
   if (isAutoProvider(agent.model) || isAutoProvider(agent.provider)) {
-    const resolved = resolveAutoModel({
+    const resolved = resolveModelFallback({
       model: agent.model,
       provider: typeof agent.provider === "string" ? agent.provider : undefined,
     });
     effectiveModel = resolved.model;
     effectiveProvider = resolved.provider;
-    logger.info(`Auto-discovered: model=${effectiveModel}`);
+    logger.info(`Model resolved: ${effectiveModel}`);
+  } else {
+    effectiveModel = agent.model;
   }
 
   // Resolve backend (workspace passed so CLI backends use it as cwd)
