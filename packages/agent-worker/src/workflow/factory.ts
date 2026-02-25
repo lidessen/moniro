@@ -304,10 +304,17 @@ export function createWiredLoop(config: WiredLoopConfig): WiredLoopResult {
     throw new Error(`Agent "${name}" requires either a backend or model field`);
   }
 
+  // Pass resolved model/provider to the loop so SDK runner uses the concrete
+  // model instead of the raw "auto" value from the workflow YAML.
+  const resolvedAgent: ResolvedAgent =
+    effectiveModel !== agent.model || effectiveProvider !== agent.provider
+      ? { ...agent, model: effectiveModel, provider: effectiveProvider }
+      : agent;
+
   // Create the loop
   const loop = createAgentLoop({
     name,
-    agent,
+    agent: resolvedAgent,
     contextProvider: runtime.contextProvider,
     eventLog: runtime.eventLog,
     mcpUrl: runtime.mcpUrl,
