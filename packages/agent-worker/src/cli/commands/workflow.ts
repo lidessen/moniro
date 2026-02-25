@@ -12,6 +12,7 @@ export function registerWorkflowCommands(program: Command) {
     .option("--feedback", "Enable feedback tool (agents can report tool/workflow observations)")
     .option("--json", "Output results as JSON")
     .allowUnknownOption() // Workflow params are parsed separately
+    .allowExcessArguments() // Unknown option values appear as excess args
     .addHelpText(
       "after",
       `
@@ -164,6 +165,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename.
     .option("--feedback", "Enable feedback tool (agents can report tool/workflow observations)")
     .option("--json", "Output as JSON")
     .allowUnknownOption() // Workflow params are parsed separately
+    .allowExcessArguments() // Unknown option values appear as excess args
     .addHelpText(
       "after",
       `
