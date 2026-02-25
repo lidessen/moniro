@@ -329,7 +329,16 @@ function validateSetupTask(path: string, task: unknown, errors: ValidationError[
   if (t.as !== undefined && typeof t.as !== "string") {
     errors.push({ path: `${path}.as`, message: 'Setup task "as" field must be a string' });
   }
+
+  if (typeof t.as === "string" && RESERVED_NAMESPACES.includes(t.as)) {
+    errors.push({
+      path: `${path}.as`,
+      message: `"${t.as}" is a reserved namespace and cannot be used as a variable name`,
+    });
+  }
 }
+
+const RESERVED_NAMESPACES = ["env", "workflow", "params"];
 
 const VALID_PARAM_TYPES = ["string", "number", "boolean"];
 
