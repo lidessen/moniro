@@ -73,7 +73,7 @@ export function registerInboxTools(
         .optional()
         .describe("Agent state (running = working, idle = available)"),
       metadata: z
-        .record(z.unknown())
+        .record(z.string(), z.unknown())
         .optional()
         .describe("Additional metadata (e.g., PR number, file path)"),
     },
