@@ -172,9 +172,8 @@ Note: Workflow name is inferred from YAML 'name' field or filename
     `,
     )
     .action(async (file, options, command) => {
-      const { parseWorkflowFile, parseWorkflowParams, formatParamHelp } = await import(
-        "@/workflow/index.ts"
-      );
+      const { parseWorkflowFile, parseWorkflowParams, formatParamHelp } =
+        await import("@/workflow/index.ts");
       const { ensureDaemon } = await import("./agent.ts");
 
       const tag = options.tag || DEFAULT_TAG;

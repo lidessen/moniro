@@ -494,9 +494,7 @@ export interface LoopRunResult {
  * All output flows through the channel. The channel watcher (display layer)
  * filters what to show: --debug includes kind="debug" entries.
  */
-export async function runWorkflowWithLoops(
-  config: LoopRunConfig,
-): Promise<LoopRunResult> {
+export async function runWorkflowWithLoops(config: LoopRunConfig): Promise<LoopRunResult> {
   const {
     workflow,
     workflowName: workflowNameParam,
@@ -725,10 +723,7 @@ export async function runWorkflowWithLoops(
 /**
  * Gracefully shutdown all loops
  */
-export async function shutdownLoops(
-  loops: Map<string, AgentLoop>,
-  logger: Logger,
-): Promise<void> {
+export async function shutdownLoops(loops: Map<string, AgentLoop>, logger: Logger): Promise<void> {
   logger.debug("Stopping loops...");
 
   const stopPromises = [...loops.values()].map(async (loop) => {

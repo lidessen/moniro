@@ -219,10 +219,7 @@ export class ContextProviderImpl implements ContextProvider {
 
   // ==================== Agent Status ====================
 
-  setAgentStatus(
-    agent: string,
-    status: Partial<import("./types.ts").AgentStatus>,
-  ): Promise<void> {
+  setAgentStatus(agent: string, status: Partial<import("./types.ts").AgentStatus>): Promise<void> {
     return this.status.set(agent, status);
   }
 

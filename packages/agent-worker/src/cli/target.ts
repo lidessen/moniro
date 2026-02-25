@@ -189,4 +189,3 @@ export function isValidName(name: string): boolean {
 export function getWorkflowContextDir(baseDir: string, workflow: string, tag: string): string {
   return `${baseDir}/.workflow/${workflow}/${tag}`;
 }
-

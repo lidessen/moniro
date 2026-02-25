@@ -606,8 +606,7 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
       const tag = agentCfg?.tag ?? "main";
 
       // Reuse existing workflow's context provider when available
-      const existingWf =
-        findLoop(s, agentName)?.workflow ?? s.workflows.get(`${workflow}:${tag}`);
+      const existingWf = findLoop(s, agentName)?.workflow ?? s.workflows.get(`${workflow}:${tag}`);
 
       const workflowAgents = getWorkflowAgentNames(workflow, tag);
       const allNames = [...new Set([...workflowAgents, agentName, "user"])];
