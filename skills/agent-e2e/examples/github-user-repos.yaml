@@ -22,32 +22,32 @@ steps:
       - agent-browser open {{env.base_url}}/{{env.username}} --headed
       - agent-browser wait 2000
     expect:
-      - element_visible: {{role: heading, name: /Linus Torvalds/}}
-      - element_visible: {{role: link, name: /followers/}}
-      - element_visible: {{role: navigation, name: "User profile"}}
+      - element_visible: '{{role: heading, name: /Linus Torvalds/}}'
+      - element_visible: '{{role: link, name: /followers/}}'
+      - element_visible: '{{role: navigation, name: "User profile"}}'
 
   - desc: Verify profile tabs exist
     commands:
       - agent-browser snapshot --json
     expect:
-      - element_visible: {{role: link, name: /Repositories/}}
-      - element_visible: {{role: link, name: "Stars"}}
+      - element_visible: '{{role: link, name: /Repositories/}}'
+      - element_visible: '{{role: link, name: "Stars"}}'
 
   - desc: Click Repositories tab
     commands:
-      - agent-browser click {{role: link, name: /Repositories \d+/}}
+      - 'agent-browser click {{role: link, name: /Repositories \d+/}}'
       - agent-browser wait 2000
     expect:
-      - element_visible: {{role: searchbox, name: "Find a repository…"}}
-      - element_visible: {{role: heading, name: /linux Public/}}
+      - element_visible: '{{role: searchbox, name: "Find a repository…"}}'
+      - element_visible: '{{role: heading, name: /linux Public/}}'
 
   - desc: Click on linux repository
     commands:
-      - agent-browser click {{role: link, name: "linux"}}
+      - 'agent-browser click {{role: link, name: "linux"}}'
       - agent-browser wait 2000
     expect:
       - url_contains: /torvalds/linux
-      - element_visible: {{role: link, name: /star \d+/}}
+      - element_visible: '{{role: link, name: /star \d+/}}'
 
 exploration:
   status: validated

@@ -18,25 +18,25 @@ steps:
       - agent-browser open {{env.base_url}}/login --headed
       - agent-browser wait 2000
     expect:
-      - element_visible: {{role: heading, name: "Sign in to GitHub"}}
-      - element_visible: {{role: textbox, name: "Username or email address"}}
-      - element_visible: {{role: textbox, name: "Password"}}
-      - element_visible: {{role: button, name: "Sign in"}}
+      - element_visible: '{{role: heading, name: "Sign in to GitHub"}}'
+      - element_visible: '{{role: textbox, name: "Username or email address"}}'
+      - element_visible: '{{role: textbox, name: "Password"}}'
+      - element_visible: '{{role: button, name: "Sign in"}}'
 
   - desc: Fill form with invalid credentials
     commands:
-      - agent-browser fill {{role: textbox, name: "Username or email address"}} "test-invalid-user"
-      - agent-browser fill {{role: textbox, name: "Password"}} "test-invalid-pass"
+      - 'agent-browser fill {{role: textbox, name: "Username or email address"}} "test-invalid-user"'
+      - 'agent-browser fill {{role: textbox, name: "Password"}} "test-invalid-pass"'
     expect:
-      - element_visible: {{role: textbox, name: "Username or email address"}}
+      - element_visible: '{{role: textbox, name: "Username or email address"}}'
 
   - desc: Submit and verify error appears
     commands:
-      - agent-browser click {{role: button, name: "Sign in"}}
+      - 'agent-browser click {{role: button, name: "Sign in"}}'
       - agent-browser wait 3000
     expect:
       # Error message should appear
-      - element_visible: {{role: alert}}
+      - element_visible: '{{role: alert}}'
       # Or check for specific text
       - text_contains: "Incorrect username or password"
 

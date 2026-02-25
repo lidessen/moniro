@@ -22,25 +22,25 @@ steps:
       - agent-browser open {{env.base_url}}/{{env.owner}}/{{env.repo}} --headed
       - agent-browser wait 2000
     expect:
-      - element_visible: {{role: heading, name: /facebook\/react/}}
-      - element_visible: {{role: link, name: /Commits$/}}
+      - element_visible: '{{role: heading, name: /facebook\/react/}}'
+      - element_visible: '{{role: link, name: /Commits$/}}'
 
   - desc: Click commits link
     commands:
-      - agent-browser click {{role: link, name: /\d+.* Commits/}}
+      - 'agent-browser click {{role: link, name: /\d+.* Commits/}}'
       - agent-browser wait 2000
     expect:
       - url_contains: /commits
-      - element_visible: {{role: heading, name: /Commits/}}
+      - element_visible: '{{role: heading, name: /Commits/}}'
 
   - desc: Verify commit list structure
     commands:
       - agent-browser snapshot --json
     expect:
       # Each commit should have key elements
-      - element_visible: {{role: button, name: /Verified/}}
-      - element_visible: {{role: link, name: /^[a-f0-9]{7}$/}}  # SHA link
-      - element_visible: {{role: link, name: /commits by/}}     # Author
+      - element_visible: '{{role: button, name: /Verified/}}'
+      - element_visible: '{{role: link, name: /^[a-f0-9]{7}$/}}'  # SHA link
+      - element_visible: '{{role: link, name: /commits by/}}'     # Author
 
 exploration:
   status: validated

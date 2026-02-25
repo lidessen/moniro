@@ -34,18 +34,18 @@ steps:
       - agent-browser open {{env.base_url}}/{{env.repo}}/compare/{{env.branch}}
       - agent-browser wait 2000
     expect:
-      - element_visible: {{role: button, name: /Create pull request/}}
+      - element_visible: '{{role: button, name: /Create pull request/}}'
 
   - desc: Alice fills PR details
     session: alice
     commands:
-      - agent-browser fill {{role: textbox, name: "Title"}} "Add new feature"
-      - agent-browser click {{role: button, name: "Create pull request"}}
+      - 'agent-browser fill {{role: textbox, name: "Title"}} "Add new feature"'
+      - 'agent-browser click {{role: button, name: "Create pull request"}}'
       - agent-browser wait 3000
     expect:
       - url_contains: /pull/
     extract:
-      from: {{role: link, name: /#\d+/}}
+      from: '{{role: link, name: /#\d+/}}'
       pattern: "#(\\d+)"
       save_as: pr_number
 
@@ -56,19 +56,19 @@ steps:
       - agent-browser open {{env.base_url}}/{{env.repo}}/pull/{{ctx.pr_number}}
       - agent-browser wait 2000
     expect:
-      - element_visible: {{role: heading, name: /Add new feature/}}
-      - element_visible: {{role: button, name: /Review changes/}}
+      - element_visible: '{{role: heading, name: /Add new feature/}}'
+      - element_visible: '{{role: button, name: /Review changes/}}'
 
   - desc: Bob submits review
     session: bob
     commands:
-      - agent-browser click {{role: button, name: /Review changes/}}
+      - 'agent-browser click {{role: button, name: /Review changes/}}'
       - agent-browser wait 1000
-      - agent-browser fill {{role: textbox, name: /Leave a comment/}} "LGTM!"
-      - agent-browser click {{role: button, name: "Approve"}}
-      - agent-browser click {{role: button, name: "Submit review"}}
+      - 'agent-browser fill {{role: textbox, name: /Leave a comment/}} "LGTM!"'
+      - 'agent-browser click {{role: button, name: "Approve"}}'
+      - 'agent-browser click {{role: button, name: "Submit review"}}'
     expect:
-      - element_visible: {{role: heading, name: /approved/i}}
+      - element_visible: '{{role: heading, name: /approved/i}}'
 
 exploration:
   status: draft
