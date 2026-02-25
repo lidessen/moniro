@@ -32,6 +32,6 @@
     "noPropertyAccessFromIndexSignature": false,
     "preserveSymlinks": true
   },
-  "include": ["src", "test"],
+  "include": ["src"],
   "exclude": ["dist"]
 }

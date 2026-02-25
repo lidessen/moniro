@@ -27,7 +27,7 @@ export interface ServeOptions {
  * Auto-detects runtime: Bun.serve() when available, @hono/node-server otherwise.
  */
 export async function startHttpServer(app: Hono, options: ServeOptions): Promise<ServerHandle> {
-  if (typeof globalThis.Bun !== "undefined") {
+  if ("Bun" in globalThis) {
     return startBun(app, options);
   }
   return startNode(app, options);
@@ -36,7 +36,9 @@ export async function startHttpServer(app: Hono, options: ServeOptions): Promise
 // ── Bun ──────────────────────────────────────────────────────────
 
 function startBun(app: Hono, options: ServeOptions): ServerHandle {
-  const server = Bun.serve({
+  // Use dynamic access to avoid requiring @types/bun at type-check time
+  const BunRuntime = (globalThis as Record<string, any>).Bun;
+  const server = BunRuntime.serve({
     fetch: app.fetch,
     port: options.port,
     hostname: options.hostname,
