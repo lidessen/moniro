@@ -1,6 +1,6 @@
 /**
  * File Context Provider
- * Thin wrapper around ContextProviderImpl + FileStorage.
+ * Composes default stores with FileStorage backend.
  * Includes instance lock to prevent concurrent access to the same context directory.
  */
 
@@ -10,6 +10,11 @@ import { homedir } from "node:os";
 import { ContextProviderImpl } from "./provider.ts";
 import { FileStorage } from "./storage.ts";
 import { CONTEXT_DEFAULTS } from "./types.ts";
+import { DefaultChannelStore } from "./stores/channel.ts";
+import { DefaultInboxStore } from "./stores/inbox.ts";
+import { DefaultDocumentStore } from "./stores/document.ts";
+import { DefaultResourceStore } from "./stores/resource.ts";
+import { DefaultStatusStore } from "./stores/status.ts";
 
 /** Lock file name within context directory */
 const LOCK_FILE = "_state/instance.lock";
@@ -22,8 +27,7 @@ interface LockInfo {
 
 /**
  * File-based ContextProvider.
- * All domain logic is in ContextProviderImpl;
- * FileStorage handles I/O.
+ * Creates default stores backed by a shared FileStorage.
  *
  * Adds instance locking: only one process can hold the lock at a time.
  * Stale locks (from crashed processes) are automatically cleaned up.
@@ -36,7 +40,12 @@ export class FileContextProvider extends ContextProviderImpl {
     validAgents: string[],
     private contextDir: string,
   ) {
-    super(storage, validAgents);
+    const channel = new DefaultChannelStore(storage, validAgents);
+    const inbox = new DefaultInboxStore(channel, storage);
+    const documents = new DefaultDocumentStore(storage);
+    const resources = new DefaultResourceStore(storage);
+    const status = new DefaultStatusStore(storage);
+    super(channel, inbox, documents, resources, status, validAgents);
     this.lockPath = join(contextDir, LOCK_FILE);
   }
 
