@@ -33,7 +33,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename.
       Set GITHUB_TOKEN env var to access private repositories.
     `,
     )
-    .action(async (file, options) => {
+    .action(async function (this: Command, file, options) {
       const { parseWorkflowFile, parseWorkflowParams, formatParamHelp, runWorkflowWithLoops } =
         await import("@/workflow/index.ts");
 
@@ -48,7 +48,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename.
       // Parse workflow-specific params from remaining CLI args
       let params: Record<string, string> | undefined;
       if (parsedWorkflow.params && parsedWorkflow.params.length > 0) {
-        const extraArgs = collectUnknownArgs();
+        const extraArgs = collectUnknownArgs(this);
         try {
           params = parseWorkflowParams(parsedWorkflow.params, extraArgs);
         } catch (error) {
@@ -180,7 +180,7 @@ Workflow runs inside the daemon. Use ls/stop to manage:
 Note: Workflow name is inferred from YAML 'name' field or filename
     `,
     )
-    .action(async (file, options) => {
+    .action(async function (this: Command, file, options) {
       const { parseWorkflowFile, parseWorkflowParams, formatParamHelp } =
         await import("@/workflow/index.ts");
       const { ensureDaemon } = await import("./agent.ts");
@@ -194,7 +194,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename
       // Parse workflow-specific params from remaining CLI args
       let params: Record<string, string> | undefined;
       if (parsedWorkflow.params && parsedWorkflow.params.length > 0) {
-        const extraArgs = collectUnknownArgs();
+        const extraArgs = collectUnknownArgs(this);
         try {
           params = parseWorkflowParams(parsedWorkflow.params, extraArgs);
         } catch (error) {
@@ -257,14 +257,22 @@ Note: Workflow name is inferred from YAML 'name' field or filename
 /**
  * Collect unknown options from a Commander command.
  * Commander stores unknown args when allowUnknownOption() is enabled.
- * We filter out the known options so only workflow params remain.
+ * We filter out the command's own options so only workflow params remain.
+ *
+ * Known flags are derived dynamically from the command's option definitions,
+ * so run/start (which have different options) each filter correctly.
  */
-function collectUnknownArgs(): string[] {
-  // Commander exposes parsed args via .args for positionals
-  // and via .parseOptions() result. The simplest: use process.argv
-  // and strip everything before/including the file argument.
+function collectUnknownArgs(cmd: Command): string[] {
   const argv = process.argv.slice(2); // skip node + script
-  const knownFlags = new Set(["--tag", "-d", "--debug", "--feedback", "--json"]);
+
+  // Build known flags and which ones take a value from the command's options
+  const knownBooleanFlags = new Set<string>();
+  const knownValueFlags = new Set<string>();
+  for (const opt of cmd.options) {
+    const target = opt.required || opt.optional ? knownValueFlags : knownBooleanFlags;
+    if (opt.short) target.add(opt.short);
+    if (opt.long) target.add(opt.long);
+  }
 
   // Find the file argument position (first arg not starting with -)
   let fileIdx = -1;
@@ -287,10 +295,10 @@ function collectUnknownArgs(): string[] {
   let i = 0;
   while (i < afterFile.length) {
     const arg = afterFile[i]!;
-    if (knownFlags.has(arg)) {
-      // --tag takes a value, others are boolean
-      if (arg === "--tag") i += 2;
-      else i++;
+    if (knownValueFlags.has(arg)) {
+      i += 2; // skip flag + its value
+    } else if (knownBooleanFlags.has(arg)) {
+      i++; // skip boolean flag
     } else {
       result.push(arg);
       i++;
