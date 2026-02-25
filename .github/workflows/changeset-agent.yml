@@ -69,7 +69,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           bun packages/agent-worker/src/cli/index.ts run workflows/changeset.yml \
-            --guidelines "This project is in 0.x development (pre-1.0). During 0.x: ALWAYS use minor for breaking changes (NOT major). This keeps versions in 0.x range."
+            -- --guidelines "This project is in 0.x development (pre-1.0). During 0.x: ALWAYS use minor for breaking changes (NOT major). This keeps versions in 0.x range."
 
       - name: Check result
         id: result
