@@ -154,16 +154,12 @@ export function resolveContextDir(
  * Shorthand for the common case.
  * @param workflow Workflow name (defaults to "global")
  * @param tag Workflow instance tag (defaults to "main")
- * @param instanceOrWorkflowName (deprecated) Legacy parameter for backward compatibility
  */
 export function getDefaultContextDir(
   workflow?: string,
   tag?: string,
-  instanceOrWorkflowName?: string,
 ): string {
-  // Backward compatibility: if called with old signature (instance, workflowName)
-  // First param could be instance (old usage) or workflow (new usage)
-  const wf = workflow ?? instanceOrWorkflowName ?? "global";
+  const wf = workflow ?? "global";
   const t = tag ?? "main";
 
   return resolveContextDir(CONTEXT_DEFAULTS.dir, {

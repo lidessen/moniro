@@ -14,6 +14,9 @@
  * - TodoWrite: Manage todos
  */
 
+// Tool creation utility (centralizes AI SDK type casts)
+export { createTool } from "./create-tool.ts";
+
 // Skills tool
 export { createSkillsTool } from "./skills.ts";
 
