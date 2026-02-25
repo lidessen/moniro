@@ -1,6 +1,28 @@
+# Generic changeset analyzer workflow
+#
+# Analyzes merged PRs and outputs /tmp/changeset-result.json for CI to consume.
+# Works with any monorepo that uses @changesets/cli.
+#
+# Usage:
+#   Local:  agent-worker run workflows/changeset.yml
+#   Remote: agent-worker run github:lidessen/moniro#changeset
+#
+# Required env vars:
+#   PR_NUMBER          - Pull request number to analyze
+#   GITHUB_REPOSITORY  - owner/repo (e.g. "lidessen/moniro")
+#   GH_TOKEN           - GitHub token (for gh CLI)
+#
+# Optional params:
+#   --guidelines       - Project-specific version bump rules
+
+params:
+  - name: guidelines
+    description: Project-specific version bump rules (e.g. "use minor for breaking changes during 0.x")
+    default: ""
+
 agents:
   changeset_analyzer:
-    model: deepseek:deepseek-chat
+    model: auto
     system_prompt: |
       You are a changeset analyzer for a monorepo using changesets.
       You analyze merged PRs and determine which packages need version bumps.
@@ -10,11 +32,6 @@ agents:
       - patch: bug fixes, documentation updates, internal refactors
       - minor: new features, new exports (backward compatible)
       - major: breaking changes, removed APIs, changed behavior
-
-      **IMPORTANT - 0.x Development Phase:**
-      - This project is in 0.x development (pre-1.0)
-      - During 0.x: ALWAYS use "minor" for breaking changes (NOT "major")
-      - This keeps versions in 0.x range (e.g., 0.4.0 -> 0.5.0, NOT 1.0.0)
 
       Look for keywords: "BREAKING", "breaking change", "feat:", "fix:", etc.
       Multiple packages can be affected by one PR.
@@ -101,6 +118,9 @@ kickoff: |
   ${{ packages }}
   ```
 
+  ## Version Guidelines
+  ${{ params.guidelines }}
+
   ## Instructions
 
   1. If `has_existing_changeset` is `true`, the PR already included a changeset. Write:
@@ -138,6 +158,5 @@ kickoff: |
   Rules:
   - The `packages` field must use exact package names from the "Available Packages" list
   - The `description` field should be a concise CHANGELOG entry (one line)
-  - Remember: during 0.x, use "minor" for breaking changes (not "major")
   - The JSON must be valid — the CI will parse it to create the changeset
   - You ONLY write JSON. The CI handles branch creation, versioning, and PR creation.
