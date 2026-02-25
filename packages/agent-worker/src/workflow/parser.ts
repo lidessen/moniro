@@ -83,6 +83,7 @@ export async function parseWorkflowFile(
   return {
     name,
     filePath: source.displayPath,
+    sourceDir: source.sourceDir,
     agents,
     context,
     params: raw.params,
@@ -319,7 +320,7 @@ function validateContext(context: unknown, errors: ValidationError[]): void {
   }
 }
 
-const RESERVED_NAMESPACES = ["env", "workflow", "params"];
+const RESERVED_NAMESPACES = ["env", "workflow", "params", "source"];
 const VALID_PARAM_TYPES = ["string", "number", "boolean"];
 
 function validateSetupTask(path: string, task: unknown, errors: ValidationError[]): void {

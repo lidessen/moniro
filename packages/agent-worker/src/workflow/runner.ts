@@ -261,7 +261,7 @@ export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> 
 
   // Run setup commands
   const setupResults: Record<string, string> = {};
-  const context = createContext(workflow.name, tag, setupResults, paramValues);
+  const context = createContext(workflow.name, tag, setupResults, paramValues, workflow.sourceDir);
 
   if (workflow.setup && workflow.setup.length > 0) {
     logger.info("Running setup...");

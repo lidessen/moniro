@@ -96,6 +96,33 @@ describe('interpolate', () => {
     expect(interpolate(template, context)).toBe('Output: result, User: testuser, Workflow: mixed')
   })
 
+  test('interpolates source.dir', () => {
+    const context: VariableContext = {
+      source: { dir: '/home/user/repos/myproject' },
+    }
+    expect(interpolate('Path: ${{ source.dir }}', context)).toBe('Path: /home/user/repos/myproject')
+  })
+
+  test('handles missing source.dir gracefully', () => {
+    const context: VariableContext = {}
+    expect(interpolate('${{ source.dir }}', context)).toBe('${{ source.dir }}')
+  })
+
+  test('handles unknown source fields', () => {
+    const context: VariableContext = {
+      source: { dir: '/tmp' },
+    }
+    expect(interpolate('${{ source.unknown }}', context)).toBe('${{ source.unknown }}')
+  })
+
+  test('source.dir coexists with other variables', () => {
+    const context: VariableContext = {
+      source: { dir: '/repo' },
+      params: { file: 'config.yml' },
+    }
+    expect(interpolate('${{ source.dir }}/${{ params.file }}', context)).toBe('/repo/config.yml')
+  })
+
   test('returns original string if no variables', () => {
     const context: VariableContext = { name: 'test' }
     expect(interpolate('Hello world', context)).toBe('Hello world')
@@ -239,6 +266,16 @@ describe('createContext', () => {
   test('params are undefined when not provided', () => {
     const context = createContext('test', 'default')
     expect(context.params).toBeUndefined()
+  })
+
+  test('includes source.dir when provided', () => {
+    const context = createContext('test', 'default', {}, undefined, '/repo/root')
+    expect(context.source?.dir).toBe('/repo/root')
+  })
+
+  test('source is undefined when not provided', () => {
+    const context = createContext('test', 'default')
+    expect(context.source).toBeUndefined()
   })
 })
 
@@ -578,6 +615,7 @@ kickoff: "@assistant start working"
 
     const workflow = await parseWorkflowFile(workflowPath)
     expect(workflow.name).toBe('test-workflow')
+    expect(workflow.sourceDir).toBe(testDir)
     expect(workflow.agents.assistant).toBeDefined()
     expect(workflow.agents.assistant!.model).toBe('openai/gpt-5.2')
     expect(workflow.kickoff).toBe('@assistant start working')
@@ -858,6 +896,7 @@ describe('runWorkflow', () => {
     const workflow: ParsedWorkflow = {
       name: 'test-workflow',
       filePath: 'test.yml',
+      sourceDir: testDir,
       agents: {
         agent1: {
           model: 'test',
@@ -895,6 +934,7 @@ describe('runWorkflow', () => {
     const workflow: ParsedWorkflow = {
       name: 'setup-test',
       filePath: 'test.yml',
+      sourceDir: testDir,
       agents: { agent1: { model: 'test', resolvedSystemPrompt: 'test' } },
       context: { provider: 'file', dir: contextDir },
       setup: [
@@ -924,6 +964,7 @@ describe('runWorkflow', () => {
     const workflow: ParsedWorkflow = {
       name: 'params-test',
       filePath: 'test.yml',
+      sourceDir: testDir,
       agents: { agent1: { model: 'test', resolvedSystemPrompt: 'test' } },
       context: { provider: 'file', dir: contextDir },
       params: [
@@ -957,6 +998,7 @@ describe('runWorkflow', () => {
     const workflow: ParsedWorkflow = {
       name: 'setup-params-test',
       filePath: 'test.yml',
+      sourceDir: testDir,
       agents: { agent1: { model: 'test', resolvedSystemPrompt: 'test' } },
       context: { provider: 'file', dir: contextDir },
       params: [{ name: 'branch', type: 'string' }],
@@ -984,6 +1026,7 @@ describe('runWorkflow', () => {
     const workflow: ParsedWorkflow = {
       name: 'setup-fail-test',
       filePath: 'test.yml',
+      sourceDir: testDir,
       agents: { agent1: { model: 'test', resolvedSystemPrompt: 'test' } },
       context: { provider: 'file', dir: contextDir },
       setup: [{ shell: 'exit 1', as: 'fail' }],
@@ -1004,6 +1047,7 @@ describe('runWorkflow', () => {
     const workflow: ParsedWorkflow = {
       name: 'no-context-test',
       filePath: 'test.yml',
+      sourceDir: testDir,
       agents: { agent1: { model: 'test', resolvedSystemPrompt: 'test' } },
       setup: [],
       // No context configured
@@ -1024,6 +1068,7 @@ describe('runWorkflow', () => {
     const workflow: ParsedWorkflow = {
       name: 'bind-test',
       filePath: 'test.yml',
+      sourceDir: testDir,
       agents: { agent1: { model: 'test', resolvedSystemPrompt: 'test' } },
       context: { provider: 'file', dir: contextDir, persistent: true },
       setup: [],
@@ -1067,6 +1112,7 @@ describe('runWorkflow', () => {
     const workflow: ParsedWorkflow = {
       name: 'ephemeral-test',
       filePath: 'test.yml',
+      sourceDir: testDir,
       agents: { agent1: { model: 'test', resolvedSystemPrompt: 'test' } },
       context: { provider: 'file', dir: contextDir },
       setup: [],

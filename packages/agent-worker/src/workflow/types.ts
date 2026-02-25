@@ -146,6 +146,14 @@ export interface SetupTask {
 export interface ParsedWorkflow {
   name: string;
   filePath: string;
+  /**
+   * Absolute path to the source root directory.
+   * - Local workflows: directory containing the workflow file
+   * - Remote workflows: root of the cloned repository
+   *
+   * Exposed as ${{ source.dir }} in workflow interpolation.
+   */
+  sourceDir: string;
   agents: Record<string, ResolvedAgent>;
 
   /** Resolved context configuration */
