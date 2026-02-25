@@ -82,7 +82,11 @@ jobs:
         env:
           COMMAND: ${{ steps.parse.outputs.command }}
         run: |
-          if [ -f ".workflows/${COMMAND}.yaml" ]; then
+          # Strip "agent-" prefix for workflows/ lookup
+          SHORT_NAME="${COMMAND#agent-}"
+          if [ -f "workflows/${SHORT_NAME}.yml" ]; then
+            echo "file=workflows/${SHORT_NAME}.yml" >> "$GITHUB_OUTPUT"
+          elif [ -f ".workflows/${COMMAND}.yaml" ]; then
             echo "file=.workflows/${COMMAND}.yaml" >> "$GITHUB_OUTPUT"
           else
             echo "file=" >> "$GITHUB_OUTPUT"
@@ -296,4 +300,4 @@ jobs:
         run: |
           gh pr comment ${{ steps.pr.outputs.pr_number }} \
             --repo ${{ github.repository }} \
-            --body "Unknown command: \`/$COMMAND\`. No workflow found at \`.workflows/${COMMAND}.yaml\`."
+            --body "Unknown command: \`/$COMMAND\`. No workflow found at \`workflows/${COMMAND#agent-}.yml\`."

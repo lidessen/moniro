@@ -1,6 +1,33 @@
+# Generic PR code review workflow
+#
+# Reviews PR diffs and outputs /tmp/review-result.json for CI to consume.
+# Supports both initial reviews and incremental re-reviews (new commits only).
+#
+# Usage:
+#   Local:  agent-worker run workflows/review.yml
+#   Remote: agent-worker run github:lidessen/moniro#review
+#
+# Required env vars:
+#   PR_NUMBER          - Pull request number to review
+#   GITHUB_REPOSITORY  - owner/repo (e.g. "lidessen/moniro")
+#   GH_TOKEN           - GitHub token (for gh CLI)
+#
+# Optional env vars (for incremental reviews):
+#   TRIGGER_TYPE       - "synchronize" for re-review, else initial
+#   BEFORE_SHA         - Previous HEAD (for incremental diff)
+#   AFTER_SHA          - New HEAD (for incremental diff)
+#
+# Optional params:
+#   --guidelines       - Project-specific review focus areas
+
+params:
+  - name: guidelines
+    description: Project-specific review guidelines or focus areas
+    default: ""
+
 agents:
   reviewer:
-    model: deepseek:deepseek-chat
+    model: auto
     system_prompt: |
       You are a precise code reviewer. You analyze diffs and produce structured JSON output.
       Focus on: bugs, security issues, logic errors, bad patterns, and notable improvements.
@@ -65,6 +92,9 @@ kickoff: |
   ```
   ${{ new_commits }}
   ```
+
+  ## Review Guidelines
+  ${{ params.guidelines }}
 
   ## Instructions
 
