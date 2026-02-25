@@ -368,7 +368,9 @@ export function discoverProvider(options?: DiscoverOptions): DiscoveredProvider 
       if (envKey && env[envKey]) {
         return {
           provider: ownerProvider,
-          model: preferredModel.includes("/") ? preferredModel : `${ownerProvider}/${preferredModel}`,
+          model: preferredModel.includes("/")
+            ? preferredModel
+            : `${ownerProvider}/${preferredModel}`,
         };
       }
     }
@@ -396,7 +398,11 @@ export function discoverProvider(options?: DiscoverOptions): DiscoveredProvider 
 
     return {
       provider,
-      model: defaultModel ? (defaultModel.includes("/") ? defaultModel : `${provider}/${defaultModel}`) : provider,
+      model: defaultModel
+        ? defaultModel.includes("/")
+          ? defaultModel
+          : `${provider}/${defaultModel}`
+        : provider,
     };
   }
 
@@ -413,10 +419,7 @@ export function isAutoProvider(value: unknown): boolean {
 /**
  * Check if a model's provider has a valid API key in the environment.
  */
-function isModelAvailable(
-  model: string,
-  env: Record<string, string | undefined>,
-): boolean {
+function isModelAvailable(model: string, env: Record<string, string | undefined>): boolean {
   // "auto" is always "available" — it will be resolved later
   if (model === "auto") return true;
 
@@ -486,7 +489,10 @@ export function resolveModelFallback(config: {
 
   // Build preference list: env var entries → implicit full discovery
   const preferences = autoModel
-    ? autoModel.split(",").map((s) => s.trim()).filter(Boolean)
+    ? autoModel
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
     : [];
 
   // Try each preference in order
@@ -516,12 +522,8 @@ export function resolveModelFallback(config: {
 
   // Nothing available
   const envVars = Object.values(PROVIDER_ENV_KEYS).join(", ");
-  const hint = preferences.length > 0
-    ? `Tried: ${preferences.join(", ")}. `
-    : "";
-  throw new Error(
-    `No provider available for auto model resolution. ${hint}Set one of: ${envVars}`,
-  );
+  const hint = preferences.length > 0 ? `Tried: ${preferences.join(", ")}. ` : "";
+  throw new Error(`No provider available for auto model resolution. ${hint}Set one of: ${envVars}`);
 }
 
 /**
