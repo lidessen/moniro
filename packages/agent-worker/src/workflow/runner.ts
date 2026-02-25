@@ -48,8 +48,6 @@ export interface RunConfig {
   workflowName?: string;
   /** Workflow tag (defaults to "main") */
   tag?: string;
-  /** @deprecated Use workflowName instead. Instance name */
-  instance?: string;
   /** Agent startup function */
   startAgent: (agentName: string, config: ResolvedAgent, mcpUrl: string) => Promise<void>;
   /** Callback when an agent @mentions another agent */
@@ -96,8 +94,6 @@ export interface RunResult {
 export interface WorkflowRuntime {
   /** Workflow name */
   name: string;
-  /** Instance name */
-  instance: string;
   /** Context directory (for shared channel, documents, workspaces) */
   contextDir: string;
   /** Project directory (the codebase agents work on) */
@@ -188,14 +184,13 @@ export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> 
     workflow,
     workflowName: workflowNameParam,
     tag: tagParam,
-    instance,
     onMention,
     debugLog,
     feedback: feedbackEnabled,
   } = config;
 
   // Extract workflow name and tag
-  const workflowName = workflowNameParam ?? instance ?? "global";
+  const workflowName = workflowNameParam ?? "global";
   const tag = tagParam ?? "main";
 
   // Use provided logger, or create a silent one
@@ -293,7 +288,6 @@ export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> 
   // Build runtime
   const runtime: WorkflowRuntime = {
     name: workflow.name,
-    instance: instance ?? `${workflowName}:${tag}`,
     contextDir,
     projectDir,
     contextProvider,
@@ -445,8 +439,6 @@ export interface LoopRunConfig {
   tag?: string;
   /** Workflow file path (for display) */
   workflowPath?: string;
-  /** @deprecated Use workflowName instead. Instance name */
-  instance?: string;
   /** Debug mode (show debug channel entries in output) */
   debug?: boolean;
   /** Log function (for terminal output) */
@@ -504,7 +496,6 @@ export async function runWorkflowWithLoops(
     workflow,
     workflowName: workflowNameParam,
     tag: tagParam,
-    instance,
     debug = false,
     log = console.log,
     mode = "run",
@@ -515,7 +506,7 @@ export async function runWorkflowWithLoops(
   const startTime = Date.now();
 
   // Extract workflow name and tag
-  const workflowName = workflowNameParam ?? instance ?? "global";
+  const workflowName = workflowNameParam ?? "global";
   const tag = tagParam ?? "main";
 
   try {
@@ -537,7 +528,7 @@ export async function runWorkflowWithLoops(
 
     logger.info(`Running workflow: ${workflow.name}`);
     logger.info(`Agents: ${Object.keys(workflow.agents).join(", ")}`);
-    logger.debug("Starting workflow with loops", { mode, instance, pollInterval });
+    logger.debug("Starting workflow with loops", { mode, pollInterval });
 
     // 3. Create loops map for wake() on mention
     const loops = new Map<string, AgentLoop>();
@@ -547,7 +538,6 @@ export async function runWorkflowWithLoops(
     // 4. Initialize runtime with pre-created provider and channel logger
     const runtime = await initWorkflow({
       workflow,
-      instance,
       startAgent: async () => {}, // Not used; loops start agents below
       logger,
       contextProvider,

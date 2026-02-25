@@ -51,21 +51,14 @@ describe('interpolate', () => {
 
   test('interpolates workflow.name', () => {
     const context: VariableContext = {
-      workflow: { name: 'my-workflow', tag: 'default', instance: 'default' },
+      workflow: { name: 'my-workflow', tag: 'default' },
     }
     expect(interpolate('Workflow: ${{ workflow.name }}', context)).toBe('Workflow: my-workflow')
   })
 
-  test('interpolates workflow.instance', () => {
-    const context: VariableContext = {
-      workflow: { name: 'test', tag: 'prod', instance: 'prod' },
-    }
-    expect(interpolate('Instance: ${{ workflow.instance }}', context)).toBe('Instance: prod')
-  })
-
   test('handles unknown workflow fields', () => {
     const context: VariableContext = {
-      workflow: { name: 'test', tag: 'default', instance: 'default' },
+      workflow: { name: 'test', tag: 'default' },
     }
     expect(interpolate('${{ workflow.unknown }}', context)).toBe('${{ workflow.unknown }}')
   })
@@ -74,7 +67,7 @@ describe('interpolate', () => {
     const context: VariableContext = {
       output: 'result',
       env: { USER: 'testuser' },
-      workflow: { name: 'mixed', tag: 'dev', instance: 'dev' },
+      workflow: { name: 'mixed', tag: 'dev' },
     }
     const template = 'Output: ${{ output }}, User: ${{ env.USER }}, Workflow: ${{ workflow.name }}'
     expect(interpolate(template, context)).toBe('Output: result, User: testuser, Workflow: mixed')
@@ -200,16 +193,7 @@ describe('createContext', () => {
   test('creates context with workflow metadata', () => {
     const context = createContext('my-workflow', 'production')
     expect(context.workflow?.name).toBe('my-workflow')
-    expect(context.workflow?.tag).toBe('production') // New tag field
-    expect(context.workflow?.instance).toBe('production') // Backward compat
-  })
-
-  test('tag and instance fields are synchronized', () => {
-    const context = createContext('test-workflow', 'pr-123')
-    expect(context.workflow?.tag).toBe('pr-123')
-    expect(context.workflow?.instance).toBe('pr-123')
-    // Both should have the same value for backward compatibility
-    expect(context.workflow?.tag).toBe(context.workflow?.instance)
+    expect(context.workflow?.tag).toBe('production')
   })
 
   test('includes task outputs', () => {
@@ -515,8 +499,8 @@ context:
     expect((workflow.context as any).dir).toBe(join(testDir, '.agent-context/'))
   })
 
-  test('parses config.bind with instance template', async () => {
-    const workflowPath = join(testDir, 'bind-instance.yml')
+  test('parses config.bind with tag template', async () => {
+    const workflowPath = join(testDir, 'bind-tag-tmpl.yml')
     writeFileSync(
       workflowPath,
       `agents:
@@ -526,11 +510,11 @@ context:
 context:
   provider: file
   config:
-    bind: .ctx/${'${{ instance }}'}/
+    bind: .ctx/${'${{ workflow.tag }}'}/
 `
     )
 
-    const workflow = await parseWorkflowFile(workflowPath, { instance: 'pr-42' })
+    const workflow = await parseWorkflowFile(workflowPath, { tag: 'pr-42' })
     expect((workflow.context as any).dir).toBe(join(testDir, '.ctx/pr-42/'))
     expect((workflow.context as any).persistent).toBe(true)
   })
@@ -654,7 +638,7 @@ describe('runWorkflow', () => {
     const startedAgents: string[] = []
     const result = await runWorkflow({
       workflow,
-      instance: 'test',
+      workflowName: 'test',
       startAgent: async (name) => {
         startedAgents.push(name)
       },
@@ -688,7 +672,7 @@ describe('runWorkflow', () => {
 
     const result = await runWorkflow({
       workflow,
-      instance: 'test',
+      workflowName: 'test',
       startAgent: async () => {},
     })
 
@@ -714,7 +698,7 @@ describe('runWorkflow', () => {
 
     const result = await runWorkflow({
       workflow,
-      instance: 'test',
+      workflowName: 'test',
       startAgent: async () => {},
     })
 
@@ -733,7 +717,7 @@ describe('runWorkflow', () => {
 
     const result = await runWorkflow({
       workflow,
-      instance: 'test',
+      workflowName: 'test',
       startAgent: async () => {},
     })
 
@@ -754,7 +738,7 @@ describe('runWorkflow', () => {
     // Run 1: write and ack a message
     const run1 = await runWorkflow({
       workflow,
-      instance: 'test',
+      workflowName: 'test',
       startAgent: async () => {},
     })
     expect(run1.success).toBe(true)
@@ -768,7 +752,7 @@ describe('runWorkflow', () => {
     // Run 2: verify state persisted via API (not file checks)
     const run2 = await runWorkflow({
       workflow,
-      instance: 'test',
+      workflowName: 'test',
       startAgent: async () => {},
     })
     expect(run2.success).toBe(true)
@@ -798,7 +782,7 @@ describe('runWorkflow', () => {
     // Run 1: write and ack a message
     const run1 = await runWorkflow({
       workflow,
-      instance: 'test',
+      workflowName: 'test',
       startAgent: async () => {},
     })
     expect(run1.success).toBe(true)
@@ -812,7 +796,7 @@ describe('runWorkflow', () => {
     // Run 2: markRunStart() sets epoch — old messages are below the floor
     const run2 = await runWorkflow({
       workflow,
-      instance: 'test',
+      workflowName: 'test',
       startAgent: async () => {},
     })
     expect(run2.success).toBe(true)

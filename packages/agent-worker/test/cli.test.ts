@@ -8,7 +8,7 @@ import {
   buildAgentId,
   isValidInstanceName,
   DEFAULT_INSTANCE,
-} from '../src/cli/instance.ts'
+} from '../src/cli/target.ts'
 
 describe('parseAgentId (backward compat)', () => {
   test('parses simple agent name', () => {

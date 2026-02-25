@@ -6,7 +6,6 @@
  * - ${{ env.VAR }} - environment variable
  * - ${{ workflow.name }} - workflow name
  * - ${{ workflow.tag }} - workflow instance tag
- * - ${{ workflow.instance }} - (deprecated) alias for workflow.tag
  */
 
 export interface VariableContext {
@@ -15,7 +14,7 @@ export interface VariableContext {
     | string
     | undefined
     | Record<string, string | undefined>
-    | { name: string; tag: string; instance?: string };
+    | { name: string; tag: string };
 
   /** Environment variables (accessed via env.VAR) */
   env?: Record<string, string | undefined>;
@@ -25,8 +24,6 @@ export interface VariableContext {
     name: string;
     /** Workflow instance tag */
     tag: string;
-    /** @deprecated Use tag instead */
-    instance?: string;
   };
 }
 
@@ -60,12 +57,11 @@ function resolveExpression(expression: string, context: VariableContext): string
     return context.env?.[varName] ?? process.env[varName];
   }
 
-  // Handle workflow.name, workflow.tag, workflow.instance (deprecated)
+  // Handle workflow.name, workflow.tag
   if (expression.startsWith("workflow.")) {
     const field = expression.slice(9);
     if (field === "name") return context.workflow?.name;
     if (field === "tag") return context.workflow?.tag;
-    if (field === "instance") return context.workflow?.instance || context.workflow?.tag; // Backward compat
     return undefined;
   }
 
@@ -174,7 +170,6 @@ export function createContext(
     workflow: {
       name: workflowName,
       tag,
-      instance: tag, // Backward compatibility
     },
   };
 }
