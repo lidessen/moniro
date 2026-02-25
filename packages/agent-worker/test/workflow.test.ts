@@ -323,6 +323,18 @@ describe('validateWorkflow', () => {
     expect(result.valid).toBe(false)
   })
 
+  test('rejects reserved namespace as setup task variable name', () => {
+    for (const name of ['env', 'workflow', 'params']) {
+      const workflow = {
+        agents: { a: { model: 'm' } },
+        setup: [{ shell: 'echo hello', as: name }],
+      }
+      const result = validateWorkflow(workflow)
+      expect(result.valid).toBe(false)
+      expect(result.errors.some(e => e.message.includes('reserved namespace'))).toBe(true)
+    }
+  })
+
   test('validates bare file provider without config', () => {
     const workflow = {
       agents: {
