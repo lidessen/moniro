@@ -63,6 +63,29 @@ describe('interpolate', () => {
     expect(interpolate('${{ workflow.unknown }}', context)).toBe('${{ workflow.unknown }}')
   })
 
+  test('interpolates params variables', () => {
+    const context: VariableContext = {
+      params: { target: 'main', depth: '3' },
+    }
+    expect(interpolate('Target: ${{ params.target }}', context)).toBe('Target: main')
+    expect(interpolate('Depth: ${{ params.depth }}', context)).toBe('Depth: 3')
+  })
+
+  test('handles missing params gracefully', () => {
+    const context: VariableContext = { params: {} }
+    expect(interpolate('${{ params.missing }}', context)).toBe('${{ params.missing }}')
+  })
+
+  test('params coexist with other variable types', () => {
+    const context: VariableContext = {
+      output: 'result',
+      params: { branch: 'feature' },
+      workflow: { name: 'test', tag: 'v1' },
+    }
+    const template = '${{ output }} on ${{ params.branch }} (${{ workflow.tag }})'
+    expect(interpolate(template, context)).toBe('result on feature (v1)')
+  })
+
   test('handles mixed variable types', () => {
     const context: VariableContext = {
       output: 'result',
@@ -206,6 +229,17 @@ describe('createContext', () => {
     const context = createContext('test', 'default')
     expect(context.env).toBeDefined()
   })
+
+  test('includes params when provided', () => {
+    const context = createContext('test', 'default', {}, { branch: 'main', depth: '5' })
+    expect(context.params?.branch).toBe('main')
+    expect(context.params?.depth).toBe('5')
+  })
+
+  test('params are undefined when not provided', () => {
+    const context = createContext('test', 'default')
+    expect(context.params).toBeUndefined()
+  })
 })
 
 // ==================== Parser Tests ====================
@@ -213,6 +247,8 @@ describe('createContext', () => {
 import {
   validateWorkflow,
   parseWorkflowFile,
+  parseWorkflowParams,
+  formatParamHelp,
 } from '../src/workflow/parser.ts'
 
 describe('validateWorkflow', () => {
@@ -343,6 +379,163 @@ describe('validateWorkflow', () => {
     const result = validateWorkflow(workflow)
     expect(result.valid).toBe(true)
   })
+
+  test('validates valid params', () => {
+    const workflow = {
+      agents: { a: { model: 'm' } },
+      params: [
+        { name: 'target', type: 'string', required: true },
+        { name: 'depth', type: 'number', short: 'n', default: 1 },
+      ],
+    }
+    const result = validateWorkflow(workflow)
+    expect(result.valid).toBe(true)
+  })
+
+  test('rejects params that is not an array', () => {
+    const workflow = {
+      agents: { a: { model: 'm' } },
+      params: 'not-array',
+    }
+    const result = validateWorkflow(workflow)
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => e.path === 'params')).toBe(true)
+  })
+
+  test('rejects param without name', () => {
+    const workflow = {
+      agents: { a: { model: 'm' } },
+      params: [{ type: 'string' }],
+    }
+    const result = validateWorkflow(workflow)
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => e.path.includes('name'))).toBe(true)
+  })
+
+  test('rejects duplicate param names', () => {
+    const workflow = {
+      agents: { a: { model: 'm' } },
+      params: [
+        { name: 'target', type: 'string' },
+        { name: 'target', type: 'number' },
+      ],
+    }
+    const result = validateWorkflow(workflow)
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => e.message.includes('Duplicate param name'))).toBe(true)
+  })
+
+  test('rejects duplicate param short flags', () => {
+    const workflow = {
+      agents: { a: { model: 'm' } },
+      params: [
+        { name: 'alpha', short: 'a' },
+        { name: 'beta', short: 'a' },
+      ],
+    }
+    const result = validateWorkflow(workflow)
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => e.message.includes('Duplicate param short'))).toBe(true)
+  })
+
+  test('rejects invalid param type', () => {
+    const workflow = {
+      agents: { a: { model: 'm' } },
+      params: [{ name: 'x', type: 'object' }],
+    }
+    const result = validateWorkflow(workflow)
+    expect(result.valid).toBe(false)
+  })
+
+  test('rejects multi-char short flag', () => {
+    const workflow = {
+      agents: { a: { model: 'm' } },
+      params: [{ name: 'x', short: 'ab' }],
+    }
+    const result = validateWorkflow(workflow)
+    expect(result.valid).toBe(false)
+  })
+})
+
+describe('parseWorkflowParams', () => {
+  test('parses string params', () => {
+    const defs = [{ name: 'target', type: 'string' as const }]
+    const result = parseWorkflowParams(defs, ['--target', 'main'])
+    expect(result.target).toBe('main')
+  })
+
+  test('parses short flags', () => {
+    const defs = [{ name: 'target', type: 'string' as const, short: 't' }]
+    const result = parseWorkflowParams(defs, ['-t', 'main'])
+    expect(result.target).toBe('main')
+  })
+
+  test('parses number params', () => {
+    const defs = [{ name: 'depth', type: 'number' as const }]
+    const result = parseWorkflowParams(defs, ['--depth', '3'])
+    expect(result.depth).toBe('3')
+  })
+
+  test('parses boolean params', () => {
+    const defs = [{ name: 'verbose', type: 'boolean' as const }]
+    const result = parseWorkflowParams(defs, ['--verbose'])
+    expect(result.verbose).toBe('true')
+  })
+
+  test('applies default values', () => {
+    const defs = [{ name: 'depth', type: 'number' as const, default: 1 }]
+    const result = parseWorkflowParams(defs, [])
+    expect(result.depth).toBe('1')
+  })
+
+  test('CLI value overrides default', () => {
+    const defs = [{ name: 'depth', type: 'number' as const, default: 1 }]
+    const result = parseWorkflowParams(defs, ['--depth', '5'])
+    expect(result.depth).toBe('5')
+  })
+
+  test('throws on missing required param', () => {
+    const defs = [{ name: 'target', type: 'string' as const, required: true }]
+    expect(() => parseWorkflowParams(defs, [])).toThrow('Missing required')
+  })
+
+  test('throws on invalid number', () => {
+    const defs = [{ name: 'depth', type: 'number' as const }]
+    expect(() => parseWorkflowParams(defs, ['--depth', 'abc'])).toThrow('must be a number')
+  })
+
+  test('handles multiple params', () => {
+    const defs = [
+      { name: 'target', type: 'string' as const, short: 't', required: true },
+      { name: 'depth', type: 'number' as const, short: 'n', default: 1 },
+      { name: 'verbose', type: 'boolean' as const, short: 'v' },
+    ]
+    const result = parseWorkflowParams(defs, ['-t', 'main', '-v'])
+    expect(result.target).toBe('main')
+    expect(result.depth).toBe('1') // default
+    expect(result.verbose).toBe('true')
+  })
+
+  test('returns empty for empty defs', () => {
+    expect(parseWorkflowParams([], ['--foo', 'bar'])).toEqual({})
+  })
+})
+
+describe('formatParamHelp', () => {
+  test('formats param help text', () => {
+    const defs = [
+      { name: 'target', type: 'string' as const, short: 't', description: 'Branch to review', required: true },
+      { name: 'depth', type: 'number' as const, short: 'n', description: 'Commit depth', default: 1 },
+    ]
+    const help = formatParamHelp(defs)
+    expect(help).toContain('-t, --target')
+    expect(help).toContain('(required)')
+    expect(help).toContain('[default: 1]')
+  })
+
+  test('returns empty for no defs', () => {
+    expect(formatParamHelp([])).toBe('')
+  })
 })
 
 describe('parseWorkflowFile', () => {
@@ -460,6 +653,35 @@ kickoff: "@assistant start working"
 
     const workflow = await parseWorkflowFile(workflowPath)
     expect(workflow.agents.test!.resolvedSystemPrompt).toBe('nonexistent.txt')
+  })
+
+  test('parses params from workflow file', async () => {
+    const workflowPath = join(testDir, 'params.yml')
+    writeFileSync(
+      workflowPath,
+      `name: param-test
+agents:
+  a:
+    model: test
+params:
+  - name: target
+    description: Branch to review
+    type: string
+    short: t
+    required: true
+  - name: depth
+    type: number
+    default: 1
+kickoff: "Review ${'${{ params.target }}'} (depth: ${'${{ params.depth }}'})"
+`
+    )
+
+    const workflow = await parseWorkflowFile(workflowPath)
+    expect(workflow.params).toHaveLength(2)
+    expect(workflow.params![0]!.name).toBe('target')
+    expect(workflow.params![0]!.required).toBe(true)
+    expect(workflow.params![1]!.name).toBe('depth')
+    expect(workflow.params![1]!.default).toBe(1)
   })
 
   test('defaults to empty setup array', async () => {
@@ -683,6 +905,66 @@ describe('runWorkflow', () => {
     if (result.shutdown) {
       await result.shutdown()
     }
+  })
+
+  test('interpolates params in kickoff', async () => {
+    const contextDir = join(testDir, 'context')
+    const workflow: ParsedWorkflow = {
+      name: 'params-test',
+      filePath: 'test.yml',
+      agents: { agent1: { model: 'test', resolvedSystemPrompt: 'test' } },
+      context: { provider: 'file', dir: contextDir },
+      params: [
+        { name: 'target', type: 'string', required: true },
+        { name: 'depth', type: 'number', default: 1 },
+      ],
+      setup: [],
+      kickoff: '@agent1 review ${{ params.target }} depth=${{ params.depth }}',
+    }
+
+    const result = await runWorkflow({
+      workflow,
+      workflowName: 'test',
+      startAgent: async () => {},
+      params: { target: 'main', depth: '3' },
+    })
+
+    expect(result.success).toBe(true)
+
+    // Check that the kickoff message was interpolated
+    const messages = await result.contextProvider!.readChannel()
+    const kickoffMsg = messages.find(m => m.content.includes('review main'))
+    expect(kickoffMsg).toBeDefined()
+    expect(kickoffMsg!.content).toContain('depth=3')
+
+    if (result.shutdown) await result.shutdown()
+  })
+
+  test('params are available in setup task interpolation', async () => {
+    const contextDir = join(testDir, 'context')
+    const workflow: ParsedWorkflow = {
+      name: 'setup-params-test',
+      filePath: 'test.yml',
+      agents: { agent1: { model: 'test', resolvedSystemPrompt: 'test' } },
+      context: { provider: 'file', dir: contextDir },
+      params: [{ name: 'branch', type: 'string' }],
+      setup: [
+        { shell: 'echo ${{ params.branch }}', as: 'branch_echo' },
+      ],
+      kickoff: '@agent1 ${{ branch_echo }}',
+    }
+
+    const result = await runWorkflow({
+      workflow,
+      workflowName: 'test',
+      startAgent: async () => {},
+      params: { branch: 'feature-x' },
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.setupResults.branch_echo).toBe('feature-x')
+
+    if (result.shutdown) await result.shutdown()
   })
 
   test('fails gracefully on setup error', async () => {

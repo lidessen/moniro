@@ -6,6 +6,7 @@
  * - ${{ env.VAR }} - environment variable
  * - ${{ workflow.name }} - workflow name
  * - ${{ workflow.tag }} - workflow instance tag
+ * - ${{ params.name }} - workflow parameter value
  */
 
 export interface VariableContext {
@@ -25,6 +26,9 @@ export interface VariableContext {
     /** Workflow instance tag */
     tag: string;
   };
+
+  /** Workflow parameter values (accessed via params.NAME) */
+  params?: Record<string, string | undefined>;
 }
 
 const VARIABLE_PATTERN = /\$\{\{\s*([^}]+)\s*\}\}/g;
@@ -55,6 +59,12 @@ function resolveExpression(expression: string, context: VariableContext): string
   if (expression.startsWith("env.")) {
     const varName = expression.slice(4);
     return context.env?.[varName] ?? process.env[varName];
+  }
+
+  // Handle params.NAME
+  if (expression.startsWith("params.")) {
+    const paramName = expression.slice(7);
+    return context.params?.[paramName];
   }
 
   // Handle workflow.name, workflow.tag
@@ -163,6 +173,7 @@ export function createContext(
   workflowName: string,
   tag: string,
   taskOutputs: Record<string, string> = {},
+  params?: Record<string, string>,
 ): VariableContext {
   return {
     ...taskOutputs,
@@ -171,5 +182,6 @@ export function createContext(
       name: workflowName,
       tag,
     },
+    params,
   };
 }

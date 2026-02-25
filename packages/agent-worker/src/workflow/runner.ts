@@ -64,6 +64,8 @@ export interface RunConfig {
   persistent?: boolean;
   /** Enable feedback tool on MCP server */
   feedback?: boolean;
+  /** Resolved workflow parameter values */
+  params?: Record<string, string>;
 }
 
 /**
@@ -187,6 +189,7 @@ export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> 
     onMention,
     debugLog,
     feedback: feedbackEnabled,
+    params: paramValues,
   } = config;
 
   // Extract workflow name and tag
@@ -258,7 +261,7 @@ export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> 
 
   // Run setup commands
   const setupResults: Record<string, string> = {};
-  const context = createContext(workflow.name, tag, setupResults);
+  const context = createContext(workflow.name, tag, setupResults, paramValues);
 
   if (workflow.setup && workflow.setup.length > 0) {
     logger.info("Running setup...");
@@ -455,6 +458,8 @@ export interface LoopRunConfig {
   prettyDisplay?: boolean;
   /** Headless mode — skip channel watcher/display (for daemon-hosted workflows) */
   headless?: boolean;
+  /** Resolved workflow parameter values */
+  params?: Record<string, string>;
 }
 
 /**
@@ -502,6 +507,7 @@ export async function runWorkflowWithLoops(
     pollInterval = 5000,
     createBackend,
     feedback: feedbackEnabled,
+    params: paramValues,
   } = config;
   const startTime = Date.now();
 
@@ -560,6 +566,7 @@ export async function runWorkflowWithLoops(
         logger.debug(msg);
       },
       feedback: feedbackEnabled,
+      params: paramValues,
     });
 
     logger.debug("Runtime initialized", {
