@@ -449,16 +449,23 @@ function isModelAvailable(
  * Resolve a model to a single concrete value, supporting fallback chains.
  *
  * Resolution order:
- *   1. AGENT_MODEL env var (comma-separated fallback chain, e.g. "deepseek-chat, auto")
- *   2. Workflow YAML model field (single string)
- *   3. Full auto-discovery from environment
+ *   1. AGENT_DEFAULT_MODELS env var — comma-separated preference list
+ *      (e.g. "deepseek-chat, anthropic/claude-sonnet-4-5")
+ *   2. Workflow YAML model field (single string, or "auto")
+ *   3. Full auto-discovery — scan all provider API keys
  *
- * The AGENT_MODEL env var supports CSS font-family-style fallback:
- *   AGENT_MODEL="deepseek-chat, anthropic/claude-sonnet-4-5, auto"
- *   → try deepseek-chat → try claude-sonnet-4-5 → auto-discover
+ * The preference list does NOT contain "auto" — the env var itself IS
+ * the auto configuration. After exhausting the explicit list, the system
+ * implicitly falls back to full provider discovery.
+ *
+ * Example:
+ *   AGENT_DEFAULT_MODELS="deepseek-chat, anthropic/claude-sonnet-4-5"
+ *   → try deepseek-chat (need DEEPSEEK_API_KEY)
+ *   → try claude-sonnet-4-5 (need ANTHROPIC_API_KEY)
+ *   → implicit fallback: discover any available provider
  *
  * @returns Resolved { model, provider } — never contains "auto".
- * @throws if no model in the chain has an available provider.
+ * @throws if nothing is available (no explicit candidate and no provider key).
  */
 export function resolveModelFallback(config: {
   model?: string;
@@ -469,38 +476,51 @@ export function resolveModelFallback(config: {
   const env = config.env ?? (process.env as Record<string, string | undefined>);
   const isProviderAuto = config.provider === "auto";
 
-  // Build candidate list: AGENT_MODEL env var (comma-separated) > YAML model > auto
-  let candidates: string[];
-  const envModel = env.AGENT_MODEL;
-  if (envModel) {
-    candidates = envModel.split(",").map((s) => s.trim()).filter(Boolean);
-  } else {
-    candidates = [config.model ?? "auto"];
+  // AGENT_DEFAULT_MODELS: comma-separated preference list for auto mode
+  const autoModel = env.AGENT_DEFAULT_MODELS;
+
+  // If YAML model is not "auto" and no provider auto → pass through directly
+  if (!isProviderAuto && config.model && config.model !== "auto" && !autoModel) {
+    return { model: config.model, provider: config.provider };
   }
 
-  for (const candidate of candidates) {
-    if (candidate === "auto" || isProviderAuto) {
-      // Auto-discover
-      const preferredModel = candidate !== "auto" ? candidate : undefined;
-      const discovered = discoverProvider({ preferredModel, env });
-      if (discovered) {
-        return { model: discovered.model, provider: undefined };
-      }
-      // If auto-discover fails, try next candidate
-      continue;
-    }
+  // Build preference list: env var entries → implicit full discovery
+  const preferences = autoModel
+    ? autoModel.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
 
-    // Check if this model's provider is available
+  // Try each preference in order
+  for (const candidate of preferences) {
     if (isModelAvailable(candidate, env)) {
       return { model: candidate, provider: isProviderAuto ? undefined : config.provider };
     }
   }
 
+  // Provider auto with specific model: auto-detect which provider owns the model
+  if (isProviderAuto && config.model && config.model !== "auto") {
+    const model = config.model;
+    if (isModelAvailable(model, env)) {
+      const ownerProvider = MODEL_TO_PROVIDER[model];
+      if (ownerProvider && !model.includes("/") && !model.includes(":")) {
+        return { model: `${ownerProvider}/${model}`, provider: undefined };
+      }
+      return { model, provider: undefined };
+    }
+  }
+
+  // Implicit fallback: full provider discovery
+  const discovered = discoverProvider({ env });
+  if (discovered) {
+    return { model: discovered.model, provider: undefined };
+  }
+
   // Nothing available
-  const tried = candidates.join(", ");
   const envVars = Object.values(PROVIDER_ENV_KEYS).join(", ");
+  const hint = preferences.length > 0
+    ? `Tried: ${preferences.join(", ")}. `
+    : "";
   throw new Error(
-    `No provider available for model fallback chain [${tried}]. Set one of: ${envVars}`,
+    `No provider available for auto model resolution. ${hint}Set one of: ${envVars}`,
   );
 }
 

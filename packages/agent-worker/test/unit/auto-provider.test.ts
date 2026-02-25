@@ -165,7 +165,7 @@ describe("resolveAutoModel", () => {
 });
 
 describe("resolveModelFallback", () => {
-  test("single string model passes through", () => {
+  test("non-auto model passes through directly", () => {
     const result = resolveModelFallback({
       model: "anthropic/claude-sonnet-4-5",
       env: env({ ANTHROPIC_API_KEY: "sk-test" }),
@@ -173,7 +173,7 @@ describe("resolveModelFallback", () => {
     expect(result.model).toBe("anthropic/claude-sonnet-4-5");
   });
 
-  test("model: auto resolves from env", () => {
+  test("model: auto resolves via provider discovery", () => {
     const result = resolveModelFallback({
       model: "auto",
       env: env({ DEEPSEEK_API_KEY: "sk-test" }),
@@ -181,96 +181,103 @@ describe("resolveModelFallback", () => {
     expect(result.model).toMatch(/^deepseek(\/|$)/);
   });
 
-  test("AGENT_MODEL comma-separated picks first available", () => {
+  test("AGENT_DEFAULT_MODELS picks first available preference", () => {
     // Only deepseek key set → skip anthropic, pick deepseek
     const result = resolveModelFallback({
       model: "auto",
       env: env({
         DEEPSEEK_API_KEY: "sk-test",
-        AGENT_MODEL: "anthropic/claude-sonnet-4-5, deepseek/deepseek-chat",
+        AGENT_DEFAULT_MODELS: "anthropic/claude-sonnet-4-5, deepseek/deepseek-chat",
       }),
     });
     expect(result.model).toBe("deepseek/deepseek-chat");
   });
 
-  test("AGENT_MODEL picks first when both available", () => {
+  test("AGENT_DEFAULT_MODELS respects order when both available", () => {
     const result = resolveModelFallback({
       model: "auto",
       env: env({
         DEEPSEEK_API_KEY: "sk-d",
         ANTHROPIC_API_KEY: "sk-a",
-        AGENT_MODEL: "deepseek/deepseek-chat, anthropic/claude-sonnet-4-5",
+        AGENT_DEFAULT_MODELS: "deepseek/deepseek-chat, anthropic/claude-sonnet-4-5",
       }),
     });
     expect(result.model).toBe("deepseek/deepseek-chat");
   });
 
-  test("AGENT_MODEL falls through to auto at end of chain", () => {
+  test("implicit fallback to discovery after exhausting preferences", () => {
     const result = resolveModelFallback({
       model: "auto",
       env: env({
         ANTHROPIC_API_KEY: "sk-test",
-        AGENT_MODEL: "deepseek/deepseek-chat, auto",
+        AGENT_DEFAULT_MODELS: "deepseek/deepseek-chat",
       }),
     });
-    // deepseek not available → auto → discovers anthropic
+    // deepseek not available → implicit fallback → discovers anthropic
     expect(result.model).toMatch(/^anthropic(\/|$)/);
   });
 
-  test("throws when no model in AGENT_MODEL chain is available", () => {
+  test("throws when nothing available (no preferences, no provider keys)", () => {
     expect(() =>
       resolveModelFallback({
         model: "auto",
-        env: env({
-          AGENT_MODEL: "deepseek/deepseek-chat, openai/gpt-5.2",
-        }),
+        env: env({}),
       }),
     ).toThrow("No provider available");
   });
 
-  test("AGENT_MODEL single value works like before", () => {
+  test("single preference value works", () => {
     const result = resolveModelFallback({
       model: "auto",
       env: env({
         ANTHROPIC_API_KEY: "sk-test",
-        AGENT_MODEL: "anthropic/claude-opus-4-5",
+        AGENT_DEFAULT_MODELS: "anthropic/claude-opus-4-5",
       }),
     });
     expect(result.model).toBe("anthropic/claude-opus-4-5");
   });
 
-  test("gateway key makes all AGENT_MODEL entries available", () => {
+  test("gateway key makes all preferences available", () => {
     const result = resolveModelFallback({
       model: "auto",
       env: env({
         AI_GATEWAY_API_KEY: "gw-test",
-        AGENT_MODEL: "deepseek/deepseek-chat, auto",
+        AGENT_DEFAULT_MODELS: "deepseek/deepseek-chat",
       }),
     });
-    // Gateway supports all → first wins
     expect(result.model).toBe("deepseek/deepseek-chat");
   });
 
-  test("AGENT_MODEL handles model name without provider prefix", () => {
+  test("handles model name without provider prefix", () => {
     const result = resolveModelFallback({
       model: "auto",
       env: env({
         DEEPSEEK_API_KEY: "sk-test",
-        AGENT_MODEL: "deepseek-chat",
+        AGENT_DEFAULT_MODELS: "deepseek-chat",
       }),
     });
     expect(result.model).toBe("deepseek-chat");
   });
 
-  test("AGENT_MODEL overrides YAML model field", () => {
+  test("AGENT_DEFAULT_MODELS applies even when YAML model is not auto", () => {
+    // env var preference list takes precedence over YAML model field
     const result = resolveModelFallback({
       model: "anthropic/claude-sonnet-4-5",
       env: env({
         DEEPSEEK_API_KEY: "sk-test",
-        AGENT_MODEL: "deepseek-chat",
+        AGENT_DEFAULT_MODELS: "deepseek-chat",
       }),
     });
-    // AGENT_MODEL takes precedence over YAML model
     expect(result.model).toBe("deepseek-chat");
+  });
+
+  test("without AGENT_DEFAULT_MODELS, non-auto model is not affected", () => {
+    const result = resolveModelFallback({
+      model: "anthropic/claude-sonnet-4-5",
+      env: env({ ANTHROPIC_API_KEY: "sk-test" }),
+    });
+    // No env var → YAML model passes through
+    expect(result.model).toBe("anthropic/claude-sonnet-4-5");
+    expect(result.provider).toBeUndefined();
   });
 });
