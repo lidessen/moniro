@@ -1,5 +1,11 @@
 # agent-worker
 
+## 0.15.0
+
+### Minor Changes
+
+- [`71c82d6`](https://github.com/lidessen/moniro/commit/71c82d68dba446067a31135b2b361f21a2ceb47a) - Fix Commander v14 compatibility by using -- separator for workflow params (breaking change)
+
 ## 0.14.0
 
 ### Minor Changes
