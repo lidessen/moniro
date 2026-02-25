@@ -22,10 +22,10 @@
  * as ${{ source.dir }}.
  */
 
-import { readFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 // ==================== Types ====================
 
@@ -173,6 +173,18 @@ export function parseGitHubRef(input: string): GitHubRef {
   return { owner, repo, ref, path };
 }
 
+/**
+ * Validate a git ref (branch, tag, or SHA) to prevent injection.
+ * Allows alphanumeric, hyphens, dots, underscores, slashes — the standard git ref charset.
+ */
+function validateGitRef(ref: string): void {
+  if (!/^[a-zA-Z0-9._\-/]+$/.test(ref)) {
+    throw new Error(
+      `Invalid git ref: "${ref}". Only alphanumeric, hyphens, dots, underscores, and slashes are allowed.`,
+    );
+  }
+}
+
 /** Parse "owner/repo" or "owner/repo@ref" */
 function parseRepoSegment(repoStr: string): { owner: string; repo: string; ref: string } {
   let ref = DEFAULT_REF;
@@ -192,6 +204,8 @@ function parseRepoSegment(repoStr: string): { owner: string; repo: string; ref: 
   if (parts.length !== 2 || !parts[0] || !parts[1]) {
     throw new Error(`Invalid repository format: "${repoStr}". Expected "owner/repo"`);
   }
+
+  validateGitRef(ref);
 
   return { owner: parts[0], repo: parts[1], ref };
 }
@@ -246,12 +260,12 @@ function ensureClone(ref: GitHubRef): string {
 
     // Mutable ref (branch/tag) — fetch and reset
     try {
-      execSync(`git fetch origin ${ref.ref} --depth 1`, {
+      execFileSync("git", ["fetch", "origin", ref.ref, "--depth", "1"], {
         cwd: cacheDir,
         stdio: "pipe",
         timeout: 30_000,
       });
-      execSync(`git reset --hard FETCH_HEAD`, {
+      execFileSync("git", ["reset", "--hard", "FETCH_HEAD"], {
         cwd: cacheDir,
         stdio: "pipe",
         timeout: 10_000,
@@ -267,12 +281,13 @@ function ensureClone(ref: GitHubRef): string {
 
   // Remove stale cache if partial clone left behind
   if (existsSync(cacheDir)) {
-    execSync(`rm -rf ${JSON.stringify(cacheDir)}`, { stdio: "pipe" });
+    rmSync(cacheDir, { recursive: true, force: true });
   }
 
   const url = getCloneUrl(ref);
-  execSync(
-    `git clone --depth 1 --single-branch --branch ${ref.ref} ${JSON.stringify(url)} ${JSON.stringify(cacheDir)}`,
+  execFileSync(
+    "git",
+    ["clone", "--depth", "1", "--single-branch", "--branch", ref.ref, url, cacheDir],
     { stdio: "pipe", timeout: 60_000 },
   );
 
