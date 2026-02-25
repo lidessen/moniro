@@ -16,11 +16,7 @@ import { IdleTimeoutError } from "./idle-timeout.ts";
  * 2. Process exit error → include exit code and stderr
  * 3. Everything else → re-throw
  */
-export function handleCliBackendError(
-  error: unknown,
-  backendName: string,
-  timeout: number,
-): never {
+export function handleCliBackendError(error: unknown, backendName: string, timeout: number): never {
   if (error instanceof IdleTimeoutError) {
     throw new Error(`${backendName} timed out after ${timeout}ms of inactivity`);
   }

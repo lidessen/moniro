@@ -240,7 +240,12 @@ export class ProposalManager {
   /**
    * Cast a vote on a proposal
    */
-  async vote(params: { proposalId: string; voter: string; choice: string; reason?: string }): Promise<{
+  async vote(params: {
+    proposalId: string;
+    voter: string;
+    choice: string;
+    reason?: string;
+  }): Promise<{
     success: boolean;
     error?: string;
     proposal?: Proposal;
@@ -350,7 +355,10 @@ export class ProposalManager {
   /**
    * Cancel a proposal (only creator can cancel)
    */
-  async cancel(proposalId: string, cancelledBy: string): Promise<{ success: boolean; error?: string }> {
+  async cancel(
+    proposalId: string,
+    cancelledBy: string,
+  ): Promise<{ success: boolean; error?: string }> {
     await this.ensureLoaded();
 
     const proposal = this.proposals.get(proposalId);

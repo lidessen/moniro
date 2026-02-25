@@ -29,9 +29,9 @@ export function createTool(config: {
 }): ReturnType<typeof tool> {
   return tool({
     description: config.description,
-    inputSchema: jsonSchema(
-      config.schema as JsonSchemaInput,
-    ) as unknown as Parameters<typeof tool>[0]["inputSchema"],
+    inputSchema: jsonSchema(config.schema as JsonSchemaInput) as unknown as Parameters<
+      typeof tool
+    >[0]["inputSchema"],
     execute: config.execute,
   } as unknown as Parameters<typeof tool>[0]);
 }

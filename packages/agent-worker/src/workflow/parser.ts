@@ -384,7 +384,10 @@ function validateParam(
       errors.push({ path: `${path}.short`, message: "Param short must be a single character" });
     } else {
       if (shorts.has(p.short)) {
-        errors.push({ path: `${path}.short`, message: `Duplicate param short flag: "-${p.short}"` });
+        errors.push({
+          path: `${path}.short`,
+          message: `Duplicate param short flag: "-${p.short}"`,
+        });
       }
       shorts.add(p.short);
     }

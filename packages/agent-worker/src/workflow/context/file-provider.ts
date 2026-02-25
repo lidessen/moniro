@@ -164,10 +164,7 @@ export function resolveContextDir(
  * @param workflow Workflow name (defaults to "global")
  * @param tag Workflow instance tag (defaults to "main")
  */
-export function getDefaultContextDir(
-  workflow?: string,
-  tag?: string,
-): string {
+export function getDefaultContextDir(workflow?: string, tag?: string): string {
   const wf = workflow ?? "global";
   const t = tag ?? "main";
 

@@ -60,8 +60,7 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
   const retryConfig = {
     maxAttempts: config.retry?.maxAttempts ?? LOOP_DEFAULTS.retry.maxAttempts,
     backoffMs: config.retry?.backoffMs ?? LOOP_DEFAULTS.retry.backoffMs,
-    backoffMultiplier:
-      config.retry?.backoffMultiplier ?? LOOP_DEFAULTS.retry.backoffMultiplier,
+    backoffMultiplier: config.retry?.backoffMultiplier ?? LOOP_DEFAULTS.retry.backoffMultiplier,
   };
 
   let state: AgentState = "stopped";
