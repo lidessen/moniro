@@ -4,7 +4,7 @@
  * These functions are the building blocks that both runner.ts (CLI direct)
  * and daemon.ts (service) use to create workflow infrastructure.
  *
- * Extracted from the monolithic runWorkflowWithControllers() so that
+ * Extracted from the monolithic runWorkflowWithLoops() so that
  * the daemon can create and manage workflow components independently.
  *
  * Usage:
@@ -71,7 +71,7 @@ export interface WorkflowRuntimeHandle {
  * Configuration for creating a minimal workflow runtime.
  *
  * This is the "workspace" that agents share: context + MCP + event log.
- * It does NOT create controllers or backends — those are per-agent concerns.
+ * It does NOT create loops or backends — those are per-agent concerns.
  */
 export interface MinimalRuntimeConfig {
   /** Workflow name (e.g., "review", "global") */
@@ -242,13 +242,19 @@ export interface WiredLoopResult {
  * 3. Configure stream callbacks for structured event logging
  * 4. Create the AgentLoop with all wiring
  *
- * Extracted from runWorkflowWithControllers() so both runner.ts and
+ * Extracted from runWorkflowWithLoops() so both runner.ts and
  * daemon.ts can create loops with the same quality.
  */
 export function createWiredLoop(config: WiredLoopConfig): WiredLoopResult {
   const { name, agent, runtime, pollInterval, feedback: feedbackEnabled } = config;
 
   const logger = config.logger ?? createSilentLogger();
+
+  // Create isolated workspace directory (before backend, so we can pass it)
+  const workspaceDir = join(runtime.contextDir, "workspaces", name);
+  if (!existsSync(workspaceDir)) {
+    mkdirSync(workspaceDir, { recursive: true });
+  }
 
   // Build structured stream callbacks for this agent
   const streamCallbacks: StreamParserCallbacks = {
@@ -258,7 +264,7 @@ export function createWiredLoop(config: WiredLoopConfig): WiredLoopResult {
     mcpToolNames: runtime.mcpToolNames,
   };
 
-  // Resolve backend
+  // Resolve backend (workspace passed so CLI backends use it as cwd)
   let backend: Backend;
   if (config.createBackend) {
     backend = config.createBackend(name, agent);
@@ -269,21 +275,17 @@ export function createWiredLoop(config: WiredLoopConfig): WiredLoopResult {
       debugLog: (msg) => logger.debug(msg),
       streamCallbacks,
       timeout: agent.timeout,
+      workspace: workspaceDir,
     });
   } else if (agent.model) {
     backend = getBackendForModel(agent.model, {
       provider: agent.provider,
       debugLog: (msg) => logger.debug(msg),
       streamCallbacks,
+      workspace: workspaceDir,
     });
   } else {
     throw new Error(`Agent "${name}" requires either a backend or model field`);
-  }
-
-  // Create isolated workspace directory
-  const workspaceDir = join(runtime.contextDir, "workspaces", name);
-  if (!existsSync(workspaceDir)) {
-    mkdirSync(workspaceDir, { recursive: true });
   }
 
   // Create the loop

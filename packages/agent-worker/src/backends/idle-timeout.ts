@@ -39,20 +39,19 @@ export interface IdleTimeoutOptions {
 export interface IdleTimeoutResult {
   stdout: string;
   stderr: string;
-  /** Function to abort the running process */
-  abort?: () => void;
 }
 
-/**
- * Execute a command with idle timeout.
- *
- * The timeout resets every time the process writes to stdout or stderr.
- * If the process goes silent for longer than `timeout` ms, it's killed.
- */
 /** Minimum idle timeout to prevent accidental instant kills */
 const MIN_TIMEOUT_MS = 1000;
 
-export async function execWithIdleTimeout(options: IdleTimeoutOptions): Promise<IdleTimeoutResult> {
+/**
+ * Core implementation shared by both sync and abortable variants.
+ * Returns the promise, an abort function, and the subprocess handle.
+ */
+function execWithIdleTimeoutInternal(options: IdleTimeoutOptions): {
+  promise: Promise<IdleTimeoutResult>;
+  abort: () => void;
+} {
   const { command, args, cwd, onStdout } = options;
   const timeout = Math.max(options.timeout, MIN_TIMEOUT_MS);
   // Startup timeout: cap at idle timeout so short timeouts (e.g., tests) aren't overridden
@@ -121,98 +120,6 @@ export async function execWithIdleTimeout(options: IdleTimeoutOptions): Promise<
     resetTimer();
   }
 
-  try {
-    await subprocess;
-    clearTimeout(timer);
-    return { stdout: stdout.trimEnd(), stderr: stderr.trimEnd() };
-  } catch (error) {
-    clearTimeout(timer);
-
-    if (isAborted) {
-      throw new Error("Process aborted by user");
-    }
-
-    if (idleTimedOut) {
-      const effectiveTimeout = hasReceivedOutput ? timeout : startupTimeout;
-      throw new IdleTimeoutError(effectiveTimeout, stdout, stderr);
-    }
-
-    // Re-throw original error
-    throw error;
-  }
-}
-
-/**
- * Execute a command with idle timeout and return abort controller
- * This version returns both the promise and an abort function for external control
- */
-export function execWithIdleTimeoutAbortable(options: IdleTimeoutOptions): {
-  promise: Promise<IdleTimeoutResult>;
-  abort: () => void;
-} {
-  const { command, args, cwd, onStdout } = options;
-  const timeout = Math.max(options.timeout, MIN_TIMEOUT_MS);
-  // Startup timeout: cap at idle timeout so short timeouts (e.g., tests) aren't overridden
-  const rawStartup =
-    options.startupTimeout !== undefined ? options.startupTimeout : DEFAULT_STARTUP_TIMEOUT;
-  const startupTimeout = rawStartup > 0 ? Math.min(rawStartup, timeout) : 0;
-
-  let idleTimedOut = false;
-  let hasReceivedOutput = false;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let stdout = "";
-  let stderr = "";
-  let isAborted = false;
-
-  const subprocess: ResultPromise = execa(command, args, {
-    cwd,
-    stdin: "ignore",
-    buffer: false,
-  });
-
-  const resetTimer = () => {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      idleTimedOut = true;
-      subprocess.kill();
-    }, timeout);
-  };
-
-  subprocess.stdout?.on("data", (chunk: Buffer) => {
-    const text = chunk.toString();
-    stdout += text;
-    hasReceivedOutput = true;
-    // Reset timer BEFORE calling onStdout to ensure timeout is always reset
-    // even if the callback throws an exception
-    resetTimer();
-    if (onStdout) {
-      try {
-        onStdout(text);
-      } catch (err) {
-        // Log callback errors but don't let them break the stream
-        console.error("onStdout callback error:", err);
-      }
-    }
-  });
-
-  subprocess.stderr?.on("data", (chunk: Buffer) => {
-    stderr += chunk.toString();
-    hasReceivedOutput = true;
-    resetTimer();
-  });
-
-  // Start with startup timeout (shorter) if configured
-  if (startupTimeout > 0) {
-    timer = setTimeout(() => {
-      if (!hasReceivedOutput) {
-        idleTimedOut = true;
-        subprocess.kill();
-      }
-    }, startupTimeout);
-  } else {
-    resetTimer();
-  }
-
   const abort = () => {
     if (!isAborted) {
       isAborted = true;
@@ -243,11 +150,34 @@ export function execWithIdleTimeoutAbortable(options: IdleTimeoutOptions): {
         throw new IdleTimeoutError(effectiveTimeout, stdout, stderr);
       }
 
+      // Re-throw original error
       throw error;
     }
   })();
 
   return { promise, abort };
+}
+
+/**
+ * Execute a command with idle timeout.
+ *
+ * The timeout resets every time the process writes to stdout or stderr.
+ * If the process goes silent for longer than `timeout` ms, it's killed.
+ */
+export async function execWithIdleTimeout(options: IdleTimeoutOptions): Promise<IdleTimeoutResult> {
+  const { promise } = execWithIdleTimeoutInternal(options);
+  return promise;
+}
+
+/**
+ * Execute a command with idle timeout and return abort handle.
+ * This version returns both the promise and an abort function for external control.
+ */
+export function execWithIdleTimeoutAbortable(options: IdleTimeoutOptions): {
+  promise: Promise<IdleTimeoutResult>;
+  abort: () => void;
+} {
+  return execWithIdleTimeoutInternal(options);
 }
 
 /**

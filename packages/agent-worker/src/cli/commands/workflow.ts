@@ -23,7 +23,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename
     `,
     )
     .action(async (file, options) => {
-      const { parseWorkflowFile, runWorkflowWithControllers } = await import(
+      const { parseWorkflowFile, runWorkflowWithLoops } = await import(
         "@/workflow/index.ts"
       );
 
@@ -62,7 +62,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename
         // In JSON mode, route logs to stderr to keep stdout clean
         const log = options.json ? console.error : console.log;
 
-        const result = await runWorkflowWithControllers({
+        const result = await runWorkflowWithLoops({
           workflow: parsedWorkflow,
           workflowName,
           tag,

@@ -55,22 +55,21 @@ AgentWorker
 interface Backend {
   readonly type: BackendType;
   send(message: string, options?: { system?: string }): Promise<BackendResponse>;
-  setWorkspace?(workspaceDir: string, mcpConfig: { mcpServers: Record<string, unknown> }): void;
   abort?(): void;
 }
 ```
 
-All backends implement `send()`. CLI backends (Claude, Cursor, Codex) additionally accept workspace configuration via `setWorkspace()` — because they manage their own MCP connections and tool loops.
+All backends implement `send()`. The loop writes MCP config to the workspace before calling `send()` — backends just read it from their cwd.
 
 ```
 SDK backend:  AgentWorker → AI SDK → Model API (tools managed by us)
-CLI backends: setWorkspace(mcpConfig) → spawn CLI → CLI manages tools
+CLI backends: loop writes MCP config → spawn CLI in workspace → CLI manages tools
 ```
 
 **The insight**: Backends are pure communication adapters. They don't know about inboxes, channels, or workflows. The loop owns the orchestration line:
 
 ```
-inbox → build prompt → configure workspace → backend.send() → result
+inbox → build prompt → write MCP config → backend.send() → result
 ```
 
 This means you can build a team with one agent on Claude CLI and another on the SDK — they coordinate through shared context, not shared infrastructure.

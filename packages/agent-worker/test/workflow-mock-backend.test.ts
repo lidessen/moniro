@@ -242,22 +242,16 @@ describe('Alice-Bob workflow with mock backends', () => {
 
     const aliceBackend: Backend = {
       type: 'claude' as const,
-      setWorkspace(workspaceDir: string) {
-        capturedAlice = { ...capturedAlice!, workspace: workspaceDir }
-      },
       async send(message: string, options?: { system?: string }) {
-        capturedAlice = { ...capturedAlice, prompt: message, system: options?.system }
+        capturedAlice = { ...capturedAlice, prompt: message, system: options?.system, workspace: '/tmp/ws/alice' }
         return { content: '' }
       },
     }
 
     const bobBackend: Backend = {
       type: 'claude' as const,
-      setWorkspace(workspaceDir: string) {
-        capturedBob = { ...capturedBob!, workspace: workspaceDir }
-      },
       async send(message: string, options?: { system?: string }) {
-        capturedBob = { ...capturedBob, prompt: message, system: options?.system }
+        capturedBob = { ...capturedBob, prompt: message, system: options?.system, workspace: '/tmp/ws/bob' }
         return { content: '' }
       },
     }
@@ -295,7 +289,7 @@ describe('Alice-Bob workflow with mock backends', () => {
 
     await waitFor(() => capturedAlice !== null && capturedAlice.prompt !== undefined && capturedBob !== null && capturedBob.prompt !== undefined)
 
-    // Alice context — verified through prompt text, system option, and setWorkspace
+    // Alice context — verified through prompt text and system option
     expect(capturedAlice!.system).toContain('Alice')
     expect(capturedAlice!.system).toContain('curious')
     expect(capturedAlice!.workspace).toBe('/tmp/ws/alice')

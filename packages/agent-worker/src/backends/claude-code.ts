@@ -4,13 +4,14 @@
  *
  * MCP Configuration:
  * Claude supports per-invocation MCP config via --mcp-config flag.
- * Use setWorkspace() for workspace isolation, or setMcpConfigPath() directly.
+ * The loop writes mcp-config.json to the workspace; this backend
+ * auto-discovers it when workspace is set.
  *
  * @see https://docs.anthropic.com/en/docs/claude-code
  */
 
-import { execa } from "execa";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { checkCliAvailable } from "./cli-helpers.ts";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { Backend, BackendResponse } from "./types.ts";
 import { DEFAULT_IDLE_TIMEOUT } from "./types.ts";
@@ -57,24 +58,6 @@ export class ClaudeCodeBackend implements Backend {
       timeout: DEFAULT_IDLE_TIMEOUT,
       ...options,
     };
-  }
-
-  /**
-   * Set up workspace directory with MCP config
-   * Claude uses --mcp-config flag, so we just write the config file
-   */
-  setWorkspace(workspaceDir: string, mcpConfig: { mcpServers: Record<string, unknown> }): void {
-    this.options.workspace = workspaceDir;
-
-    // Ensure workspace exists
-    if (!existsSync(workspaceDir)) {
-      mkdirSync(workspaceDir, { recursive: true });
-    }
-
-    // Write MCP config file in workspace
-    const mcpConfigPath = join(workspaceDir, "mcp-config.json");
-    writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2));
-    this.options.mcpConfigPath = mcpConfigPath;
   }
 
   async send(message: string, options?: { system?: string }): Promise<BackendResponse> {
@@ -148,12 +131,7 @@ export class ClaudeCodeBackend implements Backend {
   }
 
   async isAvailable(): Promise<boolean> {
-    try {
-      await execa("claude", ["--version"], { stdin: "ignore", timeout: 5000 });
-      return true;
-    } catch {
-      return false;
-    }
+    return checkCliAvailable("claude");
   }
 
   getInfo(): { name: string; version?: string; model?: string } {
@@ -198,18 +176,20 @@ export class ClaudeCodeBackend implements Backend {
       args.push("--resume", this.options.resume);
     }
 
-    if (this.options.mcpConfigPath) {
-      args.push("--mcp-config", this.options.mcpConfigPath);
+    // MCP config: explicit path or auto-discover from workspace
+    const mcpConfigPath =
+      this.options.mcpConfigPath ??
+      (this.options.workspace
+        ? (() => {
+            const p = join(this.options.workspace, "mcp-config.json");
+            return existsSync(p) ? p : undefined;
+          })()
+        : undefined);
+    if (mcpConfigPath) {
+      args.push("--mcp-config", mcpConfigPath);
     }
 
     return args;
-  }
-
-  /**
-   * Set MCP config path (for workflow integration)
-   */
-  setMcpConfigPath(path: string): void {
-    this.options.mcpConfigPath = path;
   }
 
   /**

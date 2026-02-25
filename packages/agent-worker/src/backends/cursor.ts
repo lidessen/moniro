@@ -4,17 +4,15 @@
  *
  * MCP Configuration:
  * Cursor uses project-level MCP config via .cursor/mcp.json in the workspace.
- * Use setWorkspace() to set up a dedicated workspace with MCP config.
+ * The loop writes this file; cursor auto-discovers it from cwd.
  *
  * @see https://docs.cursor.com/context/model-context-protocol
  */
 
-import { execa } from "execa";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import type { Backend, BackendResponse } from "./types.ts";
 import { DEFAULT_IDLE_TIMEOUT } from "./types.ts";
-import { execWithIdleTimeout, IdleTimeoutError } from "./idle-timeout.ts";
+import { execWithIdleTimeout } from "./idle-timeout.ts";
+import { handleCliBackendError, checkCliAvailable } from "./cli-helpers.ts";
 import {
   createStreamParser,
   cursorAdapter,
@@ -53,24 +51,6 @@ export class CursorBackend implements Backend {
     };
   }
 
-  /**
-   * Set up workspace directory with MCP config
-   * Creates .cursor/mcp.json in the workspace
-   */
-  setWorkspace(workspaceDir: string, mcpConfig: { mcpServers: Record<string, unknown> }): void {
-    this.options.workspace = workspaceDir;
-
-    // Create .cursor directory
-    const cursorDir = join(workspaceDir, ".cursor");
-    if (!existsSync(cursorDir)) {
-      mkdirSync(cursorDir, { recursive: true });
-    }
-
-    // Write MCP config
-    const mcpConfigPath = join(cursorDir, "mcp.json");
-    writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2));
-  }
-
   async send(message: string, _options?: { system?: string }): Promise<BackendResponse> {
     const { command, args } = await this.buildCommand(message);
     // Use workspace as cwd if set, otherwise fall back to cwd option
@@ -90,16 +70,7 @@ export class CursorBackend implements Backend {
 
       return extractClaudeResult(stdout);
     } catch (error) {
-      if (error instanceof IdleTimeoutError) {
-        throw new Error(`cursor agent timed out after ${timeout}ms of inactivity`);
-      }
-      if (error && typeof error === "object" && "exitCode" in error) {
-        const execError = error as { exitCode?: number; stderr?: string; shortMessage?: string };
-        throw new Error(
-          `cursor agent failed (exit ${execError.exitCode}): ${execError.stderr || execError.shortMessage}`,
-        );
-      }
-      throw error;
+      handleCliBackendError(error, "cursor agent", timeout);
     }
   }
 
@@ -126,21 +97,15 @@ export class CursorBackend implements Backend {
     if (this.resolvedStyle !== null) return this.resolvedStyle;
 
     // Try subcommand style: cursor agent --version
-    try {
-      await execa("cursor", ["agent", "--version"], { stdin: "ignore", timeout: 2000 });
+    if (await checkCliAvailable("cursor", ["agent", "--version"], 2000)) {
       this.resolvedStyle = "subcommand";
       return "subcommand";
-    } catch {
-      // Not available
     }
 
     // Try direct style: agent --version (standalone install)
-    try {
-      await execa("agent", ["--version"], { stdin: "ignore", timeout: 2000 });
+    if (await checkCliAvailable("agent", ["--version"], 2000)) {
       this.resolvedStyle = "direct";
       return "direct";
-    } catch {
-      // Not available
     }
 
     return null;

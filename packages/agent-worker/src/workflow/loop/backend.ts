@@ -20,6 +20,8 @@ export interface WorkflowBackendOptions {
   streamCallbacks?: StreamParserCallbacks;
   /** Debug log for mock backend */
   debugLog?: (msg: string) => void;
+  /** Workspace directory for CLI backend isolation (used as cwd) */
+  workspace?: string;
 }
 
 /**
@@ -42,6 +44,9 @@ export function getBackendByType(
   }
   if (options?.streamCallbacks) {
     backendOptions.streamCallbacks = options.streamCallbacks;
+  }
+  if (options?.workspace) {
+    backendOptions.workspace = options.workspace;
   }
 
   return createBackend({

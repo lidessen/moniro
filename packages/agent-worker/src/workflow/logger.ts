@@ -50,7 +50,7 @@ export function createSilentLogger(): Logger {
 export interface ChannelLoggerConfig {
   /** Context provider to write channel entries */
   provider: ContextProvider;
-  /** Source name for channel entries (e.g., "workflow", "controller:agentA") */
+  /** Source name for channel entries (e.g., "workflow", "loop:agentA") */
   from?: string;
 }
 

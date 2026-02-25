@@ -69,7 +69,7 @@ export interface ContextProvider {
 
   // Inbox
   getInbox(agent: string): Promise<InboxMessage[]>;
-  /** Mark inbox messages as seen (controller picked them up) */
+  /** Mark inbox messages as seen (loop picked them up) */
   markInboxSeen(agent: string, untilId: string): Promise<void>;
   ackInbox(agent: string, untilId: string): Promise<void>;
 
