@@ -25,7 +25,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename.
       Workflow-defined params (see 'params:' in YAML) are passed as flags after the file.
     `,
     )
-    .action(async (file, options, command) => {
+    .action(async (file, options) => {
       const { parseWorkflowFile, parseWorkflowParams, formatParamHelp, runWorkflowWithLoops } =
         await import("@/workflow/index.ts");
 
@@ -40,7 +40,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename.
       // Parse workflow-specific params from remaining CLI args
       let params: Record<string, string> | undefined;
       if (parsedWorkflow.params && parsedWorkflow.params.length > 0) {
-        const extraArgs = collectUnknownArgs(command);
+        const extraArgs = collectUnknownArgs();
         try {
           params = parseWorkflowParams(parsedWorkflow.params, extraArgs);
         } catch (error) {
@@ -171,7 +171,7 @@ Workflow runs inside the daemon. Use ls/stop to manage:
 Note: Workflow name is inferred from YAML 'name' field or filename
     `,
     )
-    .action(async (file, options, command) => {
+    .action(async (file, options) => {
       const { parseWorkflowFile, parseWorkflowParams, formatParamHelp } =
         await import("@/workflow/index.ts");
       const { ensureDaemon } = await import("./agent.ts");
@@ -185,7 +185,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename
       // Parse workflow-specific params from remaining CLI args
       let params: Record<string, string> | undefined;
       if (parsedWorkflow.params && parsedWorkflow.params.length > 0) {
-        const extraArgs = collectUnknownArgs(command);
+        const extraArgs = collectUnknownArgs();
         try {
           params = parseWorkflowParams(parsedWorkflow.params, extraArgs);
         } catch (error) {
@@ -199,12 +199,11 @@ Note: Workflow name is inferred from YAML 'name' field or filename
       // Ensure daemon is running
       await ensureDaemon();
 
-      // Start workflow via daemon (params are interpolated at parse time, not in daemon)
-      // TODO: pass params through daemon API when needed
       const res = await startWorkflow({
         workflow: parsedWorkflow,
         tag,
         feedback: options.feedback,
+        params,
       });
 
       if (res.error) {
@@ -251,7 +250,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename
  * Commander stores unknown args when allowUnknownOption() is enabled.
  * We filter out the known options so only workflow params remain.
  */
-function collectUnknownArgs(command: Command): string[] {
+function collectUnknownArgs(): string[] {
   // Commander exposes parsed args via .args for positionals
   // and via .parseOptions() result. The simplest: use process.argv
   // and strip everything before/including the file argument.

@@ -314,6 +314,9 @@ function validateContext(context: unknown, errors: ValidationError[]): void {
   }
 }
 
+const RESERVED_NAMESPACES = ["env", "workflow", "params"];
+const VALID_PARAM_TYPES = ["string", "number", "boolean"];
+
 function validateSetupTask(path: string, task: unknown, errors: ValidationError[]): void {
   if (!task || typeof task !== "object") {
     errors.push({ path, message: "Setup task must be an object" });
@@ -337,10 +340,6 @@ function validateSetupTask(path: string, task: unknown, errors: ValidationError[
     });
   }
 }
-
-const RESERVED_NAMESPACES = ["env", "workflow", "params"];
-
-const VALID_PARAM_TYPES = ["string", "number", "boolean"];
 
 function validateParam(
   path: string,
@@ -541,9 +540,9 @@ export function parseWorkflowParams(
   for (const def of defs) {
     let raw = values[def.name];
 
-    // Apply default
+    // Apply default (coerce to string since parseArgs values are string | boolean)
     if (raw === undefined && def.default !== undefined) {
-      raw = def.default;
+      raw = String(def.default);
     }
 
     if (raw === undefined) {
