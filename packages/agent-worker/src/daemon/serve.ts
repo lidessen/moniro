@@ -35,10 +35,19 @@ export async function startHttpServer(app: Hono, options: ServeOptions): Promise
 
 // ── Bun ──────────────────────────────────────────────────────────
 
+interface BunServer {
+  port: number;
+  stop(closeActiveConnections: boolean): void;
+}
+
+interface BunRuntime {
+  serve(options: { fetch: unknown; port: number; hostname?: string }): BunServer;
+}
+
 function startBun(app: Hono, options: ServeOptions): ServerHandle {
-  // Use dynamic access to avoid requiring @types/bun at type-check time
-  const BunRuntime = (globalThis as Record<string, any>).Bun;
-  const server = BunRuntime.serve({
+  // Dynamic access — avoids requiring @types/bun at type-check time
+  const bun = (globalThis as unknown as { Bun: BunRuntime }).Bun;
+  const server = bun.serve({
     fetch: app.fetch,
     port: options.port,
     hostname: options.hostname,
