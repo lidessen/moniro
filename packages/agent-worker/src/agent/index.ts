@@ -1,7 +1,5 @@
 // Agent: definition, session, capabilities
 export { AgentWorker, type SendOptions, type StepInfo } from "./worker.ts";
-/** @deprecated Use AgentWorker instead */
-export { AgentWorker as AgentSession } from "./worker.ts";
 export {
   createModel,
   createModelAsync,

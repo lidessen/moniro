@@ -122,7 +122,7 @@ describe('Client Module', () => {
 
 // ==================== CLI Command Logic Tests ====================
 
-import { buildAgentId, parseAgentId } from '../src/cli/instance.ts'
+import { buildAgentId, parseAgentId } from '../src/cli/target.ts'
 
 describe('CLI Command Logic', () => {
   describe('agent ID handling', () => {

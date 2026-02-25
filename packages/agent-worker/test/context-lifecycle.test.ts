@@ -576,8 +576,8 @@ describe("Bind (Persistent) Context", () => {
     provider2.releaseLock();
   });
 
-  test("bind with instance template creates separate dirs", () => {
-    // Simulate what the parser does with ${{ instance }} in bind path
+  test("bind with tag template creates separate dirs", () => {
+    // Simulate what the parser does with ${{ workflow.tag }} in bind path
     const instanceA = join(testDir, "instance-a");
     const instanceB = join(testDir, "instance-b");
     mkdirSync(instanceA, { recursive: true });

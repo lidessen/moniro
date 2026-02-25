@@ -115,7 +115,7 @@ export class FileContextProvider extends ContextProviderImpl {
  *
  * Supports:
  * - ${{ workflow.name }} — substituted with workflowName
- * - ${{ instance }} — substituted with instance
+ * - ${{ workflow.tag }} — substituted with tag
  * - ~ expansion to home directory
  * - Relative paths resolved against baseDir (or cwd if not provided)
  * - Absolute paths used as-is
@@ -126,19 +126,17 @@ export function resolveContextDir(
     workflowName?: string;
     workflow?: string;
     tag?: string;
-    instance?: string;
     baseDir?: string;
   },
 ): string {
   // Support new workflow:tag format
-  const workflow = opts.workflow ?? opts.workflowName ?? opts.instance ?? "global";
+  const workflow = opts.workflow ?? opts.workflowName ?? "global";
   const workflowName = opts.workflowName ?? workflow;
   const tag = opts.tag ?? "main";
 
   let dir = dirTemplate
     .replace("${{ workflow.name }}", workflowName)
-    .replace("${{ workflow.tag }}", tag)
-    .replace("${{ instance }}", opts.instance ?? workflow); // Backward compat
+    .replace("${{ workflow.tag }}", tag);
 
   if (dir.startsWith("~/")) {
     dir = join(homedir(), dir.slice(2));

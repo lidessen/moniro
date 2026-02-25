@@ -26,8 +26,6 @@ export interface ParseOptions {
   workflow?: string;
   /** Workflow tag (default: 'main') */
   tag?: string;
-  /** @deprecated Use workflow instead. Instance name for context directory */
-  instance?: string;
 }
 
 /**
@@ -38,7 +36,7 @@ export async function parseWorkflowFile(
   options?: ParseOptions,
 ): Promise<ParsedWorkflow> {
   const absolutePath = resolve(filePath);
-  const workflow = options?.workflow ?? options?.instance ?? "global";
+  const workflow = options?.workflow ?? "global";
   const tag = options?.tag ?? "main";
 
   if (!existsSync(absolutePath)) {
@@ -107,7 +105,6 @@ function resolveContext(
       workflowName,
       workflow,
       tag,
-      instance: workflow, // Backward compat
       baseDir: workflowDir,
     });
 
