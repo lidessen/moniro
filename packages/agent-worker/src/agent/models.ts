@@ -149,15 +149,37 @@ export async function createModelWithProvider(
 export function createModel(modelId: string): LanguageModel {
   // Check if it's gateway format (contains /)
   if (modelId.includes("/")) {
-    return gateway(modelId);
+    if (process.env.AI_GATEWAY_API_KEY) {
+      return gateway(modelId);
+    }
+    // No gateway key — try cached provider SDK
+    const slashIndex = modelId.indexOf("/");
+    const provider = modelId.slice(0, slashIndex);
+    const modelName = modelId.slice(slashIndex + 1);
+    if (provider in providerCache && providerCache[provider]) {
+      return providerCache[provider]!(modelName);
+    }
+    throw new Error(
+      `Provider '${provider}' not loaded. Call createModelAsync() first ` +
+        `or set AI_GATEWAY_API_KEY for gateway access.`,
+    );
   }
 
   // Check if it's provider-only format (no / or :)
   if (!modelId.includes(":")) {
     const provider = modelId as keyof typeof FRONTIER_MODELS;
     if (provider in FRONTIER_MODELS) {
-      const defaultModel = FRONTIER_MODELS[provider][0];
-      return gateway(`${provider}/${defaultModel}`);
+      const defaultModel = FRONTIER_MODELS[provider][0]!;
+      if (process.env.AI_GATEWAY_API_KEY) {
+        return gateway(`${provider}/${defaultModel}`);
+      }
+      if (provider in providerCache && providerCache[provider]) {
+        return providerCache[provider]!(defaultModel);
+      }
+      throw new Error(
+        `Provider '${provider}' not loaded. Call createModelAsync() first ` +
+          `or set AI_GATEWAY_API_KEY for gateway access.`,
+      );
     }
     throw new Error(
       `Unknown provider: ${modelId}. Supported: ${Object.keys(FRONTIER_MODELS).join(", ")}`,
@@ -174,17 +196,14 @@ export function createModel(modelId: string): LanguageModel {
     throw new Error(`Invalid model identifier: ${modelId}. Model name is required.`);
   }
 
-  // For direct providers, we need synchronous access after first load
-  // Check cache first
+  // Check cache for previously loaded provider
   if (provider in providerCache && providerCache[provider]) {
     return providerCache[provider]!(modelName);
   }
 
-  // Provider not loaded yet - throw helpful error
-  // The user should use createModelAsync for first-time direct provider access
   throw new Error(
-    `Provider '${provider}' not loaded. Use gateway format (${provider}/${modelName}) ` +
-      `or call createModelAsync() for direct provider access.`,
+    `Provider '${provider}' not loaded. Call createModelAsync() first ` +
+      `or set AI_GATEWAY_API_KEY for gateway access.`,
   );
 }
 
@@ -195,15 +214,27 @@ export function createModel(modelId: string): LanguageModel {
 export async function createModelAsync(modelId: string): Promise<LanguageModel> {
   // Check if it's gateway format (contains /)
   if (modelId.includes("/")) {
-    return gateway(modelId);
+    // Use gateway when AI_GATEWAY_API_KEY is available; otherwise fall back
+    // to loading the provider SDK directly (e.g. @ai-sdk/anthropic).
+    if (process.env.AI_GATEWAY_API_KEY) {
+      return gateway(modelId);
+    }
+    // Convert "anthropic/claude-sonnet-4-5" → provider="anthropic", model="claude-sonnet-4-5"
+    const slashIndex = modelId.indexOf("/");
+    const provider = modelId.slice(0, slashIndex);
+    const modelName = modelId.slice(slashIndex + 1);
+    return loadProviderModel(provider, modelName);
   }
 
   // Check if it's provider-only format (no / or :)
   if (!modelId.includes(":")) {
     const provider = modelId as keyof typeof FRONTIER_MODELS;
     if (provider in FRONTIER_MODELS) {
-      const defaultModel = FRONTIER_MODELS[provider][0];
-      return gateway(`${provider}/${defaultModel}`);
+      const defaultModel = FRONTIER_MODELS[provider][0]!;
+      if (process.env.AI_GATEWAY_API_KEY) {
+        return gateway(`${provider}/${defaultModel}`);
+      }
+      return loadProviderModel(provider, defaultModel);
     }
     throw new Error(
       `Unknown provider: ${modelId}. Supported: ${Object.keys(FRONTIER_MODELS).join(", ")}`,
@@ -212,7 +243,6 @@ export async function createModelAsync(modelId: string): Promise<LanguageModel> 
 
   // Direct provider format (contains :)
   const colonIndex = modelId.indexOf(":");
-
   const provider = modelId.slice(0, colonIndex);
   const modelName = modelId.slice(colonIndex + 1);
 
@@ -220,6 +250,14 @@ export async function createModelAsync(modelId: string): Promise<LanguageModel> 
     throw new Error(`Invalid model identifier: ${modelId}. Model name is required.`);
   }
 
+  return loadProviderModel(provider, modelName);
+}
+
+/**
+ * Load a provider SDK and create a model instance.
+ * Used as fallback when AI Gateway is not available.
+ */
+async function loadProviderModel(provider: string, modelName: string): Promise<LanguageModel> {
   const config = PROVIDER_PACKAGES[provider];
   if (!config) {
     throw new Error(
