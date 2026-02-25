@@ -71,17 +71,10 @@ export function getBackendForModel(model: string, options?: WorkflowBackendOptio
 
   const { provider } = parseModel(model);
 
-  switch (provider) {
-    case "anthropic":
-      return getBackendByType("default", { ...options, model });
+  // CLI backends have their own process — route explicitly
+  if (provider === "claude") return getBackendByType("claude", { ...options, model });
+  if (provider === "codex") return getBackendByType("codex", { ...options, model });
 
-    case "claude":
-      return getBackendByType("claude", { ...options, model });
-
-    case "codex":
-      return getBackendByType("codex", { ...options, model });
-
-    default:
-      throw new Error(`Unknown provider: ${provider}. Specify backend explicitly.`);
-  }
+  // Everything else (anthropic, openai, deepseek, google, etc.) → SDK backend
+  return getBackendByType("default", { ...options, model });
 }
