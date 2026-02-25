@@ -5,6 +5,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
+import { parseArgs } from "node:util";
 import type {
   WorkflowFile,
   ParsedWorkflow,
@@ -13,6 +14,7 @@ import type {
   ValidationResult,
   ValidationError,
   AgentDefinition,
+  ParamDefinition,
 } from "./types.ts";
 import type { ScheduleConfig } from "../daemon/registry.ts";
 import { CONTEXT_DEFAULTS } from "./context/types.ts";
@@ -79,6 +81,7 @@ export async function parseWorkflowFile(
     filePath: absolutePath,
     agents,
     context,
+    params: raw.params,
     setup: raw.setup || [],
     kickoff: raw.kickoff,
   };
@@ -215,6 +218,19 @@ export function validateWorkflow(workflow: unknown): ValidationResult {
     validateContext(w.context, errors);
   }
 
+  // Validate params (optional)
+  if (w.params !== undefined) {
+    if (!Array.isArray(w.params)) {
+      errors.push({ path: "params", message: "Params must be an array" });
+    } else {
+      const names = new Set<string>();
+      const shorts = new Set<string>();
+      for (let i = 0; i < w.params.length; i++) {
+        validateParam(`params[${i}]`, w.params[i], errors, names, shorts);
+      }
+    }
+  }
+
   // Validate setup (optional)
   if (w.setup !== undefined) {
     if (!Array.isArray(w.setup)) {
@@ -312,6 +328,61 @@ function validateSetupTask(path: string, task: unknown, errors: ValidationError[
 
   if (t.as !== undefined && typeof t.as !== "string") {
     errors.push({ path: `${path}.as`, message: 'Setup task "as" field must be a string' });
+  }
+}
+
+const VALID_PARAM_TYPES = ["string", "number", "boolean"];
+
+function validateParam(
+  path: string,
+  param: unknown,
+  errors: ValidationError[],
+  names: Set<string>,
+  shorts: Set<string>,
+): void {
+  if (!param || typeof param !== "object") {
+    errors.push({ path, message: "Param must be an object" });
+    return;
+  }
+
+  const p = param as Record<string, unknown>;
+
+  if (!p.name || typeof p.name !== "string") {
+    errors.push({ path: `${path}.name`, message: 'Param requires "name" field as string' });
+    return;
+  }
+
+  if (names.has(p.name)) {
+    errors.push({ path: `${path}.name`, message: `Duplicate param name: "${p.name}"` });
+  }
+  names.add(p.name);
+
+  if (p.description !== undefined && typeof p.description !== "string") {
+    errors.push({ path: `${path}.description`, message: "Param description must be a string" });
+  }
+
+  if (p.type !== undefined) {
+    if (typeof p.type !== "string" || !VALID_PARAM_TYPES.includes(p.type)) {
+      errors.push({
+        path: `${path}.type`,
+        message: `Param type must be one of: ${VALID_PARAM_TYPES.join(", ")}`,
+      });
+    }
+  }
+
+  if (p.short !== undefined) {
+    if (typeof p.short !== "string" || p.short.length !== 1) {
+      errors.push({ path: `${path}.short`, message: "Param short must be a single character" });
+    } else {
+      if (shorts.has(p.short)) {
+        errors.push({ path: `${path}.short`, message: `Duplicate param short flag: "-${p.short}"` });
+      }
+      shorts.add(p.short);
+    }
+  }
+
+  if (p.required !== undefined && typeof p.required !== "boolean") {
+    errors.push({ path: `${path}.required`, message: "Param required must be a boolean" });
   }
 }
 
@@ -423,6 +494,89 @@ function validateAgent(name: string, agent: unknown, errors: ValidationError[]):
       });
     }
   }
+}
+
+/**
+ * Parse CLI arguments against workflow param definitions.
+ * Uses Node's built-in util.parseArgs().
+ *
+ * @param defs  Param definitions from workflow YAML
+ * @param argv  Raw CLI arguments (everything after the workflow file)
+ * @returns     Resolved param values as string map
+ * @throws      Error if required params are missing or types are invalid
+ */
+export function parseWorkflowParams(
+  defs: ParamDefinition[],
+  argv: string[],
+): Record<string, string> {
+  if (defs.length === 0) return {};
+
+  // Build parseArgs options from param definitions
+  const options: Record<string, { type: "string" | "boolean"; short?: string }> = {};
+  for (const def of defs) {
+    const type = def.type === "boolean" ? "boolean" : "string";
+    const opt: { type: "string" | "boolean"; short?: string } = { type };
+    if (def.short) opt.short = def.short;
+    options[def.name] = opt;
+  }
+
+  const { values } = parseArgs({ args: argv, options, strict: true });
+
+  // Resolve defaults, validate required, coerce types
+  const result: Record<string, string> = {};
+  const missing: string[] = [];
+
+  for (const def of defs) {
+    let raw = values[def.name];
+
+    // Apply default
+    if (raw === undefined && def.default !== undefined) {
+      raw = def.default;
+    }
+
+    if (raw === undefined) {
+      if (def.required) {
+        const flag = def.short ? `-${def.short}/--${def.name}` : `--${def.name}`;
+        missing.push(flag);
+      }
+      continue;
+    }
+
+    // Type validation for number params
+    if (def.type === "number") {
+      const num = Number(raw);
+      if (isNaN(num)) {
+        throw new Error(`Parameter --${def.name} must be a number, got: "${raw}"`);
+      }
+      result[def.name] = String(num);
+    } else {
+      result[def.name] = String(raw);
+    }
+  }
+
+  if (missing.length > 0) {
+    throw new Error(`Missing required parameter(s): ${missing.join(", ")}`);
+  }
+
+  return result;
+}
+
+/**
+ * Format parameter help text for workflow params
+ */
+export function formatParamHelp(defs: ParamDefinition[]): string {
+  if (defs.length === 0) return "";
+
+  const lines = ["", "Workflow parameters:"];
+  for (const def of defs) {
+    const flags = def.short ? `-${def.short}, --${def.name}` : `    --${def.name}`;
+    const type = def.type || "string";
+    const req = def.required ? " (required)" : "";
+    const dflt = def.default !== undefined ? ` [default: ${def.default}]` : "";
+    const desc = def.description || "";
+    lines.push(`  ${flags} <${type}>  ${desc}${req}${dflt}`);
+  }
+  return lines.join("\n");
 }
 
 /**

@@ -30,6 +30,13 @@ export interface WorkflowFile {
   context?: ContextConfig;
 
   /**
+   * Workflow parameters — CLI-style definitions.
+   * Values are passed after the workflow file on the command line
+   * and accessible via ${{ params.name }} interpolation.
+   */
+  params?: ParamDefinition[];
+
+  /**
    * Setup commands - run before kickoff
    * Shell commands to prepare variables for kickoff
    */
@@ -102,6 +109,27 @@ export interface AgentDefinition {
   wakeup_prompt?: string;
 }
 
+// ==================== Param Definition ====================
+
+/** Supported parameter types */
+export type ParamType = "string" | "number" | "boolean";
+
+/** A workflow parameter definition (CLI-style) */
+export interface ParamDefinition {
+  /** Parameter name (used as --name on CLI) */
+  name: string;
+  /** Human-readable description */
+  description?: string;
+  /** Value type (default: "string") */
+  type?: ParamType;
+  /** Short flag (single character, used as -x on CLI) */
+  short?: string;
+  /** Whether the parameter is required */
+  required?: boolean;
+  /** Default value */
+  default?: string | number | boolean;
+}
+
 // ==================== Setup Task ====================
 
 export interface SetupTask {
@@ -121,6 +149,9 @@ export interface ParsedWorkflow {
 
   /** Resolved context configuration */
   context?: ResolvedContext;
+
+  /** Workflow parameter definitions */
+  params?: ParamDefinition[];
 
   /** Setup tasks */
   setup: SetupTask[];

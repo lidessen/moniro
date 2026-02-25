@@ -11,6 +11,7 @@ export function registerWorkflowCommands(program: Command) {
     .option("-d, --debug", "Show debug details (internal logs, MCP traces, idle checks)")
     .option("--feedback", "Enable feedback tool (agents can report tool/workflow observations)")
     .option("--json", "Output results as JSON")
+    .allowUnknownOption() // Workflow params are parsed separately
     .addHelpText(
       "after",
       `
@@ -18,22 +19,37 @@ Examples:
   $ agent-worker run review.yaml                        # Run review:main
   $ agent-worker run review.yaml --tag pr-123           # Run review:pr-123
   $ agent-worker run review.yaml --json | jq .document  # Machine-readable output
+  $ agent-worker run review.yaml --target main -n 3     # With workflow params
 
-Note: Workflow name is inferred from YAML 'name' field or filename
+Note: Workflow name is inferred from YAML 'name' field or filename.
+      Workflow-defined params (see 'params:' in YAML) are passed as flags after the file.
     `,
     )
-    .action(async (file, options) => {
-      const { parseWorkflowFile, runWorkflowWithLoops } = await import(
-        "@/workflow/index.ts"
-      );
+    .action(async (file, options, command) => {
+      const { parseWorkflowFile, parseWorkflowParams, formatParamHelp, runWorkflowWithLoops } =
+        await import("@/workflow/index.ts");
 
       const tag = options.tag || DEFAULT_TAG;
 
-      // Parse workflow file to get the workflow name
+      // Parse workflow file to get the workflow name and param definitions
       const parsedWorkflow = await parseWorkflowFile(file, {
         tag,
       });
       const workflowName = parsedWorkflow.name;
+
+      // Parse workflow-specific params from remaining CLI args
+      let params: Record<string, string> | undefined;
+      if (parsedWorkflow.params && parsedWorkflow.params.length > 0) {
+        const extraArgs = collectUnknownArgs(command);
+        try {
+          params = parseWorkflowParams(parsedWorkflow.params, extraArgs);
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          console.error(`Error: ${msg}`);
+          console.error(formatParamHelp(parsedWorkflow.params));
+          process.exit(1);
+        }
+      }
 
       let loops: Map<string, any> | undefined;
       let isCleaningUp = false;
@@ -72,6 +88,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename
           mode: "run",
           feedback: options.feedback,
           prettyDisplay: !options.debug && !options.json, // Use pretty display in non-debug, non-json mode
+          params,
         });
 
         // Store references for cleanup (though run mode completes automatically)
@@ -139,6 +156,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename
     .option("--tag <tag>", "Workflow instance tag (default: main)", DEFAULT_TAG)
     .option("--feedback", "Enable feedback tool (agents can report tool/workflow observations)")
     .option("--json", "Output as JSON")
+    .allowUnknownOption() // Workflow params are parsed separately
     .addHelpText(
       "after",
       `
@@ -153,8 +171,10 @@ Workflow runs inside the daemon. Use ls/stop to manage:
 Note: Workflow name is inferred from YAML 'name' field or filename
     `,
     )
-    .action(async (file, options) => {
-      const { parseWorkflowFile } = await import("@/workflow/index.ts");
+    .action(async (file, options, command) => {
+      const { parseWorkflowFile, parseWorkflowParams, formatParamHelp } = await import(
+        "@/workflow/index.ts"
+      );
       const { ensureDaemon } = await import("./agent.ts");
 
       const tag = options.tag || DEFAULT_TAG;
@@ -163,10 +183,25 @@ Note: Workflow name is inferred from YAML 'name' field or filename
       const parsedWorkflow = await parseWorkflowFile(file, { tag });
       const workflowName = parsedWorkflow.name;
 
+      // Parse workflow-specific params from remaining CLI args
+      let params: Record<string, string> | undefined;
+      if (parsedWorkflow.params && parsedWorkflow.params.length > 0) {
+        const extraArgs = collectUnknownArgs(command);
+        try {
+          params = parseWorkflowParams(parsedWorkflow.params, extraArgs);
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          console.error(`Error: ${msg}`);
+          console.error(formatParamHelp(parsedWorkflow.params));
+          process.exit(1);
+        }
+      }
+
       // Ensure daemon is running
       await ensureDaemon();
 
-      // Start workflow via daemon
+      // Start workflow via daemon (params are interpolated at parse time, not in daemon)
+      // TODO: pass params through daemon API when needed
       const res = await startWorkflow({
         workflow: parsedWorkflow,
         tag,
@@ -210,4 +245,50 @@ Note: Workflow name is inferred from YAML 'name' field or filename
       // Keep process alive
       await new Promise(() => {});
     });
+}
+
+/**
+ * Collect unknown options from a Commander command.
+ * Commander stores unknown args when allowUnknownOption() is enabled.
+ * We filter out the known options so only workflow params remain.
+ */
+function collectUnknownArgs(command: Command): string[] {
+  // Commander exposes parsed args via .args for positionals
+  // and via .parseOptions() result. The simplest: use process.argv
+  // and strip everything before/including the file argument.
+  const argv = process.argv.slice(2); // skip node + script
+  const knownFlags = new Set(["--tag", "-d", "--debug", "--feedback", "--json"]);
+
+  // Find the file argument position (first arg not starting with -)
+  let fileIdx = -1;
+  for (let i = 0; i < argv.length; i++) {
+    // Skip the sub-command ("run" or "start")
+    if (i === 0 && (argv[i] === "run" || argv[i] === "start")) continue;
+    if (!argv[i]!.startsWith("-")) {
+      fileIdx = i;
+      break;
+    }
+  }
+
+  if (fileIdx === -1) return [];
+
+  // Everything after the file arg
+  const afterFile = argv.slice(fileIdx + 1);
+
+  // Filter out known flags and their values
+  const result: string[] = [];
+  let i = 0;
+  while (i < afterFile.length) {
+    const arg = afterFile[i]!;
+    if (knownFlags.has(arg)) {
+      // --tag takes a value, others are boolean
+      if (arg === "--tag") i += 2;
+      else i++;
+    } else {
+      result.push(arg);
+      i++;
+    }
+  }
+
+  return result;
 }
