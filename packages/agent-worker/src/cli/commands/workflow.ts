@@ -11,8 +11,7 @@ export function registerWorkflowCommands(program: Command) {
     .option("-d, --debug", "Show debug details (internal logs, MCP traces, idle checks)")
     .option("--feedback", "Enable feedback tool (agents can report tool/workflow observations)")
     .option("--json", "Output results as JSON")
-    .allowUnknownOption() // Workflow params are parsed separately
-    .allowExcessArguments() // Unknown option values appear as excess args
+    .allowExcessArguments() // Args after '--' appear as excess positional args
     .addHelpText(
       "after",
       `
@@ -20,20 +19,20 @@ Examples:
   $ agent-worker run review.yaml                        # Run review:main
   $ agent-worker run review.yaml --tag pr-123           # Run review:pr-123
   $ agent-worker run review.yaml --json | jq .document  # Machine-readable output
-  $ agent-worker run review.yaml --target main -n 3     # With workflow params
+  $ agent-worker run review.yaml -- --target main -n 3  # With workflow params
 
 Remote workflows (github:owner/repo@ref/path):
   $ agent-worker run github:acme/workflows/review.yml           # Default branch
   $ agent-worker run github:acme/workflows@v1.0/review.yml      # Pinned version
   $ agent-worker run github:acme/workflows#review               # Shorthand
-  $ agent-worker run github:acme/workflows#review --target main  # With params
+  $ agent-worker run github:acme/workflows#review -- --target main  # With params
 
 Note: Workflow name is inferred from YAML 'name' field or filename.
-      Workflow-defined params (see 'params:' in YAML) are passed as flags after the file.
+      Workflow-defined params (see 'params:' in YAML) are passed after '--'.
       Set GITHUB_TOKEN env var to access private repositories.
     `,
     )
-    .action(async function (this: Command, file, options) {
+    .action(async (file, options) => {
       const { parseWorkflowFile, parseWorkflowParams, formatParamHelp, runWorkflowWithLoops } =
         await import("@/workflow/index.ts");
 
@@ -45,10 +44,10 @@ Note: Workflow name is inferred from YAML 'name' field or filename.
       });
       const workflowName = parsedWorkflow.name;
 
-      // Parse workflow-specific params from remaining CLI args
+      // Parse workflow-specific params from args after '--'
       let params: Record<string, string> | undefined;
       if (parsedWorkflow.params && parsedWorkflow.params.length > 0) {
-        const extraArgs = collectUnknownArgs(this);
+        const extraArgs = getArgsAfterSeparator();
         try {
           params = parseWorkflowParams(parsedWorkflow.params, extraArgs);
         } catch (error) {
@@ -164,23 +163,24 @@ Note: Workflow name is inferred from YAML 'name' field or filename.
     .option("--tag <tag>", "Workflow instance tag (default: main)", DEFAULT_TAG)
     .option("--feedback", "Enable feedback tool (agents can report tool/workflow observations)")
     .option("--json", "Output as JSON")
-    .allowUnknownOption() // Workflow params are parsed separately
-    .allowExcessArguments() // Unknown option values appear as excess args
+    .allowExcessArguments() // Args after '--' appear as excess positional args
     .addHelpText(
       "after",
       `
 Examples:
   $ agent-worker start review.yaml                    # Start review:main (Ctrl+C to stop)
   $ agent-worker start review.yaml --tag pr-123       # Start review:pr-123
+  $ agent-worker start review.yaml -- --target main   # With workflow params
 
 Workflow runs inside the daemon. Use ls/stop to manage:
   $ agent-worker ls                                   # List all agents
   $ agent-worker stop @review:pr-123                  # Stop workflow
 
-Note: Workflow name is inferred from YAML 'name' field or filename
+Note: Workflow name is inferred from YAML 'name' field or filename.
+      Workflow-defined params (see 'params:' in YAML) are passed after '--'.
     `,
     )
-    .action(async function (this: Command, file, options) {
+    .action(async (file, options) => {
       const { parseWorkflowFile, parseWorkflowParams, formatParamHelp } =
         await import("@/workflow/index.ts");
       const { ensureDaemon } = await import("./agent.ts");
@@ -191,10 +191,10 @@ Note: Workflow name is inferred from YAML 'name' field or filename
       const parsedWorkflow = await parseWorkflowFile(file, { tag });
       const workflowName = parsedWorkflow.name;
 
-      // Parse workflow-specific params from remaining CLI args
+      // Parse workflow-specific params from args after '--'
       let params: Record<string, string> | undefined;
       if (parsedWorkflow.params && parsedWorkflow.params.length > 0) {
-        const extraArgs = collectUnknownArgs(this);
+        const extraArgs = getArgsAfterSeparator();
         try {
           params = parseWorkflowParams(parsedWorkflow.params, extraArgs);
         } catch (error) {
@@ -255,55 +255,11 @@ Note: Workflow name is inferred from YAML 'name' field or filename
 }
 
 /**
- * Collect unknown options from a Commander command.
- * Commander stores unknown args when allowUnknownOption() is enabled.
- * We filter out the command's own options so only workflow params remain.
- *
- * Known flags are derived dynamically from the command's option definitions,
- * so run/start (which have different options) each filter correctly.
+ * Get arguments after the '--' separator.
+ * Standard Unix convention: everything after '--' is passed through
+ * without being interpreted as options by the CLI framework.
  */
-function collectUnknownArgs(cmd: Command): string[] {
-  const argv = process.argv.slice(2); // skip node + script
-
-  // Build known flags and which ones take a value from the command's options
-  const knownBooleanFlags = new Set<string>();
-  const knownValueFlags = new Set<string>();
-  for (const opt of cmd.options) {
-    const target = opt.required || opt.optional ? knownValueFlags : knownBooleanFlags;
-    if (opt.short) target.add(opt.short);
-    if (opt.long) target.add(opt.long);
-  }
-
-  // Find the file argument position (first arg not starting with -)
-  let fileIdx = -1;
-  for (let i = 0; i < argv.length; i++) {
-    // Skip the sub-command ("run" or "start")
-    if (i === 0 && (argv[i] === "run" || argv[i] === "start")) continue;
-    if (!argv[i]!.startsWith("-")) {
-      fileIdx = i;
-      break;
-    }
-  }
-
-  if (fileIdx === -1) return [];
-
-  // Everything after the file arg
-  const afterFile = argv.slice(fileIdx + 1);
-
-  // Filter out known flags and their values
-  const result: string[] = [];
-  let i = 0;
-  while (i < afterFile.length) {
-    const arg = afterFile[i]!;
-    if (knownValueFlags.has(arg)) {
-      i += 2; // skip flag + its value
-    } else if (knownBooleanFlags.has(arg)) {
-      i++; // skip boolean flag
-    } else {
-      result.push(arg);
-      i++;
-    }
-  }
-
-  return result;
+function getArgsAfterSeparator(): string[] {
+  const idx = process.argv.indexOf("--");
+  return idx === -1 ? [] : process.argv.slice(idx + 1);
 }
