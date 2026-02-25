@@ -3,8 +3,7 @@
  * Enables structured decision-making between agents
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import type { StorageBackend } from "./storage.ts";
 
 // ============================================================================
 // Types
@@ -105,33 +104,38 @@ export const PROPOSAL_DEFAULTS = {
 // ============================================================================
 
 export interface ProposalManagerOptions {
-  /** Path to state directory */
-  stateDir: string;
+  /** Storage backend for persistence */
+  storage: StorageBackend;
   /** Valid agent names for voter validation */
   validAgents: string[];
 }
 
 /**
- * Manages proposals lifecycle: creation, voting, resolution
+ * Manages proposals lifecycle: creation, voting, resolution.
+ * Uses StorageBackend for persistence (consistent with other stores).
  */
 export class ProposalManager {
   private proposals: Map<string, Proposal> = new Map();
-  private readonly statePath: string;
   private idCounter = 0;
+  private loaded = false;
 
-  constructor(private options: ProposalManagerOptions) {
-    this.statePath = join(options.stateDir, "proposals.json");
-    this.load();
-  }
+  constructor(private options: ProposalManagerOptions) {}
 
   // --------------------------------------------------------------------------
   // Persistence
   // --------------------------------------------------------------------------
 
-  private load(): void {
+  private async ensureLoaded(): Promise<void> {
+    if (this.loaded) return;
+    await this.load();
+    this.loaded = true;
+  }
+
+  private async load(): Promise<void> {
     try {
-      if (existsSync(this.statePath)) {
-        const data: ProposalsState = JSON.parse(readFileSync(this.statePath, "utf-8"));
+      const raw = await this.options.storage.read(PROPOSAL_DEFAULTS.stateFile);
+      if (raw) {
+        const data: ProposalsState = JSON.parse(raw);
         this.proposals = new Map(Object.entries(data.proposals || {}));
         // Restore ID counter: prefer persisted counter, fall back to scanning proposals
         if (data.idCounter != null && data.idCounter > this.idCounter) {
@@ -149,12 +153,7 @@ export class ProposalManager {
     }
   }
 
-  private save(): void {
-    const dir = dirname(this.statePath);
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
-    }
-
+  private async save(): Promise<void> {
     // Only persist active proposals (resolved/cancelled/expired are not saved)
     const activeOnly = [...this.proposals.entries()].filter(([_, p]) => p.status === "active");
 
@@ -163,7 +162,7 @@ export class ProposalManager {
       idCounter: this.idCounter,
       version: Date.now(),
     };
-    writeFileSync(this.statePath, JSON.stringify(state, null, 2));
+    await this.options.storage.write(PROPOSAL_DEFAULTS.stateFile, JSON.stringify(state, null, 2));
   }
 
   // --------------------------------------------------------------------------
@@ -177,7 +176,7 @@ export class ProposalManager {
   /**
    * Create a new proposal
    */
-  create(params: {
+  async create(params: {
     type: ProposalType;
     title: string;
     description?: string;
@@ -186,7 +185,9 @@ export class ProposalManager {
     binding?: boolean;
     timeoutSeconds?: number;
     createdBy: string;
-  }): Proposal {
+  }): Promise<Proposal> {
+    await this.ensureLoaded();
+
     const id = this.generateId();
     const now = new Date();
 
@@ -231,7 +232,7 @@ export class ProposalManager {
     };
 
     this.proposals.set(id, proposal);
-    this.save();
+    await this.save();
 
     return proposal;
   }
@@ -239,12 +240,14 @@ export class ProposalManager {
   /**
    * Cast a vote on a proposal
    */
-  vote(params: { proposalId: string; voter: string; choice: string; reason?: string }): {
+  async vote(params: { proposalId: string; voter: string; choice: string; reason?: string }): Promise<{
     success: boolean;
     error?: string;
     proposal?: Proposal;
     resolved?: boolean;
-  } {
+  }> {
+    await this.ensureLoaded();
+
     const proposal = this.proposals.get(params.proposalId);
 
     if (!proposal) {
@@ -289,7 +292,7 @@ export class ProposalManager {
     // Check if we should resolve
     const resolved = this.checkResolution(proposal);
 
-    this.save();
+    await this.save();
 
     return {
       success: true,
@@ -301,13 +304,15 @@ export class ProposalManager {
   /**
    * Get proposal by ID
    */
-  get(proposalId: string): Proposal | undefined {
+  async get(proposalId: string): Promise<Proposal | undefined> {
+    await this.ensureLoaded();
+
     const proposal = this.proposals.get(proposalId);
     if (proposal && proposal.status === "active") {
       // Check expiration on access
       if (proposal.expiresAt && new Date(proposal.expiresAt) < new Date()) {
         this.expireProposal(proposal);
-        this.save();
+        await this.save();
       }
     }
     return proposal;
@@ -316,7 +321,9 @@ export class ProposalManager {
   /**
    * Get all proposals (optionally filtered by status)
    */
-  list(status?: ProposalStatus): Proposal[] {
+  async list(status?: ProposalStatus): Promise<Proposal[]> {
+    await this.ensureLoaded();
+
     // Check and expire any outdated proposals
     let mutated = false;
     for (const proposal of this.proposals.values()) {
@@ -330,7 +337,7 @@ export class ProposalManager {
       }
     }
     if (mutated) {
-      this.save();
+      await this.save();
     }
 
     const proposals = [...this.proposals.values()];
@@ -343,7 +350,9 @@ export class ProposalManager {
   /**
    * Cancel a proposal (only creator can cancel)
    */
-  cancel(proposalId: string, cancelledBy: string): { success: boolean; error?: string } {
+  async cancel(proposalId: string, cancelledBy: string): Promise<{ success: boolean; error?: string }> {
+    await this.ensureLoaded();
+
     const proposal = this.proposals.get(proposalId);
 
     if (!proposal) {
@@ -362,7 +371,7 @@ export class ProposalManager {
     proposal.result!.resolvedBy = "cancelled";
     proposal.result!.resolvedAt = new Date().toISOString();
 
-    this.save();
+    await this.save();
 
     return { success: true };
   }
@@ -370,7 +379,9 @@ export class ProposalManager {
   /**
    * Check if there are any active proposals
    */
-  hasActiveProposals(): boolean {
+  async hasActiveProposals(): Promise<boolean> {
+    await this.ensureLoaded();
+
     let mutated = false;
     for (const proposal of this.proposals.values()) {
       if (proposal.status === "active") {
@@ -380,13 +391,13 @@ export class ProposalManager {
           mutated = true;
         } else {
           // Found an active, non-expired proposal
-          if (mutated) this.save();
+          if (mutated) await this.save();
           return true;
         }
       }
     }
     if (mutated) {
-      this.save();
+      await this.save();
     }
     return false;
   }
@@ -394,8 +405,8 @@ export class ProposalManager {
   /**
    * Get count of active proposals
    */
-  activeCount(): number {
-    return this.list("active").length;
+  async activeCount(): Promise<number> {
+    return (await this.list("active")).length;
   }
 
   // --------------------------------------------------------------------------
@@ -515,10 +526,10 @@ export class ProposalManager {
   // --------------------------------------------------------------------------
 
   /** Clear all proposals (for testing) */
-  clear(): void {
+  async clear(): Promise<void> {
     this.proposals.clear();
     this.idCounter = 0;
-    this.save();
+    await this.save();
   }
 
   /** Get all proposals as map (for testing) */
