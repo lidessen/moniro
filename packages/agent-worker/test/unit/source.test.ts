@@ -99,5 +99,24 @@ describe("parseGitHubRef", () => {
     test("throws on missing repo", () => {
       expect(() => parseGitHubRef("github:owner")).toThrow("Invalid GitHub reference");
     });
+
+    test("rejects ref with shell metacharacters", () => {
+      expect(() => parseGitHubRef("github:owner/repo@main;rm -rf //path.yml")).toThrow(
+        "Invalid git ref",
+      );
+      expect(() => parseGitHubRef("github:owner/repo@$(whoami)#name")).toThrow("Invalid git ref");
+      expect(() => parseGitHubRef("github:owner/repo@`id`/path.yml")).toThrow("Invalid git ref");
+    });
+
+    test("accepts valid refs", () => {
+      // semver tag
+      expect(parseGitHubRef("github:owner/repo@v1.2.3#name").ref).toBe("v1.2.3");
+      // SHA
+      expect(parseGitHubRef("github:owner/repo@abc1234/workflows/a.yml").ref).toBe("abc1234");
+      // branch with hyphens and dots
+      expect(parseGitHubRef("github:owner/repo@release-2.0/workflows/a.yml").ref).toBe(
+        "release-2.0",
+      );
+    });
   });
 });
