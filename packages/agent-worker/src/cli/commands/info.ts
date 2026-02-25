@@ -48,7 +48,7 @@ export function registerInfoCommands(program: Command) {
       console.log(`  Custom endpoint: --provider anthropic --base-url <url> --api-key '$KEY'`);
       console.log(`  Auto-detect:     model: auto         (scan env vars, pick best available)`);
       console.log(`\nDefault: ${defaultModel} (when no model specified)`);
-      console.log(`Auto:    Set AGENT_MODEL env var to override auto-detected model`);
+      console.log(`Auto:    AGENT_DEFAULT_MODELS="deepseek-chat, anthropic/claude-sonnet-4-5"`);
     });
 
   // Backends command
