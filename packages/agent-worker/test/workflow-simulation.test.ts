@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os'
 import { createMemoryContextProvider } from '../src/workflow/context/memory-provider.js'
 import { createAgentLoop, checkWorkflowIdle } from '../src/workflow/loop/loop.js'
 import { createProposalManager } from '../src/workflow/context/proposals.js'
+import { MemoryStorage } from '../src/workflow/context/storage.js'
 import type { AgentLoop } from '../src/workflow/loop/types.js'
 import type { Backend } from '../src/backends/types.js'
 import type { ResolvedAgent } from '../src/workflow/types.js'
@@ -168,12 +169,12 @@ describe('Workflow Simulation', () => {
   test('agents vote on a proposal', async () => {
     const provider = createMemoryContextProvider(['alice', 'bob', 'charlie'])
     const proposalManager = createProposalManager({
-      stateDir: tempDir,
+      storage: new MemoryStorage(),
       validAgents: ['alice', 'bob', 'charlie'],
     })
 
     const loops: AgentLoop[] = []
-    let proposal: ReturnType<typeof proposalManager.create> | null = null
+    let proposal: Awaited<ReturnType<typeof proposalManager.create>> | null = null
 
     // Alice creates proposal and votes
     const aliceBackend = createMockBackend(
@@ -181,7 +182,7 @@ describe('Workflow Simulation', () => {
       async (prompt, p) => {
         const inbox = getInboxSection(prompt)
         if (inbox.includes('decide')) {
-          proposal = proposalManager.create({
+          proposal = await proposalManager.create({
             type: 'decision',
             title: 'Choose database',
             options: [
@@ -190,7 +191,7 @@ describe('Workflow Simulation', () => {
             ],
             createdBy: 'alice',
           })
-          proposalManager.vote({ proposalId: proposal.id, voter: 'alice', choice: 'postgres' })
+          await proposalManager.vote({ proposalId: proposal.id, voter: 'alice', choice: 'postgres' })
           await p.appendChannel('alice', `Created ${proposal.id}. @bob @charlie please vote!`)
         }
       },
@@ -203,7 +204,7 @@ describe('Workflow Simulation', () => {
       async (prompt, _p) => {
         const inbox = getInboxSection(prompt)
         if (proposal && inbox.includes('please vote')) {
-          proposalManager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'postgres' })
+          await proposalManager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'postgres' })
         }
       },
       provider
@@ -215,7 +216,7 @@ describe('Workflow Simulation', () => {
       async (prompt, _p) => {
         const inbox = getInboxSection(prompt)
         if (proposal && inbox.includes('please vote')) {
-          proposalManager.vote({ proposalId: proposal.id, voter: 'charlie', choice: 'mysql' })
+          await proposalManager.vote({ proposalId: proposal.id, voter: 'charlie', choice: 'mysql' })
         }
       },
       provider
@@ -264,14 +265,14 @@ describe('Workflow Simulation', () => {
     alice.wake()
 
     // Wait for proposal creation and votes
-    await waitFor(() => {
+    await waitFor(async () => {
       if (!proposal) return false
-      const p = proposalManager.get(proposal.id)
+      const p = await proposalManager.get(proposal.id)
       return p?.status === 'resolved'
     })
 
     // Verify proposal resolved with correct winner
-    const finalProposal = proposalManager.get(proposal!.id)
+    const finalProposal = await proposalManager.get(proposal!.id)
     expect(finalProposal?.status).toBe('resolved')
     expect(finalProposal?.result?.winner).toBe('postgres')
     expect(finalProposal?.result?.counts['postgres']).toBe(2)

@@ -55,7 +55,7 @@ export function registerProposalTools(
       const createdBy = getAgentId(extra) || "anonymous";
 
       try {
-        const proposal = proposalManager.create({
+        const proposal = await proposalManager.create({
           type: params.type,
           title: params.title,
           description: params.description,
@@ -119,7 +119,7 @@ export function registerProposalTools(
     async ({ proposal: proposalId, choice, reason }, extra) => {
       const voter = getAgentId(extra) || "anonymous";
 
-      const result = proposalManager.vote({
+      const result = await proposalManager.vote({
         proposalId,
         voter,
         choice,
@@ -177,7 +177,7 @@ export function registerProposalTools(
     },
     async ({ proposal: proposalId }) => {
       if (proposalId) {
-        const proposal = proposalManager.get(proposalId);
+        const proposal = await proposalManager.get(proposalId);
         if (!proposal) {
           return {
             content: [
@@ -202,7 +202,7 @@ export function registerProposalTools(
         };
       }
 
-      const activeProposals = proposalManager.list("active");
+      const activeProposals = await proposalManager.list("active");
 
       return {
         content: [
@@ -227,7 +227,7 @@ export function registerProposalTools(
     async ({ proposal: proposalId }, extra) => {
       const cancelledBy = getAgentId(extra) || "anonymous";
 
-      const result = proposalManager.cancel(proposalId, cancelledBy);
+      const result = await proposalManager.cancel(proposalId, cancelledBy);
 
       if (!result.success) {
         return {

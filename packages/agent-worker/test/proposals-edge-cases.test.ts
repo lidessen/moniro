@@ -14,8 +14,10 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { tmpdir } from "node:os";
 import { mkdtempSync, rmSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { FileStorage } from "../src/workflow/context/storage.js";
 import {
   createProposalManager,
+  PROPOSAL_DEFAULTS,
   type ProposalManager,
 } from "../src/workflow/context/proposals.js";
 
@@ -26,7 +28,7 @@ describe("ProposalManager edge cases", () => {
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "proposals-edge-"));
-    manager = createProposalManager({ stateDir: tempDir, validAgents: agents });
+    manager = createProposalManager({ storage: new FileStorage(tempDir), validAgents: agents });
   });
 
   afterEach(() => {
@@ -41,14 +43,14 @@ describe("ProposalManager edge cases", () => {
   // 1. ID counter reset across sessions
   // --------------------------------------------------------------------------
   describe("ID counter across sessions", () => {
-    test("ID counter preserved even when all proposals resolved before reload", () => {
+    test("ID counter preserved even when all proposals resolved before reload", async () => {
       // Create and resolve two proposals
-      const p1 = manager.create({
+      const p1 = await manager.create({
         type: "approval",
         title: "First",
         createdBy: "alice",
       });
-      const p2 = manager.create({
+      const p2 = await manager.create({
         type: "approval",
         title: "Second",
         createdBy: "bob",
@@ -58,25 +60,25 @@ describe("ProposalManager edge cases", () => {
       expect(p2.id).toBe("prop-2");
 
       // Resolve both by voting
-      manager.vote({ proposalId: p1.id, voter: "alice", choice: "approve" });
-      manager.vote({ proposalId: p1.id, voter: "bob", choice: "approve" });
-      manager.vote({ proposalId: p1.id, voter: "charlie", choice: "approve" });
+      await manager.vote({ proposalId: p1.id, voter: "alice", choice: "approve" });
+      await manager.vote({ proposalId: p1.id, voter: "bob", choice: "approve" });
+      await manager.vote({ proposalId: p1.id, voter: "charlie", choice: "approve" });
 
-      manager.vote({ proposalId: p2.id, voter: "alice", choice: "reject" });
-      manager.vote({ proposalId: p2.id, voter: "bob", choice: "reject" });
-      manager.vote({ proposalId: p2.id, voter: "charlie", choice: "reject" });
+      await manager.vote({ proposalId: p2.id, voter: "alice", choice: "reject" });
+      await manager.vote({ proposalId: p2.id, voter: "bob", choice: "reject" });
+      await manager.vote({ proposalId: p2.id, voter: "charlie", choice: "reject" });
 
       // Both should be resolved
-      expect(manager.get(p1.id)?.status).toBe("resolved");
-      expect(manager.get(p2.id)?.status).toBe("resolved");
+      expect((await manager.get(p1.id))?.status).toBe("resolved");
+      expect((await manager.get(p2.id))?.status).toBe("resolved");
 
       // Create new manager — idCounter is now persisted in state file
       const manager2 = createProposalManager({
-        stateDir: tempDir,
+        storage: new FileStorage(tempDir),
         validAgents: agents,
       });
 
-      const p3 = manager2.create({
+      const p3 = await manager2.create({
         type: "approval",
         title: "Third",
         createdBy: "charlie",
@@ -86,33 +88,33 @@ describe("ProposalManager edge cases", () => {
       expect(p3.id).toBe("prop-3");
     });
 
-    test("ID counter preserved when at least one proposal remains active", () => {
-      manager.create({
+    test("ID counter preserved when at least one proposal remains active", async () => {
+      await manager.create({
         type: "approval",
         title: "First",
         createdBy: "alice",
       });
-      const p2 = manager.create({
+      const p2 = await manager.create({
         type: "approval",
         title: "Second (stays active)",
         createdBy: "bob",
       });
 
       // Only resolve the first
-      const p1 = manager.get("prop-1")!;
-      manager.vote({ proposalId: p1.id, voter: "alice", choice: "approve" });
-      manager.vote({ proposalId: p1.id, voter: "bob", choice: "approve" });
-      manager.vote({ proposalId: p1.id, voter: "charlie", choice: "approve" });
+      const p1 = (await manager.get("prop-1"))!;
+      await manager.vote({ proposalId: p1.id, voter: "alice", choice: "approve" });
+      await manager.vote({ proposalId: p1.id, voter: "bob", choice: "approve" });
+      await manager.vote({ proposalId: p1.id, voter: "charlie", choice: "approve" });
 
       expect(p1.status).toBe("resolved");
       expect(p2.status).toBe("active");
 
       const manager2 = createProposalManager({
-        stateDir: tempDir,
+        storage: new FileStorage(tempDir),
         validAgents: agents,
       });
 
-      const p3 = manager2.create({
+      const p3 = await manager2.create({
         type: "approval",
         title: "Third",
         createdBy: "charlie",
@@ -127,8 +129,8 @@ describe("ProposalManager edge cases", () => {
   // 2. Majority deadlock
   // --------------------------------------------------------------------------
   describe("majority deadlock", () => {
-    test("3-way split with majority stays active forever (all agents voted)", () => {
-      const p = manager.create({
+    test("3-way split with majority stays active forever (all agents voted)", async () => {
+      const p = await manager.create({
         type: "decision",
         title: "Three-way split",
         options: [
@@ -140,9 +142,9 @@ describe("ProposalManager edge cases", () => {
         createdBy: "alice",
       });
 
-      manager.vote({ proposalId: p.id, voter: "alice", choice: "a" });
-      manager.vote({ proposalId: p.id, voter: "bob", choice: "b" });
-      const result = manager.vote({
+      await manager.vote({ proposalId: p.id, voter: "alice", choice: "a" });
+      await manager.vote({ proposalId: p.id, voter: "bob", choice: "b" });
+      const result = await manager.vote({
         proposalId: p.id,
         voter: "charlie",
         choice: "c",
@@ -153,7 +155,7 @@ describe("ProposalManager edge cases", () => {
       expect(result.proposal?.status).toBe("active");
 
       // No more valid voters exist
-      const invalidVote = manager.vote({
+      const invalidVote = await manager.vote({
         proposalId: p.id,
         voter: "dave",
         choice: "a",
@@ -161,8 +163,8 @@ describe("ProposalManager edge cases", () => {
       expect(invalidVote.success).toBe(false);
     });
 
-    test("deadlock breaks when agent changes their vote", () => {
-      const p = manager.create({
+    test("deadlock breaks when agent changes their vote", async () => {
+      const p = await manager.create({
         type: "decision",
         title: "Breakable deadlock",
         options: [
@@ -174,12 +176,12 @@ describe("ProposalManager edge cases", () => {
         createdBy: "alice",
       });
 
-      manager.vote({ proposalId: p.id, voter: "alice", choice: "a" });
-      manager.vote({ proposalId: p.id, voter: "bob", choice: "b" });
-      manager.vote({ proposalId: p.id, voter: "charlie", choice: "c" });
+      await manager.vote({ proposalId: p.id, voter: "alice", choice: "a" });
+      await manager.vote({ proposalId: p.id, voter: "bob", choice: "b" });
+      await manager.vote({ proposalId: p.id, voter: "charlie", choice: "c" });
 
       // Charlie changes mind → 'a' now has 2/3 = 66% > 50%
-      const result = manager.vote({
+      const result = await manager.vote({
         proposalId: p.id,
         voter: "charlie",
         choice: "a",
@@ -194,8 +196,8 @@ describe("ProposalManager edge cases", () => {
   // 3. creator-decides tie breaker
   // --------------------------------------------------------------------------
   describe("creator-decides tie breaker", () => {
-    test("tie with creator-decides leaves proposal unresolved", () => {
-      const p = manager.create({
+    test("tie with creator-decides leaves proposal unresolved", async () => {
+      const p = await manager.create({
         type: "decision",
         title: "Creator tie",
         options: [
@@ -206,13 +208,13 @@ describe("ProposalManager edge cases", () => {
         createdBy: "alice",
       });
 
-      manager.vote({ proposalId: p.id, voter: "alice", choice: "x" });
-      manager.vote({ proposalId: p.id, voter: "bob", choice: "y" });
+      await manager.vote({ proposalId: p.id, voter: "alice", choice: "x" });
+      await manager.vote({ proposalId: p.id, voter: "bob", choice: "y" });
       // charlie breaks the tie only if they vote for x or y
       // but first let's test: what if charlie also creates a tie
       // Actually with 3 agents, 2 options, 1+1+1 is impossible (only 2 options)
       // So alice=x, bob=y → 2 voters, but quorum=3, not met yet
-      const result = manager.vote({
+      const result = await manager.vote({
         proposalId: p.id,
         voter: "charlie",
         choice: "y",
@@ -223,16 +225,16 @@ describe("ProposalManager edge cases", () => {
       expect(result.proposal?.result?.winner).toBe("y");
     });
 
-    test("creator-decides with actual tie stays unresolved", () => {
+    test("creator-decides with actual tie stays unresolved", async () => {
       // Need even number of agents for a real tie
       const tempDir2 = mkdtempSync(join(tmpdir(), "proposals-tie-"));
       const fourAgents = ["alice", "bob", "charlie", "dave"];
       const mgr = createProposalManager({
-        stateDir: tempDir2,
+        storage: new FileStorage(tempDir2),
         validAgents: fourAgents,
       });
 
-      const p = mgr.create({
+      const p = await mgr.create({
         type: "decision",
         title: "Even tie",
         options: [
@@ -243,10 +245,10 @@ describe("ProposalManager edge cases", () => {
         createdBy: "alice",
       });
 
-      mgr.vote({ proposalId: p.id, voter: "alice", choice: "x" });
-      mgr.vote({ proposalId: p.id, voter: "bob", choice: "y" });
-      mgr.vote({ proposalId: p.id, voter: "charlie", choice: "x" });
-      const result = mgr.vote({
+      await mgr.vote({ proposalId: p.id, voter: "alice", choice: "x" });
+      await mgr.vote({ proposalId: p.id, voter: "bob", choice: "y" });
+      await mgr.vote({ proposalId: p.id, voter: "charlie", choice: "x" });
+      const result = await mgr.vote({
         proposalId: p.id,
         voter: "dave",
         choice: "y",
@@ -257,7 +259,7 @@ describe("ProposalManager edge cases", () => {
       expect(result.proposal?.status).toBe("active");
 
       // Creator can break the tie by changing their vote
-      const breakResult = mgr.vote({
+      const breakResult = await mgr.vote({
         proposalId: p.id,
         voter: "alice",
         choice: "y",
@@ -276,7 +278,7 @@ describe("ProposalManager edge cases", () => {
   // --------------------------------------------------------------------------
   describe("expiration with partial votes", () => {
     test("expired proposal picks winner from existing votes", async () => {
-      const p = manager.create({
+      const p = await manager.create({
         type: "decision",
         title: "Partial then expire",
         options: [
@@ -288,11 +290,11 @@ describe("ProposalManager edge cases", () => {
       });
 
       // Only one vote before expiration
-      manager.vote({ proposalId: p.id, voter: "alice", choice: "a" });
+      await manager.vote({ proposalId: p.id, voter: "alice", choice: "a" });
 
       await new Promise((r) => setTimeout(r, 20));
 
-      const fetched = manager.get(p.id);
+      const fetched = await manager.get(p.id);
       expect(fetched?.status).toBe("expired");
       expect(fetched?.result?.resolvedBy).toBe("timeout");
       // Winner should still be determined from existing votes
@@ -302,11 +304,11 @@ describe("ProposalManager edge cases", () => {
     test("expired proposal with tied votes and first tiebreaker", async () => {
       const tempDir2 = mkdtempSync(join(tmpdir(), "proposals-expire-tie-"));
       const mgr = createProposalManager({
-        stateDir: tempDir2,
+        storage: new FileStorage(tempDir2),
         validAgents: ["alice", "bob", "charlie", "dave"],
       });
 
-      const p = mgr.create({
+      const p = await mgr.create({
         type: "decision",
         title: "Tie then expire",
         options: [
@@ -318,12 +320,12 @@ describe("ProposalManager edge cases", () => {
         createdBy: "alice",
       });
 
-      mgr.vote({ proposalId: p.id, voter: "alice", choice: "a" });
-      mgr.vote({ proposalId: p.id, voter: "bob", choice: "b" });
+      await mgr.vote({ proposalId: p.id, voter: "alice", choice: "a" });
+      await mgr.vote({ proposalId: p.id, voter: "bob", choice: "b" });
 
       await new Promise((r) => setTimeout(r, 20));
 
-      const fetched = mgr.get(p.id);
+      const fetched = await mgr.get(p.id);
       expect(fetched?.status).toBe("expired");
       // With first tiebreaker, the first option in sorted order wins
       expect(fetched?.result?.winner).toBeDefined();
@@ -336,25 +338,25 @@ describe("ProposalManager edge cases", () => {
   // 5. Persistence only saves active proposals
   // --------------------------------------------------------------------------
   describe("persistence drops non-active proposals", () => {
-    test("resolved proposals are not in state file but idCounter is preserved", () => {
-      const p = manager.create({
+    test("resolved proposals are not in state file but idCounter is preserved", async () => {
+      const p = await manager.create({
         type: "approval",
         title: "Will resolve",
         createdBy: "alice",
       });
 
-      manager.vote({ proposalId: p.id, voter: "alice", choice: "approve" });
-      manager.vote({ proposalId: p.id, voter: "bob", choice: "approve" });
-      manager.vote({
+      await manager.vote({ proposalId: p.id, voter: "alice", choice: "approve" });
+      await manager.vote({ proposalId: p.id, voter: "bob", choice: "approve" });
+      await manager.vote({
         proposalId: p.id,
         voter: "charlie",
         choice: "approve",
       });
 
-      expect(manager.get(p.id)?.status).toBe("resolved");
+      expect((await manager.get(p.id))?.status).toBe("resolved");
 
       // Read the state file directly
-      const statePath = join(tempDir, "proposals.json");
+      const statePath = join(tempDir, PROPOSAL_DEFAULTS.stateFile);
       const state = JSON.parse(readFileSync(statePath, "utf-8"));
 
       // Only active proposals are persisted
@@ -363,16 +365,16 @@ describe("ProposalManager edge cases", () => {
       expect(state.idCounter).toBe(1);
     });
 
-    test("cancelled proposals are not in state file", () => {
-      const p = manager.create({
+    test("cancelled proposals are not in state file", async () => {
+      const p = await manager.create({
         type: "approval",
         title: "Will cancel",
         createdBy: "alice",
       });
 
-      manager.cancel(p.id, "alice");
+      await manager.cancel(p.id, "alice");
 
-      const statePath = join(tempDir, "proposals.json");
+      const statePath = join(tempDir, PROPOSAL_DEFAULTS.stateFile);
       const state = JSON.parse(readFileSync(statePath, "utf-8"));
 
       expect(Object.keys(state.proposals)).toHaveLength(0);
@@ -383,8 +385,8 @@ describe("ProposalManager edge cases", () => {
   // 6. Multiple options with plurality
   // --------------------------------------------------------------------------
   describe("multi-option plurality", () => {
-    test("winner with minority of total votes (plurality, not majority)", () => {
-      const p = manager.create({
+    test("winner with minority of total votes (plurality, not majority)", async () => {
+      const p = await manager.create({
         type: "election",
         title: "Multi-candidate",
         options: [
@@ -397,9 +399,9 @@ describe("ProposalManager edge cases", () => {
       });
 
       // Each votes differently → 3-way tie, but with "first" tiebreaker
-      manager.vote({ proposalId: p.id, voter: "alice", choice: "a" });
-      manager.vote({ proposalId: p.id, voter: "bob", choice: "b" });
-      const result = manager.vote({
+      await manager.vote({ proposalId: p.id, voter: "alice", choice: "a" });
+      await manager.vote({ proposalId: p.id, voter: "bob", choice: "b" });
+      const result = await manager.vote({
         proposalId: p.id,
         voter: "charlie",
         choice: "c",
@@ -415,8 +417,8 @@ describe("ProposalManager edge cases", () => {
   // 7. Vote reason persistence
   // --------------------------------------------------------------------------
   describe("vote reason persistence", () => {
-    test("stores vote reason alongside choice", () => {
-      const p = manager.create({
+    test("stores vote reason alongside choice", async () => {
+      const p = await manager.create({
         type: "decision",
         title: "With reasons",
         options: [
@@ -426,26 +428,26 @@ describe("ProposalManager edge cases", () => {
         createdBy: "alice",
       });
 
-      manager.vote({
+      await manager.vote({
         proposalId: p.id,
         voter: "alice",
         choice: "a",
         reason: "Better performance",
       });
-      manager.vote({
+      await manager.vote({
         proposalId: p.id,
         voter: "bob",
         choice: "b",
         reason: "Easier to maintain",
       });
 
-      const fetched = manager.get(p.id);
+      const fetched = await manager.get(p.id);
       expect(fetched?.result?.reasons?.alice).toBe("Better performance");
       expect(fetched?.result?.reasons?.bob).toBe("Easier to maintain");
     });
 
-    test("reason persists across manager instances", () => {
-      const p = manager.create({
+    test("reason persists across manager instances", async () => {
+      const p = await manager.create({
         type: "decision",
         title: "Persistent reasons",
         options: [
@@ -455,7 +457,7 @@ describe("ProposalManager edge cases", () => {
         createdBy: "alice",
       });
 
-      manager.vote({
+      await manager.vote({
         proposalId: p.id,
         voter: "alice",
         choice: "a",
@@ -463,29 +465,29 @@ describe("ProposalManager edge cases", () => {
       });
 
       const manager2 = createProposalManager({
-        stateDir: tempDir,
+        storage: new FileStorage(tempDir),
         validAgents: agents,
       });
 
-      const loaded = manager2.get(p.id);
+      const loaded = await manager2.get(p.id);
       expect(loaded?.result?.reasons?.alice).toBe("My reasoning");
     });
 
-    test("vote without reason does not create empty reasons map", () => {
-      const p = manager.create({
+    test("vote without reason does not create empty reasons map", async () => {
+      const p = await manager.create({
         type: "approval",
         title: "No reasons",
         createdBy: "alice",
       });
 
-      manager.vote({ proposalId: p.id, voter: "alice", choice: "approve" });
+      await manager.vote({ proposalId: p.id, voter: "alice", choice: "approve" });
 
-      const fetched = manager.get(p.id);
+      const fetched = await manager.get(p.id);
       expect(fetched?.result?.reasons).toBeUndefined();
     });
 
-    test("overwriting vote preserves new reason", () => {
-      const p = manager.create({
+    test("overwriting vote preserves new reason", async () => {
+      const p = await manager.create({
         type: "decision",
         title: "Changed mind",
         options: [
@@ -495,20 +497,20 @@ describe("ProposalManager edge cases", () => {
         createdBy: "alice",
       });
 
-      manager.vote({
+      await manager.vote({
         proposalId: p.id,
         voter: "alice",
         choice: "a",
         reason: "First thought",
       });
-      manager.vote({
+      await manager.vote({
         proposalId: p.id,
         voter: "alice",
         choice: "b",
         reason: "Changed my mind",
       });
 
-      const fetched = manager.get(p.id);
+      const fetched = await manager.get(p.id);
       expect(fetched?.result?.votes["alice"]).toBe("b");
       expect(fetched?.result?.reasons?.alice).toBe("Changed my mind");
     });
@@ -518,22 +520,22 @@ describe("ProposalManager edge cases", () => {
   // 8. Voting on same proposal after resolution
   // --------------------------------------------------------------------------
   describe("post-resolution behavior", () => {
-    test("cannot vote on resolved proposal", () => {
-      const p = manager.create({
+    test("cannot vote on resolved proposal", async () => {
+      const p = await manager.create({
         type: "approval",
         title: "Done",
         createdBy: "alice",
       });
 
-      manager.vote({ proposalId: p.id, voter: "alice", choice: "approve" });
-      manager.vote({ proposalId: p.id, voter: "bob", choice: "approve" });
-      manager.vote({
+      await manager.vote({ proposalId: p.id, voter: "alice", choice: "approve" });
+      await manager.vote({ proposalId: p.id, voter: "bob", choice: "approve" });
+      await manager.vote({
         proposalId: p.id,
         voter: "charlie",
         choice: "approve",
       });
 
-      const lateVote = manager.vote({
+      const lateVote = await manager.vote({
         proposalId: p.id,
         voter: "alice",
         choice: "reject",

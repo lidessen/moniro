@@ -539,7 +539,7 @@ export async function buildWorkflowIdleState(
   }
 
   // Check no active proposals
-  const noActiveProposals = proposalManager ? !proposalManager.hasActiveProposals() : true;
+  const noActiveProposals = proposalManager ? !(await proposalManager.hasActiveProposals()) : true;
 
   return {
     allLoopsIdle,

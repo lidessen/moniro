@@ -6,6 +6,7 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { tmpdir } from 'node:os'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
+import { FileStorage } from '../src/workflow/context/storage.js'
 import {
   createProposalManager,
   formatProposal,
@@ -21,7 +22,7 @@ describe('ProposalManager', () => {
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), 'proposals-test-'))
     manager = createProposalManager({
-      stateDir: tempDir,
+      storage: new FileStorage(tempDir),
       validAgents: ['alice', 'bob', 'charlie'],
     })
   })
@@ -35,8 +36,8 @@ describe('ProposalManager', () => {
   })
 
   describe('create', () => {
-    test('creates a proposal with required fields', () => {
-      const proposal = manager.create({
+    test('creates a proposal with required fields', async () => {
+      const proposal = await manager.create({
         type: 'decision',
         title: 'Choose framework',
         options: [
@@ -56,8 +57,8 @@ describe('ProposalManager', () => {
       expect(proposal.resolution.type).toBe('plurality')
     })
 
-    test('creates approval proposal with default options', () => {
-      const proposal = manager.create({
+    test('creates approval proposal with default options', async () => {
+      const proposal = await manager.create({
         type: 'approval',
         title: 'Approve PR',
         createdBy: 'bob',
@@ -68,23 +69,23 @@ describe('ProposalManager', () => {
       expect(proposal.options[1]).toEqual({ id: 'reject', label: 'Reject' })
     })
 
-    test('throws error for non-approval without options', () => {
-      expect(() =>
+    test('throws error for non-approval without options', async () => {
+      expect(
         manager.create({
           type: 'decision',
           title: 'No options',
           createdBy: 'alice',
         })
-      ).toThrow('Options are required')
+      ).rejects.toThrow('Options are required')
     })
 
-    test('generates unique IDs', () => {
-      const p1 = manager.create({
+    test('generates unique IDs', async () => {
+      const p1 = await manager.create({
         type: 'approval',
         title: 'First',
         createdBy: 'alice',
       })
-      const p2 = manager.create({
+      const p2 = await manager.create({
         type: 'approval',
         title: 'Second',
         createdBy: 'bob',
@@ -93,8 +94,8 @@ describe('ProposalManager', () => {
       expect(p1.id).not.toBe(p2.id)
     })
 
-    test('sets expiration time', () => {
-      const proposal = manager.create({
+    test('sets expiration time', async () => {
+      const proposal = await manager.create({
         type: 'approval',
         title: 'Quick vote',
         timeoutSeconds: 60,
@@ -107,8 +108,8 @@ describe('ProposalManager', () => {
       expect(expiresAt - createdAt).toBe(60 * 1000)
     })
 
-    test('accepts custom resolution rules', () => {
-      const proposal = manager.create({
+    test('accepts custom resolution rules', async () => {
+      const proposal = await manager.create({
         type: 'decision',
         title: 'Unanimous decision',
         options: [
@@ -130,8 +131,8 @@ describe('ProposalManager', () => {
   describe('vote', () => {
     let proposal: Proposal
 
-    beforeEach(() => {
-      proposal = manager.create({
+    beforeEach(async () => {
+      proposal = await manager.create({
         type: 'decision',
         title: 'Choose color',
         options: [
@@ -142,8 +143,8 @@ describe('ProposalManager', () => {
       })
     })
 
-    test('records a vote', () => {
-      const result = manager.vote({
+    test('records a vote', async () => {
+      const result = await manager.vote({
         proposalId: proposal.id,
         voter: 'bob',
         choice: 'red',
@@ -154,9 +155,9 @@ describe('ProposalManager', () => {
       expect(result.proposal?.result?.counts['red']).toBe(1)
     })
 
-    test('overwrites previous vote from same voter', () => {
-      manager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'red' })
-      const result = manager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'blue' })
+    test('overwrites previous vote from same voter', async () => {
+      await manager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'red' })
+      const result = await manager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'blue' })
 
       expect(result.success).toBe(true)
       expect(result.proposal?.result?.votes['bob']).toBe('blue')
@@ -164,8 +165,8 @@ describe('ProposalManager', () => {
       expect(result.proposal?.result?.counts['blue']).toBe(1)
     })
 
-    test('fails for non-existent proposal', () => {
-      const result = manager.vote({
+    test('fails for non-existent proposal', async () => {
+      const result = await manager.vote({
         proposalId: 'prop-999',
         voter: 'bob',
         choice: 'red',
@@ -175,8 +176,8 @@ describe('ProposalManager', () => {
       expect(result.error).toContain('not found')
     })
 
-    test('fails for invalid choice', () => {
-      const result = manager.vote({
+    test('fails for invalid choice', async () => {
+      const result = await manager.vote({
         proposalId: proposal.id,
         voter: 'bob',
         choice: 'green',
@@ -186,8 +187,8 @@ describe('ProposalManager', () => {
       expect(result.error).toContain('Invalid choice')
     })
 
-    test('fails for unknown voter', () => {
-      const result = manager.vote({
+    test('fails for unknown voter', async () => {
+      const result = await manager.vote({
         proposalId: proposal.id,
         voter: 'unknown-agent',
         choice: 'red',
@@ -198,10 +199,10 @@ describe('ProposalManager', () => {
       expect(result.error).toContain('unknown-agent')
     })
 
-    test('fails for non-active proposal', () => {
-      manager.cancel(proposal.id, 'alice')
+    test('fails for non-active proposal', async () => {
+      await manager.cancel(proposal.id, 'alice')
 
-      const result = manager.vote({
+      const result = await manager.vote({
         proposalId: proposal.id,
         voter: 'bob',
         choice: 'red',
@@ -214,8 +215,8 @@ describe('ProposalManager', () => {
 
   describe('resolution', () => {
     describe('plurality', () => {
-      test('resolves when all agents vote', () => {
-        const proposal = manager.create({
+      test('resolves when all agents vote', async () => {
+        const proposal = await manager.create({
           type: 'decision',
           title: 'Plurality vote',
           options: [
@@ -225,17 +226,17 @@ describe('ProposalManager', () => {
           createdBy: 'alice',
         })
 
-        manager.vote({ proposalId: proposal.id, voter: 'alice', choice: 'a' })
-        manager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'a' })
-        const result = manager.vote({ proposalId: proposal.id, voter: 'charlie', choice: 'b' })
+        await manager.vote({ proposalId: proposal.id, voter: 'alice', choice: 'a' })
+        await manager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'a' })
+        const result = await manager.vote({ proposalId: proposal.id, voter: 'charlie', choice: 'b' })
 
         expect(result.resolved).toBe(true)
         expect(result.proposal?.status).toBe('resolved')
         expect(result.proposal?.result?.winner).toBe('a')
       })
 
-      test('resolves tie with tieBreaker', () => {
-        const proposal = manager.create({
+      test('resolves tie with tieBreaker', async () => {
+        const proposal = await manager.create({
           type: 'decision',
           title: 'Tie vote',
           options: [
@@ -246,9 +247,9 @@ describe('ProposalManager', () => {
           createdBy: 'alice',
         })
 
-        manager.vote({ proposalId: proposal.id, voter: 'alice', choice: 'a' })
-        manager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'b' })
-        const result = manager.vote({ proposalId: proposal.id, voter: 'charlie', choice: 'a' })
+        await manager.vote({ proposalId: proposal.id, voter: 'alice', choice: 'a' })
+        await manager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'b' })
+        const result = await manager.vote({ proposalId: proposal.id, voter: 'charlie', choice: 'a' })
 
         expect(result.resolved).toBe(true)
         expect(result.proposal?.result?.winner).toBe('a')
@@ -256,8 +257,8 @@ describe('ProposalManager', () => {
     })
 
     describe('majority', () => {
-      test('resolves when majority reached', () => {
-        const proposal = manager.create({
+      test('resolves when majority reached', async () => {
+        const proposal = await manager.create({
           type: 'decision',
           title: 'Majority vote',
           options: [
@@ -268,17 +269,17 @@ describe('ProposalManager', () => {
           createdBy: 'alice',
         })
 
-        manager.vote({ proposalId: proposal.id, voter: 'alice', choice: 'a' })
-        manager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'a' })
-        const result = manager.vote({ proposalId: proposal.id, voter: 'charlie', choice: 'b' })
+        await manager.vote({ proposalId: proposal.id, voter: 'alice', choice: 'a' })
+        await manager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'a' })
+        const result = await manager.vote({ proposalId: proposal.id, voter: 'charlie', choice: 'b' })
 
         // 2 out of 3 votes = 66%, which is > 50%
         expect(result.resolved).toBe(true)
         expect(result.proposal?.result?.winner).toBe('a')
       })
 
-      test('does not resolve without majority', () => {
-        const proposal = manager.create({
+      test('does not resolve without majority', async () => {
+        const proposal = await manager.create({
           type: 'decision',
           title: 'Split vote',
           options: [
@@ -290,9 +291,9 @@ describe('ProposalManager', () => {
           createdBy: 'alice',
         })
 
-        manager.vote({ proposalId: proposal.id, voter: 'alice', choice: 'a' })
-        manager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'b' })
-        const result = manager.vote({ proposalId: proposal.id, voter: 'charlie', choice: 'c' })
+        await manager.vote({ proposalId: proposal.id, voter: 'alice', choice: 'a' })
+        await manager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'b' })
+        const result = await manager.vote({ proposalId: proposal.id, voter: 'charlie', choice: 'c' })
 
         // 3-way split, no majority
         expect(result.resolved).toBe(false)
@@ -301,8 +302,8 @@ describe('ProposalManager', () => {
     })
 
     describe('unanimous', () => {
-      test('resolves when unanimous', () => {
-        const proposal = manager.create({
+      test('resolves when unanimous', async () => {
+        const proposal = await manager.create({
           type: 'decision',
           title: 'Unanimous vote',
           options: [
@@ -313,16 +314,16 @@ describe('ProposalManager', () => {
           createdBy: 'alice',
         })
 
-        manager.vote({ proposalId: proposal.id, voter: 'alice', choice: 'yes' })
-        manager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'yes' })
-        const result = manager.vote({ proposalId: proposal.id, voter: 'charlie', choice: 'yes' })
+        await manager.vote({ proposalId: proposal.id, voter: 'alice', choice: 'yes' })
+        await manager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'yes' })
+        const result = await manager.vote({ proposalId: proposal.id, voter: 'charlie', choice: 'yes' })
 
         expect(result.resolved).toBe(true)
         expect(result.proposal?.result?.winner).toBe('yes')
       })
 
-      test('does not resolve without unanimity', () => {
-        const proposal = manager.create({
+      test('does not resolve without unanimity', async () => {
+        const proposal = await manager.create({
           type: 'decision',
           title: 'Non-unanimous vote',
           options: [
@@ -333,9 +334,9 @@ describe('ProposalManager', () => {
           createdBy: 'alice',
         })
 
-        manager.vote({ proposalId: proposal.id, voter: 'alice', choice: 'yes' })
-        manager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'yes' })
-        const result = manager.vote({ proposalId: proposal.id, voter: 'charlie', choice: 'no' })
+        await manager.vote({ proposalId: proposal.id, voter: 'alice', choice: 'yes' })
+        await manager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'yes' })
+        const result = await manager.vote({ proposalId: proposal.id, voter: 'charlie', choice: 'no' })
 
         expect(result.resolved).toBe(false)
         expect(result.proposal?.status).toBe('active')
@@ -343,8 +344,8 @@ describe('ProposalManager', () => {
     })
 
     describe('quorum', () => {
-      test('does not resolve before quorum', () => {
-        const proposal = manager.create({
+      test('does not resolve before quorum', async () => {
+        const proposal = await manager.create({
           type: 'decision',
           title: 'Quorum vote',
           options: [
@@ -355,15 +356,15 @@ describe('ProposalManager', () => {
           createdBy: 'alice',
         })
 
-        manager.vote({ proposalId: proposal.id, voter: 'alice', choice: 'a' })
-        const result = manager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'a' })
+        await manager.vote({ proposalId: proposal.id, voter: 'alice', choice: 'a' })
+        const result = await manager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'a' })
 
         expect(result.resolved).toBe(false)
         expect(result.proposal?.status).toBe('active')
       })
 
-      test('resolves when quorum met', () => {
-        const proposal = manager.create({
+      test('resolves when quorum met', async () => {
+        const proposal = await manager.create({
           type: 'decision',
           title: 'Quorum vote',
           options: [
@@ -374,9 +375,9 @@ describe('ProposalManager', () => {
           createdBy: 'alice',
         })
 
-        manager.vote({ proposalId: proposal.id, voter: 'alice', choice: 'a' })
-        manager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'a' })
-        const result = manager.vote({ proposalId: proposal.id, voter: 'charlie', choice: 'b' })
+        await manager.vote({ proposalId: proposal.id, voter: 'alice', choice: 'a' })
+        await manager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'a' })
+        const result = await manager.vote({ proposalId: proposal.id, voter: 'charlie', choice: 'b' })
 
         expect(result.resolved).toBe(true)
         expect(result.proposal?.result?.winner).toBe('a')
@@ -386,7 +387,7 @@ describe('ProposalManager', () => {
 
   describe('expiration', () => {
     test('expires proposal after timeout', async () => {
-      const proposal = manager.create({
+      const proposal = await manager.create({
         type: 'approval',
         title: 'Quick timeout',
         timeoutSeconds: 0.01, // 10ms
@@ -397,14 +398,14 @@ describe('ProposalManager', () => {
       await new Promise((resolve) => setTimeout(resolve, 20))
 
       // Trigger expiration check
-      const fetched = manager.get(proposal.id)
+      const fetched = await manager.get(proposal.id)
 
       expect(fetched?.status).toBe('expired')
       expect(fetched?.result?.resolvedBy).toBe('timeout')
     })
 
     test('expired proposal cannot be voted on', async () => {
-      const proposal = manager.create({
+      const proposal = await manager.create({
         type: 'approval',
         title: 'Quick timeout',
         timeoutSeconds: 0.01,
@@ -413,7 +414,7 @@ describe('ProposalManager', () => {
 
       await new Promise((resolve) => setTimeout(resolve, 20))
 
-      const result = manager.vote({
+      const result = await manager.vote({
         proposalId: proposal.id,
         voter: 'bob',
         choice: 'approve',
@@ -425,41 +426,41 @@ describe('ProposalManager', () => {
   })
 
   describe('cancel', () => {
-    test('creator can cancel proposal', () => {
-      const proposal = manager.create({
+    test('creator can cancel proposal', async () => {
+      const proposal = await manager.create({
         type: 'approval',
         title: 'Cancellable',
         createdBy: 'alice',
       })
 
-      const result = manager.cancel(proposal.id, 'alice')
+      const result = await manager.cancel(proposal.id, 'alice')
 
       expect(result.success).toBe(true)
-      expect(manager.get(proposal.id)?.status).toBe('cancelled')
+      expect((await manager.get(proposal.id))?.status).toBe('cancelled')
     })
 
-    test('non-creator cannot cancel proposal', () => {
-      const proposal = manager.create({
+    test('non-creator cannot cancel proposal', async () => {
+      const proposal = await manager.create({
         type: 'approval',
         title: 'Protected',
         createdBy: 'alice',
       })
 
-      const result = manager.cancel(proposal.id, 'bob')
+      const result = await manager.cancel(proposal.id, 'bob')
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Only the creator')
     })
 
-    test('cannot cancel non-active proposal', () => {
-      const proposal = manager.create({
+    test('cannot cancel non-active proposal', async () => {
+      const proposal = await manager.create({
         type: 'approval',
         title: 'Already done',
         createdBy: 'alice',
       })
 
-      manager.cancel(proposal.id, 'alice')
-      const result = manager.cancel(proposal.id, 'alice')
+      await manager.cancel(proposal.id, 'alice')
+      const result = await manager.cancel(proposal.id, 'alice')
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('cancelled')
@@ -467,22 +468,22 @@ describe('ProposalManager', () => {
   })
 
   describe('list', () => {
-    test('lists all proposals', () => {
-      manager.create({ type: 'approval', title: 'First', createdBy: 'alice' })
-      manager.create({ type: 'approval', title: 'Second', createdBy: 'bob' })
+    test('lists all proposals', async () => {
+      await manager.create({ type: 'approval', title: 'First', createdBy: 'alice' })
+      await manager.create({ type: 'approval', title: 'Second', createdBy: 'bob' })
 
-      const all = manager.list()
+      const all = await manager.list()
       expect(all).toHaveLength(2)
     })
 
-    test('filters by status', () => {
-      const p1 = manager.create({ type: 'approval', title: 'First', createdBy: 'alice' })
-      manager.create({ type: 'approval', title: 'Second', createdBy: 'bob' })
+    test('filters by status', async () => {
+      const p1 = await manager.create({ type: 'approval', title: 'First', createdBy: 'alice' })
+      await manager.create({ type: 'approval', title: 'Second', createdBy: 'bob' })
 
-      manager.cancel(p1.id, 'alice')
+      await manager.cancel(p1.id, 'alice')
 
-      const active = manager.list('active')
-      const cancelled = manager.list('cancelled')
+      const active = await manager.list('active')
+      const cancelled = await manager.list('cancelled')
 
       expect(active).toHaveLength(1)
       expect(cancelled).toHaveLength(1)
@@ -490,25 +491,25 @@ describe('ProposalManager', () => {
   })
 
   describe('hasActiveProposals', () => {
-    test('returns false when no proposals', () => {
-      expect(manager.hasActiveProposals()).toBe(false)
+    test('returns false when no proposals', async () => {
+      expect(await manager.hasActiveProposals()).toBe(false)
     })
 
-    test('returns true when active proposal exists', () => {
-      manager.create({ type: 'approval', title: 'Active', createdBy: 'alice' })
-      expect(manager.hasActiveProposals()).toBe(true)
+    test('returns true when active proposal exists', async () => {
+      await manager.create({ type: 'approval', title: 'Active', createdBy: 'alice' })
+      expect(await manager.hasActiveProposals()).toBe(true)
     })
 
-    test('returns false when all proposals resolved', () => {
-      const p = manager.create({ type: 'approval', title: 'Done', createdBy: 'alice' })
-      manager.cancel(p.id, 'alice')
-      expect(manager.hasActiveProposals()).toBe(false)
+    test('returns false when all proposals resolved', async () => {
+      const p = await manager.create({ type: 'approval', title: 'Done', createdBy: 'alice' })
+      await manager.cancel(p.id, 'alice')
+      expect(await manager.hasActiveProposals()).toBe(false)
     })
   })
 
   describe('persistence', () => {
-    test('persists proposals across manager instances', () => {
-      const p = manager.create({
+    test('persists proposals across manager instances', async () => {
+      const p = await manager.create({
         type: 'decision',
         title: 'Persistent',
         options: [
@@ -518,30 +519,30 @@ describe('ProposalManager', () => {
         createdBy: 'alice',
       })
 
-      manager.vote({ proposalId: p.id, voter: 'bob', choice: 'a' })
+      await manager.vote({ proposalId: p.id, voter: 'bob', choice: 'a' })
 
-      // Create new manager with same state directory
+      // Create new manager with same storage directory
       const manager2 = createProposalManager({
-        stateDir: tempDir,
+        storage: new FileStorage(tempDir),
         validAgents: ['alice', 'bob', 'charlie'],
       })
 
-      const loaded = manager2.get(p.id)
+      const loaded = await manager2.get(p.id)
       expect(loaded).toBeDefined()
       expect(loaded?.title).toBe('Persistent')
       expect(loaded?.result?.votes['bob']).toBe('a')
     })
 
-    test('preserves ID counter across instances', () => {
-      manager.create({ type: 'approval', title: 'First', createdBy: 'alice' })
-      manager.create({ type: 'approval', title: 'Second', createdBy: 'bob' })
+    test('preserves ID counter across instances', async () => {
+      await manager.create({ type: 'approval', title: 'First', createdBy: 'alice' })
+      await manager.create({ type: 'approval', title: 'Second', createdBy: 'bob' })
 
       const manager2 = createProposalManager({
-        stateDir: tempDir,
+        storage: new FileStorage(tempDir),
         validAgents: ['alice', 'bob', 'charlie'],
       })
 
-      const p3 = manager2.create({ type: 'approval', title: 'Third', createdBy: 'charlie' })
+      const p3 = await manager2.create({ type: 'approval', title: 'Third', createdBy: 'charlie' })
       expect(p3.id).toBe('prop-3')
     })
   })
