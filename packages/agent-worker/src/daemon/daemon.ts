@@ -661,11 +661,13 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
       tag = "main",
       feedback,
       pollInterval,
+      params,
     } = body as {
       workflow: ParsedWorkflow;
       tag?: string;
       feedback?: boolean;
       pollInterval?: number;
+      params?: Record<string, string>;
     };
 
     if (!workflow || !workflow.agents) {
@@ -690,6 +692,7 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
         headless: true,
         feedback,
         pollInterval,
+        params,
         log: () => {}, // Silent — daemon doesn't output to terminal
       });
 

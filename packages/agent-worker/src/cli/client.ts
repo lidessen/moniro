@@ -219,6 +219,7 @@ export function startWorkflow(body: {
   tag?: string;
   feedback?: boolean;
   pollInterval?: number;
+  params?: Record<string, string>;
 }): Promise<ApiResponse> {
   return request("POST", "/workflows", body);
 }
