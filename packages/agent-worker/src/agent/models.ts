@@ -348,6 +348,9 @@ export interface DiscoverOptions {
 /**
  * Discover the best available provider by scanning environment variables.
  *
+ * Note: This function does NOT read AGENT_MODEL — that's handled by
+ * resolveModelFallback() which supports comma-separated fallback chains.
+ *
  * @param options.preferredModel - If set, prefer the provider that owns this model.
  *   E.g. "deepseek-chat" → prefer "deepseek" if DEEPSEEK_API_KEY is set.
  * @param options.env - Environment to scan (defaults to process.env).
@@ -357,19 +360,15 @@ export function discoverProvider(options?: DiscoverOptions): DiscoveredProvider 
   const env = options?.env ?? (process.env as Record<string, string | undefined>);
   const preferredModel = options?.preferredModel;
 
-  // AGENT_MODEL env var overrides everything
-  const envModel = env.AGENT_MODEL;
-
   // If a preferred model is given, try its provider first
   if (preferredModel && preferredModel !== "auto") {
     const ownerProvider = MODEL_TO_PROVIDER[preferredModel];
     if (ownerProvider) {
       const envKey = PROVIDER_ENV_KEYS[ownerProvider];
       if (envKey && env[envKey]) {
-        const model = envModel || preferredModel;
         return {
           provider: ownerProvider,
-          model: model.includes("/") ? model : `${ownerProvider}/${model}`,
+          model: preferredModel.includes("/") ? preferredModel : `${ownerProvider}/${preferredModel}`,
         };
       }
     }
@@ -382,10 +381,6 @@ export function discoverProvider(options?: DiscoverOptions): DiscoveredProvider 
 
     // Gateway supports all providers — use the preferred model or default
     if (provider === "gateway") {
-      if (envModel) {
-        const modelStr = envModel.includes("/") ? envModel : `anthropic/${envModel}`;
-        return { provider: "gateway", model: modelStr };
-      }
       if (preferredModel && preferredModel !== "auto") {
         const ownerProvider = MODEL_TO_PROVIDER[preferredModel] || "anthropic";
         return { provider: "gateway", model: `${ownerProvider}/${preferredModel}` };
@@ -398,11 +393,10 @@ export function discoverProvider(options?: DiscoverOptions): DiscoveredProvider 
     // (createModel("deepseek") auto-resolves via FRONTIER_MODELS lookup)
     const frontierModels = FRONTIER_MODELS[provider as keyof typeof FRONTIER_MODELS];
     const defaultModel = frontierModels?.[0];
-    const model = envModel || defaultModel;
 
     return {
       provider,
-      model: model ? (model.includes("/") ? model : `${provider}/${model}`) : provider,
+      model: defaultModel ? (defaultModel.includes("/") ? defaultModel : `${provider}/${defaultModel}`) : provider,
     };
   }
 
@@ -417,8 +411,102 @@ export function isAutoProvider(value: unknown): boolean {
 }
 
 /**
+ * Check if a model's provider has a valid API key in the environment.
+ */
+function isModelAvailable(
+  model: string,
+  env: Record<string, string | undefined>,
+): boolean {
+  // "auto" is always "available" — it will be resolved later
+  if (model === "auto") return true;
+
+  // Extract provider from model string
+  let provider: string | undefined;
+
+  // Check MODEL_TO_PROVIDER (e.g., "deepseek-chat" → "deepseek")
+  provider = MODEL_TO_PROVIDER[model];
+
+  // Check provider/model format (e.g., "deepseek/deepseek-chat" → "deepseek")
+  if (!provider && model.includes("/")) {
+    provider = model.split("/")[0];
+  }
+
+  // Check provider:model format (e.g., "deepseek:deepseek-chat" → "deepseek")
+  if (!provider && model.includes(":")) {
+    provider = model.split(":")[0];
+  }
+
+  if (!provider) return false;
+
+  // Gateway supports all providers
+  if (env[PROVIDER_ENV_KEYS["gateway"]!]) return true;
+
+  const envKey = PROVIDER_ENV_KEYS[provider];
+  return !!envKey && !!env[envKey];
+}
+
+/**
+ * Resolve a model to a single concrete value, supporting fallback chains.
+ *
+ * Resolution order:
+ *   1. AGENT_MODEL env var (comma-separated fallback chain, e.g. "deepseek-chat, auto")
+ *   2. Workflow YAML model field (single string)
+ *   3. Full auto-discovery from environment
+ *
+ * The AGENT_MODEL env var supports CSS font-family-style fallback:
+ *   AGENT_MODEL="deepseek-chat, anthropic/claude-sonnet-4-5, auto"
+ *   → try deepseek-chat → try claude-sonnet-4-5 → auto-discover
+ *
+ * @returns Resolved { model, provider } — never contains "auto".
+ * @throws if no model in the chain has an available provider.
+ */
+export function resolveModelFallback(config: {
+  model?: string;
+  provider?: string;
+  /** Environment to scan (defaults to process.env). Useful for testing. */
+  env?: Record<string, string | undefined>;
+}): { model: string; provider?: string } {
+  const env = config.env ?? (process.env as Record<string, string | undefined>);
+  const isProviderAuto = config.provider === "auto";
+
+  // Build candidate list: AGENT_MODEL env var (comma-separated) > YAML model > auto
+  let candidates: string[];
+  const envModel = env.AGENT_MODEL;
+  if (envModel) {
+    candidates = envModel.split(",").map((s) => s.trim()).filter(Boolean);
+  } else {
+    candidates = [config.model ?? "auto"];
+  }
+
+  for (const candidate of candidates) {
+    if (candidate === "auto" || isProviderAuto) {
+      // Auto-discover
+      const preferredModel = candidate !== "auto" ? candidate : undefined;
+      const discovered = discoverProvider({ preferredModel, env });
+      if (discovered) {
+        return { model: discovered.model, provider: undefined };
+      }
+      // If auto-discover fails, try next candidate
+      continue;
+    }
+
+    // Check if this model's provider is available
+    if (isModelAvailable(candidate, env)) {
+      return { model: candidate, provider: isProviderAuto ? undefined : config.provider };
+    }
+  }
+
+  // Nothing available
+  const tried = candidates.join(", ");
+  const envVars = Object.values(PROVIDER_ENV_KEYS).join(", ");
+  throw new Error(
+    `No provider available for model fallback chain [${tried}]. Set one of: ${envVars}`,
+  );
+}
+
+/**
  * Resolve "auto" provider/model to concrete values.
- * Call this before backend creation to replace "auto" with real provider+model.
+ * Convenience wrapper around resolveModelFallback for single-model cases.
  *
  * @returns Resolved { model, provider } — never contains "auto".
  * @throws if auto-discovery finds no available provider.
@@ -429,24 +517,5 @@ export function resolveAutoModel(config: {
   /** Environment to scan (defaults to process.env). Useful for testing. */
   env?: Record<string, string | undefined>;
 }): { model: string; provider?: string } {
-  const isModelAuto = config.model === "auto";
-  const isProviderAuto = config.provider === "auto";
-
-  // Nothing to auto-resolve
-  if (!isModelAuto && !isProviderAuto) {
-    return { model: config.model!, provider: config.provider };
-  }
-
-  // Preferred model hint (if model is set but provider is auto)
-  const preferredModel = !isModelAuto ? config.model : undefined;
-
-  const discovered = discoverProvider({ preferredModel, env: config.env });
-  if (!discovered) {
-    const envVars = Object.values(PROVIDER_ENV_KEYS).join(", ");
-    throw new Error(
-      `No provider available for auto-discovery. Set one of: ${envVars}`,
-    );
-  }
-
-  return { model: discovered.model, provider: undefined };
+  return resolveModelFallback(config);
 }

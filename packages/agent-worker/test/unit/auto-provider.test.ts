@@ -7,6 +7,7 @@ mock.restore();
 const {
   discoverProvider,
   resolveAutoModel,
+  resolveModelFallback,
   isAutoProvider,
 } = await import("../../src/agent/models.ts");
 
@@ -97,20 +98,14 @@ describe("discoverProvider", () => {
     expect(result!.model).toBe("deepseek/deepseek-chat");
   });
 
-  test("AGENT_MODEL env var overrides default model", () => {
+  test("AGENT_MODEL does NOT affect discoverProvider (handled by resolveModelFallback)", () => {
     const result = discoverProvider({
-      env: env({ ANTHROPIC_API_KEY: "sk-test", AGENT_MODEL: "claude-opus-4-5" }),
+      env: env({ ANTHROPIC_API_KEY: "sk-test", AGENT_MODEL: "totally-different" }),
     });
     expect(result).not.toBe(null);
-    expect(result!.model).toBe("anthropic/claude-opus-4-5");
-  });
-
-  test("AGENT_MODEL preserves provider/model format", () => {
-    const result = discoverProvider({
-      env: env({ ANTHROPIC_API_KEY: "sk-test", AGENT_MODEL: "openai/gpt-5.2" }),
-    });
-    expect(result).not.toBe(null);
-    expect(result!.model).toBe("openai/gpt-5.2");
+    expect(result!.provider).toBe("anthropic");
+    // Model is from FRONTIER_MODELS, not AGENT_MODEL
+    expect(result!.model).not.toContain("totally-different");
   });
 
   test("priority: anthropic before openai", () => {
@@ -166,5 +161,116 @@ describe("resolveAutoModel", () => {
       env: env({ DEEPSEEK_API_KEY: "sk-test" }),
     });
     expect(result.model).toMatch(/^deepseek(\/|$)/);
+  });
+});
+
+describe("resolveModelFallback", () => {
+  test("single string model passes through", () => {
+    const result = resolveModelFallback({
+      model: "anthropic/claude-sonnet-4-5",
+      env: env({ ANTHROPIC_API_KEY: "sk-test" }),
+    });
+    expect(result.model).toBe("anthropic/claude-sonnet-4-5");
+  });
+
+  test("model: auto resolves from env", () => {
+    const result = resolveModelFallback({
+      model: "auto",
+      env: env({ DEEPSEEK_API_KEY: "sk-test" }),
+    });
+    expect(result.model).toMatch(/^deepseek(\/|$)/);
+  });
+
+  test("AGENT_MODEL comma-separated picks first available", () => {
+    // Only deepseek key set → skip anthropic, pick deepseek
+    const result = resolveModelFallback({
+      model: "auto",
+      env: env({
+        DEEPSEEK_API_KEY: "sk-test",
+        AGENT_MODEL: "anthropic/claude-sonnet-4-5, deepseek/deepseek-chat",
+      }),
+    });
+    expect(result.model).toBe("deepseek/deepseek-chat");
+  });
+
+  test("AGENT_MODEL picks first when both available", () => {
+    const result = resolveModelFallback({
+      model: "auto",
+      env: env({
+        DEEPSEEK_API_KEY: "sk-d",
+        ANTHROPIC_API_KEY: "sk-a",
+        AGENT_MODEL: "deepseek/deepseek-chat, anthropic/claude-sonnet-4-5",
+      }),
+    });
+    expect(result.model).toBe("deepseek/deepseek-chat");
+  });
+
+  test("AGENT_MODEL falls through to auto at end of chain", () => {
+    const result = resolveModelFallback({
+      model: "auto",
+      env: env({
+        ANTHROPIC_API_KEY: "sk-test",
+        AGENT_MODEL: "deepseek/deepseek-chat, auto",
+      }),
+    });
+    // deepseek not available → auto → discovers anthropic
+    expect(result.model).toMatch(/^anthropic(\/|$)/);
+  });
+
+  test("throws when no model in AGENT_MODEL chain is available", () => {
+    expect(() =>
+      resolveModelFallback({
+        model: "auto",
+        env: env({
+          AGENT_MODEL: "deepseek/deepseek-chat, openai/gpt-5.2",
+        }),
+      }),
+    ).toThrow("No provider available");
+  });
+
+  test("AGENT_MODEL single value works like before", () => {
+    const result = resolveModelFallback({
+      model: "auto",
+      env: env({
+        ANTHROPIC_API_KEY: "sk-test",
+        AGENT_MODEL: "anthropic/claude-opus-4-5",
+      }),
+    });
+    expect(result.model).toBe("anthropic/claude-opus-4-5");
+  });
+
+  test("gateway key makes all AGENT_MODEL entries available", () => {
+    const result = resolveModelFallback({
+      model: "auto",
+      env: env({
+        AI_GATEWAY_API_KEY: "gw-test",
+        AGENT_MODEL: "deepseek/deepseek-chat, auto",
+      }),
+    });
+    // Gateway supports all → first wins
+    expect(result.model).toBe("deepseek/deepseek-chat");
+  });
+
+  test("AGENT_MODEL handles model name without provider prefix", () => {
+    const result = resolveModelFallback({
+      model: "auto",
+      env: env({
+        DEEPSEEK_API_KEY: "sk-test",
+        AGENT_MODEL: "deepseek-chat",
+      }),
+    });
+    expect(result.model).toBe("deepseek-chat");
+  });
+
+  test("AGENT_MODEL overrides YAML model field", () => {
+    const result = resolveModelFallback({
+      model: "anthropic/claude-sonnet-4-5",
+      env: env({
+        DEEPSEEK_API_KEY: "sk-test",
+        AGENT_MODEL: "deepseek-chat",
+      }),
+    });
+    // AGENT_MODEL takes precedence over YAML model
+    expect(result.model).toBe("deepseek-chat");
   });
 });
