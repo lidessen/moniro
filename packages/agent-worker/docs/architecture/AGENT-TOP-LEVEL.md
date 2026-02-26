@@ -410,9 +410,10 @@ Daemon
 ```
 Daemon
 ├── agents: AgentRegistry                   # Top-level agent definitions + context
-│   ├── alice: AgentHandle                  # Loaded definition + personal context accessor
-│   │   └── dm loop (lazy)                 # Created on first DM, personal context only
+│   ├── alice: AgentHandle                  # Loaded definition + personal context
+│   │   └── loop: AgentLoop                # ONE loop per agent — single instruction queue
 │   └── bob: AgentHandle
+│       └── loop: AgentLoop
 │
 ├── workspaces: WorkspaceRegistry           # Active workspaces (no global workspace)
 │   └── review:pr-123: Workspace           # Workflow workspace
@@ -420,25 +421,34 @@ Daemon
 └── workflows: WorkflowRegistry            # Running workflow instances
     └── review:pr-123: WorkflowHandle
         ├── workspace: Workspace (ref)
-        ├── agents: [alice (ref), bob (ref), helper (inline)]
-        └── loops: Map<name, AgentLoop>    # Loops have personal + workspace context
+        └── agents: [alice (ref), bob (ref), helper (inline)]
 ```
 
-Two code paths for agent execution:
+**One loop per agent.** DM and workspace messages are both instructions delivered to the same queue. The difference is what context accompanies the instruction:
 
-1. **DM path** — `send alice "hi"` → create/reuse DM loop with personal context only (no MCP workspace tools). Conversation stored in `.agents/alice/conversations/`.
+| Instruction Source | Context Available | Example |
+|--------------------|-------------------|---------|
+| DM | Personal only (memory, notes, todo) | `send alice "hi"` |
+| Workspace | Personal + workspace (channel, docs, inbox) | `send alice@review "task"` |
+| Channel broadcast | Workspace (agent sees @mention in channel) | `send @review "@alice check this"` |
 
-2. **Workspace path** — agent referenced in workflow → create loop with personal context + workspace context (MCP workspace tools for channel, documents, inbox).
+The agent processes instructions sequentially from its single loop. No concurrent writes to personal context, no locking needed.
+
+When a workflow starts, it doesn't create new loops for ref agents — it **attaches workspace context** to existing agent loops. When a workflow stops, it detaches the workspace. Inline (workflow-local) agents get a temporary loop that's destroyed with the workflow.
 
 ### Key Types
 
 ```typescript
-/** Agent handle in the daemon — a loaded agent with context access */
+/** Agent handle in the daemon — a loaded agent with its single loop */
 interface AgentHandle {
   /** Agent definition (from YAML) */
   definition: AgentDefinition;
   /** Path to agent's persistent context directory */
   contextDir: string;
+  /** The agent's single instruction loop (lazy — created on first message) */
+  loop: AgentLoop | null;
+  /** Active workspace attachments (workflow-name → workspace) */
+  workspaces: Map<string, Workspace>;
   /** Read agent's memory */
   readMemory(): Promise<Record<string, unknown>>;
   /** Read agent's active todos */
@@ -449,6 +459,18 @@ interface AgentHandle {
   writeMemory(key: string, value: unknown): Promise<void>;
   /** Append to agent's notes */
   appendNote(content: string): Promise<void>;
+  /** Send an instruction to this agent's loop */
+  send(instruction: AgentInstruction): Promise<void>;
+}
+
+/** Instruction delivered to an agent's loop */
+interface AgentInstruction {
+  /** The message content */
+  message: string;
+  /** Which workspace context to use (null = DM, personal context only) */
+  workspace: Workspace | null;
+  /** Source of the instruction */
+  source: 'dm' | 'workspace' | 'channel' | 'schedule';
 }
 
 /** Workspace — the collaboration space */
@@ -466,10 +488,10 @@ interface WorkflowInstance {
   name: string;
   tag: string;
   workspace: Workspace;
-  /** Loops for all agents in this workflow */
-  loops: Map<string, AgentLoop>;
   /** Agent handles (refs resolved, locals created) */
   agents: Map<string, ResolvedWorkflowAgent>;
+  /** Inline-only loops (workflow-local agents that don't exist in AgentRegistry) */
+  inlineLoops: Map<string, AgentLoop>;
   shutdown(): Promise<void>;
 }
 
@@ -582,20 +604,27 @@ agent-worker start review.yaml --tag pr-123
 # DM: send directly to agent (personal context, no workspace)
 agent-worker send alice "Review this code"
 
-# Workspace channel: post to workspace, @mention agent
-agent-worker send @review @alice "Focus on auth module"
+# Workspace channel: post to workspace (@mentions are part of the message)
+agent-worker send @review "@alice Focus on auth module"
 
-# Wake agent in workspace: send to agent within a specific workspace
+# Agent in workspace: send to agent within a specific workspace
 agent-worker send alice@review "Focus on auth module"
 ```
 
 #### Send Target Semantics
 
-| Command | Target | Context Used |
-|---------|--------|-------------|
-| `send alice "hi"` | DM to alice | Agent personal context |
-| `send @review @alice "task"` | review workspace channel, @alice | Workspace context |
-| `send alice@review "task"` | Wake alice in review workspace | Personal + workspace context |
+The target is always **one thing**. @mentions inside the message are just text, parsed by the receiving agent, not by the CLI.
+
+| Command | Target | Context Available |
+|---------|--------|-------------------|
+| `send alice "hi"` | DM to alice | Personal context only |
+| `send @review "msg"` | review workspace channel | Workspace context (all agents see it) |
+| `send alice@review "task"` | alice in review workspace | Personal + workspace context |
+
+Target parsing:
+- No `@` prefix → DM to agent (personal context only)
+- `@workflow` or `@workflow:tag` → workspace channel (broadcast)
+- `agent@workflow` or `agent@workflow:tag` → specific agent in workspace
 
 ### Backward Compatibility
 
@@ -635,14 +664,15 @@ agent-worker agent create alice --model anthropic/claude-sonnet-4-5
 - [ ] Updated `WorkflowFile` type
 - [ ] Backward compat: inline definitions still work (treated as workflow-local)
 
-### Phase 3: Workspace Separation + DM Path
+### Phase 3: Single Agent Loop + Workspace Attachment
 
-**Goal**: Workspace is a standalone concept (per-workflow only). Agents can be DM'd without a workspace.
+**Goal**: Each agent has one loop. Workspaces attach/detach as context, not as separate execution paths.
 
+- [ ] `AgentLoop` as single instruction queue per agent (lazy creation)
+- [ ] `AgentInstruction` type with workspace context (null = DM)
+- [ ] Workspace attach/detach when workflows start/stop
 - [ ] `Workspace` type separated from `WorkflowRuntimeHandle`
 - [ ] `WorkspaceRegistry` for managing active workspaces (no global workspace)
-- [ ] Workflow workspace creation/teardown
-- [ ] DM code path: agent loop with personal context only (no workspace MCP tools)
 - [ ] Conversation storage in `.agents/<name>/conversations/`
 - [ ] Updated daemon: agents registry + workspaces registry + workflows registry
 - [ ] Remove `standalone:{name}` workflow key hack
@@ -775,8 +805,8 @@ agent-worker run review --tag pr-456
 # DM an agent directly (personal context, no workspace)
 agent-worker send architect "How should we restructure the auth module?"
 
-# Post to a workflow workspace channel
-agent-worker send @review @architect "Review the auth changes"
+# Post to a workflow workspace channel (@mention is part of the message)
+agent-worker send @review "@architect Review the auth changes"
 
 # Agents accumulate knowledge over time
 agent-worker agent notes architect  # See what architect has learned
