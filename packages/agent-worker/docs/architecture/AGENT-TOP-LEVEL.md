@@ -124,6 +124,8 @@ max_steps: 20
 schedule:
   wakeup: 5m
   prompt: Check for pending reviews
+  workspace: review          # Optional: wake in this workspace context
+  # If omitted → DM context (personal only)
 ```
 
 ### Agent Context Directory
@@ -299,6 +301,16 @@ interface AgentDefinition {
   max_tokens?: number;
   max_steps?: number;
   schedule?: ScheduleConfig;
+}
+
+/** Schedule configuration */
+interface ScheduleConfig {
+  /** Wakeup interval (e.g., "5m", "1h") */
+  wakeup?: string;
+  /** Prompt to use when waking up */
+  prompt?: string;
+  /** Workspace context for wakeup (omit = DM / personal context only) */
+  workspace?: string;
 }
 
 /** Agent identity traits */
@@ -628,14 +640,32 @@ Target parsing:
 
 ### Backward Compatibility
 
-The existing `agent-worker new` command continues to work by creating a lightweight inline agent (equivalent to workflow-local). The new `agent-worker agent create` is for persistent top-level agents.
+`agent-worker new` creates an **ephemeral agent** — exists only in daemon memory, no `.agents/` file, no persistent context. DM conversations are in-memory only, lost on daemon restart. This is for quick experimentation; use `agent create` for persistence.
 
 ```bash
-# Old way (still works — creates temporary standalone agent)
+# Ephemeral agent (daemon memory only, lost on restart)
 agent-worker new -m anthropic/claude-sonnet-4-5
 
-# New way (creates persistent agent with context)
+# Persistent agent (creates .agents/<name>.yaml + context directory)
 agent-worker agent create alice --model anthropic/claude-sonnet-4-5
+
+# Promote: if an ephemeral agent proves useful, persist it
+agent-worker agent create alice --from helper
+```
+
+#### Send to Unregistered Workspace
+
+`send alice@review "task"` requires alice to already be a participant in the `review` workflow (via `ref:` in workflow YAML). If alice is not in the workflow, it errors:
+
+```
+Error: alice is not a participant in workflow "review".
+Add alice to .workflows/review.yaml or use --join to add dynamically.
+```
+
+`--join` allows dynamic addition for the current workflow run:
+
+```bash
+agent-worker send alice@review "task" --join
 ```
 
 ---

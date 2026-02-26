@@ -1,7 +1,7 @@
 # ADR: CLI Design - Unified Terminology and Target Syntax
 
 **Date**: 2026-02-08
-**Status**: Accepted
+**Status**: Accepted (amended 2026-02-26: removed global workspace default, aligned with Agent-as-Top-Level)
 **Context**: CLI design review based on user feedback and evaluation
 
 ---
@@ -40,35 +40,37 @@ Workflows support multiple instances using a **`workflow:tag`** syntax (inspired
 - **Tag**: A specific instance/version of that workflow (runtime instance)
 
 **Default naming**:
-- Default workflow: `global` (for standalone agents)
+- ~~Default workflow: `global` (for standalone agents)~~ **Removed (2026-02-26)**: No global workspace. Agents without a workflow are in idle/DM state — they don't belong to any workflow.
 - Default tag: `main` (for default instance)
 
 Rationale:
 - **Tag vs branch**: "tag" implies versioned instances (like Docker), not evolving branches
-- **`global` for default**: Avoids `main:main` redundancy; clearly indicates "not part of a specific task"
+- **No default workflow**: An agent not in a workflow is simply idle, not in a "global" workspace. DM is not a workflow.
 - **Familiar pattern**: `nginx:1.21` → `review:pr-123`
 
 ### 3. Target Syntax
 
 Full syntax: `agent@workflow:tag`
 
-With defaults and abbreviations:
+Target is always **one argument**. Three forms:
 ```
-alice                    # alice@global:main (display: alice)
-alice@review             # alice@review:main (display: alice@review)
-alice@review:pr-123      # Full specification
+alice                    # DM to alice (personal context only, no workflow)
+alice@review             # alice in review:main workspace (personal + workspace context)
+alice@review:pr-123      # alice in review:pr-123 workspace
 
-@review                  # @review:main
-@review:pr-123           # Full workflow:tag reference
+@review                  # review:main workspace channel (broadcast)
+@review:pr-123           # review:pr-123 workspace channel
 ```
 
-**Display rules**:
-- Omit `@global` in display (show `alice`, not `alice@global`)
-- Omit `:main` tag in display when it's the default
+**Parsing rules**:
+- No `@` prefix → DM to agent (no workflow, no workspace)
+- `agent@workflow[:tag]` → agent in specific workspace
+- `@workflow[:tag]` → workspace channel (broadcast to all agents)
+- Default tag: `main` (omit `:main` in display)
 
-**Distinction from message mentions**:
-- **In message content**: `@agent` is mention syntax (triggers notification)
-- **As command target**: `agent@workflow:tag` (routing/identification)
+**@mentions in messages**:
+- `@agent` inside message content is mention syntax (parsed by receiving agent, not by CLI)
+- `send @review "@alice check this"` — target is `@review` channel, `@alice` is part of the message
 
 ### 4. Schedule Command Redesign
 
@@ -81,8 +83,8 @@ schedule <target> clear
 
 Examples:
 ```bash
-schedule alice set 30s                      # alice@global:main
-schedule alice@review set 5m                # alice@review:main
+schedule alice set 30s                      # DM wakeup (personal context)
+schedule alice@review set 5m                # alice@review:main wakeup
 schedule alice@review:pr-123 set 30s        # Full specification
 schedule @review:pr-123 set 1h              # Workflow-level default
 ```
@@ -102,13 +104,13 @@ Rationale:
 - ✅ **Future-proof**: Target syntax supports complex scenarios
 
 ### Breaking Changes
-- ⚠️ Code using `DEFAULT_INSTANCE` needs migration to `DEFAULT_WORKFLOW = "global"` and `DEFAULT_TAG = "main"`
+- ⚠️ Code using `DEFAULT_INSTANCE` needs migration to `DEFAULT_TAG = "main"` (no default workflow — agents without workflow are in DM/idle state)
 - ⚠️ Target syntax extended: `agent@workflow` → `agent@workflow:tag` (with defaults)
 - ⚠️ `schedule set` command signature changes (target position shift)
 - ⚠️ Variable interpolation: `workflow.instance` → `workflow.tag`
 
 ### Migration Path
-1. **Phase 1**: Update constants (`DEFAULT_WORKFLOW = "global"`, `DEFAULT_TAG = "main"`)
+1. **Phase 1**: Update constants (remove `DEFAULT_WORKFLOW = "global"`, keep `DEFAULT_TAG = "main"`)
 2. **Phase 2**: Implement workflow:tag parsing and routing
 3. **Phase 3**: Update variable interpolation (`workflow.tag` instead of `workflow.instance`)
 4. **Phase 4**: Update file paths to `.workflow/<workflow>/<tag>/` (avoiding colons for OS compatibility)
