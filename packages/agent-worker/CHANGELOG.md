@@ -1,5 +1,40 @@
 # agent-worker
 
+## 0.17.0
+
+### Minor Changes
+
+- [#103](https://github.com/lidessen/moniro/pull/103) [`37c5231`](https://github.com/lidessen/moniro/commit/37c52313abd5645602e29015abc043c2e1cb2e73) Thanks [@lidessen](https://github.com/lidessen)! - Add provider auto-discovery and model fallback chains
+
+  - Auto-detect available AI providers by scanning environment variables (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.)
+  - Support `AGENT_DEFAULT_MODELS` env var with comma-separated fallback chain (e.g. `deepseek-chat, anthropic/claude-sonnet-4-5`)
+  - Fall back to direct provider SDK when `AI_GATEWAY_API_KEY` is unavailable, fixing CI environments with only provider-specific keys
+  - Lazy-load and cache provider SDKs for reuse
+
+- [#103](https://github.com/lidessen/moniro/pull/103) [`37c5231`](https://github.com/lidessen/moniro/commit/37c52313abd5645602e29015abc043c2e1cb2e73) Thanks [@lidessen](https://github.com/lidessen)! - Add remote GitHub workflow sources and workflow params support
+
+  - Support `github:owner/repo@ref/path/file.yml` and shorthand `github:owner/repo@ref#name` syntax for remote workflows
+  - Clone remote repos to `~/.cache/agent-worker/sources/` with shallow fetch and cache invalidation
+  - Expose `${{ source.dir }}` for referencing files relative to the workflow source
+  - Add `params` block in workflow YAML with type validation and default values
+  - Extract reusable workflow definitions (`workflows/review.yml`, `workflows/changeset.yml`)
+
+### Patch Changes
+
+- [#103](https://github.com/lidessen/moniro/pull/103) [`37c5231`](https://github.com/lidessen/moniro/commit/37c52313abd5645602e29015abc043c2e1cb2e73) Thanks [@lidessen](https://github.com/lidessen)! - Refactor architecture: context store decomposition, AgentLoop rename, deprecated API cleanup
+
+  - Decompose monolithic `ContextProviderImpl` into domain-specific stores (`ChannelStore`, `InboxStore`, `DocumentStore`, `ResourceStore`, `StatusStore`)
+  - Rename `AgentController` → `AgentLoop` with `controller/` → `loop/` directory move
+  - Remove deprecated `AgentSession`/`AgentSessionConfig` aliases from public exports
+  - Clean technical debt: remove unused imports, dead code, and deprecated instance fields
+
+- [#103](https://github.com/lidessen/moniro/pull/103) [`37c5231`](https://github.com/lidessen/moniro/commit/37c52313abd5645602e29015abc043c2e1cb2e73) Thanks [@lidessen](https://github.com/lidessen)! - Security hardening, zod v4 upgrade, and CLI improvements
+
+  - Prevent command injection in git ref handling: validate refs with allowlist, use `execFileSync` instead of `execSync`, replace shell `rm -rf` with `rmSync`
+  - Upgrade zod from v3 to v4 (`^4.3.6`), update `z.record()` calls to explicit key/value types
+  - Use standard `--` separator for passing workflow params in CLI, replacing fragile `allowUnknownOption` hack
+  - Fix typecheck in CI without `@types/bun` by adding `preserveSymlinks` config
+
 ## 0.16.0
 
 ### Minor Changes
