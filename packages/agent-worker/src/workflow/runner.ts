@@ -673,9 +673,7 @@ export async function runWorkflowWithLoops(config: LoopRunConfig): Promise<LoopR
 
           if (failedAgents.length > 0) {
             const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-            const details = failedAgents
-              .map((a) => `${a.name}: ${a.error}`)
-              .join("; ");
+            const details = failedAgents.map((a) => `${a.name}: ${a.error}`).join("; ");
             logger.info(`Workflow failed (${elapsed}s): ${details}`);
 
             channelWatcher?.stop();
