@@ -1,7 +1,7 @@
 # ADR: Agent as Top-Level Entity
 
 **Date**: 2026-02-24
-**Status**: Proposed
+**Status**: Accepted (amended by 2026-02-26-drop-global-workspace.md)
 **Context**: User wants to replace openclaw with agent-worker; needs agents as first-class entities with persistent context
 
 ---
@@ -34,7 +34,7 @@ Key changes:
 ### Positive
 - Agents accumulate knowledge over time (memory, notes persist)
 - Single agent definition reused across multiple workflows
-- Agents work standalone in global workspace without workflow
+- Agents work standalone via DM without workflow (amended: no global workspace, see 2026-02-26)
 - Clear separation: who (agent) vs where (workspace) vs how (workflow)
 
 ### Risks

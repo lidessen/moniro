@@ -43,28 +43,43 @@ This creates several limitations:
 ```
 Project
 ├── Agents (top-level definitions)
-│   ├── alice (prompt, soul, memory, notes, todo)
-│   └── bob (prompt, soul, memory, notes, todo)
-│
-├── Global Workspace (for standalone use, no workflow needed)
-│   ├── channel
-│   └── documents
+│   ├── alice (prompt, soul, memory, notes, conversations, todo)
+│   └── bob (prompt, soul, memory, notes, conversations, todo)
 │
 └── Workflows (orchestrate agents in workspaces)
     ├── review
-    │   ├── workspace (own channel, documents)
-    │   ├── agents: [alice (ref), bob (ref), temp-helper (local)]
+    │   ├── workspace (own channel, documents, inbox)
+    │   ├── agents: [alice (ref), bob (ref), temp-helper (inline)]
     │   └── kickoff
     └── deploy
-        ├── workspace (own channel, documents)
-        └── agents: [alice (ref), deployer (local)]
+        ├── workspace (own channel, documents, inbox)
+        └── agents: [alice (ref), deployer (inline)]
 ```
 
+**No global workspace.** Two data types only:
+
+| Data | Belongs To | Persistence |
+|------|-----------|-------------|
+| **Personal context** (memory, notes, conversations, todo) | Agent | Persistent, travels with agent |
+| **Workspace context** (channel, documents, inbox) | Workflow | Per-workflow instance |
+
+Agent states:
+
+```
+Agent
+├── idle     → no active workspace, accepts DMs, uses personal context only
+└── active   → in one or more workspaces, has personal + workspace context
+```
+
+"Standalone" is not a type — it's just the idle state. An agent not currently
+in any workspace simply works from its personal context via DM.
+
 When alice participates in the `review` workflow AND the `deploy` workflow:
-- She **carries** her own context (memory, soul, notes) everywhere
-- She **communicates through** the workflow's workspace (channel, docs)
-- Her agent-level state persists across all workflows
+- She **carries** her personal context (memory, soul, notes) everywhere
+- She **communicates through** each workflow's workspace (channel, docs)
+- Her personal state persists across all workflows
 - Each workflow workspace is isolated
+- DMs to alice go to her personal context, independent of any workflow
 
 ---
 
@@ -98,9 +113,10 @@ soul:                   # Persistent identity traits (injected into prompt conte
 context:                # Agent's own persistent context directory
   dir: .agents/alice/   # Default: .agents/<name>/
   # Subdirectories created automatically:
-  #   memory/   — persistent key-value notes
-  #   notes/    — freeform reflection/learning
-  #   todo/     — cross-session task tracking
+  #   memory/         — persistent key-value notes
+  #   notes/          — freeform reflection/learning
+  #   conversations/  — DM history
+  #   todo/           — cross-session task tracking
 
 # Optional runtime config
 max_tokens: 8000
@@ -120,6 +136,8 @@ schedule:
 ├── notes/            # Freeform reflections and learnings
 │   ├── 2026-02-24-first-review.md
 │   └── 2026-02-25-learned-about-auth.md
+├── conversations/    # DM history (direct messages, no workspace)
+│   └── 2026-02-26.md
 └── todo/             # Cross-session task tracking
     └── index.md
 ```
@@ -340,35 +358,39 @@ Without a project config, the system auto-discovers:
 
 ```
 project/
-├── .agents/                    # Agent definitions + context
+├── .agents/                    # Agent definitions + personal context
 │   ├── alice.yaml              # Agent definition
-│   ├── alice/                  # Agent's persistent context
+│   ├── alice/                  # Agent's persistent personal context
 │   │   ├── memory/
 │   │   ├── notes/
+│   │   ├── conversations/      # DM history
 │   │   └── todo/
 │   ├── bob.yaml
 │   └── bob/
 │       ├── memory/
 │       ├── notes/
+│       ├── conversations/
 │       └── todo/
 │
 ├── .workflows/                 # Workflow definitions
 │   ├── review.yaml
 │   └── deploy.yaml
 │
-├── .workspace/                 # Runtime workspaces (auto-managed)
-│   ├── global/main/            # Global workspace
-│   │   ├── channel.md
-│   │   └── documents/
+├── .workspace/                 # Runtime workspaces (auto-managed, no global/)
 │   ├── review/main/            # Review workflow workspace
 │   │   ├── channel.md
-│   │   └── documents/
+│   │   ├── documents/
+│   │   └── inbox/
 │   └── review/pr-123/          # Tagged instance
 │       ├── channel.md
-│       └── documents/
+│       ├── documents/
+│       └── inbox/
 │
 └── moniro.yaml                 # Optional project config
 ```
+
+Note: No `.workspace/global/` directory. Idle agents use personal context
+only. Workspaces are created per-workflow.
 
 ---
 
@@ -388,19 +410,25 @@ Daemon
 ```
 Daemon
 ├── agents: AgentRegistry                   # Top-level agent definitions + context
-│   ├── alice: AgentHandle                  # Loaded definition + context accessor
+│   ├── alice: AgentHandle                  # Loaded definition + personal context accessor
+│   │   └── dm loop (lazy)                 # Created on first DM, personal context only
 │   └── bob: AgentHandle
 │
-├── workspaces: WorkspaceRegistry           # Active workspaces
-│   ├── global:main: Workspace             # Global workspace
+├── workspaces: WorkspaceRegistry           # Active workspaces (no global workspace)
 │   └── review:pr-123: Workspace           # Workflow workspace
 │
 └── workflows: WorkflowRegistry            # Running workflow instances
     └── review:pr-123: WorkflowHandle
         ├── workspace: Workspace (ref)
-        ├── agents: [alice (ref), bob (ref), helper (local)]
-        └── loops: Map<name, AgentLoop>
+        ├── agents: [alice (ref), bob (ref), helper (inline)]
+        └── loops: Map<name, AgentLoop>    # Loops have personal + workspace context
 ```
+
+Two code paths for agent execution:
+
+1. **DM path** — `send alice "hi"` → create/reuse DM loop with personal context only (no MCP workspace tools). Conversation stored in `.agents/alice/conversations/`.
+
+2. **Workspace path** — agent referenced in workflow → create loop with personal context + workspace context (MCP workspace tools for channel, documents, inbox).
 
 ### Key Types
 
@@ -551,12 +579,23 @@ agent-worker run review.yaml --tag pr-123
 # Start persistent workflow
 agent-worker start review.yaml --tag pr-123
 
-# Standalone: send to agent in global workspace (no workflow needed)
+# DM: send directly to agent (personal context, no workspace)
 agent-worker send alice "Review this code"
 
-# Workflow: send to agent in workflow workspace
-agent-worker send alice@review:pr-123 "Focus on auth module"
+# Workspace channel: post to workspace, @mention agent
+agent-worker send @review @alice "Focus on auth module"
+
+# Wake agent in workspace: send to agent within a specific workspace
+agent-worker send alice@review "Focus on auth module"
 ```
+
+#### Send Target Semantics
+
+| Command | Target | Context Used |
+|---------|--------|-------------|
+| `send alice "hi"` | DM to alice | Agent personal context |
+| `send @review @alice "task"` | review workspace channel, @alice | Workspace context |
+| `send alice@review "task"` | Wake alice in review workspace | Personal + workspace context |
 
 ### Backward Compatibility
 
@@ -596,15 +635,17 @@ agent-worker agent create alice --model anthropic/claude-sonnet-4-5
 - [ ] Updated `WorkflowFile` type
 - [ ] Backward compat: inline definitions still work (treated as workflow-local)
 
-### Phase 3: Workspace Separation
+### Phase 3: Workspace Separation + DM Path
 
-**Goal**: Workspace is a standalone concept, not conflated with context.
+**Goal**: Workspace is a standalone concept (per-workflow only). Agents can be DM'd without a workspace.
 
 - [ ] `Workspace` type separated from `WorkflowRuntimeHandle`
-- [ ] `WorkspaceRegistry` for managing active workspaces
-- [ ] Global workspace (agents can use it without a workflow)
+- [ ] `WorkspaceRegistry` for managing active workspaces (no global workspace)
 - [ ] Workflow workspace creation/teardown
+- [ ] DM code path: agent loop with personal context only (no workspace MCP tools)
+- [ ] Conversation storage in `.agents/<name>/conversations/`
 - [ ] Updated daemon: agents registry + workspaces registry + workflows registry
+- [ ] Remove `standalone:{name}` workflow key hack
 
 ### Phase 4: Agent Context in Prompt
 
@@ -663,10 +704,10 @@ agent-worker agent create alice \
   --model anthropic/claude-sonnet-4-5 \
   --system "You are a helpful coding assistant."
 
-# Use directly (global workspace)
+# DM directly (no workspace needed, uses personal context)
 agent-worker send alice "Help me refactor this function"
 
-# Alice remembers across sessions (memory, notes persist)
+# Alice remembers across sessions (memory, notes, conversations persist)
 ```
 
 ### Cross-Workflow Agent
@@ -731,8 +772,11 @@ workflows:
 # Run a specific workflow
 agent-worker run review --tag pr-456
 
-# Or just talk to an agent directly
+# DM an agent directly (personal context, no workspace)
 agent-worker send architect "How should we restructure the auth module?"
+
+# Post to a workflow workspace channel
+agent-worker send @review @architect "Review the auth changes"
 
 # Agents accumulate knowledge over time
 agent-worker agent notes architect  # See what architect has learned
@@ -751,3 +795,5 @@ agent-worker agent notes architect  # See what architect has learned
 4. **Cross-project agents** — Should agents be portable across projects? (e.g., `~/.agents/alice.yaml` shared globally). Proposal: start project-scoped, add global scope later.
 
 5. **Agent-to-agent memory** — When alice references something bob told her in another workflow, how does that work? Through shared notes? Direct memory access? Proposal: agent memory is private by default; shared knowledge goes through workspace documents.
+
+6. **DM conversation management** — How long do DM conversations persist? Per-session? Per-day? Until explicitly cleared? How does an agent's DM conversation history relate to its memory (auto-summarize old conversations into memory?).
