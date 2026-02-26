@@ -666,6 +666,32 @@ export async function runWorkflowWithLoops(config: LoopRunConfig): Promise<LoopR
         }
 
         if (isIdle) {
+          // Check if any agent exhausted all retries — that's a workflow failure
+          const failedAgents = [...loops.entries()]
+            .filter(([, loop]) => loop.hasFailures)
+            .map(([agentName, loop]) => ({ name: agentName, error: loop.lastError }));
+
+          if (failedAgents.length > 0) {
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+            const details = failedAgents
+              .map((a) => `${a.name}: ${a.error}`)
+              .join("; ");
+            logger.info(`Workflow failed (${elapsed}s): ${details}`);
+
+            channelWatcher?.stop();
+            await shutdownLoops(loops, logger);
+            await runtime.shutdown();
+
+            return {
+              success: false,
+              error: details,
+              setupResults: runtime.setupResults,
+              duration: Date.now() - startTime,
+              contextProvider: runtime.contextProvider,
+              feedback: runtime.getFeedback?.(),
+            };
+          }
+
           const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
           logger.info(`Workflow complete (${elapsed}s)`);
           break;

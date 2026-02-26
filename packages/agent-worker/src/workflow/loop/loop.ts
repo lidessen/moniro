@@ -68,6 +68,9 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
   let pollTimeout: ReturnType<typeof setTimeout> | null = null;
   // Logical lock to prevent sendDirect and poll loop from racing
   let directRunning = false;
+  // Track whether any run exhausted all retries without success
+  let _hasFailures = false;
+  let _lastError: string | undefined;
 
   // Schedule support: resolve agent's wakeup config into a typed schedule.
   // Validate eagerly so invalid cron expressions fail at creation, not at runtime.
@@ -239,6 +242,8 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
 
       // If all retries exhausted, still acknowledge to prevent infinite loop
       if (lastResult && !lastResult.success) {
+        _hasFailures = true;
+        _lastError = lastResult.error;
         errorLog(`ERROR max retries exhausted, acknowledging to prevent loop`);
         await contextProvider.ackInbox(name, latestId);
       }
@@ -261,6 +266,14 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
 
     get state() {
       return state;
+    },
+
+    get hasFailures() {
+      return _hasFailures;
+    },
+
+    get lastError() {
+      return _lastError;
     },
 
     async start() {
