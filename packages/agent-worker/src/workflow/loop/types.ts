@@ -21,6 +21,12 @@ export interface AgentLoop {
   /** Current state */
   readonly state: AgentState;
 
+  /** Whether any run exhausted all retries without success */
+  readonly hasFailures: boolean;
+
+  /** Last error message from a failed run (if hasFailures is true) */
+  readonly lastError: string | undefined;
+
   /** Start the loop (begin polling) */
   start(): Promise<void>;
 
