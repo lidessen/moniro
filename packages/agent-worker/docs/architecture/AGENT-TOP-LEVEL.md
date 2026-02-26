@@ -100,8 +100,8 @@ prompt:
   system: |
     You are Alice, a senior code reviewer.
     You value clarity, correctness, and simplicity.
-  # OR from file:
-  system_file: ./prompts/alice.md
+  # OR load from file (mutually exclusive with system):
+  # system_file: ./prompts/alice.md
 
 soul:                   # Persistent identity traits (injected into prompt context)
   role: code-reviewer
@@ -125,8 +125,10 @@ max_steps: 20
 schedule:
   wakeup: 5m
   prompt: Check for pending reviews
-  workspace: review          # Optional: wake in this workspace context
+  workspace: review          # Wake in any running review workspace
+  # workspace: review:pr-123 # Or target a specific tagged instance
   # If omitted → DM context (personal only)
+  # If workflow not running → falls back to DM context
 ```
 
 ### Agent Context Directory
@@ -259,79 +261,103 @@ agents:
     # No persistent context (no ref, no context.dir)
 ```
 
-### Type Definitions
+### Schema Definitions (Zod)
 
 ```typescript
-/** Agent reference in a workflow */
-interface AgentEntry {
-  /** Reference to a global agent by name */
-  ref?: string;
-  /** Workflow-specific prompt modifications */
-  prompt?: {
-    /** Append to the agent's base system prompt */
-    append?: string;
-    /** Replace the system prompt entirely (only for inline agents) */
-    system?: string;
-    /** Load system prompt from file */
-    system_file?: string;
-  };
-  /** Override runtime config for this workflow */
-  model?: string;
-  backend?: BackendType;
-  max_tokens?: number;
-  max_steps?: number;
-  schedule?: ScheduleConfig;
-  /** Inline soul (for workflow-local agents without ref) */
-  soul?: AgentSoul;
-}
+import { z } from 'zod';
 
-/** Top-level agent definition */
-interface AgentDefinition {
-  name: string;
-  model: string;
-  backend?: BackendType;
-  provider?: string | ProviderConfig;
-  prompt: {
-    system?: string;       // Mutually exclusive with system_file
-    system_file?: string;  // Mutually exclusive with system — validated at load time
-  };
-  soul?: AgentSoul;
-  context?: {
-    dir?: string;           // Default: .agents/<name>/
-  };
-  max_tokens?: number;
-  max_steps?: number;
-  schedule?: ScheduleConfig;
-}
+// ── Shared ──────────────────────────────────────────────────
 
-/** Schedule configuration */
-interface ScheduleConfig {
+const AgentSoul = z.object({
+  role: z.string().optional(),
+  expertise: z.array(z.string()).optional(),
+  style: z.string().optional(),
+  principles: z.array(z.string()).optional(),
+}).passthrough();                            // Extensible
+
+const ScheduleConfig = z.object({
   /** Wakeup interval (e.g., "5m", "1h") */
-  wakeup?: string;
+  wakeup: z.string().optional(),
   /** Prompt to use when waking up */
-  prompt?: string;
-  /** Workspace context for wakeup (omit = DM / personal context only) */
-  workspace?: string;
-}
+  prompt: z.string().optional(),
+  /** Workspace context — "workflow" or "workflow:tag" (omit = DM / personal only) */
+  workspace: z.string().optional(),
+});
 
-/** Agent identity traits */
-interface AgentSoul {
-  role?: string;
-  expertise?: string[];
-  style?: string;
-  principles?: string[];
-  [key: string]: unknown;  // Extensible
-}
+/** system XOR system_file — never both */
+const SystemPrompt = z.union([
+  z.object({ system: z.string(), system_file: z.never().optional() }),
+  z.object({ system_file: z.string(), system: z.never().optional() }),
+]);
 
-/** Updated workflow file */
-interface WorkflowFile {
-  name?: string;
-  agents: Record<string, AgentEntry>;
-  workspace?: WorkspaceConfig;
-  setup?: SetupTask[];
-  kickoff?: string;
-}
+const RuntimeOverrides = z.object({
+  model: z.string().optional(),
+  backend: z.enum(['sdk', 'claude', 'cursor', 'codex', 'mock']).optional(),
+  max_tokens: z.number().optional(),
+  max_steps: z.number().optional(),
+  schedule: ScheduleConfig.optional(),
+});
+
+// ── Top-level Agent Definition (.agents/*.yaml) ─────────────
+
+const AgentDefinition = RuntimeOverrides.extend({
+  name: z.string(),
+  model: z.string(),                        // Required at top level
+  provider: z.union([z.string(), z.object({}).passthrough()]).optional(),
+  prompt: SystemPrompt,
+  soul: AgentSoul.optional(),
+  context: z.object({
+    dir: z.string().optional(),             // Default: .agents/<name>/
+  }).optional(),
+});
+
+// ── Workflow Agent Entry ────────────────────────────────────
+//
+// Discriminated by presence of `ref`:
+//   ref agent  → prompt.append only (extend base agent's prompt)
+//   inline     → prompt.system / system_file only (define from scratch)
+
+/** ref agent: reference a global agent, optionally extend its prompt */
+const RefAgentEntry = RuntimeOverrides.extend({
+  ref: z.string(),
+  prompt: z.object({
+    append: z.string(),
+  }).optional(),
+  // No soul — inherits from global definition
+});
+
+/** inline agent: workflow-local, define everything here */
+const InlineAgentEntry = RuntimeOverrides.extend({
+  model: z.string(),
+  prompt: SystemPrompt,
+  soul: AgentSoul.optional(),               // Optional identity (no persistence)
+});
+
+/** Shorthand: { ref: name } */
+const RefShorthand = z.object({ ref: z.string() });
+
+const AgentEntry = z.union([RefShorthand, RefAgentEntry, InlineAgentEntry]);
+
+// ── Workflow File ───────────────────────────────────────────
+
+const WorkflowFile = z.object({
+  name: z.string().optional(),
+  agents: z.record(AgentEntry),
+  workspace: z.object({}).passthrough().optional(),   // WorkspaceConfig
+  setup: z.array(z.object({}).passthrough()).optional(),
+  kickoff: z.string().optional(),
+});
 ```
+
+**Validation rules enforced by schema**:
+
+| Rule | How |
+|------|-----|
+| `system` XOR `system_file`, never both | `SystemPrompt` union type |
+| ref agent → only `prompt.append` allowed | `RefAgentEntry` has no `system`/`system_file` |
+| inline agent → only `prompt.system`/`system_file` | `InlineAgentEntry` uses `SystemPrompt` |
+| ref agent cannot define `soul` | `RefAgentEntry` has no `soul` field |
+| `AgentEntry` discriminated by `ref` presence | `z.union` tries ref first, falls back to inline |
 
 ---
 
@@ -466,12 +492,36 @@ Fiber). Each agent's loop is a priority queue, not a simple FIFO:
 | `normal` | Workspace direct send | FIFO within this lane |
 | `background` | Non-@ channel, scheduled wakeup | Yields to higher priority instructions |
 
-An agent processing a `background` instruction that receives an `immediate`
-one will finish its current step, then switch to the higher-priority
-instruction (cooperative preemption — not mid-step interruption).
+**Cooperative preemption** (modeled after React Fiber's interruptible
+rendering):
 
-No concurrent writes to personal context, no locking needed — one instruction
-processes at a time.
+```
+Agent Loop (single thread, priority queue)
+│
+├─ Pop highest-priority instruction
+├─ Assemble prompt (personal + workspace context)
+├─ Execute step 1
+│     ├─ Step complete → check queue for higher priority
+│     │     ├─ Nothing higher → continue to step 2
+│     │     └─ Higher found → YIELD
+│     │           ├─ Current instruction re-queued at its original priority
+│     │           │   with progress marker (resume from step N+1)
+│     │           └─ Higher-priority instruction starts
+│     └─ (mid-step: never interrupted — atomic unit is one LLM call)
+├─ Execute step 2 ...
+└─ Instruction complete → pop next
+```
+
+Key behaviors:
+- **Yield point** = between steps (between LLM calls), never mid-call
+- **Yielded instruction is re-queued**, not abandoned — it resumes from where
+  it left off once all higher-priority work drains
+- **Progress is preserved**: the instruction carries its conversation history
+  (steps 1..N already completed). On resume, the agent continues from step N+1
+- **No starvation**: a `background` instruction that keeps getting preempted
+  will eventually run — `immediate` instructions are rare (DM, @mention)
+- **Single writer**: one instruction processes at a time, no concurrent writes
+  to personal context, no locking needed
 
 When a workflow starts, it doesn't create new loops for ref agents — it **attaches workspace context** to existing agent loops. When a workflow stops, it detaches the workspace. Inline (workflow-local) agents get a temporary loop that's destroyed with the workflow.
 
@@ -642,10 +692,10 @@ agent-worker agent todo alice done 1            # Complete todo
 ### Updated Workflow Commands
 
 ```bash
-# Run workflow (agents resolved from refs + inline)
+# Run workflow in foreground (blocks until complete or Ctrl-C)
 agent-worker run review.yaml --tag pr-123
 
-# Start persistent workflow
+# Start workflow in background (returns immediately, daemon manages lifecycle)
 agent-worker start review.yaml --tag pr-123
 
 # DM: send directly to agent (personal context, no workspace)
@@ -662,11 +712,12 @@ agent-worker send alice@review "Focus on auth module"
 
 The target is always **one thing**. @mentions inside the message are just text, parsed by the receiving agent, not by the CLI.
 
-| Command | Target | Context Available |
-|---------|--------|-------------------|
-| `send alice "hi"` | DM to alice | Personal context only |
-| `send @review "msg"` | review workspace channel | Workspace context (all agents see it) |
-| `send alice@review "task"` | alice in review workspace | Personal + workspace context |
+| Command | Target | Context Available | Delivery |
+|---------|--------|-------------------|----------|
+| `send alice "hi"` | DM to alice | Personal context only | Immediate (push) |
+| `send @review "msg"` | review workspace channel | Workspace context | Written to channel (pull — agents see on next cycle) |
+| `send @review "@alice check"` | review workspace channel | Workspace context | @alice pushed immediately; message also in channel |
+| `send alice@review "task"` | alice in review workspace | Personal + workspace context | Immediate (push to alice) |
 
 Target parsing:
 - No `@` prefix → DM to agent (personal context only)
@@ -679,13 +730,14 @@ Target parsing:
 
 ```bash
 # Ephemeral agent (daemon memory only, lost on restart)
-agent-worker new -m anthropic/claude-sonnet-4-5
+agent-worker new --model anthropic/claude-sonnet-4-5     # -m is shorthand
 
 # Persistent agent (creates .agents/<name>.yaml + context directory)
 agent-worker agent create alice --model anthropic/claude-sonnet-4-5
 
 # Promote: if an ephemeral agent proves useful, persist it
-agent-worker agent create alice --from helper
+# (uses ephemeral agent's name assigned at creation, e.g. "agent-1")
+agent-worker agent create alice --from agent-1
 ```
 
 #### Send to Unregistered Workspace
@@ -737,8 +789,9 @@ participation.
 
 **Goal**: Each agent has one loop. Workspaces attach/detach as context, not as separate execution paths.
 
-- [ ] `AgentLoop` as single instruction queue per agent (lazy creation)
-- [ ] `AgentInstruction` type with workspace context (null = DM)
+- [ ] `AgentLoop` as priority queue per agent (lazy creation, 3 lanes: immediate/normal/background)
+- [ ] `AgentInstruction` type with workspace context (null = DM) and priority
+- [ ] Cooperative preemption: yield between steps, re-queue with progress marker
 - [ ] Workspace attach/detach when workflows start/stop
 - [ ] `Workspace` type separated from `WorkflowRuntimeHandle`
 - [ ] `WorkspaceRegistry` for managing active workspaces (no global workspace)
