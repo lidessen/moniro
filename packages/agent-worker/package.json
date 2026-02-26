@@ -32,6 +32,13 @@
     "prepublishOnly": "bun run build"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.0",
+    "@ai-sdk/deepseek": "^1.0.0",
+    "@ai-sdk/google": "^1.0.0",
+    "@ai-sdk/groq": "^1.0.0",
+    "@ai-sdk/mistral": "^1.0.0",
+    "@ai-sdk/openai": "^3.0.0",
+    "@ai-sdk/xai": "^1.0.0",
     "@clack/prompts": "^1.0.0",
     "@hono/node-server": "^1.19.9",
     "@modelcontextprotocol/sdk": "^1.26.0",
@@ -50,52 +57,12 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@ai-sdk/anthropic": "^3.0.0",
-    "@ai-sdk/deepseek": "^1.0.0",
-    "@ai-sdk/google": "^1.0.0",
-    "@ai-sdk/groq": "^1.0.0",
-    "@ai-sdk/mistral": "^1.0.0",
-    "@ai-sdk/openai": "^3.0.0",
-    "@ai-sdk/xai": "^1.0.0",
     "@types/bun": "latest",
     "@types/node": ">=22",
     "@typescript/native-preview": "^7.0.0-dev.20260203.1",
     "oxfmt": "^0.28.0",
     "oxlint": "^1.43.0",
     "tsdown": "^0.20.1"
-  },
-  "peerDependencies": {
-    "@ai-sdk/anthropic": "^3.0.0",
-    "@ai-sdk/deepseek": "^1.0.0",
-    "@ai-sdk/google": "^1.0.0",
-    "@ai-sdk/groq": "^1.0.0",
-    "@ai-sdk/mistral": "^1.0.0",
-    "@ai-sdk/openai": "^3.0.0",
-    "@ai-sdk/xai": "^1.0.0",
-    "typescript": "^5"
-  },
-  "peerDependenciesMeta": {
-    "@ai-sdk/anthropic": {
-      "optional": true
-    },
-    "@ai-sdk/openai": {
-      "optional": true
-    },
-    "@ai-sdk/deepseek": {
-      "optional": true
-    },
-    "@ai-sdk/google": {
-      "optional": true
-    },
-    "@ai-sdk/groq": {
-      "optional": true
-    },
-    "@ai-sdk/mistral": {
-      "optional": true
-    },
-    "@ai-sdk/xai": {
-      "optional": true
-    }
   },
   "repository": {
     "type": "git",
