@@ -63,16 +63,17 @@ Project
 | **Personal context** (memory, notes, conversations, todo) | Agent | Persistent, travels with agent |
 | **Workspace context** (channel, documents, inbox) | Workflow | Per-workflow instance |
 
-Agent states:
+Agent state is determined by workspace attachments, not by a mode switch:
 
 ```
-Agent
-├── idle     → no active workspace, accepts DMs, uses personal context only
-└── active   → in one or more workspaces, has personal + workspace context
+Agent (always has personal context, always accepts DMs)
+├── workspaces.size === 0  → "idle": personal context only
+└── workspaces.size > 0    → "active": personal + attached workspace(s)
 ```
 
-"Standalone" is not a type — it's just the idle state. An agent not currently
-in any workspace simply works from its personal context via DM.
+DMs work regardless of state — an active agent in three workflows still
+accepts DMs using personal context only. "Standalone" is not a type — it's
+just an agent with no workspace attachments.
 
 When alice participates in the `review` workflow AND the `deploy` workflow:
 - She **carries** her personal context (memory, soul, notes) everywhere
@@ -291,8 +292,8 @@ interface AgentDefinition {
   backend?: BackendType;
   provider?: string | ProviderConfig;
   prompt: {
-    system?: string;
-    system_file?: string;
+    system?: string;       // Mutually exclusive with system_file
+    system_file?: string;  // Mutually exclusive with system — validated at load time
   };
   soul?: AgentSoul;
   context?: {
@@ -325,7 +326,7 @@ interface AgentSoul {
 /** Updated workflow file */
 interface WorkflowFile {
   name?: string;
-  agents: Record<string, AgentEntry | { ref: string }>;
+  agents: Record<string, AgentEntry>;
   workspace?: WorkspaceConfig;
   setup?: SetupTask[];
   kickoff?: string;
@@ -442,9 +443,35 @@ Daemon
 |--------------------|-------------------|---------|
 | DM | Personal only (memory, notes, todo) | `send alice "hi"` |
 | Workspace | Personal + workspace (channel, docs, inbox) | `send alice@review "task"` |
-| Channel broadcast | Workspace (agent sees @mention in channel) | `send @review "@alice check this"` |
+| Channel broadcast | Personal + workspace (channel, docs, inbox) | `send @review "@alice check this"` |
 
-The agent processes instructions sequentially from its single loop. No concurrent writes to personal context, no locking needed.
+Context is always **personal + instruction source**. The difference between
+sources is delivery mechanism, not available context — personal context is
+always present.
+
+**Channel broadcast delivery** works like group chat notifications:
+
+- **@mention** → **push** (high priority): daemon immediately enqueues an
+  instruction to the mentioned agent's loop. Real-time delivery.
+- **Non-@ message** → **pull** (low priority): message is written to
+  `channel.md`. Agents see it when they next process an instruction in that
+  workspace, or on scheduled wakeup. No immediate interruption.
+
+**Instruction scheduling** follows a priority lane model (similar to React
+Fiber). Each agent's loop is a priority queue, not a simple FIFO:
+
+| Priority | Sources | Behavior |
+|----------|---------|----------|
+| `immediate` | DM, @mention | Inserted at front of queue, processed next |
+| `normal` | Workspace direct send | FIFO within this lane |
+| `background` | Non-@ channel, scheduled wakeup | Yields to higher priority instructions |
+
+An agent processing a `background` instruction that receives an `immediate`
+one will finish its current step, then switch to the higher-priority
+instruction (cooperative preemption — not mid-step interruption).
+
+No concurrent writes to personal context, no locking needed — one instruction
+processes at a time.
 
 When a workflow starts, it doesn't create new loops for ref agents — it **attaches workspace context** to existing agent loops. When a workflow stops, it detaches the workspace. Inline (workflow-local) agents get a temporary loop that's destroyed with the workflow.
 
@@ -459,7 +486,7 @@ interface AgentHandle {
   contextDir: string;
   /** The agent's single instruction loop (lazy — created on first message) */
   loop: AgentLoop | null;
-  /** Active workspace attachments (workflow-name → workspace) */
+  /** Active workspace attachments (workflow:tag → workspace, e.g. "review:pr-123") */
   workspaces: Map<string, Workspace>;
   /** Read agent's memory */
   readMemory(): Promise<Record<string, unknown>>;
@@ -475,6 +502,12 @@ interface AgentHandle {
   send(instruction: AgentInstruction): Promise<void>;
 }
 
+/** Instruction priority — modeled after React Fiber lanes */
+type InstructionPriority =
+  | 'immediate'    // DM, @mention — process next (preempts queue)
+  | 'normal'       // workspace direct send — FIFO order
+  | 'background';  // non-@ channel message, scheduled wakeup — yield to higher priority
+
 /** Instruction delivered to an agent's loop */
 interface AgentInstruction {
   /** The message content */
@@ -483,6 +516,8 @@ interface AgentInstruction {
   workspace: Workspace | null;
   /** Source of the instruction */
   source: 'dm' | 'workspace' | 'channel' | 'schedule';
+  /** Processing priority (derived from source, can be overridden) */
+  priority: InstructionPriority;
 }
 
 /** Workspace — the collaboration space */
@@ -655,18 +690,22 @@ agent-worker agent create alice --from helper
 
 #### Send to Unregistered Workspace
 
-`send alice@review "task"` requires alice to already be a participant in the `review` workflow (via `ref:` in workflow YAML). If alice is not in the workflow, it errors:
+`send alice@review "task"` requires alice to already be a participant in the
+`review` workflow (via `ref:` in workflow YAML). Two possible errors:
+
+```
+Error: workflow "review" is not running.
+Start it with: agent-worker start review.yaml
+```
 
 ```
 Error: alice is not a participant in workflow "review".
-Add alice to .workflows/review.yaml or use --join to add dynamically.
+Add alice to .workflows/review.yaml first.
 ```
 
-`--join` allows dynamic addition for the current workflow run:
-
-```bash
-agent-worker send alice@review "task" --join
-```
+No dynamic joining — if the agent isn't in the workflow definition, add it
+there. This keeps the workflow YAML as the single source of truth for
+participation.
 
 ---
 
@@ -737,7 +776,7 @@ agent-worker send alice@review "task" --join
 | `WorkflowFile.agents` (inline) | Still works | Treated as workflow-local agents |
 | `AgentConfig` (daemon) | `AgentHandle` | Richer, with context access |
 | `AgentDefinition` (model, system_prompt) | `AgentDefinition` (prompt, soul, context) | Extended, not replaced |
-| `agent-worker new` | Still works | Creates lightweight standalone agent |
+| `agent-worker new` | Still works | Creates ephemeral agent (daemon memory only, lost on restart) |
 | Workflow-only context | Agent context + Workspace | Two levels of context |
 
 ### Breaking Changes
