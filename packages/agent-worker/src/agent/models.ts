@@ -97,7 +97,9 @@ export async function createModelWithProvider(
     }
     const providerFn = await loadProvider(provider, pkg.package, pkg.export);
     if (!providerFn) {
-      throw new Error(`Failed to load ${pkg.package} for provider "${provider}". Try reinstalling agent-worker.`);
+      throw new Error(
+        `Failed to load ${pkg.package} for provider "${provider}". Try reinstalling agent-worker.`,
+      );
     }
     return providerFn(modelName);
   }
@@ -115,7 +117,9 @@ export async function createModelWithProvider(
   if (!base_url && !api_key) {
     const providerFn = await loadProvider(name, pkg.package, pkg.export);
     if (!providerFn) {
-      throw new Error(`Failed to load ${pkg.package} for provider "${name}". Try reinstalling agent-worker.`);
+      throw new Error(
+        `Failed to load ${pkg.package} for provider "${name}". Try reinstalling agent-worker.`,
+      );
     }
     return providerFn(modelName);
   }
@@ -269,7 +273,9 @@ async function loadProviderModel(provider: string, modelName: string): Promise<L
 
   const providerFn = await loadProvider(provider, config.package, config.export);
   if (!providerFn) {
-    throw new Error(`Failed to load ${config.package} for provider "${provider}". Try reinstalling agent-worker.`);
+    throw new Error(
+      `Failed to load ${config.package} for provider "${provider}". Try reinstalling agent-worker.`,
+    );
   }
 
   return providerFn(modelName);
