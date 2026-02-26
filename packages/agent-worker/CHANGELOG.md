@@ -1,5 +1,11 @@
 # agent-worker
 
+## 0.16.0
+
+### Minor Changes
+
+- [`0043745`](https://github.com/lidessen/moniro/commit/0043745a973a5e6e40bf896febee749ae5f35984) - Move AI SDK providers from peerDependencies to dependencies and fix workflow exit code when agents exhaust all retries
+
 ## 0.15.0
 
 ### Minor Changes
