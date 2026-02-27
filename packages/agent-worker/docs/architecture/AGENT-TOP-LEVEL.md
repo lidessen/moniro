@@ -1169,12 +1169,12 @@ participation.
 
 **Goal**: Workflows reference global agents instead of defining them inline.
 
-- [ ] `AgentEntry` discriminated union: `RefAgentEntry | InlineAgentEntry`
-- [ ] Agent resolution: ref → load from registry + apply overrides
-- [ ] Prompt assembly: base system prompt + workflow append (soul/memory/todo injection deferred to Phase 5)
-- [ ] Updated workflow parser (handle both ref and inline)
-- [ ] Updated `WorkflowFile` type
-- [ ] Inline definitions are a formal type (`InlineAgentEntry`), not a compat shim
+- [x] `AgentEntry` discriminated union: `RefAgentEntry | InlineAgentEntry`
+- [x] Agent resolution: ref → load from registry + apply overrides
+- [x] Prompt assembly: base system prompt + workflow append (soul/memory/todo injection deferred to Phase 5)
+- [x] Updated workflow parser (handle both ref and inline)
+- [x] Updated `WorkflowFile` type
+- [x] Inline definitions are a formal type (`InlineAgentEntry`), not a compat shim
 
 ### Phase 3: Daemon Agent Registry + Workspace
 

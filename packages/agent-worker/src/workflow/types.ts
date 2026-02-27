@@ -4,6 +4,8 @@
 
 import type { ContextConfig } from "./context/types.ts";
 import type { ScheduleConfig } from "../daemon/registry.ts";
+import type { AgentHandle } from "../agent/agent-handle.ts";
+import type { AgentSoul } from "../agent/definition.ts";
 
 // Re-export context types for convenience
 export type { ContextConfig, FileContextConfig, MemoryContextConfig } from "./context/types.ts";
@@ -17,8 +19,8 @@ export interface WorkflowFile {
   /** Workflow name (defaults to filename) */
   name?: string;
 
-  /** Agent definitions */
-  agents: Record<string, WorkflowAgentDef>;
+  /** Agent definitions — ref entries or inline definitions */
+  agents: Record<string, AgentEntry>;
 
   /**
    * Shared context configuration
@@ -69,6 +71,39 @@ export interface ProviderConfig {
   base_url?: string;
   /** API key — env var reference with '$' prefix (e.g., '$MINIMAX_API_KEY') or literal value */
   api_key?: string;
+}
+
+// ==================== Agent Entry (Workflow YAML) ════════════════════
+
+/**
+ * Reference to a global agent definition from .agents/*.yaml.
+ * The agent carries its persistent context (memory, notes, todo) into the workflow.
+ */
+export interface RefAgentEntry {
+  /** Name of the global agent to reference */
+  ref: string;
+  /** Optional prompt extension for this workflow */
+  prompt?: { append: string };
+  /** Runtime overrides */
+  max_tokens?: number;
+  max_steps?: number;
+}
+
+/**
+ * Inline agent definition — workflow-local, same structure as WorkflowAgentDef.
+ * Formal type alias for the discriminated union.
+ */
+export type InlineAgentEntry = WorkflowAgentDef;
+
+/**
+ * A workflow agent entry — either a reference to a global agent or an inline definition.
+ * Discriminated by presence of `ref` field.
+ */
+export type AgentEntry = RefAgentEntry | InlineAgentEntry;
+
+/** Type guard: is this agent entry a reference to a global agent? */
+export function isRefAgentEntry(entry: AgentEntry): entry is RefAgentEntry {
+  return "ref" in entry && typeof (entry as RefAgentEntry).ref === "string";
 }
 
 // ==================== Agent Definition ====================
@@ -175,6 +210,12 @@ export interface ResolvedWorkflowAgent extends WorkflowAgentDef {
 
   /** Schedule config derived from wakeup/wakeup_prompt fields */
   schedule?: ScheduleConfig;
+
+  /** Agent handle for ref agents (undefined for inline agents) */
+  handle?: AgentHandle;
+
+  /** Whether this agent was resolved from a global definition */
+  isRef?: boolean;
 }
 
 /** Resolved context configuration */
