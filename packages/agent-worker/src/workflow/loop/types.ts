@@ -3,7 +3,7 @@
  * Types for agent lifecycle management and backend abstraction
  */
 
-import type { ResolvedAgent } from "../types.ts";
+import type { ResolvedWorkflowAgent } from "../types.ts";
 import type { ContextProvider } from "../context/provider.ts";
 import type { Message, InboxMessage } from "../context/types.ts";
 import type { Backend } from "@/backends/types.ts";
@@ -68,7 +68,7 @@ export interface AgentLoopConfig {
   /** Agent name */
   name: string;
   /** Resolved agent definition */
-  agent: ResolvedAgent;
+  agent: ResolvedWorkflowAgent;
   /** Context provider for channel/document access */
   contextProvider: ContextProvider;
   /** Unified event log */
@@ -104,7 +104,7 @@ export interface AgentRunContext {
   /** Agent name */
   name: string;
   /** Agent config */
-  agent: ResolvedAgent;
+  agent: ResolvedWorkflowAgent;
   /** Unread inbox messages */
   inbox: InboxMessage[];
   /** Recent channel messages (for context) */

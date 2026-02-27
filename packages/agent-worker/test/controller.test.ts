@@ -18,7 +18,7 @@ import { parseSendTarget, sendToWorkflowChannel, formatUserSender } from '../src
 import type { WorkflowIdleState } from '../src/workflow/loop/types.ts'
 import { createMemoryContextProvider } from '../src/workflow/context/memory-provider.ts'
 import type { InboxMessage, Message } from '../src/workflow/context/types.ts'
-import type { ResolvedAgent } from '../src/workflow/types.ts'
+import type { ResolvedWorkflowAgent } from '../src/workflow/types.ts'
 
 // ==================== Model Parsing Tests ====================
 
@@ -145,7 +145,7 @@ describe('formatChannel', () => {
 })
 
 describe('buildAgentPrompt', () => {
-  const mockAgent: ResolvedAgent = {
+  const mockAgent: ResolvedWorkflowAgent = {
     model: 'claude-sonnet-4-5',
     system_prompt: 'You are a helpful assistant',
     resolvedSystemPrompt: 'You are a helpful assistant',
@@ -282,7 +282,7 @@ describe('generateWorkflowMCPConfig', () => {
 // ==================== Loop Tests ====================
 
 describe('createAgentLoop', () => {
-  const mockAgent: ResolvedAgent = {
+  const mockAgent: ResolvedWorkflowAgent = {
     model: 'claude-sonnet-4-5',
     system_prompt: 'Test agent',
     resolvedSystemPrompt: 'Test agent',
@@ -523,7 +523,7 @@ describe('createAgentLoop', () => {
 })
 
 describe('checkWorkflowIdle', () => {
-  const mockAgent: ResolvedAgent = {
+  const mockAgent: ResolvedWorkflowAgent = {
     model: 'claude-sonnet-4-5',
     system_prompt: 'Test agent',
     resolvedSystemPrompt: 'Test agent',
@@ -677,7 +677,7 @@ describe('isWorkflowComplete', () => {
 })
 
 describe('buildWorkflowIdleState', () => {
-  const mockAgent: ResolvedAgent = {
+  const mockAgent: ResolvedWorkflowAgent = {
     model: 'claude-sonnet-4-5',
     system_prompt: 'Test agent',
     resolvedSystemPrompt: 'Test agent',

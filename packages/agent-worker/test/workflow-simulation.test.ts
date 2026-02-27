@@ -13,7 +13,7 @@ import { createProposalManager } from '../src/workflow/context/proposals.js'
 import { MemoryStorage } from '../src/workflow/context/storage.js'
 import type { AgentLoop } from '../src/workflow/loop/types.js'
 import type { Backend } from '../src/backends/types.js'
-import type { ResolvedAgent } from '../src/workflow/types.js'
+import type { ResolvedWorkflowAgent } from '../src/workflow/types.js'
 import type { ContextProvider } from '../src/workflow/context/provider.js'
 
 // ==================== Test Helpers ====================
@@ -30,7 +30,7 @@ function getInboxSection(prompt: string): string {
   return end === -1 ? prompt.slice(start) : prompt.slice(start, end)
 }
 
-const mockAgent: ResolvedAgent = {
+const mockAgent: ResolvedWorkflowAgent = {
   model: 'mock',
   system_prompt: 'Test agent',
   resolvedSystemPrompt: 'Test agent',

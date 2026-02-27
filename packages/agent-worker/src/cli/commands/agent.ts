@@ -213,7 +213,7 @@ Examples:
       }
 
       for (const a of agents) {
-        const wf = a.tag === "main" ? `@${a.workflow}` : `@${a.workflow}:${a.tag}`;
+        const wf = a.workflow ? (a.tag === "main" ? `@${a.workflow}` : `@${a.workflow}:${a.tag}`) : "";
         const info = a.model || a.state || "";
         console.log(`${a.name.padEnd(12)} ${info.padEnd(30)} ${wf}`);
       }

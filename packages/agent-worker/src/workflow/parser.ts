@@ -8,11 +8,11 @@ import { parseArgs } from "node:util";
 import type {
   WorkflowFile,
   ParsedWorkflow,
-  ResolvedAgent,
+  ResolvedWorkflowAgent,
   ResolvedContext,
   ValidationResult,
   ValidationError,
-  AgentDefinition,
+  WorkflowAgentDef,
   ParamDefinition,
 } from "./types.ts";
 import type { ScheduleConfig } from "../daemon/registry.ts";
@@ -71,7 +71,7 @@ export async function parseWorkflowFile(
   const name = raw.name || source.inferredName;
 
   // Resolve agents (using source's file reader for system_prompt resolution)
-  const agents: Record<string, ResolvedAgent> = {};
+  const agents: Record<string, ResolvedWorkflowAgent> = {};
   for (const [agentName, agentDef] of Object.entries(raw.agents)) {
     agents[agentName] = await resolveAgent(agentDef, source.readRelativeFile);
   }
@@ -163,9 +163,9 @@ function resolveContext(
  * for setting up periodic wakeup timers.
  */
 async function resolveAgent(
-  agent: AgentDefinition,
+  agent: WorkflowAgentDef,
   readRelativeFile: (path: string) => Promise<string | null>,
-): Promise<ResolvedAgent> {
+): Promise<ResolvedWorkflowAgent> {
   let resolvedSystemPrompt = agent.system_prompt;
 
   // Check if system_prompt is a file path

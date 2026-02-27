@@ -18,7 +18,7 @@ export interface WorkflowFile {
   name?: string;
 
   /** Agent definitions */
-  agents: Record<string, AgentDefinition>;
+  agents: Record<string, WorkflowAgentDef>;
 
   /**
    * Shared context configuration
@@ -73,7 +73,7 @@ export interface ProviderConfig {
 
 // ==================== Agent Definition ====================
 
-export interface AgentDefinition {
+export interface WorkflowAgentDef {
   /** Backend to use: 'default' (Vercel AI SDK), 'claude', 'cursor', 'codex', 'opencode', 'mock' (testing) */
   backend?: "default" | "claude" | "cursor" | "codex" | "opencode" | "mock";
 
@@ -154,7 +154,7 @@ export interface ParsedWorkflow {
    * Exposed as ${{ source.dir }} in workflow interpolation.
    */
   sourceDir: string;
-  agents: Record<string, ResolvedAgent>;
+  agents: Record<string, ResolvedWorkflowAgent>;
 
   /** Resolved context configuration */
   context?: ResolvedContext;
@@ -169,7 +169,7 @@ export interface ParsedWorkflow {
   kickoff?: string;
 }
 
-export interface ResolvedAgent extends AgentDefinition {
+export interface ResolvedWorkflowAgent extends WorkflowAgentDef {
   /** Resolved system prompt content */
   resolvedSystemPrompt?: string;
 
