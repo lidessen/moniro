@@ -391,13 +391,15 @@ project/
 │   │   ├── memory/
 │   │   ├── notes/
 │   │   ├── conversations/      # DM history
-│   │   └── todo/
+│   │   ├── todo/
+│   │   └── timeline.jsonl      # Operation history (state, errors, maxSteps)
 │   ├── bob.yaml
 │   └── bob/
 │       ├── memory/
 │       ├── notes/
 │       ├── conversations/
-│       └── todo/
+│       ├── todo/
+│       └── timeline.jsonl
 │
 ├── .workflows/                 # Workflow definitions
 │   ├── review.yaml
@@ -1197,6 +1199,10 @@ participation.
 - [ ] Log persistence (personal → `.agents/<name>/conversations/`, workspace → `.workspace/`)
 - [ ] `thin_thread` config in agent definition (default: 10 messages)
 - [ ] Thin thread integration in prompt assembly
+- [ ] Unified event log: `EventSink` interface + `DaemonEventLog` + `DefaultTimelineStore`
+- [ ] Agent timeline: `.agents/<name>/timeline.jsonl` (state changes, errors, maxSteps)
+- [ ] `createEventLogger(sink, from)` + `createConsoleSink()` (graceful degradation)
+- [ ] Replace library `console.*` with injected Logger
 
 ### Phase 3b: Priority Queue + Preemption
 
@@ -1317,7 +1323,8 @@ project/
 │       ├── memory/             # 结构化知识（YAML key-value）
 │       ├── notes/              # 自由格式笔记（markdown）
 │       ├── conversations/      # DM 历史（Phase 3 启用）
-│       └── todo/               # 跨 session 任务追踪
+│       ├── todo/               # 跨 session 任务追踪
+│       └── timeline.jsonl      # 操作历史（Phase 3 启用）
 │
 ├── review.yaml                 # 现有 workflow（格式不变）
 └── ...
