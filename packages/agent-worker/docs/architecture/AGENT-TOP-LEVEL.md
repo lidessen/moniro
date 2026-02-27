@@ -1181,30 +1181,42 @@ participation.
 - [x] Updated `WorkflowFile` type
 - [x] Inline definitions are a formal type (`InlineAgentEntry`), not a compat shim
 
-### Phase 3: Daemon Agent Registry + Workspace
+### Phase 3a: Event Log Infrastructure
+
+**Goal**: Structured logging replaces ad-hoc `console.*`. Provides debugging foundation for subsequent phases.
+
+> **Why first**: Event log has zero dependencies on registry or workspace. Having structured logging
+> before Phase 3b makes daemon/registry debugging tractable. The `.memory/todos/` unified-logger
+> task also tracks this.
+
+- [ ] Unified event log: `EventSink` interface + `DaemonEventLog` + `DefaultTimelineStore`
+- [ ] Agent timeline: `.agents/<name>/timeline.jsonl` (state changes, errors, maxSteps)
+- [ ] `createEventLogger(sink, from)` + `createConsoleSink()` (graceful degradation)
+- [ ] Replace library `console.*` with injected Logger
+
+### Phase 3b: Daemon Agent Registry + Workspace
 
 **Goal**: Daemon owns agent handles via registry. Workspaces replace standalone WorkflowHandle hack.
-
-> **Why split**: Original Phase 3 had 13 tasks mixing two concerns — workspace/state management and
-> loop scheduling/preemption. These are independent. Doing workspace first unblocks Phase 4-5.
-> Priority queue + preemption is deferred to Phase 3b (not blocking for agent context features).
 
 - [ ] `AgentRegistry` integration into daemon (replace `configs: Map<string, AgentConfig>`)
 - [ ] `Workspace` type separated from `WorkflowRuntimeHandle`
 - [ ] `WorkspaceRegistry` for managing active workspaces
 - [ ] Workspace attach/detach when workflows start/stop
 - [ ] Remove `standalone:{name}` workflow key hack (Workspace takes over resource management)
+
+### Phase 3c: Conversation Model
+
+**Goal**: Thin thread for bounded context, conversation log for full history.
+
+> **Depends on**: Phase 3b (agents must exist in daemon runtime to own conversations).
+
 - [ ] `ThinThread` type with bounded in-memory messages per context
 - [ ] `ConversationLog` type with JSONL append-only storage and search/time-range read
 - [ ] Log persistence (personal → `.agents/<name>/conversations/`, workspace → `.workspace/`)
 - [ ] `thin_thread` config in agent definition (default: 10 messages)
 - [ ] Thin thread integration in prompt assembly
-- [ ] Unified event log: `EventSink` interface + `DaemonEventLog` + `DefaultTimelineStore`
-- [ ] Agent timeline: `.agents/<name>/timeline.jsonl` (state changes, errors, maxSteps)
-- [ ] `createEventLogger(sink, from)` + `createConsoleSink()` (graceful degradation)
-- [ ] Replace library `console.*` with injected Logger
 
-### Phase 3b: Priority Queue + Preemption
+### Phase 3d: Priority Queue + Preemption
 
 **Goal**: Each agent has one loop with priority lanes and cooperative preemption.
 
@@ -1322,9 +1334,9 @@ project/
 │   └── alice/                  # agent context 目录
 │       ├── memory/             # 结构化知识（YAML key-value）
 │       ├── notes/              # 自由格式笔记（markdown）
-│       ├── conversations/      # DM 历史（Phase 3 启用）
+│       ├── conversations/      # DM 历史（Phase 3c 启用）
 │       ├── todo/               # 跨 session 任务追踪
-│       └── timeline.jsonl      # 操作历史（Phase 3 启用）
+│       └── timeline.jsonl      # 操作历史（Phase 3a 启用）
 │
 ├── review.yaml                 # 现有 workflow（格式不变）
 └── ...
