@@ -1,140 +1,149 @@
-# ADR: Unified Logger
+# ADR: Unified Event Log
 
 **Date**: 2026-02-27
 **Status**: Proposed
 
 ## Context
 
-项目有两条日志路径：
+### 现状
 
-1. **CLI/daemon** — 直接 `console.*`，用户界面输出，合理
-2. **Workflow** — `Logger` → `ContextProvider.appendChannel()`，已有抽象
+Workflow 内部已有完整的事件存储：
 
-问题出在**库代码**（非 CLI、非 workflow）散落的 `console.*`：
+```
+Logger → ContextProvider.appendChannel() → ChannelStore → channel.jsonl
+```
 
-| 文件 | 调用 | 问题 |
+`Message` 结构（timestamp, from, content, kind, toolCall）+ `EventKind`（message, tool_call, system, output, debug）已覆盖所有事件类型。`ChannelStore` 支持 append-only JSONL、增量 sync、visibility 过滤。
+
+**问题**：这套系统绑死在 workflow scope 的 `ContextProvider` 上。以下事件发生在 workflow 之外，没有持久化：
+
+| 来源 | 事件 | 现状 |
 |------|------|------|
-| `agent-handle.ts:76` | `console.warn(malformed yaml)` | daemon 模式下污染输出 |
-| `worker.ts:313` | `console.warn(maxSteps limit)` | 同上 |
-| `idle-timeout.ts:100` | `console.error(callback error)` | 同上 |
-| `skills/importer.ts:37,45,61` | `console.log/error(import status)` | CLI 上下文合理，但被 daemon 调用时不合理 |
+| daemon | 启动/关闭/端口分配 | `console.log` → 消失 |
+| agent-handle | malformed YAML 跳过 | `console.warn` → 消失 |
+| agent-registry | agent 加载/创建/删除 | callback / 无 |
+| worker | maxSteps 到达 | `console.warn` → 消失 |
+| idle-timeout | callback 执行错误 | `console.error` → 消失 |
+| skills/importer | 导入进度/失败 | `console.log/error` → 消失 |
 
-还有一种散落的 callback 模式：
+### 目标
 
-| 文件 | 签名 |
-|------|------|
-| `yaml-parser.ts` | `log?: (msg: string) => void` |
-| `agent-registry.ts` | `log?: (msg: string) => void` |
-| `loop/types.ts` | `log / infoLog / errorLog` 三个 callback |
+**所有日志事件进同一个持久化时间线**。显示是过滤视图，不是日志本身。
 
 ## Decision
 
-### 1. 复用现有 `Logger` 接口
+### 核心：把 ChannelStore 从 workflow 提升到 daemon 级
 
-`workflow/logger.ts` 的 `Logger` 接口已经够用（debug/info/warn/error + child）。不引入新抽象。
+```
+Daemon (process)
+  └─ daemon-level ChannelStore (channel.jsonl)
+       ├─ daemon lifecycle events (kind: "system")
+       ├─ agent registry events (kind: "system")
+       ├─ agent handle warnings (kind: "debug")
+       └─ per-workflow events (已有，不变，写同一个 store 或 nested)
 
-### 2. 新增 `createConsoleLogger(options?)`
+Display layer (CLI / TUI / web)
+  └─ tail(cursor) + filter by kind/from/time
+```
 
-给非 workflow 上下文用。写到 stderr，尊重 debug flag：
+### 1. 新增 `EventSink` — 最小写入接口
+
+不复用 `ContextProvider`（太重，绑 document/inbox/resource）。抽一个只做写入的接口：
 
 ```typescript
-export interface ConsoleLoggerConfig {
-  /** Show debug messages (default: false) */
-  debug?: boolean;
-  /** Prefix for all messages */
-  from?: string;
+/** Minimal write-only interface for event logging */
+export interface EventSink {
+  append(from: string, content: string, options?: { kind?: EventKind }): void;
 }
+```
 
-export function createConsoleLogger(config?: ConsoleLoggerConfig): Logger {
-  const { debug: showDebug = false, from } = config ?? {};
-  const prefix = from ? `[${from}] ` : "";
+`ChannelStore` 天然满足这个接口（它的 `append` 是 Promise，EventSink 可以 fire-and-forget）。
 
+### 2. Logger 写入 EventSink 而非 console
+
+```typescript
+export function createEventLogger(sink: EventSink, from?: string): Logger {
+  const prefix = from ?? "system";
   return {
-    debug: (msg, ...args) => {
-      if (showDebug) console.error(`${prefix}${msg}`, ...args);
-    },
-    info: (msg, ...args) => console.error(`${prefix}${msg}`, ...args),
-    warn: (msg, ...args) => console.error(`${prefix}[WARN] ${msg}`, ...args),
-    error: (msg, ...args) => console.error(`${prefix}[ERROR] ${msg}`, ...args),
-    isDebug: () => showDebug,
-    child: (childPrefix) => createConsoleLogger({
-      debug: showDebug,
-      from: from ? `${from}:${childPrefix}` : childPrefix,
-    }),
+    debug: (msg) => sink.append(prefix, msg, { kind: "debug" }),
+    info: (msg) => sink.append(prefix, msg, { kind: "system" }),
+    warn: (msg) => sink.append(prefix, `[WARN] ${msg}`, { kind: "system" }),
+    error: (msg) => sink.append(prefix, `[ERROR] ${msg}`, { kind: "system" }),
+    isDebug: () => true,  // 全部写入存储，显示层决定过滤
+    child: (childPrefix) => createEventLogger(sink, `${prefix}:${childPrefix}`),
   };
 }
 ```
 
-关键设计：
-- **全部 stderr**：永不污染 stdout（JSON 输出、pipe 安全）
-- **debug 默认关**：生产环境安静
-- **child() 支持**：与 ChannelLogger 行为一致
-
-### 3. 库代码接收 `Logger` 参数
-
-替换散落的 `console.*` 和 `log?: (msg) => void` callback：
+### 3. Daemon 拥有根 EventSink
 
 ```typescript
-// Before
-class AgentHandle {
-  async readMemory() {
-    // ...
-    catch { console.warn(`Skipping malformed...`) }
-  }
+// daemon.ts startup
+const storage = new FileStorageBackend(daemonDir);
+const channelStore = new DefaultChannelStore(storage, []);
+const logger = createEventLogger(channelStore, "daemon");
+
+// 传递给子系统
+const registry = new AgentRegistry(projectDir, logger.child("registry"));
+// workflow runner 创建时也从 daemon 拿 sink
+```
+
+### 4. CLI 直接运行（无 daemon）的降级
+
+CLI 直接跑 agent（不经过 daemon）时，没有持久化存储。用 console 降级：
+
+```typescript
+/** Fallback: logs to stderr, no persistence */
+export function createConsoleSink(): EventSink {
+  return {
+    append(from, content, options) {
+      if (options?.kind === "debug") return; // 默认静默 debug
+      console.error(`[${from}] ${content}`);
+    },
+  };
 }
-
-// After
-class AgentHandle {
-  private readonly logger: Logger;
-  constructor(def, contextDir, logger?: Logger) {
-    this.logger = logger ?? createSilentLogger();
-  }
-  async readMemory() {
-    // ...
-    catch (err) { this.logger.warn(`Skipping malformed memory file ${file}:`, err) }
-  }
-}
 ```
 
-同理：
-- `AgentRegistry` 构造时传 logger，替换 `loadFromDisk(log?)` callback
-- `worker.ts` 的 `console.warn(maxSteps)` → `this.logger.warn(...)`
-- `idle-timeout.ts` → 接收 logger 参数
-- `skills/importer.ts` → 接收 logger 参数
+### 5. 显示层：tail + filter
 
-### 4. 统一 callback → Logger
+已有 `ChannelStore.tail(cursor)` 和 `read({ agent, since, limit })`。CLI 的 `agent-worker status` 已经用了。新增：
 
-loop 的三个 callback (`log/infoLog/errorLog`) 已通过 `factory.ts` 从 Logger 映射。保持现状，但新代码不再新增 callback 模式，直接传 Logger。
+```bash
+# 现有
+agent-worker status          # 读 channel 显示状态
 
-### 5. CLI 入口负责创建 Logger
+# 可扩展
+agent-worker logs             # tail -f daemon channel.jsonl
+agent-worker logs --debug     # 含 debug kind
+agent-worker logs --from=registry  # 按 from 过滤
+```
+
+### 6. 已有 ChannelLogger 怎么办
+
+`createChannelLogger({ provider })` 保持不变。Workflow 内部仍然写入 workflow-scoped provider。两层不冲突：
 
 ```
-CLI command
-  └─ createConsoleLogger({ debug: options.debug })
-       └─ 传给 AgentRegistry / AgentHandle / worker ...
-
-Daemon
-  └─ createConsoleLogger({ debug, from: "daemon" })
-       └─ 传给内部组件
-
-Workflow
-  └─ createChannelLogger({ provider })  ← 已有，不变
+daemon channel.jsonl     ← daemon/registry/agent-handle 事件
+workflow channel.jsonl   ← workflow 内部 agent 通信 + tool call + output
 ```
+
+Workflow 也可以选择同时写入 daemon sink（用于全局时间线），但这是增量改进，不是 V1 必须。
 
 ## Migration Order
 
-1. 在 `workflow/logger.ts` 中添加 `createConsoleLogger`
-2. `AgentHandle` 构造函数加 `logger?: Logger`，替换 `console.warn`
-3. `AgentRegistry` 构造函数加 `logger?: Logger`，替换 `loadFromDisk(log?)`
-4. `worker.ts` 接收 logger，替换 `console.warn`
-5. `idle-timeout.ts` 接收 logger，替换 `console.error`
-6. `skills/importer.ts` 接收 logger，替换 `console.log/error`
-7. CLI 入口 (`agent.ts`, `daemon.ts`) 创建并传递 logger
+1. 定义 `EventSink` 接口（在 `workflow/context/types.ts` 或新文件）
+2. 实现 `createEventLogger(sink, from)` — Logger → EventSink
+3. 实现 `createConsoleSink()` — 降级方案
+4. Daemon 启动时创建 `ChannelStore` → `EventSink` → `Logger`
+5. `AgentHandle` / `AgentRegistry` / `worker` / `idle-timeout` / `importer` 接收 Logger
+6. 清除所有库代码 `console.*`
+7. CLI 入口注入 logger（daemon 模式 → EventSink，直接模式 → ConsoleSink）
 
 ## Consequences
 
-- **库代码零 `console.*`**：所有日志通过 Logger 接口，调用方决定输出方式
-- **向后兼容**：logger 参数都是 optional，默认 silent
-- **daemon 安静**：不传 logger 就没有输出
-- **CLI 可控**：`--debug` 控制 debug 级别
-- **不引入外部依赖**：复用已有接口 + 一个 ~20 行的 console 实现
+- **统一时间线**：所有事件进 channel.jsonl，可追溯、可过滤、可回放
+- **复用已有基础设施**：Message 结构、ChannelStore、EventKind 全部复用
+- **显示与存储分离**：存全部，显示按需过滤
+- **零外部依赖**：EventSink ~5 行接口，createEventLogger ~15 行
+- **向后兼容**：workflow 内部 ContextProvider 不变
+- **降级优雅**：无 daemon 时 ConsoleSink 保持可用
