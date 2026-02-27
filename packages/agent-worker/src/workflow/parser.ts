@@ -13,7 +13,6 @@ import type {
   ValidationResult,
   ValidationError,
   WorkflowAgentDef,
-  AgentEntry,
   RefAgentEntry,
   ParamDefinition,
 } from "./types.ts";
@@ -208,14 +207,11 @@ async function resolveInlineAgent(
  * Resolve a ref agent entry — load from AgentRegistry, map to WorkflowAgentDef,
  * apply workflow overrides (prompt.append, max_tokens, max_steps).
  */
-function resolveRefAgent(
-  entry: RefAgentEntry,
-  registry?: AgentRegistry,
-): ResolvedWorkflowAgent {
+function resolveRefAgent(entry: RefAgentEntry, registry?: AgentRegistry): ResolvedWorkflowAgent {
   if (!registry) {
     throw new Error(
       `Agent ref "${entry.ref}" requires an AgentRegistry. ` +
-      `Pass agentRegistry in ParseOptions.`,
+        `Pass agentRegistry in ParseOptions.`,
     );
   }
 
@@ -223,7 +219,12 @@ function resolveRefAgent(
   if (!handle) {
     throw new Error(
       `Agent ref "${entry.ref}" not found in registry. ` +
-      `Available agents: ${registry.list().map((h) => h.definition.name).join(", ") || "(none)"}`,
+        `Available agents: ${
+          registry
+            .list()
+            .map((h) => h.definition.name)
+            .join(", ") || "(none)"
+        }`,
     );
   }
 
@@ -527,7 +528,15 @@ function validateRefAgent(
 
   // model/backend/provider/tools/wakeup/timeout are not allowed with ref
   // (they come from the agent definition or are not applicable)
-  for (const field of ["model", "backend", "provider", "tools", "wakeup", "wakeup_prompt", "timeout"] as const) {
+  for (const field of [
+    "model",
+    "backend",
+    "provider",
+    "tools",
+    "wakeup",
+    "wakeup_prompt",
+    "timeout",
+  ] as const) {
     if (a[field] !== undefined) {
       errors.push({
         path: `${path}.${field}`,

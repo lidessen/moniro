@@ -52,9 +52,7 @@ export function parseAgentFile(filePath: string): AgentDefinition {
   // Validate with Zod
   const result = AgentDefinitionSchema.safeParse(obj);
   if (!result.success) {
-    const issues = result.error.issues
-      .map((i) => `  ${i.path.join(".")}: ${i.message}`)
-      .join("\n");
+    const issues = result.error.issues.map((i) => `  ${i.path.join(".")}: ${i.message}`).join("\n");
     throw new Error(`Invalid agent definition in ${filePath}:\n${issues}`);
   }
 
@@ -64,9 +62,7 @@ export function parseAgentFile(filePath: string): AgentDefinition {
   if (def.prompt.system_file) {
     const promptPath = join(dirname(filePath), def.prompt.system_file);
     if (!existsSync(promptPath)) {
-      throw new Error(
-        `system_file not found: ${def.prompt.system_file} (resolved: ${promptPath})`,
-      );
+      throw new Error(`system_file not found: ${def.prompt.system_file} (resolved: ${promptPath})`);
     }
     const content = readFileSync(promptPath, "utf-8");
     // Replace system_file with resolved system content
@@ -90,9 +86,7 @@ export function parseAgentFile(filePath: string): AgentDefinition {
 export function parseAgentObject(data: Record<string, unknown>): AgentDefinition {
   const result = AgentDefinitionSchema.safeParse(data);
   if (!result.success) {
-    const issues = result.error.issues
-      .map((i) => `  ${i.path.join(".")}: ${i.message}`)
-      .join("\n");
+    const issues = result.error.issues.map((i) => `  ${i.path.join(".")}: ${i.message}`).join("\n");
     throw new Error(`Invalid agent definition:\n${issues}`);
   }
   return result.data as AgentDefinition;
@@ -110,10 +104,7 @@ export function parseAgentObject(data: Record<string, unknown>): AgentDefinition
  * @param log - Optional warning logger (default: console.warn)
  * @returns Array of valid agent definitions
  */
-export function discoverAgents(
-  projectDir: string,
-  log?: (msg: string) => void,
-): AgentDefinition[] {
+export function discoverAgents(projectDir: string, log?: (msg: string) => void): AgentDefinition[] {
   const agentsDir = join(projectDir, AGENTS_DIR);
   if (!existsSync(agentsDir)) return [];
 

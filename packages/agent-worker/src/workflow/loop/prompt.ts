@@ -54,8 +54,7 @@ export function formatChannel(entries: Message[]): string {
 // ── Built-in Sections ─────────────────────────────────────────────
 
 /** Project context (what codebase to work on) */
-export const projectSection: PromptSection = (ctx) =>
-  `## Project\nWorking on: ${ctx.projectDir}`;
+export const projectSection: PromptSection = (ctx) => `## Project\nWorking on: ${ctx.projectDir}`;
 
 /** Inbox (unread messages for this agent) */
 export const inboxSection: PromptSection = (ctx) => {
@@ -96,9 +95,7 @@ export const instructionsSection: PromptSection = (ctx) => {
   lines.push(
     '  Use the "to" parameter for private DMs: channel_send({ message: "...", to: "bob" })',
   );
-  lines.push(
-    "- **channel_read**: Read recent channel messages (DMs and logs are auto-filtered).",
-  );
+  lines.push("- **channel_read**: Read recent channel messages (DMs and logs are auto-filtered).");
   lines.push("");
   lines.push("### Team Tools");
   lines.push(

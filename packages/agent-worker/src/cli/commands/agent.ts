@@ -216,7 +216,11 @@ Examples:
       }
 
       for (const a of agents) {
-        const wf = a.workflow ? (a.tag === "main" ? `@${a.workflow}` : `@${a.workflow}:${a.tag}`) : "";
+        const wf = a.workflow
+          ? a.tag === "main"
+            ? `@${a.workflow}`
+            : `@${a.workflow}:${a.tag}`
+          : "";
         const info = a.model || a.state || "";
         console.log(`${a.name.padEnd(12)} ${info.padEnd(30)} ${wf}`);
       }
@@ -433,7 +437,8 @@ Examples:
       if (options.role || options.expertise || options.style) {
         def.soul = {};
         if (options.role) def.soul.role = options.role;
-        if (options.expertise) def.soul.expertise = options.expertise.split(",").map((s: string) => s.trim());
+        if (options.expertise)
+          def.soul.expertise = options.expertise.split(",").map((s: string) => s.trim());
         if (options.style) def.soul.style = options.style;
       }
 
@@ -516,9 +521,10 @@ Examples:
       console.log(`Model:   ${def.model}`);
       if (def.backend) console.log(`Backend: ${def.backend}`);
       if (def.prompt.system) {
-        const preview = def.prompt.system.length > 80
-          ? def.prompt.system.slice(0, 77) + "..."
-          : def.prompt.system;
+        const preview =
+          def.prompt.system.length > 80
+            ? def.prompt.system.slice(0, 77) + "..."
+            : def.prompt.system;
         console.log(`Prompt:  ${preview}`);
       }
       if (def.soul) {
