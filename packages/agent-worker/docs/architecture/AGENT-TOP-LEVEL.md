@@ -1154,46 +1154,55 @@ participation.
 
 ## Implementation Phases
 
-### Phase 1: Agent Definition + Context
+### Phase 1: Agent Definition + Context ✅
 
 **Goal**: Agents exist as files with their own context directories.
 
-- [ ] `AgentDefinition` type with soul, prompt, context fields
-- [ ] Agent YAML parser (load `.agents/*.yaml`)
-- [ ] `AgentHandle` with context read/write operations
-- [ ] `AgentRegistry` — loads and manages agent definitions
-- [ ] CLI: `agent create`, `agent list`, `agent info`, `agent delete`
-- [ ] Agent context directory auto-creation (memory/, notes/, conversations/, todo/)
+- [x] `AgentDefinition` type with soul, prompt, context fields
+- [x] Agent YAML parser (load `.agents/*.yaml`)
+- [x] `AgentHandle` with context read/write operations
+- [x] `AgentRegistry` — loads and manages agent definitions
+- [x] CLI: `agent create`, `agent list`, `agent info`, `agent delete`
+- [x] Agent context directory auto-creation (memory/, notes/, conversations/, todo/)
 
 ### Phase 2: Workflow Agent References
 
 **Goal**: Workflows reference global agents instead of defining them inline.
 
-- [ ] `AgentEntry` type with `ref` field
+- [ ] `AgentEntry` discriminated union: `RefAgentEntry | InlineAgentEntry`
 - [ ] Agent resolution: ref → load from registry + apply overrides
 - [ ] Prompt assembly: base system prompt + workflow append (soul/memory/todo injection deferred to Phase 5)
 - [ ] Updated workflow parser (handle both ref and inline)
 - [ ] Updated `WorkflowFile` type
-- [ ] Backward compat: inline definitions still work (treated as workflow-local)
+- [ ] Inline definitions are a formal type (`InlineAgentEntry`), not a compat shim
 
-### Phase 3: Single Agent Loop + Workspace Attachment
+### Phase 3: Daemon Agent Registry + Workspace
 
-**Goal**: Each agent has one loop. Workspaces attach/detach as context, not as separate execution paths.
+**Goal**: Daemon owns agent handles via registry. Workspaces replace standalone WorkflowHandle hack.
 
-- [ ] `AgentLoop` as priority queue per agent (lazy creation, 3 lanes: immediate/normal/background)
-- [ ] `AgentInstruction` type with workspace context (null = DM) and priority
-- [ ] Cooperative preemption: yield between steps, re-queue with progress marker
-- [ ] `InstructionProgress` for yielded instruction resume
-- [ ] Workspace attach/detach when workflows start/stop
+> **Why split**: Original Phase 3 had 13 tasks mixing two concerns — workspace/state management and
+> loop scheduling/preemption. These are independent. Doing workspace first unblocks Phase 4-5.
+> Priority queue + preemption is deferred to Phase 3b (not blocking for agent context features).
+
+- [ ] `AgentRegistry` integration into daemon (replace `configs: Map<string, AgentConfig>`)
 - [ ] `Workspace` type separated from `WorkflowRuntimeHandle`
-- [ ] `WorkspaceRegistry` for managing active workspaces (no global workspace)
+- [ ] `WorkspaceRegistry` for managing active workspaces
+- [ ] Workspace attach/detach when workflows start/stop
+- [ ] Remove `standalone:{name}` workflow key hack (Workspace takes over resource management)
 - [ ] `ThinThread` type with bounded in-memory messages per context
 - [ ] `ConversationLog` type with JSONL append-only storage and search/time-range read
 - [ ] Log persistence (personal → `.agents/<name>/conversations/`, workspace → `.workspace/`)
 - [ ] `thin_thread` config in agent definition (default: 10 messages)
-- [ ] Thin thread integration in prompt assembly (replaces per-invocation prompt rebuild)
-- [ ] Updated daemon: agents registry + workspaces registry + workflows registry
-- [ ] Remove `standalone:{name}` workflow key hack
+- [ ] Thin thread integration in prompt assembly
+
+### Phase 3b: Priority Queue + Preemption
+
+**Goal**: Each agent has one loop with priority lanes and cooperative preemption.
+
+- [ ] `AgentLoop` as priority queue (3 lanes: immediate/normal/background)
+- [ ] `AgentInstruction` type with workspace context (null = DM) and priority
+- [ ] Cooperative preemption: yield between steps, re-queue with progress marker
+- [ ] `InstructionProgress` for yielded instruction resume
 
 ### Phase 4: Recall Tools + Auto-Memory + Failure Handling
 
@@ -1204,7 +1213,6 @@ participation.
 - [ ] Auto-memory extraction post-instruction (fast model, optional)
 - [ ] Error classification: transient / permanent / resource / crash
 - [ ] Differentiated retry: skip retry for permanent, limit crash to 1 retry
-- [ ] Preemption starvation protection: priority aging after 3 preempts
 - [ ] Loop crash auto-restart with backoff (1s..30s, max 5 attempts)
 - [ ] `error` agent state (distinct from `stopped`)
 
@@ -1225,32 +1233,6 @@ participation.
 - [ ] Auto-discovery of `.agents/` and `.workflows/`
 - [ ] CLI agent memory/notes/todo subcommands
 - [ ] Agent context in `agent info` output
-
----
-
-## Migration
-
-### From Current to New
-
-| Current | New | Notes |
-|---------|-----|-------|
-| `WorkflowFile.agents` (inline) | Still works | Treated as workflow-local agents |
-| `AgentConfig` (daemon) | `AgentHandle` | Richer, with context access |
-| `AgentDefinition` (model, system_prompt) | `AgentDefinition` (prompt, soul, context) | Extended, not replaced |
-| `agent-worker new` | Still works | Creates ephemeral agent (daemon memory only, lost on restart) |
-| Workflow-only context | Agent context + Workspace | Two levels of context |
-
-### Breaking Changes
-
-None planned. The new architecture extends the current one:
-- Inline agent definitions in workflows remain valid (workflow-local)
-- `agent-worker new` continues to create standalone agents
-- Existing workflow YAML files work without modification
-
-New features are opt-in:
-- Define `.agents/*.yaml` files to get persistent agents
-- Use `ref:` in workflows to reference them
-- Agent context directories are created on demand
 
 ---
 

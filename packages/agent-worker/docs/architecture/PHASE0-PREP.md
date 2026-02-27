@@ -73,18 +73,21 @@ AGENT-TOP-LEVEL 定义了 6 个实施阶段。但当前代码有几个结构性�
 - Workflow shutdown 不再负责 stop agent loops（standalone loops 由 daemon 管理）
 - Workflow loops 仍然需要 stop workflow-local 的 inline agents
 
-### 0.5 Remove `standalone:` hack
+### 0.5 Formalize `standalone:` convention
 
 **Depends**: 0.4
 **Blocks**: Phase 3 cleanup
-**Risk**: Low（0.4 完成后很自然）
+**Risk**: Low
 **Scope**: daemon.ts
 
-改动：
-- Standalone agent 不再创建假的 `WorkflowHandle`
-- `ensureAgentLoop()` 只在 daemon loops map 中创建 loop + runtime
-- `DELETE /agents/:name` 直接从 daemon loops map 清理
-- `GET /health` 和 `GET /agents` 从 daemon loops map 获取状态
+原计划完全移除 WorkflowHandle，实际保留用于运行时资源管理（MCP server、context provider）。
+完全移除需要新的 Workspace 类型接管资源——这是 Phase 3 范围。
+
+实际改动：
+- `standaloneKey()` helper + `STANDALONE_PREFIX` 常量集中管理
+- `WorkflowHandle.standalone` 布尔标记（用于 GET /health、GET /workflows 过滤）
+- Loop 存在 `s.loops`（daemon 拥有），WorkflowHandle 仅管理 MCP/context 生命周期
+- Phase 3 用 Workspace 替换后可以彻底去掉
 
 ### 0.6 Make `buildAgentPrompt` composable
 
