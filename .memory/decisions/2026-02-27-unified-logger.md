@@ -1,7 +1,7 @@
 # ADR: Unified Event Log
 
 **Date**: 2026-02-27
-**Status**: Proposed
+**Status**: Accepted (implemented in Phase 3a)
 
 ## Context
 
