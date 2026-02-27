@@ -1236,6 +1236,92 @@ participation.
 
 ---
 
+## 当前状态与迁移说明
+
+> Phase 0 + Phase 1 已完成。以下说明对现有用法的影响。
+
+### 不受影响的功能（无需任何修改）
+
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| **Workflow YAML 格式** | 不变 | `agents:`, `context:`, `setup:`, `kickoff:`, `params:` 全部不变 |
+| **`agent-worker run <file>`** | 不变 | 运行 workflow 并在完成后退出 |
+| **`agent-worker start <file>`** | 不变 | 通过 daemon 启动 workflow 持续运行 |
+| **`agent-worker new <name>`** | 不变 | 创建 daemon 内存 agent（无持久化） |
+| **`agent-worker ls`** | 不变 | 列出 daemon 中的 agent |
+| **`agent-worker stop`** | 不变 | 停止 agent / workflow / daemon |
+| **`agent-worker ask/serve`** | 不变 | 与 agent 交互 |
+| **Workflow 参数传递** | 不变 | `--` 后的 params 正常工作 |
+| **Remote workflow** | 不变 | `github:owner/repo@ref/path` 正常工作 |
+| **Agent @mention 和通信** | 不变 | channel_send, inbox, team_members 等 MCP tools |
+
+### Phase 0 内部变更（对用户透明）
+
+| 变更 | 影响 |
+|------|------|
+| `AgentDefinition` → `WorkflowAgentDef` | 仅类型重命名，YAML schema 不变 |
+| `AgentConfig.workflow/tag` 变为 optional | `new` 命令不再要求 workflow，standalone agent 更自然 |
+| `DaemonState.loops` map | 内部 loop 管理优化，API 行为不变 |
+| `buildAgentPrompt` 可组合化 | 输出内容完全相同，仅内部结构改变 |
+
+### Phase 1 新增功能
+
+新增 `agent` 子命令组（文件系统级，不依赖 daemon）：
+
+```bash
+# 创建持久化 agent 定义（写入 .agents/alice.yaml + 创建 context 目录）
+agent-worker agent create alice -m anthropic/claude-sonnet-4-5 \
+  -s "You are a code reviewer." --role reviewer
+
+# 列出项目中的 agent 定义
+agent-worker agent list
+
+# 查看 agent 详情
+agent-worker agent info alice
+
+# 删除 agent（YAML + context 目录）
+agent-worker agent delete alice
+```
+
+### 两套 agent 命令的关系
+
+| 命令 | 存储位置 | 持久化 | 用途 |
+|------|----------|--------|------|
+| `agent-worker new` | daemon 内存 | 否（daemon 停止后丢失） | 临时 agent，快速测试 |
+| `agent-worker agent create` | `.agents/*.yaml` + context 目录 | 是（文件系统） | 持久 agent identity |
+
+Phase 2 之后，workflow YAML 将支持 `ref:` 引用持久 agent：
+
+```yaml
+# 未来的 workflow 格式（Phase 2）
+agents:
+  alice: { ref: alice }        # 引用 .agents/alice.yaml
+  helper:                       # 仍然支持 inline 定义
+    model: anthropic/claude-haiku-4-5
+    prompt:
+      system: You help with lookups.
+```
+
+### 文件结构预览
+
+Phase 1 后项目中可能出现的新文件：
+
+```
+project/
+├── .agents/                    # Phase 1 新增
+│   ├── alice.yaml              # agent 定义
+│   └── alice/                  # agent context 目录
+│       ├── memory/             # 结构化知识（YAML key-value）
+│       ├── notes/              # 自由格式笔记（markdown）
+│       ├── conversations/      # DM 历史（Phase 3 启用）
+│       └── todo/               # 跨 session 任务追踪
+│
+├── review.yaml                 # 现有 workflow（格式不变）
+└── ...
+```
+
+---
+
 ## Examples
 
 ### Minimal: Single Agent, No Workflow
