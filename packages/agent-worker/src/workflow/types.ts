@@ -5,7 +5,6 @@
 import type { ContextConfig } from "./context/types.ts";
 import type { ScheduleConfig } from "../daemon/registry.ts";
 import type { AgentHandle } from "../agent/agent-handle.ts";
-import type { AgentSoul } from "../agent/definition.ts";
 
 // Re-export context types for convenience
 export type { ContextConfig, FileContextConfig, MemoryContextConfig } from "./context/types.ts";
