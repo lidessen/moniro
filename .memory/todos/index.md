@@ -14,7 +14,7 @@ todos/
 
 | 优先级 | 任务 | 状态 | 链接 |
 |--------|------|------|------|
-| - | 暂无活跃任务 | - | - |
+| low | agent-handle.ts console.warn 需替换为可配置 logger，避免污染 CLI/daemon 输出 | open | - |
 
 ## 使用场景
 
