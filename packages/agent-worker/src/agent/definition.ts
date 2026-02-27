@@ -101,18 +101,22 @@ export const CONTEXT_SUBDIRS = ["memory", "notes", "conversations", "todo"] as c
 
 // ── Zod Schemas ───────────────────────────────────────────────────
 
-export const AgentSoulSchema = z.object({
-  role: z.string().optional(),
-  expertise: z.array(z.string()).optional(),
-  style: z.string().optional(),
-  principles: z.array(z.string()).optional(),
-}).passthrough();  // Extensible — custom soul fields preserved
+export const AgentSoulSchema = z
+  .object({
+    role: z.string().optional(),
+    expertise: z.array(z.string()).optional(),
+    style: z.string().optional(),
+    principles: z.array(z.string()).optional(),
+  })
+  .passthrough(); // Extensible — custom soul fields preserved
 
-const ProviderConfigSchema = z.object({
-  name: z.string(),
-  base_url: z.string().optional(),
-  api_key: z.string().optional(),
-}).passthrough();  // Allow extra provider fields
+const ProviderConfigSchema = z
+  .object({
+    name: z.string(),
+    base_url: z.string().optional(),
+    api_key: z.string().optional(),
+  })
+  .passthrough(); // Allow extra provider fields
 
 export const AgentPromptConfigSchema = z.union([
   z.object({ system: z.string(), system_file: z.undefined().optional() }),
@@ -132,9 +136,7 @@ const ScheduleConfigSchema = z.object({
 export const AgentDefinitionSchema = z.object({
   name: z.string().min(1),
   model: z.string().min(1),
-  backend: z
-    .enum(["sdk", "claude", "cursor", "codex", "opencode", "mock"])
-    .optional(),
+  backend: z.enum(["sdk", "claude", "cursor", "codex", "opencode", "mock"]).optional(),
   provider: z.union([z.string(), ProviderConfigSchema]).optional(),
   prompt: AgentPromptConfigSchema,
   soul: AgentSoulSchema.optional(),

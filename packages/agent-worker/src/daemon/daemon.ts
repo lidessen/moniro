@@ -789,21 +789,23 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
     const s = getState();
     if (!s) return c.json({ error: "Not ready" }, 503);
 
-    const workflows = [...s.workflows.values()].filter((wf) => !wf.standalone).map((wf) => {
-      const agentStates: Record<string, string> = {};
-      for (const [name, loop] of wf.loops) {
-        agentStates[name] = loop.state;
-      }
-      return {
-        name: wf.name,
-        tag: wf.tag,
-        key: wf.key,
-        agents: wf.agents,
-        agentStates,
-        workflowPath: wf.workflowPath,
-        startedAt: wf.startedAt,
-      };
-    });
+    const workflows = [...s.workflows.values()]
+      .filter((wf) => !wf.standalone)
+      .map((wf) => {
+        const agentStates: Record<string, string> = {};
+        for (const [name, loop] of wf.loops) {
+          agentStates[name] = loop.state;
+        }
+        return {
+          name: wf.name,
+          tag: wf.tag,
+          key: wf.key,
+          agents: wf.agents,
+          agentStates,
+          workflowPath: wf.workflowPath,
+          startedAt: wf.startedAt,
+        };
+      });
 
     return c.json({ workflows });
   });

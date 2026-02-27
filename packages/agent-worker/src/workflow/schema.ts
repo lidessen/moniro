@@ -19,7 +19,9 @@ export const ProviderConfigSchema = z
     api_key: z
       .string()
       .optional()
-      .describe("API key — env var reference with `$` prefix (e.g., `$MINIMAX_API_KEY`) or literal value"),
+      .describe(
+        "API key — env var reference with `$` prefix (e.g., `$MINIMAX_API_KEY`) or literal value",
+      ),
   })
   .describe("Custom provider configuration for API endpoint overrides");
 
@@ -27,17 +29,34 @@ export const ProviderConfigSchema = z
 
 export const RefAgentEntrySchema = z
   .object({
-    ref: z.string().min(1).describe("Name of the global agent to reference (from `.agents/*.yaml`)"),
+    ref: z
+      .string()
+      .min(1)
+      .describe("Name of the global agent to reference (from `.agents/*.yaml`)"),
     prompt: z
       .object({
-        append: z.string().describe("Additional instructions appended to the agent's base system prompt"),
+        append: z
+          .string()
+          .describe("Additional instructions appended to the agent's base system prompt"),
       })
       .optional()
       .describe("Prompt extension for this workflow"),
-    max_tokens: z.number().int().positive().optional().describe("Override maximum tokens for response"),
-    max_steps: z.number().int().positive().optional().describe("Override maximum tool call steps per turn"),
+    max_tokens: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe("Override maximum tokens for response"),
+    max_steps: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe("Override maximum tool call steps per turn"),
   })
-  .describe("Reference to a global agent definition — carries persistent context (memory, notes, todo)");
+  .describe(
+    "Reference to a global agent definition — carries persistent context (memory, notes, todo)",
+  );
 
 export const InlineAgentEntrySchema = z
   .object({
@@ -80,7 +99,9 @@ export const InlineAgentEntrySchema = z
     wakeup: z
       .union([z.string(), z.number()])
       .optional()
-      .describe('Periodic wakeup schedule: number (ms), duration string (`"30s"`/`"5m"`/`"2h"`), or cron expression'),
+      .describe(
+        'Periodic wakeup schedule: number (ms), duration string (`"30s"`/`"5m"`/`"2h"`), or cron expression',
+      ),
     wakeup_prompt: z
       .string()
       .optional()
@@ -90,14 +111,22 @@ export const InlineAgentEntrySchema = z
 
 export const AgentEntrySchema = z
   .union([RefAgentEntrySchema, InlineAgentEntrySchema])
-  .describe("Agent entry — either a `ref` to a global agent or an inline definition. Discriminated by presence of `ref`");
+  .describe(
+    "Agent entry — either a `ref` to a global agent or an inline definition. Discriminated by presence of `ref`",
+  );
 
 // ── Context ──────────────────────────────────────────────────────
 
 const FileContextConfigSchema = z
   .object({
-    dir: z.string().optional().describe("Ephemeral context directory path (template variables supported)"),
-    bind: z.string().optional().describe("Persistent context directory path — state survives across runs"),
+    dir: z
+      .string()
+      .optional()
+      .describe("Ephemeral context directory path (template variables supported)"),
+    bind: z
+      .string()
+      .optional()
+      .describe("Persistent context directory path — state survives across runs"),
   })
   .describe("File context configuration (`dir` and `bind` are mutually exclusive)");
 
@@ -108,12 +137,9 @@ export const ContextConfigSchema = z
       .object({
         provider: z
           .enum(["file", "memory"])
-          .describe('Context provider type. `file` for disk-based, `memory` for testing'),
+          .describe("Context provider type. `file` for disk-based, `memory` for testing"),
         config: FileContextConfigSchema.optional().describe("Provider-specific configuration"),
-        documentOwner: z
-          .string()
-          .optional()
-          .describe("Document owner for single-writer model"),
+        documentOwner: z.string().optional().describe("Document owner for single-writer model"),
       })
       .describe("Shared context configuration"),
   ])
@@ -151,7 +177,9 @@ export const SetupTaskSchema = z
     as: z
       .string()
       .optional()
-      .describe("Variable name to store command output (accessible via `${{ name }}` interpolation)"),
+      .describe(
+        "Variable name to store command output (accessible via `${{ name }}` interpolation)",
+      ),
   })
   .describe("Setup command — runs before kickoff to prepare variables");
 
@@ -160,13 +188,20 @@ export const SetupTaskSchema = z
 export const WorkflowFileSchema = z
   .object({
     name: z.string().optional().describe("Workflow name (defaults to filename without extension)"),
-    agents: z.record(z.string(), AgentEntrySchema).describe("Agent definitions — keyed by agent name"),
+    agents: z
+      .record(z.string(), AgentEntrySchema)
+      .describe("Agent definitions — keyed by agent name"),
     context: ContextConfigSchema,
     params: z.array(ParamDefinitionSchema).optional().describe("CLI-style parameter definitions"),
-    setup: z.array(SetupTaskSchema).optional().describe("Setup commands — run sequentially before kickoff"),
+    setup: z
+      .array(SetupTaskSchema)
+      .optional()
+      .describe("Setup commands — run sequentially before kickoff"),
     kickoff: z
       .string()
       .optional()
-      .describe("Kickoff message — initiates the workflow via `@mention`. Supports variable interpolation"),
+      .describe(
+        "Kickoff message — initiates the workflow via `@mention`. Supports variable interpolation",
+      ),
   })
   .describe("Workflow file — defines agents, context, and orchestration");
