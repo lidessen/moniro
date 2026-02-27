@@ -29,6 +29,7 @@
     "format": "oxfmt src",
     "format:check": "oxfmt src --check",
     "typecheck": "tsgo",
+    "gen:schema": "bun scripts/gen-workflow-ref.ts > docs/workflow/SCHEMA.md",
     "prepublishOnly": "bun run build"
   },
   "dependencies": {
