@@ -13,9 +13,11 @@ Workflow 内部已有完整的事件存储：
 Logger → ContextProvider.appendChannel() → ChannelStore → channel.jsonl
 ```
 
-`Message` 结构（timestamp, from, content, kind, toolCall）+ `EventKind`（message, tool_call, system, output, debug）已覆盖所有事件类型。`ChannelStore` 支持 append-only JSONL、增量 sync、visibility 过滤。
+`Message` 结构 + `EventKind` 已覆盖所有事件类型。`ChannelStore` 支持 append-only JSONL、增量 sync、visibility 过滤。
 
-**问题**：这套系统绑死在 workflow scope 的 `ContextProvider` 上。以下事件发生在 workflow 之外，没有持久化：
+**但 channel 是 per-workspace 的**——它是 agent 间通信的共享空间，绑在 workflow context 目录下。daemon 级别的事件（启动、registry 操作）不属于任何 workspace。
+
+以下事件没有持久化：
 
 | 来源 | 事件 | 现状 |
 |------|------|------|
@@ -28,27 +30,27 @@ Logger → ContextProvider.appendChannel() → ChannelStore → channel.jsonl
 
 ### 目标
 
-**所有日志事件进同一个持久化时间线**。显示是过滤视图，不是日志本身。
+所有日志事件持久化。统一时间线按需过滤显示。
 
 ## Decision
 
-### 核心：把 ChannelStore 从 workflow 提升到 daemon 级
+### 两层存储，共享格式
 
 ```
-Daemon (process)
-  └─ daemon-level ChannelStore (channel.jsonl)
-       ├─ daemon lifecycle events (kind: "system")
-       ├─ agent registry events (kind: "system")
-       ├─ agent handle warnings (kind: "debug")
-       └─ per-workflow events (已有，不变，写同一个 store 或 nested)
-
-Display layer (CLI / TUI / web)
-  └─ tail(cursor) + filter by kind/from/time
+~/.agent-worker/
+├── events.jsonl                          ← daemon event log（新的）
+└── workflows/<name>/<tag>/
+    └── channel.jsonl                     ← workspace channel（已有）
 ```
 
-### 1. 新增 `EventSink` — 最小写入接口
+| 层级 | 文件 | 内容 | 谁写 |
+|------|------|------|------|
+| **Daemon event log** | `events.jsonl` | 启动/关闭、registry CRUD、跨 workspace 事件 | daemon、registry、agent-handle |
+| **Workspace channel** | `channel.jsonl` | agent 通信、tool call、workflow 内部事件 | ContextProvider（已有，不变） |
 
-不复用 `ContextProvider`（太重，绑 document/inbox/resource）。抽一个只做写入的接口：
+两者共享 `Message` 格式和 `EventKind` 类型。统一时间线通过**读取时合并**实现（类似 `git log --all`），不是写入时混在一起。
+
+### 1. `EventSink` — 最小写入接口
 
 ```typescript
 /** Minimal write-only interface for event logging */
@@ -57,9 +59,11 @@ export interface EventSink {
 }
 ```
 
-`ChannelStore` 天然满足这个接口（它的 `append` 是 Promise，EventSink 可以 fire-and-forget）。
+两个实现都满足：
+- `ChannelStore.append()` → workspace channel（已有，Promise 返回值兼容）
+- 新的 `DaemonEventLog` → daemon events.jsonl
 
-### 2. Logger 写入 EventSink 而非 console
+### 2. `createEventLogger(sink, from)` — Logger → EventSink
 
 ```typescript
 export function createEventLogger(sink: EventSink, from?: string): Logger {
@@ -75,75 +79,60 @@ export function createEventLogger(sink: EventSink, from?: string): Logger {
 }
 ```
 
-### 3. Daemon 拥有根 EventSink
+### 3. Daemon 拥有 event log
 
 ```typescript
 // daemon.ts startup
-const storage = new FileStorageBackend(daemonDir);
-const channelStore = new DefaultChannelStore(storage, []);
-const logger = createEventLogger(channelStore, "daemon");
+const eventLog = new DaemonEventLog(daemonDir); // → events.jsonl
+const logger = createEventLogger(eventLog, "daemon");
 
-// 传递给子系统
 const registry = new AgentRegistry(projectDir, logger.child("registry"));
-// workflow runner 创建时也从 daemon 拿 sink
 ```
 
-### 4. CLI 直接运行（无 daemon）的降级
+### 4. Workspace channel 不变
 
-CLI 直接跑 agent（不经过 daemon）时，没有持久化存储。用 console 降级：
+`createChannelLogger({ provider })` 保持原样。Workflow 内部仍写入 workspace-scoped channel.jsonl。
+
+### 5. CLI 无 daemon 时降级
 
 ```typescript
 /** Fallback: logs to stderr, no persistence */
 export function createConsoleSink(): EventSink {
   return {
     append(from, content, options) {
-      if (options?.kind === "debug") return; // 默认静默 debug
+      if (options?.kind === "debug") return;
       console.error(`[${from}] ${content}`);
     },
   };
 }
 ```
 
-### 5. 显示层：tail + filter
-
-已有 `ChannelStore.tail(cursor)` 和 `read({ agent, since, limit })`。CLI 的 `agent-worker status` 已经用了。新增：
+### 6. 统一时间线 = 合并读取
 
 ```bash
-# 现有
-agent-worker status          # 读 channel 显示状态
-
-# 可扩展
-agent-worker logs             # tail -f daemon channel.jsonl
-agent-worker logs --debug     # 含 debug kind
-agent-worker logs --from=registry  # 按 from 过滤
+agent-worker logs                          # tail daemon events.jsonl
+agent-worker logs --workspace <name>       # tail workspace channel.jsonl
+agent-worker logs --all                    # 合并两者，按 timestamp 排序
+agent-worker logs --debug                  # 含 debug kind
+agent-worker logs --from=registry          # 按 from 过滤
 ```
-
-### 6. 已有 ChannelLogger 怎么办
-
-`createChannelLogger({ provider })` 保持不变。Workflow 内部仍然写入 workflow-scoped provider。两层不冲突：
-
-```
-daemon channel.jsonl     ← daemon/registry/agent-handle 事件
-workflow channel.jsonl   ← workflow 内部 agent 通信 + tool call + output
-```
-
-Workflow 也可以选择同时写入 daemon sink（用于全局时间线），但这是增量改进，不是 V1 必须。
 
 ## Migration Order
 
-1. 定义 `EventSink` 接口（在 `workflow/context/types.ts` 或新文件）
-2. 实现 `createEventLogger(sink, from)` — Logger → EventSink
-3. 实现 `createConsoleSink()` — 降级方案
-4. Daemon 启动时创建 `ChannelStore` → `EventSink` → `Logger`
-5. `AgentHandle` / `AgentRegistry` / `worker` / `idle-timeout` / `importer` 接收 Logger
+1. 定义 `EventSink` 接口
+2. 实现 `DaemonEventLog`（append-only JSONL，复用 `Message` 格式）
+3. 实现 `createEventLogger(sink, from)` + `createConsoleSink()`
+4. Daemon 启动时创建 event log + logger
+5. 库代码（AgentHandle / Registry / worker / idle-timeout / importer）接收 Logger
 6. 清除所有库代码 `console.*`
-7. CLI 入口注入 logger（daemon 模式 → EventSink，直接模式 → ConsoleSink）
+7. CLI 入口注入 logger（daemon → EventSink，直接 → ConsoleSink）
+8. 可选：`agent-worker logs` 命令
 
 ## Consequences
 
-- **统一时间线**：所有事件进 channel.jsonl，可追溯、可过滤、可回放
-- **复用已有基础设施**：Message 结构、ChannelStore、EventKind 全部复用
+- **两层分离**：workspace channel 是 agent 通信，daemon event log 是运维事件，职责清晰
+- **统一格式**：共享 Message + EventKind，合并读取时无需转换
 - **显示与存储分离**：存全部，显示按需过滤
-- **零外部依赖**：EventSink ~5 行接口，createEventLogger ~15 行
-- **向后兼容**：workflow 内部 ContextProvider 不变
-- **降级优雅**：无 daemon 时 ConsoleSink 保持可用
+- **零外部依赖**：EventSink ~5 行，DaemonEventLog ~30 行
+- **向后兼容**：workspace channel 完全不变
+- **降级优雅**：无 daemon 时 ConsoleSink → stderr
