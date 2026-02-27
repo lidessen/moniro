@@ -14,7 +14,7 @@ todos/
 
 | 优先级 | 任务 | 状态 | 链接 |
 |--------|------|------|------|
-| low | agent-handle.ts console.warn 需替换为可配置 logger，避免污染 CLI/daemon 输出 | open | - |
+| medium | 统一 logger：库代码零 console.*，通过 Logger 接口输出 | open | [ADR](../decisions/2026-02-27-unified-logger.md) |
 
 ## 使用场景
 
