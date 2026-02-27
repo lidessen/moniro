@@ -4,6 +4,9 @@
 **Status**: Proposed
 **Supersedes**: Inline agent definitions in workflow YAML
 
+> **实施原则：不考虑向后兼容。** 不写兼容遗留代码，不保留 deprecated 接口，不加 shim 或 fallback。
+> 每个 phase 直接用新结构替换旧结构。旧接口该删就删，旧路径该断就断。
+
 ---
 
 ## Problem
