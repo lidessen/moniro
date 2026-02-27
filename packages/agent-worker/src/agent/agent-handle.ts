@@ -10,7 +10,8 @@
  * Phase 3 adds: loop, workspaces, threads.
  */
 
-import { mkdirSync, readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
+import { mkdir, readFile, writeFile, readdir } from "node:fs/promises";
+import { mkdirSync, existsSync } from "node:fs";
 import { join, basename } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import type { AgentDefinition } from "./definition.ts";
@@ -65,14 +66,15 @@ export class AgentHandle {
     if (!existsSync(memDir)) return {};
 
     const result: Record<string, unknown> = {};
-    for (const file of readdirSync(memDir)) {
+    const files = await readdir(memDir);
+    for (const file of files) {
       if (!file.endsWith(".yaml") && !file.endsWith(".yml")) continue;
       const key = basename(file).replace(/\.ya?ml$/i, "");
       try {
-        const content = readFileSync(join(memDir, file), "utf-8");
+        const content = await readFile(join(memDir, file), "utf-8");
         result[key] = parseYaml(content);
-      } catch {
-        // Skip malformed files
+      } catch (err) {
+        console.warn(`Skipping malformed memory file ${file}:`, err);
       }
     }
     return result;
@@ -83,8 +85,8 @@ export class AgentHandle {
    */
   async writeMemory(key: string, value: unknown): Promise<void> {
     const memDir = join(this.contextDir, "memory");
-    mkdirSync(memDir, { recursive: true });
-    writeFileSync(join(memDir, `${key}.yaml`), stringifyYaml(value));
+    await mkdir(memDir, { recursive: true });
+    await writeFile(join(memDir, `${key}.yaml`), stringifyYaml(value));
   }
 
   // ── Notes (freeform reflections) ────────────────────────────────
@@ -97,13 +99,14 @@ export class AgentHandle {
     const notesDir = join(this.contextDir, "notes");
     if (!existsSync(notesDir)) return [];
 
-    const files = readdirSync(notesDir)
+    const allFiles = await readdir(notesDir);
+    const files = allFiles
       .filter((f) => f.endsWith(".md"))
       .sort()
       .reverse();
 
     const selected = limit ? files.slice(0, limit) : files;
-    return selected.map((f) => readFileSync(join(notesDir, f), "utf-8"));
+    return Promise.all(selected.map((f) => readFile(join(notesDir, f), "utf-8")));
   }
 
   /**
@@ -111,14 +114,14 @@ export class AgentHandle {
    */
   async appendNote(content: string, slug?: string): Promise<string> {
     const notesDir = join(this.contextDir, "notes");
-    mkdirSync(notesDir, { recursive: true });
+    await mkdir(notesDir, { recursive: true });
 
     const date = new Date().toISOString().slice(0, 10);
     const suffix = slug ?? `note-${Date.now().toString(36)}`;
     const filename = `${date}-${suffix}.md`;
     const filePath = join(notesDir, filename);
 
-    writeFileSync(filePath, content);
+    await writeFile(filePath, content);
     return filename;
   }
 
@@ -132,7 +135,7 @@ export class AgentHandle {
     const todoFile = join(this.contextDir, "todo", "index.md");
     if (!existsSync(todoFile)) return [];
 
-    const content = readFileSync(todoFile, "utf-8");
+    const content = await readFile(todoFile, "utf-8");
     return content
       .split("\n")
       .filter((line) => line.match(/^\s*-\s*\[\s*\]/))
@@ -144,9 +147,9 @@ export class AgentHandle {
    */
   async writeTodos(todos: string[]): Promise<void> {
     const todoDir = join(this.contextDir, "todo");
-    mkdirSync(todoDir, { recursive: true });
+    await mkdir(todoDir, { recursive: true });
 
     const content = todos.map((t) => `- [ ] ${t}`).join("\n") + "\n";
-    writeFileSync(join(todoDir, "index.md"), content);
+    await writeFile(join(todoDir, "index.md"), content);
   }
 }
