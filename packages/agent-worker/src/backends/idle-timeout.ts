@@ -95,9 +95,8 @@ function execWithIdleTimeoutInternal(options: IdleTimeoutOptions): {
     if (onStdout) {
       try {
         onStdout(text);
-      } catch (err) {
-        // Log callback errors but don't let them break the stream
-        console.error("onStdout callback error:", err);
+      } catch {
+        // Callback errors swallowed — don't let them break the stream
       }
     }
   });
