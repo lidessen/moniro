@@ -14,7 +14,7 @@ todos/
 
 | 优先级 | 任务 | 状态 | 链接 |
 |--------|------|------|------|
-| medium | 统一 logger：库代码零 console.*，通过 Logger 接口输出 | open | [ADR](../decisions/2026-02-27-unified-logger.md) |
+| medium | 统一 logger：库代码零 console.*，通过 Logger 接口输出 | done | [ADR](../decisions/2026-02-27-unified-logger.md) |
 
 ## 使用场景
 

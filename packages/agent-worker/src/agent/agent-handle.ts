@@ -16,6 +16,7 @@ import { join, basename } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import type { AgentDefinition } from "./definition.ts";
 import { CONTEXT_SUBDIRS } from "./definition.ts";
+import type { Logger } from "../workflow/logger.ts";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -33,9 +34,13 @@ export class AgentHandle {
   /** Current agent state */
   state: AgentHandleState = "idle";
 
-  constructor(definition: AgentDefinition, contextDir: string) {
+  /** Optional logger (injected by registry; absent in standalone CLI) */
+  private log?: Logger;
+
+  constructor(definition: AgentDefinition, contextDir: string, logger?: Logger) {
     this.definition = definition;
     this.contextDir = contextDir;
+    this.log = logger;
   }
 
   /** Agent name (convenience accessor) */
@@ -74,7 +79,7 @@ export class AgentHandle {
         const content = await readFile(join(memDir, file), "utf-8");
         result[key] = parseYaml(content);
       } catch (err) {
-        console.warn(`Skipping malformed memory file ${file}:`, err);
+        this.log?.warn(`Skipping malformed memory file ${file}: ${err}`);
       }
     }
     return result;

@@ -101,14 +101,14 @@ export function parseAgentObject(data: Record<string, unknown>): AgentDefinition
  * Non-fatal: logs warnings for invalid files, skips them.
  *
  * @param projectDir - Project root directory
- * @param log - Optional warning logger (default: console.warn)
+ * @param log - Optional warning logger (silent if omitted)
  * @returns Array of valid agent definitions
  */
 export function discoverAgents(projectDir: string, log?: (msg: string) => void): AgentDefinition[] {
   const agentsDir = join(projectDir, AGENTS_DIR);
   if (!existsSync(agentsDir)) return [];
 
-  const warn = log ?? console.warn;
+  const warn = log ?? (() => {});
   const agents: AgentDefinition[] = [];
 
   let entries: string[];
