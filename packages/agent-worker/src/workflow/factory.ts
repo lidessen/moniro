@@ -26,7 +26,7 @@ import { createContextMCPServer } from "./context/mcp/server.ts";
 import { runWithHttp, type HttpMCPServer } from "./context/http-transport.ts";
 import { EventLog } from "./context/event-log.ts";
 import type { Message } from "./context/types.ts";
-import type { ResolvedAgent } from "./types.ts";
+import type { ResolvedWorkflowAgent } from "./types.ts";
 import type { Backend } from "../backends/types.ts";
 import type { StreamParserCallbacks } from "../backends/stream-json.ts";
 import { createAgentLoop } from "./loop/loop.ts";
@@ -211,7 +211,7 @@ export interface WiredLoopConfig {
   /** Agent name */
   name: string;
   /** Resolved agent definition */
-  agent: ResolvedAgent;
+  agent: ResolvedWorkflowAgent;
   /** The workflow runtime this agent belongs to */
   runtime: RuntimeContext;
   /** Poll interval in ms (default: 5000) */
@@ -219,7 +219,7 @@ export interface WiredLoopConfig {
   /** Enable feedback tool */
   feedback?: boolean;
   /** Custom backend factory (overrides default resolution) */
-  createBackend?: (agentName: string, agent: ResolvedAgent) => Backend;
+  createBackend?: (agentName: string, agent: ResolvedWorkflowAgent) => Backend;
   /** Logger for this agent's output */
   logger?: Logger;
 }
@@ -306,7 +306,7 @@ export function createWiredLoop(config: WiredLoopConfig): WiredLoopResult {
 
   // Pass resolved model/provider to the loop so SDK runner uses the concrete
   // model instead of the raw "auto" value from the workflow YAML.
-  const resolvedAgent: ResolvedAgent =
+  const resolvedAgent: ResolvedWorkflowAgent =
     effectiveModel !== agent.model || effectiveProvider !== agent.provider
       ? { ...agent, model: effectiveModel, provider: effectiveProvider }
       : agent;

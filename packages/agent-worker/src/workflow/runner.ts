@@ -19,7 +19,7 @@ import { join } from "node:path";
 import type {
   ParsedWorkflow,
   SetupTask,
-  ResolvedAgent,
+  ResolvedWorkflowAgent,
   ResolvedContext,
   ResolvedFileContext,
 } from "./types.ts";
@@ -49,7 +49,7 @@ export interface RunConfig {
   /** Workflow tag (defaults to "main") */
   tag?: string;
   /** Agent startup function */
-  startAgent: (agentName: string, config: ResolvedAgent, mcpUrl: string) => Promise<void>;
+  startAgent: (agentName: string, config: ResolvedWorkflowAgent, mcpUrl: string) => Promise<void>;
   /** Callback when an agent @mentions another agent */
   onMention?: (from: string, target: string, msg: import("./context/types.ts").Message) => void;
   /** Debug log function for MCP tool calls */
@@ -451,7 +451,7 @@ export interface LoopRunConfig {
   /** Poll interval for loops (ms) */
   pollInterval?: number;
   /** Custom backend factory (optional, defaults to getBackendForModel) */
-  createBackend?: (agentName: string, agent: ResolvedAgent) => Backend;
+  createBackend?: (agentName: string, agent: ResolvedWorkflowAgent) => Backend;
   /** Enable feedback tool for all workflow agents */
   feedback?: boolean;
   /** Use pretty display mode (with @clack/prompts) */

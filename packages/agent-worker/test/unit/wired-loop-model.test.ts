@@ -10,7 +10,7 @@ import { describe, test, expect } from "bun:test";
 import { createWiredLoop, type RuntimeContext } from "../../src/workflow/factory.ts";
 import { createMemoryContextProvider } from "../../src/workflow/context/memory-provider.ts";
 import { EventLog } from "../../src/workflow/context/event-log.ts";
-import type { ResolvedAgent } from "../../src/workflow/types.ts";
+import type { ResolvedWorkflowAgent } from "../../src/workflow/types.ts";
 
 /** Minimal runtime context for testing (no HTTP server needed) */
 function createTestRuntime(): RuntimeContext {
@@ -33,7 +33,7 @@ describe("createWiredLoop model resolution", () => {
     savedKey = process.env.AI_GATEWAY_API_KEY;
     process.env.AI_GATEWAY_API_KEY = savedKey || "test-key";
     try {
-      const agent: ResolvedAgent = {
+      const agent: ResolvedWorkflowAgent = {
         model: "auto",
         system_prompt: "test",
         resolvedSystemPrompt: "test",
@@ -63,7 +63,7 @@ describe("createWiredLoop model resolution", () => {
     savedKey = process.env.AI_GATEWAY_API_KEY;
     process.env.AI_GATEWAY_API_KEY = savedKey || "test-key";
     try {
-      const agent: ResolvedAgent = {
+      const agent: ResolvedWorkflowAgent = {
         model: "auto",
         system_prompt: "test",
         resolvedSystemPrompt: "test",
@@ -88,14 +88,14 @@ describe("createWiredLoop model resolution", () => {
   });
 
   test("non-auto model passes through unchanged", () => {
-    const agent: ResolvedAgent = {
+    const agent: ResolvedWorkflowAgent = {
       model: "deepseek/deepseek-chat",
       system_prompt: "test",
       resolvedSystemPrompt: "test",
     };
 
     // Track what agent config the backend factory receives
-    let receivedAgent: ResolvedAgent | undefined;
+    let receivedAgent: ResolvedWorkflowAgent | undefined;
     createWiredLoop({
       name: "test-agent",
       agent,

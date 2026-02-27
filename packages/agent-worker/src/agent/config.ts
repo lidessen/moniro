@@ -20,10 +20,10 @@ export interface AgentConfig {
   backend: BackendType;
   /** Provider configuration — string (built-in) or object (custom endpoint) */
   provider?: string | ProviderConfig;
-  /** Workflow this agent belongs to */
-  workflow: string;
-  /** Workflow instance tag */
-  tag: string;
+  /** Workflow this agent belongs to (optional — standalone agents have no workflow) */
+  workflow?: string;
+  /** Workflow instance tag (optional — standalone agents have no tag) */
+  tag?: string;
   /** When this agent was created */
   createdAt: string;
   /** Periodic wakeup schedule */

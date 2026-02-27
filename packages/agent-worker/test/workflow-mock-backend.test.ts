@@ -14,7 +14,7 @@ import { createMemoryContextProvider } from '../src/workflow/context/memory-prov
 import { createAgentLoop, checkWorkflowIdle } from '../src/workflow/loop/loop.ts'
 import type { AgentLoop } from '../src/workflow/loop/types.ts'
 import type { Backend } from '../src/backends/types.ts'
-import type { ResolvedAgent } from '../src/workflow/types.ts'
+import type { ResolvedWorkflowAgent } from '../src/workflow/types.ts'
 import type { ContextProvider } from '../src/workflow/context/provider.ts'
 
 // ==================== Helpers ====================
@@ -95,14 +95,14 @@ describe('Alice-Bob workflow with mock backends', () => {
     loops.length = 0
   })
 
-  const aliceAgent: ResolvedAgent = {
+  const aliceAgent: ResolvedWorkflowAgent = {
     backend: 'cursor',
     model: 'sonnet-4.5',
     system_prompt: 'You are Alice. You like to ask questions and are curious about everything.',
     resolvedSystemPrompt: 'You are Alice. You like to ask questions and are curious about everything.',
   }
 
-  const bobAgent: ResolvedAgent = {
+  const bobAgent: ResolvedWorkflowAgent = {
     backend: 'claude',
     system_prompt: 'You are Bob. You are knowledgeable and patient. You answer questions clearly and concisely.',
     resolvedSystemPrompt:
