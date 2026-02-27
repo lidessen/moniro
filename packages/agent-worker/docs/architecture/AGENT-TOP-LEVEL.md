@@ -538,8 +538,8 @@ interface AgentHandle {
   loop: AgentLoop | null;
   /** Active workspace attachments (workflow:tag → workspace, e.g. "review:pr-123") */
   workspaces: Map<string, Workspace>;
-  /** Conversation threads — one per context (personal + per-workspace) */
-  threads: Map<string, ConversationThread>;  // "personal" | "review:pr-123" → thread
+  /** Thin threads — last N messages per context ("personal" | "review:pr-123") */
+  threads: Map<string, ThinThread>;
   /** Current agent state */
   state: 'idle' | 'running' | 'stopped' | 'error';
   /** Read agent's memory */
@@ -554,24 +554,34 @@ interface AgentHandle {
   appendNote(content: string): Promise<void>;
   /** Send an instruction to this agent's loop */
   send(instruction: AgentInstruction): Promise<void>;
-  /** Get or create conversation thread for a context */
-  getThread(contextKey: string): ConversationThread;
+  /** Get or create thin thread for a context */
+  getThread(contextKey: string): ThinThread;
 }
 
-/** Conversation thread — continuous message history for one context */
-interface ConversationThread {
+/** Thin thread — last N messages for conversational continuity */
+interface ThinThread {
   /** Context key: "personal" for DMs, "workflow:tag" for workspaces */
   contextKey: string;
-  /** Message history (most recent at end) */
+  /** Recent messages (bounded, last N — oldest evicted on append) */
   messages: ThreadMessage[];
-  /** Compressed summary of older messages (if context window exceeded) */
-  summary: string | null;
-  /** Persist thread to disk */
-  save(): Promise<void>;
-  /** Load thread from disk */
-  load(): Promise<void>;
-  /** Append a message and check context budget */
+  /** Max messages to keep in memory (from agent config, default 10) */
+  maxMessages: number;
+  /** Append message to thread + full history log on disk */
   append(message: ThreadMessage): Promise<void>;
+  /** Restore from tail of on-disk history log */
+  restore(): Promise<void>;
+}
+
+/** Full conversation history — append-only log on disk, queried via recall tools */
+interface ConversationLog {
+  /** Path to JSONL file */
+  path: string;
+  /** Append a message */
+  append(message: ThreadMessage): Promise<void>;
+  /** Search messages by keyword */
+  search(query: string, limit?: number): Promise<ThreadMessage[]>;
+  /** Read messages by time range */
+  read(options?: { since?: string; until?: string; limit?: number }): Promise<ThreadMessage[]>;
 }
 
 interface ThreadMessage {
@@ -604,7 +614,7 @@ interface AgentInstruction {
 interface InstructionProgress {
   /** Step number to resume from */
   resumeFromStep: number;
-  /** Conversation history up to yield point */
+  /** Thin thread snapshot at yield point (for prompt reconstruction) */
   threadSnapshot: ThreadMessage[];
   /** How many times this instruction has been preempted */
   preemptCount: number;
@@ -680,16 +690,24 @@ When a loop runs an agent, the prompt is assembled from multiple sources:
 ┌─────────────────────────────────────────────────────────┐
 │                  Prompt Assembly                         │
 │                                                          │
-│  1. Base system prompt (from agent definition)          │
-│  2. Soul injection (role, expertise, principles)        │
-│  3. Agent memory summary (relevant entries)             │
-│  4. Active todos (from agent's todo/)                   │
-│  5. Workflow-specific append (from workflow entry)       │
-│  6. Workspace context (inbox, channel, document)        │
+│  System prompt (always loaded):                         │
+│    1. Base system prompt (from agent definition)        │
+│    2. Soul injection (role, expertise, principles)      │
+│    3. Agent memory (relevant entries from memory/)      │
+│    4. Active todos (from agent's todo/)                 │
+│    5. Workflow-specific append (from workflow entry)     │
 │                                                          │
-│  Result: Complete prompt with persistent identity        │
-│          + workflow-specific instructions                │
-│          + current collaboration context                 │
+│  Messages (thin thread):                                │
+│    6. Last N messages in this context                   │
+│    7. Current instruction                               │
+│                                                          │
+│  Tools available:                                       │
+│    8. history_search / history_read (recall on demand)  │
+│    9. memory_write (persist learnings)                  │
+│   10. Workspace tools (channel_send/read, inbox, etc.)  │
+│                                                          │
+│  Result: Bounded prompt with identity + continuity      │
+│          + on-demand access to full history              │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -697,84 +715,148 @@ When a loop runs an agent, the prompt is assembled from multiple sources:
 
 ## Conversation Model
 
-### Conversation Threads
+### Design Principle
 
-Each agent maintains **one conversation thread per context**:
+Don't carry all history — carry **knowledge** and **recent context**.
+
+A human doesn't replay all past conversations before answering a question. They
+rely on memory (what they know), the last few exchanges (immediate context), and
+the ability to look things up (search). The agent model mirrors this:
+
+```
+Prompt = system + soul + memory          ← always loaded (who I am, what I know)
+       + thin thread (last N messages)   ← conversational continuity
+       + [recall tools]                  ← on-demand deep history access
+```
+
+### Three Layers of Context
+
+| Layer | What | Loaded | Cost |
+|-------|------|--------|------|
+| **Memory** (memory/, notes/) | Distilled knowledge, learned patterns, decisions | Always — injected into prompt | Fixed, grows slowly |
+| **Thin thread** | Last N messages in this context | Always — appended to prompt | Fixed, bounded by N |
+| **Full history** | Complete conversation log (JSONL on disk) | On-demand — agent calls recall tools | Zero unless queried |
+
+```
+Agent alice processes an instruction
+│
+├─ Loaded automatically:
+│     ├─ Soul + system prompt
+│     ├─ Memory: { "auth-pattern": "JWT", "alice-style": "explicit errors" }
+│     ├─ Active todos: ["Review PR #456"]
+│     └─ Thin thread: last 10 messages in this context
+│
+├─ Available tools (agent decides when to use):
+│     ├─ history_search "auth" → find past messages about auth
+│     ├─ history_read --since 2026-02-20 → read recent history range
+│     └─ memory_write "key" "value" → persist a learning
+│
+└─ Context window: mostly available for the actual task
+```
+
+### Thin Thread
+
+A **thin thread** is the last N messages in a specific context, providing
+conversational continuity without consuming the full context window.
 
 ```
 Agent alice
-├── personal thread             ← DM instructions use this
-├── workspace:review thread     ← review workspace instructions use this
-└── workspace:deploy thread     ← deploy workspace instructions use this
+├── personal thin thread        ← last N DM messages
+├── review:pr-123 thin thread   ← last N messages in this workspace
+└── deploy:main thin thread     ← last N messages in this workspace
 ```
 
-Threads are **continuous across instructions** — when alice receives a second
-DM, she continues from where her last DM left off. When she processes a review
-workspace instruction, she continues her review conversation.
+**Configuration**:
 
-This means an agent's "memory" has two layers:
-1. **Thread history** — recent, verbatim messages (short-term)
-2. **Personal context** (memory/, notes/) — distilled knowledge (long-term)
+```yaml
+# .agents/alice.yaml
+context:
+  thin_thread: 10     # Number of recent messages to keep in prompt (default: 10)
+```
+
+Thin threads are **continuous across instructions** — when alice receives a
+second DM, she sees the last N messages including her previous response. This
+provides the "as I mentioned earlier" capability without growing unbounded.
+
+### Recall Tools
+
+When the thin thread isn't enough, agents use **recall tools** to search
+their own conversation history:
+
+| Tool | Purpose | Example |
+|------|---------|---------|
+| `history_search` | Search past messages by keyword/topic | `history_search "auth module"` |
+| `history_read` | Read messages by time range or count | `history_read --since 2026-02-20 --limit 20` |
+
+These operate on the **full history** stored on disk. No information loss —
+the complete log is always available, just not loaded by default.
+
+For workspace agents, the existing `channel_read` tool already provides this
+capability. `history_search` and `history_read` extend it to personal (DM)
+conversations.
+
+### Auto-Memory Extraction
+
+After each instruction completes, key learnings are extracted into structured
+memory — not raw transcript summarization, but **semantic extraction**:
+
+```
+Instruction completes
+│
+├─ Agent writes to memory during execution (explicit, via tool):
+│     ├─ memory_write "auth-pattern" "JWT with refresh tokens"
+│     └─ memory_write "pr-456-status" "approved, needs rebase"
+│
+└─ System extracts automatically (implicit, post-instruction):
+      ├─ Decisions made → memory/decisions.yaml
+      ├─ Patterns learned → memory/patterns.yaml
+      └─ Task outcomes → memory/work-log.yaml
+```
+
+This is how the `.memory/` system in this project works — agents leave distilled
+knowledge (notes, decisions, patterns), not raw conversation dumps.
+
+**Auto-extraction is optional and lightweight**: a fast model scans the
+instruction's messages for extractable knowledge. If nothing notable happened
+(e.g., a simple "LGTM" review), nothing is extracted.
 
 ### Thread Lifecycle
 
 | Event | Effect |
 |-------|--------|
-| First DM to agent | Personal thread created |
-| Workflow starts (agent attached) | Workspace thread created |
-| Instruction processed | Thread updated, persisted |
-| Workflow stops (agent detached) | Workspace thread archived (if `bind:`) or discarded |
-| Daemon restart | Threads restored from disk |
-
-### Context Window Management
-
-Threads grow indefinitely. When a thread's token count approaches the model's
-context window, a **sliding window with summarization** kicks in:
-
-```
-Thread exceeds context budget
-│
-├─ Messages [1..K] → summarize via fast model
-│     └─ Summary written to memory/thread-summaries.yaml
-├─ Summary injected as first message in thread
-└─ Messages [K+1..N] → kept verbatim
-```
-
-This is the same pattern as Claude Code's conversation compression. The summary
-becomes part of the agent's persistent memory — it survives even if the thread
-is discarded.
-
-**Budget allocation** (configurable per agent):
-
-```yaml
-# .agents/alice.yaml
-context:
-  thread_budget: 80%     # % of context window for thread history
-  # Remaining 20% reserved for: system prompt + soul + memory + todos + workspace
-```
+| First DM to agent | Personal thin thread created, full history log started |
+| Workflow starts (agent attached) | Workspace thin thread created |
+| Instruction processed | Thin thread updated, full history appended, auto-memory runs |
+| Workflow stops (agent detached) | Workspace history archived (if `bind:`) or discarded |
+| Daemon restart | Thin threads restored from most recent N messages on disk |
 
 ### Persistence
 
-| Thread | Storage | Timing |
-|--------|---------|--------|
-| Personal (DM) | `.agents/<name>/conversations/<date>.jsonl` | After each instruction completes |
-| Workspace | `.workspace/<workflow>/<tag>/threads/<agent>.jsonl` | After each instruction completes |
+| Data | Storage | Growth |
+|------|---------|--------|
+| Full history (personal) | `.agents/<name>/conversations/<date>.jsonl` | Unbounded (append-only log) |
+| Full history (workspace) | `.workspace/<workflow>/<tag>/history/<agent>.jsonl` | Unbounded |
+| Thin thread | In-memory, restored from tail of history on restart | Fixed (last N messages) |
+| Memory | `.agents/<name>/memory/*.yaml` | Slow (distilled knowledge) |
 
-On cooperative preemption yield: conversation state is saved with the re-queued
-instruction (progress marker includes thread history up to step N).
+On cooperative preemption yield: thin thread state is saved with the re-queued
+instruction (progress marker includes thread up to step N).
 
 ### Relationship to Current Implementation
 
-| Current | New | Migration |
-|---------|-----|-----------|
-| SDK agent: in-memory `messages[]` | Personal thread | Direct mapping |
-| Workflow agent: channel + inbox prompt | Workspace thread | Thread replaces per-invocation prompt rebuild |
-| No cross-invocation history | Continuous threads | New capability |
-| `MemoryStateStore` (volatile) | File-based JSONL | Required for persistence |
+| Current | New | Change |
+|---------|-----|--------|
+| SDK agent: in-memory `messages[]` (full history) | Thin thread + recall tools | Bounded prompt, on-demand deep access |
+| Workflow agent: channel + inbox (no history) | Thin thread + `channel_read` | Adds conversational continuity |
+| Workflow agent: `channel_read` MCP tool | `history_search` / `history_read` | Extends pattern to DMs |
+| No persistent memory | Auto-memory extraction | Distilled knowledge survives across sessions |
+| `MemoryStateStore` (volatile) | File-based JSONL + memory/ | Required for persistence |
 
-**Key change**: Current workflow agents rebuild a fresh prompt each invocation
-(inbox + instructions). New model keeps a continuous thread, making multi-turn
-coordination natural — alice can say "as I mentioned earlier" and it works.
+**Key insight**: Current workflow agents already have the right pattern
+(`channel_read` for on-demand history). What they lack is the thin thread for
+continuity. SDK agents have the opposite problem — full history but no
+bounded approach. The new model gives both: thin thread (bounded continuity) +
+recall tools (on-demand depth).
 
 ---
 
@@ -1104,19 +1186,23 @@ participation.
 - [ ] Workspace attach/detach when workflows start/stop
 - [ ] `Workspace` type separated from `WorkflowRuntimeHandle`
 - [ ] `WorkspaceRegistry` for managing active workspaces (no global workspace)
-- [ ] `ConversationThread` type with per-context message history
-- [ ] Thread persistence (personal → `.agents/<name>/conversations/`, workspace → `.workspace/`)
+- [ ] `ThinThread` type with bounded messages per context
+- [ ] `ConversationLog` type with JSONL append-only storage
+- [ ] Log persistence (personal → `.agents/<name>/conversations/`, workspace → `.workspace/`)
 - [ ] Updated daemon: agents registry + workspaces registry + workflows registry
 - [ ] Remove `standalone:{name}` workflow key hack
 
 ### Phase 4: Conversation Model + Failure Handling
 
-**Goal**: Continuous conversation threads per context. Classified error handling with recovery.
+**Goal**: Thin threads for continuity, recall tools for depth, auto-memory for learning. Classified error handling with recovery.
 
-- [ ] `ConversationThread` with JSONL storage (load/save/append)
-- [ ] Thread integration in prompt assembly (thread history replaces per-invocation prompt rebuild)
-- [ ] Context window management: sliding window + summarization via fast model
-- [ ] `thread_budget` config in agent definition
+- [ ] `ThinThread` with bounded in-memory messages + JSONL append-only log
+- [ ] `ConversationLog` with search and time-range read
+- [ ] `history_search` / `history_read` recall tools (MCP)
+- [ ] `memory_write` tool for agent self-learning
+- [ ] Auto-memory extraction post-instruction (fast model, optional)
+- [ ] Thin thread integration in prompt assembly (replaces per-invocation prompt rebuild)
+- [ ] `thin_thread` config in agent definition (default: 10 messages)
 - [ ] Error classification: transient / permanent / resource / crash
 - [ ] Differentiated retry: skip retry for permanent, limit crash to 1 retry
 - [ ] Preemption starvation protection: priority aging after 3 preempts
@@ -1265,11 +1351,11 @@ agent-worker agent notes architect  # See what architect has learned
 
 ### Resolved
 
-1. ~~**Agent context size management**~~ → **Conversation Model § Context Window Management**: Sliding window with summarization. Thread budget configurable per agent. Summaries persisted to memory/.
+1. ~~**Agent context size management**~~ → **Conversation Model**: No summarization. Thin thread (bounded, last N messages) + recall tools (on-demand full history) + auto-memory extraction (distilled knowledge). Context window stays bounded without lossy compression.
 
 2. ~~**Agent-to-agent memory**~~ → **Agent-to-Agent Communication § Cross-Workflow**: Agent memory is private. Cross-workflow knowledge transfers through personal context (memory/notes that travel with the agent), not direct memory access.
 
-3. ~~**DM conversation management**~~ → **Conversation Model § Thread Lifecycle**: DM conversations are continuous personal threads, persisted to `.agents/<name>/conversations/`. Summarized into memory when context window exceeded.
+3. ~~**DM conversation management**~~ → **Conversation Model § Thread Lifecycle**: DM conversations use thin thread (last N messages in prompt) + full history on disk (queryable via recall tools). Knowledge persisted via auto-memory extraction.
 
 4. ~~**Agent-to-agent DMs**~~ → **Agent-to-Agent Communication § DMs**: Not supported. Agent communication must go through workspace channels (observable, scoped, debuggable). Cross-workflow knowledge sharing uses personal context.
 
@@ -1281,4 +1367,4 @@ agent-worker agent notes architect  # See what architect has learned
 
 7. **Cross-project agents** — Should agents be portable across projects? (e.g., `~/.agents/alice.yaml` shared globally). Proposal: start project-scoped, add global scope later.
 
-8. **Thread summarization model** — What model/strategy to use for compressing old thread messages into summaries? Options: (a) same model as the agent (expensive but high quality), (b) fast model like haiku (cheap, might lose nuance), (c) hybrid (fast model + agent review). Proposal: fast model by default, configurable.
+8. **Auto-memory extraction strategy** — What should be extracted automatically vs. left to the agent? Options: (a) only explicit `memory_write` calls (agent decides), (b) fast model post-scan for decisions/patterns (system decides), (c) both. Proposal: both — agent writes explicitly during execution, system extracts missed patterns post-instruction.
