@@ -13,9 +13,14 @@ import type {
   ValidationResult,
   ValidationError,
   WorkflowAgentDef,
+  AgentEntry,
+  RefAgentEntry,
   ParamDefinition,
 } from "./types.ts";
+import { isRefAgentEntry } from "./types.ts";
 import type { ScheduleConfig } from "../daemon/registry.ts";
+import type { AgentRegistry } from "../agent/agent-registry.ts";
+import type { AgentDefinition } from "../agent/definition.ts";
 import { CONTEXT_DEFAULTS } from "./context/types.ts";
 import { resolveContextDir } from "./context/file-provider.ts";
 import { resolveSource, isRemoteSource } from "./source.ts";
@@ -28,6 +33,8 @@ export interface ParseOptions {
   workflow?: string;
   /** Workflow tag (default: 'main') */
   tag?: string;
+  /** Agent registry for resolving ref agents. Required if workflow uses ref entries. */
+  agentRegistry?: AgentRegistry;
 }
 
 /**
@@ -70,10 +77,14 @@ export async function parseWorkflowFile(
   // Extract name from YAML or infer from source path
   const name = raw.name || source.inferredName;
 
-  // Resolve agents (using source's file reader for system_prompt resolution)
+  // Resolve agents (ref → registry lookup, inline → file-based prompt resolution)
   const agents: Record<string, ResolvedWorkflowAgent> = {};
-  for (const [agentName, agentDef] of Object.entries(raw.agents)) {
-    agents[agentName] = await resolveAgent(agentDef, source.readRelativeFile);
+  for (const [agentName, entry] of Object.entries(raw.agents)) {
+    if (isRefAgentEntry(entry)) {
+      agents[agentName] = resolveRefAgent(entry, options?.agentRegistry);
+    } else {
+      agents[agentName] = await resolveInlineAgent(entry, source.readRelativeFile);
+    }
   }
 
   // Resolve context configuration
@@ -155,14 +166,14 @@ function resolveContext(
 }
 
 /**
- * Resolve agent definition (load system prompt from file if needed).
+ * Resolve an inline agent definition (load system prompt from file if needed).
  *
  * Uses a `readRelativeFile` function to abstract local vs remote file access.
  * Also transforms `wakeup` and `wakeup_prompt` fields into a `ScheduleConfig`
  * object, which is the format expected by the daemon and loop layers
  * for setting up periodic wakeup timers.
  */
-async function resolveAgent(
+async function resolveInlineAgent(
   agent: WorkflowAgentDef,
   readRelativeFile: (path: string) => Promise<string | null>,
 ): Promise<ResolvedWorkflowAgent> {
@@ -190,6 +201,62 @@ async function resolveAgent(
     ...agent,
     resolvedSystemPrompt,
     schedule,
+    isRef: false,
+  };
+}
+
+/**
+ * Resolve a ref agent entry — load from AgentRegistry, map to WorkflowAgentDef,
+ * apply workflow overrides (prompt.append, max_tokens, max_steps).
+ */
+function resolveRefAgent(
+  entry: RefAgentEntry,
+  registry?: AgentRegistry,
+): ResolvedWorkflowAgent {
+  if (!registry) {
+    throw new Error(
+      `Agent ref "${entry.ref}" requires an AgentRegistry. ` +
+      `Pass agentRegistry in ParseOptions.`,
+    );
+  }
+
+  const handle = registry.get(entry.ref);
+  if (!handle) {
+    throw new Error(
+      `Agent ref "${entry.ref}" not found in registry. ` +
+      `Available agents: ${registry.list().map((h) => h.definition.name).join(", ") || "(none)"}`,
+    );
+  }
+
+  const def = handle.definition;
+
+  // Map AgentDefinition → WorkflowAgentDef fields
+  const basePrompt = def.prompt.system ?? "";
+
+  // Apply prompt.append if present
+  let resolvedSystemPrompt = basePrompt;
+  if (entry.prompt?.append) {
+    resolvedSystemPrompt = basePrompt
+      ? `${basePrompt}\n\n${entry.prompt.append}`
+      : entry.prompt.append;
+  }
+
+  // Map backend: AgentDefinition uses "sdk", WorkflowAgentDef uses "default"
+  const backend = def.backend === "sdk" ? "default" : def.backend;
+
+  return {
+    // Base fields from AgentDefinition
+    model: def.model,
+    backend: backend as WorkflowAgentDef["backend"],
+    provider: def.provider,
+    system_prompt: basePrompt,
+    max_tokens: entry.max_tokens ?? def.max_tokens,
+    max_steps: entry.max_steps ?? def.max_steps,
+    schedule: def.schedule,
+    // Resolved
+    resolvedSystemPrompt,
+    handle,
+    isRef: true,
   };
 }
 
@@ -414,6 +481,81 @@ function validateAgent(name: string, agent: unknown, errors: ValidationError[]):
   }
 
   const a = agent as Record<string, unknown>;
+
+  // Discriminate: ref agent vs inline agent
+  if (typeof a.ref === "string") {
+    validateRefAgent(path, a, errors);
+  } else {
+    validateInlineAgent(path, a, errors);
+  }
+}
+
+function validateRefAgent(
+  path: string,
+  a: Record<string, unknown>,
+  errors: ValidationError[],
+): void {
+  // ref must be a non-empty string
+  if (!(a.ref as string).length) {
+    errors.push({ path: `${path}.ref`, message: 'Field "ref" must be a non-empty string' });
+  }
+
+  // prompt.append is the only allowed prompt field
+  if (a.prompt !== undefined) {
+    if (typeof a.prompt !== "object" || a.prompt === null) {
+      errors.push({
+        path: `${path}.prompt`,
+        message: 'Field "prompt" for ref agents must be an object with optional "append"',
+      });
+    } else {
+      const p = a.prompt as Record<string, unknown>;
+      if (p.append !== undefined && typeof p.append !== "string") {
+        errors.push({
+          path: `${path}.prompt.append`,
+          message: 'Field "prompt.append" must be a string',
+        });
+      }
+    }
+  }
+
+  // system_prompt is not allowed with ref
+  if (a.system_prompt !== undefined) {
+    errors.push({
+      path: `${path}.system_prompt`,
+      message: 'Field "system_prompt" cannot be used with ref agents — use "prompt.append" instead',
+    });
+  }
+
+  // model/backend/provider/tools are not allowed with ref (they come from the definition)
+  for (const field of ["model", "backend", "provider", "tools"] as const) {
+    if (a[field] !== undefined) {
+      errors.push({
+        path: `${path}.${field}`,
+        message: `Field "${field}" cannot be used with ref agents — it comes from the agent definition`,
+      });
+    }
+  }
+
+  // Runtime overrides are allowed
+  if (a.max_tokens !== undefined && typeof a.max_tokens !== "number") {
+    errors.push({
+      path: `${path}.max_tokens`,
+      message: 'Field "max_tokens" must be a number',
+    });
+  }
+  if (a.max_steps !== undefined && typeof a.max_steps !== "number") {
+    errors.push({
+      path: `${path}.max_steps`,
+      message: 'Field "max_steps" must be a number',
+    });
+  }
+}
+
+function validateInlineAgent(
+  path: string,
+  a: Record<string, unknown>,
+  errors: ValidationError[],
+): void {
   const backend = typeof a.backend === "string" ? a.backend : "default";
 
   // model is required for default backend, optional for CLI backends (they have defaults)
