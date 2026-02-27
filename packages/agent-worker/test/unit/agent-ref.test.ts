@@ -165,6 +165,32 @@ describe("validateWorkflow — ref agents", () => {
     expect(result.errors.some((e) => e.message.includes("tools"))).toBe(true);
   });
 
+  test("rejects ref entry with wakeup", () => {
+    const result = validateWorkflow({
+      agents: {
+        alice: {
+          ref: "alice",
+          wakeup: "5m",
+        },
+      },
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.message.includes("wakeup"))).toBe(true);
+  });
+
+  test("rejects ref entry with timeout", () => {
+    const result = validateWorkflow({
+      agents: {
+        alice: {
+          ref: "alice",
+          timeout: 30000,
+        },
+      },
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.message.includes("timeout"))).toBe(true);
+  });
+
   test("rejects ref entry with non-string prompt.append", () => {
     const result = validateWorkflow({
       agents: {

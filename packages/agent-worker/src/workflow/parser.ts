@@ -20,7 +20,6 @@ import type {
 import { isRefAgentEntry } from "./types.ts";
 import type { ScheduleConfig } from "../daemon/registry.ts";
 import type { AgentRegistry } from "../agent/agent-registry.ts";
-import type { AgentDefinition } from "../agent/definition.ts";
 import { CONTEXT_DEFAULTS } from "./context/types.ts";
 import { resolveContextDir } from "./context/file-provider.ts";
 import { resolveSource, isRemoteSource } from "./source.ts";
@@ -526,8 +525,9 @@ function validateRefAgent(
     });
   }
 
-  // model/backend/provider/tools are not allowed with ref (they come from the definition)
-  for (const field of ["model", "backend", "provider", "tools"] as const) {
+  // model/backend/provider/tools/wakeup/timeout are not allowed with ref
+  // (they come from the agent definition or are not applicable)
+  for (const field of ["model", "backend", "provider", "tools", "wakeup", "wakeup_prompt", "timeout"] as const) {
     if (a[field] !== undefined) {
       errors.push({
         path: `${path}.${field}`,
