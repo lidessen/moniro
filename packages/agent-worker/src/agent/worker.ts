@@ -14,6 +14,7 @@ import type {
   Transcript,
 } from "./types.ts";
 import type { Backend } from "../backends/types.ts";
+import type { Logger } from "../workflow/logger.ts";
 
 /**
  * Extended worker config that supports both SDK and CLI backends.
@@ -25,6 +26,8 @@ export interface AgentWorkerConfig extends SessionConfig {
   backend?: Backend;
   /** Provider configuration — when set, model is resolved via createModelWithProvider */
   provider?: string | ProviderConfig;
+  /** Optional logger for worker events (maxSteps warnings, errors) */
+  log?: Logger;
 }
 
 /**
@@ -79,6 +82,9 @@ export class AgentWorker {
   // Provider config for custom endpoints (SDK only)
   private provider: string | ProviderConfig | undefined;
 
+  // Optional logger for worker events
+  private log?: Logger;
+
   // Cached agent instance (rebuilt when tools change) - SDK only
   private cachedAgent: ToolLoopAgent | null = null;
   private toolsChanged = false;
@@ -120,6 +126,7 @@ export class AgentWorker {
     this.maxSteps = config.maxSteps ?? 200; // Default: 200 steps (effectively no limit for most tasks)
     this.backend = config.backend ?? null;
     this.provider = config.provider;
+    this.log = config.log;
   }
 
   /**
@@ -310,8 +317,8 @@ export class AgentWorker {
 
     // Warn if maxSteps limit was reached while agent was still working
     if (this.maxSteps > 0 && stepNumber >= this.maxSteps && allToolCalls.length > 0) {
-      console.warn(
-        `⚠️  Agent reached maxSteps limit (${this.maxSteps}) but wanted to continue. Consider increasing maxSteps or removing the limit.`,
+      this.log?.warn(
+        `Agent reached maxSteps limit (${this.maxSteps}) but wanted to continue. Consider increasing maxSteps or removing the limit.`,
       );
     }
 

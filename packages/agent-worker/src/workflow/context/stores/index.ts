@@ -19,3 +19,6 @@ export { DefaultResourceStore } from "./resource.ts";
 
 export type { StatusStore } from "./status.ts";
 export { DefaultStatusStore } from "./status.ts";
+
+export type { EventSink, TimelineStore } from "./timeline.ts";
+export { DefaultTimelineStore } from "./timeline.ts";

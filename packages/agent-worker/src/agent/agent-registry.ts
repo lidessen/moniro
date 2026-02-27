@@ -16,6 +16,7 @@ import { join } from "node:path";
 import { AgentHandle } from "./agent-handle.ts";
 import type { AgentDefinition } from "./definition.ts";
 import { discoverAgents, serializeAgent, AGENTS_DIR } from "./yaml-parser.ts";
+import type { Logger } from "../workflow/logger.ts";
 
 // ── AgentRegistry ─────────────────────────────────────────────────
 
@@ -29,9 +30,13 @@ export class AgentRegistry {
   /** Agents directory (.agents/) */
   readonly agentsDir: string;
 
-  constructor(projectDir: string) {
+  /** Optional logger (injected by daemon; absent in CLI direct mode) */
+  private log?: Logger;
+
+  constructor(projectDir: string, logger?: Logger) {
     this.projectDir = projectDir;
     this.agentsDir = join(projectDir, AGENTS_DIR);
+    this.log = logger;
   }
 
   // ── Discovery & Loading ─────────────────────────────────────────
@@ -41,11 +46,13 @@ export class AgentRegistry {
    * Skips invalid files (logs warnings).
    * Creates context directories for each loaded agent.
    */
-  loadFromDisk(log?: (msg: string) => void): void {
-    const defs = discoverAgents(this.projectDir, log);
+  loadFromDisk(warn?: (msg: string) => void): void {
+    const logFn = warn ?? (this.log ? (msg: string) => this.log!.warn(msg) : undefined);
+    const defs = discoverAgents(this.projectDir, logFn);
     for (const def of defs) {
       this.registerDefinition(def);
     }
+    this.log?.info(`Loaded ${defs.length} agent(s) from disk`);
   }
 
   // ── Registration ────────────────────────────────────────────────
@@ -56,7 +63,8 @@ export class AgentRegistry {
    */
   registerDefinition(def: AgentDefinition): AgentHandle {
     const contextDir = this.resolveContextDir(def);
-    const handle = new AgentHandle(def, contextDir);
+    const agentLogger = this.log?.child(def.name);
+    const handle = new AgentHandle(def, contextDir, agentLogger);
     handle.ensureContextDir();
     this.agents.set(def.name, handle);
     return handle;

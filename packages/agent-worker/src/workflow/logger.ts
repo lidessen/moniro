@@ -1,14 +1,17 @@
 /**
- * Workflow Logger
+ * Logger
  *
- * Channel logger writes to the ContextProvider channel.
- * All logs become channel entries with kind="system" or kind="debug",
- * and the display layer filters what to show based on --debug flag.
+ * Three logger factories, each targeting a different event sink:
+ *
+ * - createChannelLogger  → ContextProvider channel (workspace events)
+ * - createEventLogger    → EventSink (daemon or agent timeline)
+ * - createConsoleSink    → stderr fallback (CLI without daemon)
  *
  * Silent logger produces no output (used when no provider is available).
  */
 
 import type { ContextProvider } from "./context/provider.ts";
+import type { EventSink } from "./context/stores/timeline.ts";
 
 /** Log levels */
 export type LogLevel = "debug" | "info" | "warn" | "error";
@@ -91,6 +94,60 @@ export function createChannelLogger(config: ChannelLoggerConfig): Logger {
     },
   };
 }
+
+// ==================== Event Logger (EventSink) ====================
+
+/**
+ * Create a logger that writes to an EventSink.
+ *
+ * Used for daemon-level and agent-level event logging:
+ *   - Daemon: createEventLogger(daemonEventLog, "daemon")
+ *   - Agent:  createEventLogger(timelineStore, agentName)
+ *
+ * Same Logger interface as createChannelLogger — consumers don't
+ * need to know which sink they're writing to.
+ */
+export function createEventLogger(sink: EventSink, from?: string): Logger {
+  const prefix = from ?? "system";
+
+  const formatContent = (level: LogLevel, message: string, args: unknown[]): string => {
+    const argsStr = args.length > 0 ? " " + args.map(formatArg).join(" ") : "";
+    if (level === "warn") return `[WARN] ${message}${argsStr}`;
+    if (level === "error") return `[ERROR] ${message}${argsStr}`;
+    return `${message}${argsStr}`;
+  };
+
+  return {
+    debug: (message: string, ...args: unknown[]) =>
+      sink.append(prefix, formatContent("debug", message, args), { kind: "debug" }),
+    info: (message: string, ...args: unknown[]) =>
+      sink.append(prefix, formatContent("info", message, args), { kind: "system" }),
+    warn: (message: string, ...args: unknown[]) =>
+      sink.append(prefix, formatContent("warn", message, args), { kind: "system" }),
+    error: (message: string, ...args: unknown[]) =>
+      sink.append(prefix, formatContent("error", message, args), { kind: "system" }),
+    isDebug: () => true, // Always capture; display layer filters
+    child: (childPrefix: string) => createEventLogger(sink, `${prefix}:${childPrefix}`),
+  };
+}
+
+// ==================== Console Sink (stderr fallback) ====================
+
+/**
+ * Create an EventSink that writes to stderr.
+ * Used when no daemon is running (CLI direct mode).
+ * Drops debug events — stderr should not be noisy.
+ */
+export function createConsoleSink(): EventSink {
+  return {
+    append(from: string, content: string, options?: { kind?: string }) {
+      if (options?.kind === "debug") return;
+      console.error(`[${from}] ${content}`);
+    },
+  };
+}
+
+// ==================== Helpers ====================
 
 /** Format an argument for logging */
 function formatArg(arg: unknown): string {

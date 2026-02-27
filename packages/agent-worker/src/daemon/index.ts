@@ -10,3 +10,6 @@ export { startHttpServer, type ServerHandle } from "./serve.ts";
 export type { AgentConfig } from "../agent/config.ts";
 export type { StateStore } from "../agent/store.ts";
 export { MemoryStateStore } from "../agent/store.ts";
+
+// Event logging
+export { DaemonEventLog } from "./event-log.ts";

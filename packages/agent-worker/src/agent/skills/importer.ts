@@ -9,6 +9,7 @@ import {
   getSpecDisplayName,
   type ImportSpec,
 } from "./import-spec.ts";
+import type { Logger } from "../../workflow/logger.ts";
 
 export interface ImportedSkill {
   name: string;
@@ -23,9 +24,11 @@ export interface ImportedSkill {
 export class SkillImporter {
   private tempDir: string;
   private imported = new Map<string, ImportedSkill>();
+  private log?: Logger;
 
-  constructor(sessionId: string) {
+  constructor(sessionId: string, logger?: Logger) {
     this.tempDir = join(tmpdir(), `agent-worker-skills-${sessionId}`);
+    this.log = logger;
   }
 
   /**
@@ -34,7 +37,7 @@ export class SkillImporter {
   async import(spec: string): Promise<string[]> {
     const parsed = parseImportSpec(spec);
 
-    console.log(`Importing: ${getSpecDisplayName(parsed)}`);
+    this.log?.info(`Importing: ${getSpecDisplayName(parsed)}`);
 
     // 1. Clone repository
     const repoDir = await this.cloneRepo(parsed);
@@ -42,7 +45,7 @@ export class SkillImporter {
     // 2. Extract specified skills
     const skillNames = await this.extractSkills(repoDir, parsed);
 
-    console.log(`✓ Imported ${skillNames.length} skill(s): ${skillNames.join(", ")}`);
+    this.log?.info(`Imported ${skillNames.length} skill(s): ${skillNames.join(", ")}`);
 
     return skillNames;
   }
@@ -58,7 +61,7 @@ export class SkillImporter {
         const skillNames = await this.import(spec);
         allSkillNames.push(...skillNames);
       } catch (error) {
-        console.error(`Failed to import ${spec}:`, error);
+        this.log?.error(`Failed to import ${spec}: ${error}`);
         // Continue with other imports
       }
     }
@@ -164,7 +167,7 @@ export class SkillImporter {
 
         importedSkills.push(skillName);
       } catch {
-        console.warn(`Skipping ${skillName}: SKILL.md not found`);
+        this.log?.warn(`Skipping ${skillName}: SKILL.md not found`);
       }
     }
 

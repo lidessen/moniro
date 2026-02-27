@@ -30,7 +30,13 @@ import type { AgentConfig } from "../agent/config.ts";
 import type { StateStore } from "../agent/store.ts";
 import { MemoryStateStore } from "../agent/store.ts";
 import type { BackendType } from "../backends/types.ts";
-import { DEFAULT_PORT, writeDaemonInfo, removeDaemonInfo, isDaemonRunning } from "./registry.ts";
+import {
+  CONFIG_DIR,
+  DEFAULT_PORT,
+  writeDaemonInfo,
+  removeDaemonInfo,
+  isDaemonRunning,
+} from "./registry.ts";
 import { startHttpServer, type ServerHandle } from "./serve.ts";
 import { createContextMCPServer } from "../workflow/context/mcp/server.ts";
 import {
@@ -43,6 +49,9 @@ import type { ContextProvider } from "../workflow/context/provider.ts";
 import type { Context } from "hono";
 import type { ParsedWorkflow, ResolvedWorkflowAgent } from "../workflow/types.ts";
 import { createMinimalRuntime, createWiredLoop } from "../workflow/factory.ts";
+import type { Logger } from "../workflow/logger.ts";
+import { createEventLogger, createSilentLogger } from "../workflow/logger.ts";
+import { DaemonEventLog } from "./event-log.ts";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -98,6 +107,7 @@ export interface DaemonState {
 
 let state: DaemonState | null = null;
 let shuttingDown = false;
+let log: Logger = createSilentLogger();
 
 const mcpSessions = new Map<
   string,
@@ -852,9 +862,13 @@ export async function startDaemon(
     store?: StateStore;
   } = {},
 ): Promise<void> {
+  // Initialize daemon event log + logger
+  const daemonEventLog = new DaemonEventLog(CONFIG_DIR);
+  log = createEventLogger(daemonEventLog, "daemon");
+
   const existing = isDaemonRunning();
   if (existing) {
-    console.error(`Daemon already running: pid=${existing.pid} port=${existing.port}`);
+    log.error(`Daemon already running: pid=${existing.pid} port=${existing.port}`);
     process.exit(1);
   }
 
@@ -893,16 +907,17 @@ export async function startDaemon(
     startedAt,
   };
 
-  console.log(`Daemon started: pid=${process.pid}`);
-  console.log(`Listening: http://${host}:${actualPort}`);
-  console.log(`MCP: http://${host}:${actualPort}/mcp`);
+  log.info(`Daemon started: pid=${process.pid}`);
+  log.info(`Listening: http://${host}:${actualPort}`);
+  log.info(`MCP: http://${host}:${actualPort}/mcp`);
 
   process.on("SIGINT", () => {
-    console.log("\nShutting down...");
+    log.info("Shutting down...");
     gracefulShutdown();
   });
 
   process.on("SIGTERM", () => {
+    log.info("Shutting down...");
     gracefulShutdown();
   });
 }

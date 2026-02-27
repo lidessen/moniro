@@ -1181,7 +1181,7 @@ participation.
 - [x] Updated `WorkflowFile` type
 - [x] Inline definitions are a formal type (`InlineAgentEntry`), not a compat shim
 
-### Phase 3a: Event Log Infrastructure
+### Phase 3a: Event Log Infrastructure ✅
 
 **Goal**: Structured logging replaces ad-hoc `console.*`. Provides debugging foundation for subsequent phases.
 
@@ -1189,10 +1189,10 @@ participation.
 > before Phase 3b makes daemon/registry debugging tractable. The `.memory/todos/` unified-logger
 > task also tracks this.
 
-- [ ] Unified event log: `EventSink` interface + `DaemonEventLog` + `DefaultTimelineStore`
-- [ ] Agent timeline: `.agents/<name>/timeline.jsonl` (state changes, errors, maxSteps)
-- [ ] `createEventLogger(sink, from)` + `createConsoleSink()` (graceful degradation)
-- [ ] Replace library `console.*` with injected Logger
+- [x] Unified event log: `EventSink` interface + `DaemonEventLog` + `DefaultTimelineStore`
+- [x] Agent timeline: `.agents/<name>/timeline.jsonl` (state changes, errors, maxSteps)
+- [x] `createEventLogger(sink, from)` + `createConsoleSink()` (graceful degradation)
+- [x] Replace library `console.*` with injected Logger
 - [ ] (Optional) `agent-worker logs` CLI command (tail/filter event logs)
 
 ### Phase 3b: Daemon Agent Registry + Workspace
