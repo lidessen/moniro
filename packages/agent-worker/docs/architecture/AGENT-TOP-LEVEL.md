@@ -141,8 +141,8 @@ schedule:
 ├── notes/            # Freeform reflections and learnings
 │   ├── 2026-02-24-first-review.md
 │   └── 2026-02-25-learned-about-auth.md
-├── conversations/    # DM history (direct messages, no workspace)
-│   └── 2026-02-26.md
+├── conversations/    # DM history (append-only JSONL logs)
+│   └── 2026-02-26.jsonl
 └── todo/             # Cross-session task tracking
     └── index.md
 ```
@@ -160,28 +160,9 @@ Soul is injected into the agent's context when running, providing consistent ide
 
 ### Agent Context at Runtime
 
-When an agent runs (in any workflow or standalone), its context is loaded and available:
-
-```
-┌──────────────────────────────────────────────────┐
-│              Agent Runtime Context                │
-│                                                   │
-│  ┌─────────────┐  ┌────────────┐  ┌───────────┐ │
-│  │ Soul        │  │ Memory     │  │ Todo      │ │
-│  │ (identity)  │  │ (learned)  │  │ (pending) │ │
-│  └─────────────┘  └────────────┘  └───────────┘ │
-│         │                │              │         │
-│         ▼                ▼              ▼         │
-│  ┌──────────────────────────────────────────────┐│
-│  │        System Prompt (assembled)             ││
-│  │  = agent.prompt.system                       ││
-│  │  + soul summary                              ││
-│  │  + relevant memory                           ││
-│  │  + active todos                              ││
-│  │  + workflow-specific context (if in workflow) ││
-│  └──────────────────────────────────────────────┘│
-└──────────────────────────────────────────────────┘
-```
+When an agent runs, its context is assembled from persistent identity +
+bounded recent history + on-demand tools. See **Prompt Assembly** for the
+full breakdown.
 
 ---
 
@@ -308,6 +289,7 @@ const AgentDefinition = RuntimeOverrides.extend({
   soul: AgentSoul.optional(),
   context: z.object({
     dir: z.string().optional(),             // Default: .agents/<name>/
+    thin_thread: z.number().optional(),     // Default: 10 (recent messages in prompt)
   }).optional(),
 });
 
@@ -417,12 +399,15 @@ project/
 │
 ├── .workspace/                 # Runtime workspaces (auto-managed, no global/)
 │   ├── review/main/            # Review workflow workspace
-│   │   ├── channel.md
+│   │   ├── channel.jsonl
 │   │   ├── documents/
+│   │   ├── history/            # Per-agent conversation logs
+│   │   │   └── alice.jsonl
 │   │   └── inbox/
 │   └── review/pr-123/          # Tagged instance
-│       ├── channel.md
+│       ├── channel.jsonl
 │       ├── documents/
+│       ├── history/
 │       └── inbox/
 │
 └── moniro.yaml                 # Optional project config
@@ -516,8 +501,9 @@ Key behaviors:
 - **Yield point** = between steps (between LLM calls), never mid-call
 - **Yielded instruction is re-queued**, not abandoned — it resumes from where
   it left off once all higher-priority work drains
-- **Progress is preserved**: the instruction carries its conversation history
-  (steps 1..N already completed). On resume, the agent continues from step N+1
+- **Progress is preserved**: the instruction carries its step history
+  (LLM calls 1..N already completed). On resume, prompt is reassembled from
+  live thin thread + saved step history, and the agent continues from step N+1
 - **No starvation**: a `background` instruction that keeps getting preempted
   will eventually run — `immediate` instructions are rare (DM, @mention)
 - **Single writer**: one instruction processes at a time, no concurrent writes
@@ -614,12 +600,14 @@ interface AgentInstruction {
 interface InstructionProgress {
   /** Step number to resume from */
   resumeFromStep: number;
-  /** Thin thread snapshot at yield point (for prompt reconstruction) */
-  threadSnapshot: ThreadMessage[];
+  /** LLM conversation within this instruction (steps 1..N, tool calls + results) */
+  stepHistory: ModelMessage[];
   /** How many times this instruction has been preempted */
   preemptCount: number;
   /** When this instruction was first queued */
   queuedAt: string;
+  // Note: thin thread is NOT snapshotted — it's shared and mutable.
+  // On resume, prompt is assembled from live thin thread + saved stepHistory.
 }
 
 /** Error classification for failure model */
@@ -1183,39 +1171,37 @@ participation.
 - [ ] `AgentLoop` as priority queue per agent (lazy creation, 3 lanes: immediate/normal/background)
 - [ ] `AgentInstruction` type with workspace context (null = DM) and priority
 - [ ] Cooperative preemption: yield between steps, re-queue with progress marker
+- [ ] `InstructionProgress` for yielded instruction resume
 - [ ] Workspace attach/detach when workflows start/stop
 - [ ] `Workspace` type separated from `WorkflowRuntimeHandle`
 - [ ] `WorkspaceRegistry` for managing active workspaces (no global workspace)
-- [ ] `ThinThread` type with bounded messages per context
-- [ ] `ConversationLog` type with JSONL append-only storage
+- [ ] `ThinThread` type with bounded in-memory messages per context
+- [ ] `ConversationLog` type with JSONL append-only storage and search/time-range read
 - [ ] Log persistence (personal → `.agents/<name>/conversations/`, workspace → `.workspace/`)
+- [ ] `thin_thread` config in agent definition (default: 10 messages)
+- [ ] Thin thread integration in prompt assembly (replaces per-invocation prompt rebuild)
 - [ ] Updated daemon: agents registry + workspaces registry + workflows registry
 - [ ] Remove `standalone:{name}` workflow key hack
 
-### Phase 4: Conversation Model + Failure Handling
+### Phase 4: Recall Tools + Auto-Memory + Failure Handling
 
-**Goal**: Thin threads for continuity, recall tools for depth, auto-memory for learning. Classified error handling with recovery.
+**Goal**: Recall tools for depth, auto-memory for learning. Classified error handling with recovery.
 
-- [ ] `ThinThread` with bounded in-memory messages + JSONL append-only log
-- [ ] `ConversationLog` with search and time-range read
 - [ ] `history_search` / `history_read` recall tools (MCP)
 - [ ] `memory_write` tool for agent self-learning
 - [ ] Auto-memory extraction post-instruction (fast model, optional)
-- [ ] Thin thread integration in prompt assembly (replaces per-invocation prompt rebuild)
-- [ ] `thin_thread` config in agent definition (default: 10 messages)
 - [ ] Error classification: transient / permanent / resource / crash
 - [ ] Differentiated retry: skip retry for permanent, limit crash to 1 retry
 - [ ] Preemption starvation protection: priority aging after 3 preempts
 - [ ] Loop crash auto-restart with backoff (1s..30s, max 5 attempts)
 - [ ] `error` agent state (distinct from `stopped`)
-- [ ] `InstructionProgress` for yielded instruction resume
 
 ### Phase 5: Agent Context in Prompt
 
 **Goal**: Agent's persistent context (soul, memory, notes, todo) enriches its prompt.
 
 - [ ] Soul injection in prompt builder
-- [ ] Memory loading and summarization for prompt
+- [ ] Memory loading, selection, and injection for prompt
 - [ ] Active todo injection in prompt
 - [ ] Agent note access via MCP tools
 - [ ] Agent memory read/write via MCP tools
