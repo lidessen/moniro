@@ -22,3 +22,28 @@ export type {
   TokenUsage,
   Transcript,
 } from "./types.ts";
+
+// Top-level agent definition (AGENT-TOP-LEVEL architecture)
+export type {
+  AgentDefinition,
+  AgentSoul,
+  AgentPromptConfig,
+  AgentContextConfig,
+} from "./definition.ts";
+export {
+  AgentDefinitionSchema,
+  AgentSoulSchema,
+  AgentPromptConfigSchema,
+  AgentContextConfigSchema,
+  CONTEXT_SUBDIRS,
+} from "./definition.ts";
+export { AgentHandle } from "./agent-handle.ts";
+export type { AgentHandleState } from "./agent-handle.ts";
+export { AgentRegistry } from "./agent-registry.ts";
+export {
+  parseAgentFile,
+  parseAgentObject,
+  discoverAgents,
+  serializeAgent,
+  AGENTS_DIR,
+} from "./yaml-parser.ts";
