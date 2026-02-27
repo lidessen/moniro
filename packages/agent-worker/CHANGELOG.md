@@ -1,5 +1,11 @@
 # agent-worker
 
+## 0.18.0
+
+### Minor Changes
+
+- [`313bfbd`](https://github.com/lidessen/moniro/commit/313bfbd101db8d3c4c15becd0730003b6103485b) - Implement AGENT-TOP-LEVEL architecture: drop global workspace, add agent definitions with persistent context, support workflow agent references, and add auto-generated YAML schema documentation
+
 ## 0.17.0
 
 ### Minor Changes
