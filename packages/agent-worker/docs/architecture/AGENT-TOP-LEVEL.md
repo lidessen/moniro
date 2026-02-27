@@ -829,17 +829,19 @@ This is intentional: workflows are isolated collaboration spaces.
 Cross-pollination happens through the agent's persistent identity, not through
 direct messaging.
 
-### DMs: User → Agent Only (V1)
+### DMs: User → Agent Only
 
-Direct messages are **user-to-agent** only in V1:
+Direct messages are **user-to-agent** only. Agent-to-agent DMs are not supported:
 
 - `send alice "review this"` → user to alice (immediate priority)
-- Agent-to-agent DMs → deferred to V2
+- Agent-to-agent → must go through a workspace channel
 
-**Rationale**: Agent-to-agent DMs outside a workspace would need a routing
-mechanism with no natural scope boundary. Within a workspace, the channel
-provides that scope. For V1, personal context transfer is sufficient for
-cross-workflow knowledge sharing.
+**Rationale**: Agent-to-agent DMs would be an unobservable side channel — hard
+to debug, hard to audit, and prone to message loops. If two agents need to
+communicate, they belong in the same workflow. The workspace channel provides
+scope, observability, and natural coordination. Cross-workflow knowledge sharing
+happens through agent personal context (memory/notes that travel with the agent),
+not through direct messaging.
 
 ---
 
@@ -1269,14 +1271,14 @@ agent-worker agent notes architect  # See what architect has learned
 
 3. ~~**DM conversation management**~~ → **Conversation Model § Thread Lifecycle**: DM conversations are continuous personal threads, persisted to `.agents/<name>/conversations/`. Summarized into memory when context window exceeded.
 
+4. ~~**Agent-to-agent DMs**~~ → **Agent-to-Agent Communication § DMs**: Not supported. Agent communication must go through workspace channels (observable, scoped, debuggable). Cross-workflow knowledge sharing uses personal context.
+
 ### Open
 
-4. **Agent context format** — Should memory be YAML, JSON, or freeform markdown? Different formats suit different use cases. Proposal: memory/ is YAML (structured, searchable), notes/ is markdown (freeform).
+5. **Agent context format** — Should memory be YAML, JSON, or freeform markdown? Different formats suit different use cases. Proposal: memory/ is YAML (structured, searchable), notes/ is markdown (freeform).
 
-5. **Soul mutability** — Can a soul evolve over time (agent learns and updates its own soul), or is it fixed by the definition? Proposal: soul in YAML is the baseline; agents can propose soul updates that the user approves.
+6. **Soul mutability** — Can a soul evolve over time (agent learns and updates its own soul), or is it fixed by the definition? Proposal: soul in YAML is the baseline; agents can propose soul updates that the user approves.
 
-6. **Cross-project agents** — Should agents be portable across projects? (e.g., `~/.agents/alice.yaml` shared globally). Proposal: start project-scoped, add global scope later.
+7. **Cross-project agents** — Should agents be portable across projects? (e.g., `~/.agents/alice.yaml` shared globally). Proposal: start project-scoped, add global scope later.
 
-7. **Thread summarization model** — What model/strategy to use for compressing old thread messages into summaries? Options: (a) same model as the agent (expensive but high quality), (b) fast model like haiku (cheap, might lose nuance), (c) hybrid (fast model + agent review). Proposal: fast model by default, configurable.
-
-8. **Agent-to-agent DMs (V2)** — Should agents be able to DM each other outside of a workspace? Use case: alice asks bob a question without a shared workflow. Requires: routing, permission model, preventing message loops. Deferred to V2.
+8. **Thread summarization model** — What model/strategy to use for compressing old thread messages into summaries? Options: (a) same model as the agent (expensive but high quality), (b) fast model like haiku (cheap, might lose nuance), (c) hybrid (fast model + agent review). Proposal: fast model by default, configurable.
