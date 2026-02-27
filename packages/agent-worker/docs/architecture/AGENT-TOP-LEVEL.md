@@ -121,6 +121,8 @@ context:                # Agent's own persistent context directory
   #   notes/          — freeform reflection/learning
   #   conversations/  — DM history
   #   todo/           — cross-session task tracking
+  # Auto-created files:
+  #   timeline.jsonl  — agent operation history (state changes, errors, maxSteps)
 
 # Optional runtime config
 max_tokens: 8000
@@ -146,8 +148,9 @@ schedule:
 │   └── 2026-02-25-learned-about-auth.md
 ├── conversations/    # DM history (append-only JSONL logs)
 │   └── 2026-02-26.jsonl
-└── todo/             # Cross-session task tracking
-    └── index.md
+├── todo/             # Cross-session task tracking
+│   └── index.md
+└── timeline.jsonl    # Agent operation history (append-only JSONL)
 ```
 
 ### Soul
