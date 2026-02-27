@@ -1,8 +1,10 @@
 # Phase 0: Pre-Implementation Cleanup
 
 **Date**: 2026-02-27
-**Status**: In Progress
+**Status**: Complete (all 6 tasks done, 880 tests pass)
 **Prerequisite for**: AGENT-TOP-LEVEL Phases 1-3
+
+> **实施原则：不考虑向后兼容。** Phase 1+ 不写兼容遗留代码，不保留 deprecated 接口，直接替换。
 
 ---
 
