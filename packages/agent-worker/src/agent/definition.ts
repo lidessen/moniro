@@ -106,13 +106,13 @@ export const AgentSoulSchema = z.object({
   expertise: z.array(z.string()).optional(),
   style: z.string().optional(),
   principles: z.array(z.string()).optional(),
-});
+}).passthrough();  // Extensible — custom soul fields preserved
 
 const ProviderConfigSchema = z.object({
   name: z.string(),
   base_url: z.string().optional(),
   api_key: z.string().optional(),
-});
+}).passthrough();  // Allow extra provider fields
 
 export const AgentPromptConfigSchema = z.union([
   z.object({ system: z.string(), system_file: z.undefined().optional() }),

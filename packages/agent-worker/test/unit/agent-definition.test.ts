@@ -129,6 +129,26 @@ describe("AgentDefinitionSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  test("preserves custom soul fields (passthrough)", () => {
+    const result = AgentDefinitionSchema.safeParse({
+      name: "alice",
+      model: "anthropic/claude-sonnet-4-5",
+      prompt: { system: "Hello" },
+      soul: {
+        role: "reviewer",
+        custom_trait: "value",
+        nested: { deep: true },
+      },
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const soul = (result.data as AgentDefinition).soul!;
+      expect(soul.role).toBe("reviewer");
+      expect(soul.custom_trait).toBe("value");
+      expect(soul.nested).toEqual({ deep: true });
+    }
+  });
+
   test("rejects negative thin_thread", () => {
     const result = AgentDefinitionSchema.safeParse({
       name: "alice",
