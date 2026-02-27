@@ -1,5 +1,6 @@
 import { Command, Option } from "commander";
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { getDefaultModel } from "@/agent/models.ts";
 import { normalizeBackendType } from "@/backends/model-maps.ts";
@@ -15,6 +16,8 @@ import {
 } from "../client.ts";
 import { isDaemonRunning, DEFAULT_PORT } from "@/daemon/index.ts";
 import { outputJson } from "../output.ts";
+import { AgentRegistry } from "@/agent/agent-registry.ts";
+import type { AgentDefinition } from "@/agent/definition.ts";
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -372,5 +375,182 @@ Examples:
       } else {
         console.log((res as { content?: string }).content ?? JSON.stringify(res));
       }
+    });
+
+  // ── agent (subcommand group) ────────────────────────────────
+  // File-based agent management (.agents/*.yaml)
+
+  const agentCmd = program
+    .command("agent")
+    .description("Manage persistent agent definitions (.agents/*.yaml)");
+
+  // ── agent create ────────────────────────────────────────────
+  agentCmd
+    .command("create <name>")
+    .description("Create a persistent agent definition")
+    .option("-m, --model <model>", `Model (default: ${getDefaultModel()})`)
+    .addOption(
+      new Option("-b, --backend <type>", "Backend type")
+        .choices(["sdk", "claude", "codex", "cursor", "opencode", "mock"])
+        .default(undefined),
+    )
+    .option("-s, --system <prompt>", "System prompt")
+    .option("-f, --system-file <file>", "Read system prompt from file")
+    .option("--role <role>", "Soul: agent role")
+    .option("--expertise <items>", "Soul: expertise (comma-separated)")
+    .option("--style <style>", "Soul: communication style")
+    .option("--dir <path>", "Project directory", ".")
+    .option("--json", "Output as JSON")
+    .addHelpText(
+      "after",
+      `
+Creates .agents/<name>.yaml and context directory (.agents/<name>/).
+
+Examples:
+  $ agent-worker agent create alice -m anthropic/claude-sonnet-4-5 -s "You are a code reviewer."
+  $ agent-worker agent create bob --role developer --expertise "typescript,testing"
+  $ agent-worker agent create coder -f ./prompts/coder.md
+      `,
+    )
+    .action(async (name, options) => {
+      const projectDir = resolve(options.dir);
+      const registry = new AgentRegistry(projectDir);
+
+      let system = options.system ?? "You are a helpful assistant.";
+      if (options.systemFile) {
+        system = readFileSync(options.systemFile, "utf-8");
+      }
+
+      const def: AgentDefinition = {
+        name,
+        model: options.model || getDefaultModel(),
+        prompt: { system },
+      };
+
+      if (options.backend) def.backend = options.backend;
+
+      // Build soul from CLI flags
+      if (options.role || options.expertise || options.style) {
+        def.soul = {};
+        if (options.role) def.soul.role = options.role;
+        if (options.expertise) def.soul.expertise = options.expertise.split(",").map((s: string) => s.trim());
+        if (options.style) def.soul.style = options.style;
+      }
+
+      try {
+        const handle = registry.create(def);
+        if (options.json) {
+          outputJson({ name, model: def.model, contextDir: handle.contextDir });
+        } else {
+          console.log(`Created: .agents/${name}.yaml`);
+          console.log(`Context: ${handle.contextDir}`);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`Error: ${msg}`);
+        process.exit(1);
+      }
+    });
+
+  // ── agent list ──────────────────────────────────────────────
+  agentCmd
+    .command("list")
+    .description("List persistent agent definitions")
+    .option("--dir <path>", "Project directory", ".")
+    .option("--json", "Output as JSON")
+    .action(async (options) => {
+      const projectDir = resolve(options.dir);
+      const registry = new AgentRegistry(projectDir);
+      registry.loadFromDisk();
+
+      const agents = registry.list();
+
+      if (options.json) {
+        outputJson({
+          agents: agents.map((h) => ({
+            name: h.name,
+            model: h.definition.model,
+            backend: h.definition.backend,
+            soul: h.definition.soul,
+            contextDir: h.contextDir,
+          })),
+        });
+        return;
+      }
+
+      if (agents.length === 0) {
+        console.log("No agent definitions found in .agents/");
+        return;
+      }
+
+      for (const h of agents) {
+        const soul = h.definition.soul?.role ? ` (${h.definition.soul.role})` : "";
+        console.log(`${h.name.padEnd(16)} ${h.definition.model}${soul}`);
+      }
+    });
+
+  // ── agent info ──────────────────────────────────────────────
+  agentCmd
+    .command("info <name>")
+    .description("Show agent definition details")
+    .option("--dir <path>", "Project directory", ".")
+    .option("--json", "Output as JSON")
+    .action(async (name, options) => {
+      const projectDir = resolve(options.dir);
+      const registry = new AgentRegistry(projectDir);
+      registry.loadFromDisk();
+
+      const handle = registry.get(name);
+      if (!handle) {
+        console.error(`Agent not found: ${name}`);
+        process.exit(1);
+      }
+
+      const def = handle.definition;
+      if (options.json) {
+        outputJson({ ...def, contextDir: handle.contextDir });
+        return;
+      }
+
+      console.log(`Name:    ${def.name}`);
+      console.log(`Model:   ${def.model}`);
+      if (def.backend) console.log(`Backend: ${def.backend}`);
+      if (def.prompt.system) {
+        const preview = def.prompt.system.length > 80
+          ? def.prompt.system.slice(0, 77) + "..."
+          : def.prompt.system;
+        console.log(`Prompt:  ${preview}`);
+      }
+      if (def.soul) {
+        if (def.soul.role) console.log(`Role:    ${def.soul.role}`);
+        if (def.soul.expertise) console.log(`Expert:  ${def.soul.expertise.join(", ")}`);
+        if (def.soul.style) console.log(`Style:   ${def.soul.style}`);
+        if (def.soul.principles) {
+          console.log(`Principles:`);
+          for (const p of def.soul.principles) {
+            console.log(`  - ${p}`);
+          }
+        }
+      }
+      console.log(`Context: ${handle.contextDir}`);
+    });
+
+  // ── agent delete ────────────────────────────────────────────
+  agentCmd
+    .command("delete <name>")
+    .description("Delete agent definition and context")
+    .option("--dir <path>", "Project directory", ".")
+    .action(async (name, options) => {
+      const projectDir = resolve(options.dir);
+      const registry = new AgentRegistry(projectDir);
+      registry.loadFromDisk();
+
+      if (!registry.has(name)) {
+        console.error(`Agent not found: ${name}`);
+        process.exit(1);
+      }
+
+      registry.delete(name);
+      console.log(`Deleted: ${name}`);
     });
 }
