@@ -1170,7 +1170,7 @@ participation.
 - [x] CLI: `agent create`, `agent list`, `agent info`, `agent delete`
 - [x] Agent context directory auto-creation (memory/, notes/, conversations/, todo/)
 
-### Phase 2: Workflow Agent References
+### Phase 2: Workflow Agent References ✅
 
 **Goal**: Workflows reference global agents instead of defining them inline.
 
@@ -1193,6 +1193,7 @@ participation.
 - [ ] Agent timeline: `.agents/<name>/timeline.jsonl` (state changes, errors, maxSteps)
 - [ ] `createEventLogger(sink, from)` + `createConsoleSink()` (graceful degradation)
 - [ ] Replace library `console.*` with injected Logger
+- [ ] (Optional) `agent-worker logs` CLI command (tail/filter event logs)
 
 ### Phase 3b: Daemon Agent Registry + Workspace
 
@@ -1203,6 +1204,7 @@ participation.
 - [ ] `WorkspaceRegistry` for managing active workspaces
 - [ ] Workspace attach/detach when workflows start/stop
 - [ ] Remove `standalone:{name}` workflow key hack (Workspace takes over resource management)
+- [ ] `send` CLI command with target parsing (DM / @workspace / agent@workspace)
 
 ### Phase 3c: Conversation Model
 
@@ -1224,6 +1226,7 @@ participation.
 - [ ] `AgentInstruction` type with workspace context (null = DM) and priority
 - [ ] Cooperative preemption: yield between steps, re-queue with progress marker
 - [ ] `InstructionProgress` for yielded instruction resume
+- [ ] Scheduled wakeup: `schedule.wakeup` interval → enqueue instruction at background priority
 
 ### Phase 4: Recall Tools + Auto-Memory + Failure Handling
 
