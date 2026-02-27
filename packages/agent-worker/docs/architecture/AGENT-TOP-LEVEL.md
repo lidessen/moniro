@@ -443,7 +443,7 @@ Daemon
 │   └── review:pr-123: Workspace           # Workflow workspace
 │
 └── workflows: WorkflowRegistry            # Running workflow instances
-    └── review:pr-123: WorkflowHandle
+    └── review:pr-123: WorkflowInstance
         ├── workspace: Workspace (ref)
         └── agents: [alice (ref), bob (ref), helper (inline)]
 ```
@@ -465,7 +465,7 @@ always present.
 - **@mention** → **push** (high priority): daemon immediately enqueues an
   instruction to the mentioned agent's loop. Real-time delivery.
 - **Non-@ message** → **pull** (low priority): message is written to
-  `channel.md`. Agents see it when they next process an instruction in that
+  `channel.jsonl`. Agents see it when they next process an instruction in that
   workspace, or on scheduled wakeup. No immediate interruption.
 
 **Instruction scheduling** follows a priority lane model (similar to React
@@ -575,6 +575,14 @@ interface ThreadMessage {
   content: string;
   timestamp: string;
 }
+
+/** LLM-level message (richer than ThreadMessage — includes tool calls/results) */
+type ModelMessage = {
+  role: 'user' | 'assistant' | 'tool';
+  content: string | ContentBlock[];
+  tool_calls?: ToolCall[];       // Assistant messages with tool use
+  tool_call_id?: string;         // Tool result messages
+};
 
 /** Instruction priority — modeled after React Fiber lanes */
 type InstructionPriority =
@@ -827,8 +835,9 @@ instruction's messages for extractable knowledge. If nothing notable happened
 | Thin thread | In-memory, restored from tail of history on restart | Fixed (last N messages) |
 | Memory | `.agents/<name>/memory/*.yaml` | Slow (distilled knowledge) |
 
-On cooperative preemption yield: thin thread state is saved with the re-queued
-instruction (progress marker includes thread up to step N).
+On cooperative preemption yield: thin thread is NOT snapshotted — it's shared
+and mutable. The re-queued instruction carries only its `stepHistory` (LLM calls
+1..N). On resume, prompt is reassembled from live thin thread + saved stepHistory.
 
 ### Relationship to Current Implementation
 
@@ -888,7 +897,7 @@ Knowledge transfer across workflows happens through **agent personal context**:
 ```
 alice learns something in review workflow
 │
-├─ Writes to personal memory (via tool or auto-summarization)
+├─ Writes to personal memory (via tool or auto-memory extraction)
 │
 └─ Later, in deploy workflow:
    └─ alice's memory is loaded into prompt
@@ -1151,7 +1160,7 @@ participation.
 - [ ] `AgentHandle` with context read/write operations
 - [ ] `AgentRegistry` — loads and manages agent definitions
 - [ ] CLI: `agent create`, `agent list`, `agent info`, `agent delete`
-- [ ] Agent context directory auto-creation (memory/, notes/, todo/)
+- [ ] Agent context directory auto-creation (memory/, notes/, conversations/, todo/)
 
 ### Phase 2: Workflow Agent References
 
@@ -1159,7 +1168,7 @@ participation.
 
 - [ ] `AgentEntry` type with `ref` field
 - [ ] Agent resolution: ref → load from registry + apply overrides
-- [ ] Prompt assembly: base + soul + memory + todos + workflow append
+- [ ] Prompt assembly: base system prompt + workflow append (soul/memory/todo injection deferred to Phase 5)
 - [ ] Updated workflow parser (handle both ref and inline)
 - [ ] Updated `WorkflowFile` type
 - [ ] Backward compat: inline definitions still work (treated as workflow-local)
@@ -1203,8 +1212,7 @@ participation.
 - [ ] Soul injection in prompt builder
 - [ ] Memory loading, selection, and injection for prompt
 - [ ] Active todo injection in prompt
-- [ ] Agent note access via MCP tools
-- [ ] Agent memory read/write via MCP tools
+- [ ] `memory_read` / `note_read` / `note_write` MCP tools (Phase 4 owns `memory_write`)
 
 ### Phase 6: CLI + Project Config
 
