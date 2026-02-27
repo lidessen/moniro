@@ -538,6 +538,10 @@ interface AgentHandle {
   loop: AgentLoop | null;
   /** Active workspace attachments (workflow:tag → workspace, e.g. "review:pr-123") */
   workspaces: Map<string, Workspace>;
+  /** Conversation threads — one per context (personal + per-workspace) */
+  threads: Map<string, ConversationThread>;  // "personal" | "review:pr-123" → thread
+  /** Current agent state */
+  state: 'idle' | 'running' | 'stopped' | 'error';
   /** Read agent's memory */
   readMemory(): Promise<Record<string, unknown>>;
   /** Read agent's active todos */
@@ -550,6 +554,30 @@ interface AgentHandle {
   appendNote(content: string): Promise<void>;
   /** Send an instruction to this agent's loop */
   send(instruction: AgentInstruction): Promise<void>;
+  /** Get or create conversation thread for a context */
+  getThread(contextKey: string): ConversationThread;
+}
+
+/** Conversation thread — continuous message history for one context */
+interface ConversationThread {
+  /** Context key: "personal" for DMs, "workflow:tag" for workspaces */
+  contextKey: string;
+  /** Message history (most recent at end) */
+  messages: ThreadMessage[];
+  /** Compressed summary of older messages (if context window exceeded) */
+  summary: string | null;
+  /** Persist thread to disk */
+  save(): Promise<void>;
+  /** Load thread from disk */
+  load(): Promise<void>;
+  /** Append a message and check context budget */
+  append(message: ThreadMessage): Promise<void>;
+}
+
+interface ThreadMessage {
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  content: string;
+  timestamp: string;
 }
 
 /** Instruction priority — modeled after React Fiber lanes */
@@ -568,7 +596,24 @@ interface AgentInstruction {
   source: 'dm' | 'workspace' | 'channel' | 'schedule';
   /** Processing priority (derived from source, can be overridden) */
   priority: InstructionPriority;
+  /** Progress marker for resumed instructions (after preemption yield) */
+  progress?: InstructionProgress;
 }
+
+/** Saved progress for a yielded instruction */
+interface InstructionProgress {
+  /** Step number to resume from */
+  resumeFromStep: number;
+  /** Conversation history up to yield point */
+  threadSnapshot: ThreadMessage[];
+  /** How many times this instruction has been preempted */
+  preemptCount: number;
+  /** When this instruction was first queued */
+  queuedAt: string;
+}
+
+/** Error classification for failure model */
+type ErrorClass = 'transient' | 'permanent' | 'resource' | 'crash';
 
 /** Workspace — the collaboration space */
 interface Workspace {
@@ -647,6 +692,268 @@ When a loop runs an agent, the prompt is assembled from multiple sources:
 │          + current collaboration context                 │
 └─────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Conversation Model
+
+### Conversation Threads
+
+Each agent maintains **one conversation thread per context**:
+
+```
+Agent alice
+├── personal thread             ← DM instructions use this
+├── workspace:review thread     ← review workspace instructions use this
+└── workspace:deploy thread     ← deploy workspace instructions use this
+```
+
+Threads are **continuous across instructions** — when alice receives a second
+DM, she continues from where her last DM left off. When she processes a review
+workspace instruction, she continues her review conversation.
+
+This means an agent's "memory" has two layers:
+1. **Thread history** — recent, verbatim messages (short-term)
+2. **Personal context** (memory/, notes/) — distilled knowledge (long-term)
+
+### Thread Lifecycle
+
+| Event | Effect |
+|-------|--------|
+| First DM to agent | Personal thread created |
+| Workflow starts (agent attached) | Workspace thread created |
+| Instruction processed | Thread updated, persisted |
+| Workflow stops (agent detached) | Workspace thread archived (if `bind:`) or discarded |
+| Daemon restart | Threads restored from disk |
+
+### Context Window Management
+
+Threads grow indefinitely. When a thread's token count approaches the model's
+context window, a **sliding window with summarization** kicks in:
+
+```
+Thread exceeds context budget
+│
+├─ Messages [1..K] → summarize via fast model
+│     └─ Summary written to memory/thread-summaries.yaml
+├─ Summary injected as first message in thread
+└─ Messages [K+1..N] → kept verbatim
+```
+
+This is the same pattern as Claude Code's conversation compression. The summary
+becomes part of the agent's persistent memory — it survives even if the thread
+is discarded.
+
+**Budget allocation** (configurable per agent):
+
+```yaml
+# .agents/alice.yaml
+context:
+  thread_budget: 80%     # % of context window for thread history
+  # Remaining 20% reserved for: system prompt + soul + memory + todos + workspace
+```
+
+### Persistence
+
+| Thread | Storage | Timing |
+|--------|---------|--------|
+| Personal (DM) | `.agents/<name>/conversations/<date>.jsonl` | After each instruction completes |
+| Workspace | `.workspace/<workflow>/<tag>/threads/<agent>.jsonl` | After each instruction completes |
+
+On cooperative preemption yield: conversation state is saved with the re-queued
+instruction (progress marker includes thread history up to step N).
+
+### Relationship to Current Implementation
+
+| Current | New | Migration |
+|---------|-----|-----------|
+| SDK agent: in-memory `messages[]` | Personal thread | Direct mapping |
+| Workflow agent: channel + inbox prompt | Workspace thread | Thread replaces per-invocation prompt rebuild |
+| No cross-invocation history | Continuous threads | New capability |
+| `MemoryStateStore` (volatile) | File-based JSONL | Required for persistence |
+
+**Key change**: Current workflow agents rebuild a fresh prompt each invocation
+(inbox + instructions). New model keeps a continuous thread, making multi-turn
+coordination natural — alice can say "as I mentioned earlier" and it works.
+
+---
+
+## Agent-to-Agent Communication
+
+### Within a Workflow (Workspace Channel)
+
+Agents communicate through the **workspace channel** using MCP tools. This is
+the current proven pattern, preserved:
+
+| Tool | Purpose | Delivery |
+|------|---------|----------|
+| `channel_send` | Post to channel, optionally @mention or DM | @mention → push (wake), non-@ → pull |
+| `channel_read` | Read channel history | On-demand |
+| `my_inbox` | Check unread @mentions/DMs | Per-instruction |
+| `my_inbox_ack` | Acknowledge processed messages | After handling |
+| `team_members` | Discover other agents | On-demand |
+| `team_doc_*` | Shared documents | Read/write |
+| `team_proposal_*` | Group decisions/voting | Structured coordination |
+
+Flow:
+```
+alice (in review workspace)
+│
+├─ channel_send "@bob check line 42"
+│     │
+│     └─ daemon extracts @bob
+│           │
+│           ├─ Message written to channel.jsonl
+│           └─ bob.loop.wake() called (immediate priority)
+│
+└─ bob wakes, sees message in inbox, responds via channel_send
+```
+
+### Cross-Workflow Communication
+
+**Not supported directly.** Agents in different workflows don't share a channel.
+
+Knowledge transfer across workflows happens through **agent personal context**:
+
+```
+alice learns something in review workflow
+│
+├─ Writes to personal memory (via tool or auto-summarization)
+│
+└─ Later, in deploy workflow:
+   └─ alice's memory is loaded into prompt
+      └─ Knowledge available without explicit cross-workflow messaging
+```
+
+This is intentional: workflows are isolated collaboration spaces.
+Cross-pollination happens through the agent's persistent identity, not through
+direct messaging.
+
+### DMs: User → Agent Only (V1)
+
+Direct messages are **user-to-agent** only in V1:
+
+- `send alice "review this"` → user to alice (immediate priority)
+- Agent-to-agent DMs → deferred to V2
+
+**Rationale**: Agent-to-agent DMs outside a workspace would need a routing
+mechanism with no natural scope boundary. Within a workspace, the channel
+provides that scope. For V1, personal context transfer is sufficient for
+cross-workflow knowledge sharing.
+
+---
+
+## Failure Model
+
+### Error Classification
+
+```typescript
+type ErrorClass =
+  | 'transient'   // Network timeout, rate limit (429), 5xx — retry helps
+  | 'permanent'   // Auth failure, invalid request, 4xx (not 429) — retry won't help
+  | 'resource'    // max_steps, context overflow — structural limit reached
+  | 'crash';      // Process exit, unhandled exception — needs recovery
+```
+
+**Classification heuristic** (applied at loop level, not backend):
+
+| Signal | Class |
+|--------|-------|
+| HTTP 429, 503, ECONNRESET, ETIMEDOUT | `transient` |
+| HTTP 401, 403, 400 | `permanent` |
+| `IdleTimeoutError` with no output | `permanent` (backend not responding) |
+| `IdleTimeoutError` with partial output | `transient` (might have stalled) |
+| `max_steps` reached with pending tool calls | `resource` |
+| Process exit code > 0 | `crash` |
+| Unhandled exception in loop | `crash` |
+
+### Retry Strategy (Per Instruction)
+
+```
+Instruction fails
+│
+├─ Classify error
+│     ├─ transient → retry with exponential backoff
+│     ├─ permanent → fail immediately, no retry
+│     ├─ resource → fail with diagnostic, no retry
+│     └─ crash → retry once (process might be flaky), then fail
+│
+├─ Retry (if transient)
+│     ├─ Attempt 1: immediate
+│     ├─ Attempt 2: wait 1s
+│     ├─ Attempt 3: wait 2s
+│     └─ (configurable via RetryConfig, current defaults preserved)
+│
+└─ All retries exhausted
+      ├─ Mark instruction as failed
+      ├─ Write failure to conversation thread (agent sees it on next turn)
+      ├─ Notify via channel (workspace) or DM response (personal)
+      └─ Acknowledge inbox (prevent infinite loop — current behavior preserved)
+```
+
+**Improvement over current**: Current retry is blind (all errors get 3 retries).
+New model skips retry for `permanent` errors and limits `crash` to 1 retry,
+reducing wasted time on unrecoverable failures.
+
+### Instruction Failure Notification
+
+| Context | Notification |
+|---------|-------------|
+| DM | Error returned as assistant message in personal thread |
+| Workspace | Error written to channel as system message |
+| Scheduled wakeup | Error logged, next wakeup proceeds normally |
+
+### Preemption Starvation Protection
+
+Background instructions that keep getting preempted:
+
+```
+background instruction queued at T₀
+│
+├─ preempted 1..2 times → re-queue at background (normal behavior)
+├─ preempted 3+ times → promote to normal priority
+└─ starvation timeout (default 5min from T₀, configurable)
+   └─ if instruction hasn't completed → promote to immediate
+```
+
+This mirrors OS scheduler anti-starvation: priority aging ensures every
+instruction eventually completes, even under heavy immediate traffic.
+
+### max_steps Exhaustion
+
+```
+Agent reaches max_steps with pending tool calls
+│
+├─ Log warning to channel/thread
+├─ Save conversation state (thread preserved)
+├─ Mark instruction as incomplete (distinct from failed)
+└─ User can:
+     ├─ send "continue" → new instruction picks up from saved thread
+     └─ increase max_steps in agent definition → re-run
+```
+
+**Improvement over current**: Current implementation warns and ends. New model
+saves conversation state so the work isn't lost — user can continue without
+the agent starting over.
+
+### Loop Crash Recovery
+
+```
+AgentLoop crashes (unhandled exception)
+│
+├─ Catch at loop boundary (current: runLoop().catch)
+├─ Set agent state → "error" (new state, visible in agent info)
+├─ Current instruction → re-queue at original priority
+│     (with progress marker if mid-execution)
+├─ Auto-restart loop with backoff (1s, 2s, 4s, 8s, max 30s)
+│     └─ max 5 restarts, then stay in "error" state
+└─ "error" state visible via: agent info, team_members, daemon status
+```
+
+**Improvement over current**: Current crash → "stopped" state, manual restart
+required. New model auto-restarts with backoff and distinguishes "stopped"
+(intentional) from "error" (crash), so users and other agents can react
+appropriately.
 
 ---
 
@@ -795,11 +1102,27 @@ participation.
 - [ ] Workspace attach/detach when workflows start/stop
 - [ ] `Workspace` type separated from `WorkflowRuntimeHandle`
 - [ ] `WorkspaceRegistry` for managing active workspaces (no global workspace)
-- [ ] Conversation storage in `.agents/<name>/conversations/`
+- [ ] `ConversationThread` type with per-context message history
+- [ ] Thread persistence (personal → `.agents/<name>/conversations/`, workspace → `.workspace/`)
 - [ ] Updated daemon: agents registry + workspaces registry + workflows registry
 - [ ] Remove `standalone:{name}` workflow key hack
 
-### Phase 4: Agent Context in Prompt
+### Phase 4: Conversation Model + Failure Handling
+
+**Goal**: Continuous conversation threads per context. Classified error handling with recovery.
+
+- [ ] `ConversationThread` with JSONL storage (load/save/append)
+- [ ] Thread integration in prompt assembly (thread history replaces per-invocation prompt rebuild)
+- [ ] Context window management: sliding window + summarization via fast model
+- [ ] `thread_budget` config in agent definition
+- [ ] Error classification: transient / permanent / resource / crash
+- [ ] Differentiated retry: skip retry for permanent, limit crash to 1 retry
+- [ ] Preemption starvation protection: priority aging after 3 preempts
+- [ ] Loop crash auto-restart with backoff (1s..30s, max 5 attempts)
+- [ ] `error` agent state (distinct from `stopped`)
+- [ ] `InstructionProgress` for yielded instruction resume
+
+### Phase 5: Agent Context in Prompt
 
 **Goal**: Agent's persistent context (soul, memory, notes, todo) enriches its prompt.
 
@@ -809,7 +1132,7 @@ participation.
 - [ ] Agent note access via MCP tools
 - [ ] Agent memory read/write via MCP tools
 
-### Phase 5: CLI + Project Config
+### Phase 6: CLI + Project Config
 
 **Goal**: Full CLI for agent management, optional project-level config.
 
@@ -938,14 +1261,22 @@ agent-worker agent notes architect  # See what architect has learned
 
 ## Open Questions
 
-1. **Agent context size management** — As memory/notes grow, how do we select what's relevant for each prompt? RAG-style retrieval? Recency? Manual curation?
+### Resolved
 
-2. **Agent context format** — Should memory be YAML, JSON, or freeform markdown? Different formats suit different use cases. Proposal: memory/ is YAML (structured, searchable), notes/ is markdown (freeform).
+1. ~~**Agent context size management**~~ → **Conversation Model § Context Window Management**: Sliding window with summarization. Thread budget configurable per agent. Summaries persisted to memory/.
 
-3. **Soul mutability** — Can a soul evolve over time (agent learns and updates its own soul), or is it fixed by the definition? Proposal: soul in YAML is the baseline; agents can propose soul updates that the user approves.
+2. ~~**Agent-to-agent memory**~~ → **Agent-to-Agent Communication § Cross-Workflow**: Agent memory is private. Cross-workflow knowledge transfers through personal context (memory/notes that travel with the agent), not direct memory access.
 
-4. **Cross-project agents** — Should agents be portable across projects? (e.g., `~/.agents/alice.yaml` shared globally). Proposal: start project-scoped, add global scope later.
+3. ~~**DM conversation management**~~ → **Conversation Model § Thread Lifecycle**: DM conversations are continuous personal threads, persisted to `.agents/<name>/conversations/`. Summarized into memory when context window exceeded.
 
-5. **Agent-to-agent memory** — When alice references something bob told her in another workflow, how does that work? Through shared notes? Direct memory access? Proposal: agent memory is private by default; shared knowledge goes through workspace documents.
+### Open
 
-6. **DM conversation management** — How long do DM conversations persist? Per-session? Per-day? Until explicitly cleared? How does an agent's DM conversation history relate to its memory (auto-summarize old conversations into memory?).
+4. **Agent context format** — Should memory be YAML, JSON, or freeform markdown? Different formats suit different use cases. Proposal: memory/ is YAML (structured, searchable), notes/ is markdown (freeform).
+
+5. **Soul mutability** — Can a soul evolve over time (agent learns and updates its own soul), or is it fixed by the definition? Proposal: soul in YAML is the baseline; agents can propose soul updates that the user approves.
+
+6. **Cross-project agents** — Should agents be portable across projects? (e.g., `~/.agents/alice.yaml` shared globally). Proposal: start project-scoped, add global scope later.
+
+7. **Thread summarization model** — What model/strategy to use for compressing old thread messages into summaries? Options: (a) same model as the agent (expensive but high quality), (b) fast model like haiku (cheap, might lose nuance), (c) hybrid (fast model + agent review). Proposal: fast model by default, configurable.
+
+8. **Agent-to-agent DMs (V2)** — Should agents be able to DM each other outside of a workspace? Use case: alice asks bob a question without a shared workflow. Requires: routing, permission model, preventing message loops. Deferred to V2.
