@@ -61,7 +61,7 @@ export class SkillImporter {
         const skillNames = await this.import(spec);
         allSkillNames.push(...skillNames);
       } catch (error) {
-        this.log?.error(`Failed to import ${spec}: ${error}`);
+        this.log?.error(`Failed to import ${spec}:`, error);
         // Continue with other imports
       }
     }
