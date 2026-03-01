@@ -1195,15 +1195,15 @@ participation.
 - [x] Replace library `console.*` with injected Logger
 - [ ] (Optional) `agent-worker logs` CLI command (tail/filter event logs)
 
-### Phase 3b: Daemon Agent Registry + Workspace
+### Phase 3b: Daemon Agent Registry + Workspace ✅
 
 **Goal**: Daemon owns agent handles via registry. Workspaces replace standalone WorkflowHandle hack.
 
-- [ ] `AgentRegistry` integration into daemon (replace `configs: Map<string, AgentConfig>`)
-- [ ] `Workspace` type separated from `WorkflowRuntimeHandle`
-- [ ] `WorkspaceRegistry` for managing active workspaces
-- [ ] Workspace attach/detach when workflows start/stop
-- [ ] Remove `standalone:{name}` workflow key hack (Workspace takes over resource management)
+- [x] `AgentRegistry` integration into daemon (replace `configs: Map<string, AgentConfig>`)
+- [x] `Workspace` type separated from `WorkflowRuntimeHandle`
+- [x] `WorkspaceRegistry` for managing active workspaces
+- [x] Workspace attach/detach when workflows start/stop
+- [x] Remove `standalone:{name}` workflow key hack (Workspace takes over resource management)
 - [ ] `send` CLI command with target parsing (DM / @workspace / agent@workspace)
 
 ### Phase 3c: Conversation Model

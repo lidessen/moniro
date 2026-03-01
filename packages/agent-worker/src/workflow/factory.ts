@@ -37,13 +37,18 @@ import type { Logger } from "./logger.ts";
 import { createSilentLogger } from "./logger.ts";
 import type { FeedbackEntry } from "../agent/tools/feedback.ts";
 
-// ── Runtime Handle ──────────────────────────────────────────────────
+// ── Workspace ───────────────────────────────────────────────────────
 
 /**
- * A running workflow runtime — the shared infrastructure for agents.
- * Holds context provider, MCP server, event log.
+ * Workspace — shared infrastructure for agents collaborating in a context.
+ *
+ * A workspace provides the collaboration space: context provider (channel,
+ * inbox, documents), MCP server, and event log. Both standalone agents
+ * and workflow agents operate within a workspace.
+ *
+ * Formerly WorkflowRuntimeHandle.
  */
-export interface WorkflowRuntimeHandle {
+export interface Workspace {
   /** Context provider (channel, inbox, documents, resources) */
   contextProvider: ContextProvider;
   /** Context directory path */
@@ -107,7 +112,7 @@ export interface MinimalRuntimeConfig {
  */
 export async function createMinimalRuntime(
   config: MinimalRuntimeConfig,
-): Promise<WorkflowRuntimeHandle> {
+): Promise<Workspace> {
   const { workflowName, tag, agentNames, onMention, feedback: feedbackEnabled, debugLog } = config;
 
   // Resolve context provider
@@ -190,7 +195,7 @@ export async function createMinimalRuntime(
 
 /**
  * Subset of runtime fields needed by createWiredLoop.
- * Both WorkflowRuntimeHandle and runner's WorkflowRuntime satisfy this.
+ * Both Workspace and runner's WorkflowRuntime satisfy this.
  */
 export interface RuntimeContext {
   contextProvider: ContextProvider;

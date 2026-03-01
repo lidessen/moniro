@@ -64,8 +64,23 @@ export class AgentRegistry {
   registerDefinition(def: AgentDefinition): AgentHandle {
     const contextDir = this.resolveContextDir(def);
     const agentLogger = this.log?.child(def.name);
-    const handle = new AgentHandle(def, contextDir, agentLogger);
+    const handle = new AgentHandle(def, contextDir, agentLogger, false);
     handle.ensureContextDir();
+    this.agents.set(def.name, handle);
+    return handle;
+  }
+
+  /**
+   * Register an ephemeral agent. No YAML file, no context directory.
+   * Ephemeral agents exist only in daemon memory and are lost on restart.
+   *
+   * Used by the daemon's POST /agents endpoint for quick experimentation.
+   */
+  registerEphemeral(def: AgentDefinition): AgentHandle {
+    const contextDir = this.resolveContextDir(def);
+    const agentLogger = this.log?.child(def.name);
+    const handle = new AgentHandle(def, contextDir, agentLogger, true);
+    // Skip ensureContextDir for ephemeral agents — no disk persistence
     this.agents.set(def.name, handle);
     return handle;
   }
@@ -92,6 +107,7 @@ export class AgentRegistry {
 
   /**
    * Delete an agent: remove YAML file + context directory + unregister.
+   * For ephemeral agents, only unregisters from memory (no disk cleanup).
    * @returns true if agent existed and was deleted.
    */
   delete(name: string): boolean {
@@ -99,6 +115,9 @@ export class AgentRegistry {
     if (!handle) return false;
 
     this.agents.delete(name);
+
+    // Ephemeral agents have no disk presence
+    if (handle.ephemeral) return true;
 
     // Remove YAML file
     const yamlPath = this.agentYamlPath(name);

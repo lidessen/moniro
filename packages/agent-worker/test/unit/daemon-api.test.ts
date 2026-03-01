@@ -14,17 +14,20 @@
 
 import { describe, test, expect, beforeEach } from "bun:test";
 import { createDaemonApp, type DaemonState, type WorkflowHandle } from "../../src/daemon/daemon.ts";
+import { AgentRegistry } from "../../src/agent/agent-registry.ts";
+import { WorkspaceRegistry } from "../../src/daemon/workspace-registry.ts";
 import { MemoryStateStore } from "../../src/agent/store.ts";
-import type { AgentConfig } from "../../src/agent/config.ts";
+import type { AgentDefinition } from "../../src/agent/definition.ts";
 import type { AgentLoop, AgentRunResult } from "../../src/workflow/loop/types.ts";
 import type { ContextProvider } from "../../src/workflow/context/provider.ts";
+import type { Workspace } from "../../src/workflow/factory.ts";
 
 // ── Test Helpers ──────────────────────────────────────────────────
 
 function createTestState(overrides?: Partial<DaemonState>): DaemonState {
   return {
-    configs: new Map(),
-    loops: new Map(),
+    agents: new AgentRegistry(process.cwd()),
+    workspaces: new WorkspaceRegistry(),
     workflows: new Map(),
     store: new MemoryStateStore(),
     port: 5099,
@@ -54,34 +57,65 @@ function createMockLoop(response: string = "Hello!"): AgentLoop {
   };
 }
 
-/** Create a mock WorkflowHandle with a single agent loop */
-function createMockWorkflow(
-  agentName: string,
-  loop: AgentLoop,
+/** Create a mock Workspace */
+function createMockWorkspace(): Workspace {
+  return {
+    contextProvider: {} as ContextProvider,
+    contextDir: "/tmp/test-workspace",
+    persistent: false,
+    eventLog: null as any,
+    httpMcpServer: null as any,
+    mcpUrl: "http://localhost:0/mcp",
+    mcpToolNames: new Set(),
+    projectDir: process.cwd(),
+    shutdown: async () => {},
+  };
+}
+
+/** Create a mock WorkflowHandle */
+function createMockWorkflowHandle(
+  name: string,
+  tag: string,
+  agents: string[],
+  loops: Map<string, AgentLoop>,
 ): WorkflowHandle {
   return {
-    name: "global",
-    tag: "main",
-    key: `standalone:${agentName}`,
-    agents: [agentName],
-    loops: new Map([[agentName, loop]]),
-    contextProvider: {} as ContextProvider,
+    name,
+    tag,
+    key: `${name}:${tag}`,
+    agents,
+    loops,
+    workspace: createMockWorkspace(),
     shutdown: async () => {},
     startedAt: new Date().toISOString(),
   };
 }
 
-function createTestAgent(name: string, overrides?: Partial<AgentConfig>): AgentConfig {
-  return {
+/** Register an ephemeral agent in the test state */
+function registerTestAgent(
+  s: DaemonState,
+  name: string,
+  overrides?: Partial<AgentDefinition>,
+): void {
+  const def: AgentDefinition = {
     name,
     model: "test/model",
-    system: "You are a test agent.",
-    backend: "default",
-    workflow: "global",
-    tag: "main",
-    createdAt: new Date().toISOString(),
+    prompt: { system: "You are a test agent." },
+    backend: "mock",
     ...overrides,
   };
+  s.agents.registerEphemeral(def);
+}
+
+/** Register an ephemeral agent with a pre-wired loop */
+function registerTestAgentWithLoop(
+  s: DaemonState,
+  name: string,
+  loop: AgentLoop,
+): void {
+  registerTestAgent(s, name);
+  const handle = s.agents.get(name)!;
+  handle.loop = loop;
 }
 
 async function json(res: Response): Promise<Record<string, unknown>> {
@@ -131,8 +165,7 @@ describe("Daemon API", () => {
     });
 
     test("includes agent names", async () => {
-      const cfg = createTestAgent("alice");
-      testState.configs.set("alice", cfg);
+      registerTestAgent(testState, "alice");
 
       const res = await app.request("/health");
       const data = await json(res);
@@ -151,8 +184,7 @@ describe("Daemon API", () => {
     });
 
     test("lists standalone agents", async () => {
-      const cfg = createTestAgent("alice");
-      testState.configs.set("alice", cfg);
+      registerTestAgent(testState, "alice");
 
       const res = await app.request("/agents");
       const data = await json(res);
@@ -181,8 +213,10 @@ describe("Daemon API", () => {
       expect(data.workflow).toBeUndefined();
       expect(data.tag).toBeUndefined();
 
-      // Verify config was stored (loop created lazily on first /run or /serve)
-      expect(testState.configs.has("bob")).toBe(true);
+      // Verify agent was stored in registry
+      expect(testState.agents.has("bob")).toBe(true);
+      // And it's ephemeral
+      expect(testState.agents.get("bob")!.ephemeral).toBe(true);
     });
 
     test("rejects missing required fields", async () => {
@@ -193,7 +227,7 @@ describe("Daemon API", () => {
     });
 
     test("rejects duplicate agent name", async () => {
-      testState.configs.set("alice", createTestAgent("alice"));
+      registerTestAgent(testState, "alice");
 
       const res = await post(app, "/agents", {
         name: "alice",
@@ -216,7 +250,7 @@ describe("Daemon API", () => {
       expect(data.error).toContain("Invalid JSON");
     });
 
-    test("accepts custom workflow and tag", async () => {
+    test("accepts custom workflow and tag in response", async () => {
       const res = await post(app, "/agents", {
         name: "reviewer",
         model: "test/model",
@@ -234,8 +268,8 @@ describe("Daemon API", () => {
   // ── GET /agents/:name ────────────────────────────────────────
 
   describe("GET /agents/:name", () => {
-    test("returns agent config", async () => {
-      testState.configs.set("alice", createTestAgent("alice"));
+    test("returns agent info", async () => {
+      registerTestAgent(testState, "alice");
 
       const res = await app.request("/agents/alice");
       expect(res.status).toBe(200);
@@ -254,29 +288,40 @@ describe("Daemon API", () => {
   // ── DELETE /agents/:name ─────────────────────────────────────
 
   describe("DELETE /agents/:name", () => {
-    test("removes agent config", async () => {
-      testState.configs.set("alice", createTestAgent("alice"));
+    test("removes agent from registry", async () => {
+      registerTestAgent(testState, "alice");
 
       const res = await app.request("/agents/alice", { method: "DELETE" });
       expect(res.status).toBe(200);
       const data = await json(res);
       expect(data.success).toBe(true);
 
-      expect(testState.configs.has("alice")).toBe(false);
+      expect(testState.agents.has("alice")).toBe(false);
     });
 
-    test("shuts down workflow on removal", async () => {
-      testState.configs.set("alice", createTestAgent("alice"));
+    test("shuts down workspace on removal", async () => {
+      registerTestAgent(testState, "alice");
       let shutdownCalled = false;
-      const loop = createMockLoop();
-      const wf = createMockWorkflow("alice", loop);
-      wf.shutdown = async () => { shutdownCalled = true; };
-      testState.workflows.set(`standalone:alice`, wf);
+      const ws = createMockWorkspace();
+      ws.shutdown = async () => { shutdownCalled = true; };
+      testState.workspaces.set("agent:alice", ws);
 
       await app.request("/agents/alice", { method: "DELETE" });
 
       expect(shutdownCalled).toBe(true);
-      expect(testState.workflows.has("standalone:alice")).toBe(false);
+      expect(testState.workspaces.has("agent:alice")).toBe(false);
+    });
+
+    test("stops agent loop on removal", async () => {
+      const loop = createMockLoop();
+      let stopCalled = false;
+      loop.stop = async () => { stopCalled = true; };
+      registerTestAgentWithLoop(testState, "alice", loop);
+
+      await app.request("/agents/alice", { method: "DELETE" });
+
+      expect(stopCalled).toBe(true);
+      expect(testState.agents.has("alice")).toBe(false);
     });
 
     test("returns 404 for unknown agent", async () => {
@@ -324,9 +369,8 @@ describe("Daemon API", () => {
     });
 
     test("sends message and returns response via loop", async () => {
-      testState.configs.set("alice", createTestAgent("alice"));
       const loop = createMockLoop("I'm Alice!");
-      testState.workflows.set("standalone:alice", createMockWorkflow("alice", loop));
+      registerTestAgentWithLoop(testState, "alice", loop);
 
       const res = await post(app, "/serve", { agent: "alice", message: "hello" });
       expect(res.status).toBe(200);
@@ -337,10 +381,9 @@ describe("Daemon API", () => {
     });
 
     test("returns error when sendDirect fails", async () => {
-      testState.configs.set("alice", createTestAgent("alice"));
       const loop = createMockLoop();
       loop.sendDirect = async () => ({ success: false, error: "Backend unavailable", duration: 0 });
-      testState.workflows.set("standalone:alice", createMockWorkflow("alice", loop));
+      registerTestAgentWithLoop(testState, "alice", loop);
 
       const res = await post(app, "/serve", { agent: "alice", message: "hello" });
       expect(res.status).toBe(500);
@@ -410,7 +453,7 @@ describe("Daemon API", () => {
         key: "review:main",
         agents: ["reviewer"],
         loops: new Map(),
-        contextProvider: {} as any,
+        workspace: createMockWorkspace(),
         shutdown: async () => {
           shutdownCalled = true;
         },
@@ -607,17 +650,14 @@ describe("Daemon API", () => {
   });
 
   // ── Agent Lifecycle ──────────────────────────────────────────
-  //
-  // These tests verify the full standalone agent lifecycle:
-  //   create → findLoop → execute → delete → cleanup
-  // They serve as the safety net for Phase 0 tasks 0.4/0.5 (loop ownership extraction).
 
   describe("agent lifecycle", () => {
-    test("config-only agent has no loop initially", async () => {
-      testState.configs.set("alice", createTestAgent("alice"));
+    test("registered agent has no loop initially", async () => {
+      registerTestAgent(testState, "alice");
 
-      // No workflow handle exists yet
-      expect(testState.workflows.size).toBe(0);
+      // No workspace or loop exists yet
+      expect(testState.agents.get("alice")!.loop).toBeNull();
+      expect(testState.workspaces.size).toBe(0);
 
       // GET /agents shows the agent but with no state (loop not created)
       const res = await app.request("/agents");
@@ -628,26 +668,20 @@ describe("Daemon API", () => {
       expect(agents[0]!.state).toBeUndefined();
     });
 
-    test("daemon loops map stores standalone agent loops", async () => {
-      testState.configs.set("alice", createTestAgent("alice"));
+    test("agent handle stores its own loop", async () => {
+      const loop = createMockLoop("handle-owned");
+      registerTestAgentWithLoop(testState, "alice", loop);
 
-      // Pre-wire a mock loop in daemon-level loops map
-      const loop = createMockLoop("daemon-owned");
-      testState.loops.set("alice", loop);
-
-      // POST /serve should find the loop from daemon.loops
+      // POST /serve should find the loop from handle.loop
       const res = await post(app, "/serve", { agent: "alice", message: "test" });
       expect(res.status).toBe(200);
       const data = await json(res);
-      expect(data.content).toBe("daemon-owned");
+      expect(data.content).toBe("handle-owned");
     });
 
-    test("run triggers lazy loop creation and execution", async () => {
-      testState.configs.set("alice", createTestAgent("alice"));
-
-      // Pre-wire a mock loop so ensureAgentLoop path works
+    test("serve uses loop from agent handle", async () => {
       const loop = createMockLoop("lazy response");
-      testState.workflows.set("standalone:alice", createMockWorkflow("alice", loop));
+      registerTestAgentWithLoop(testState, "alice", loop);
 
       // POST /serve should find the loop and execute
       const res = await post(app, "/serve", { agent: "alice", message: "test" });
@@ -662,48 +696,37 @@ describe("Daemon API", () => {
       const loopA = createMockLoop("from-review");
       const loopB = createMockLoop("from-deploy");
 
-      testState.workflows.set("review:main", {
-        name: "review",
-        tag: "main",
-        key: "review:main",
-        agents: ["alice"],
-        loops: new Map([["alice", loopA]]),
-        contextProvider: {} as ContextProvider,
-        shutdown: async () => {},
-        startedAt: new Date().toISOString(),
-      });
+      testState.workflows.set("review:main", createMockWorkflowHandle(
+        "review", "main", ["alice"], new Map([["alice", loopA]]),
+      ));
 
-      testState.workflows.set("deploy:main", {
-        name: "deploy",
-        tag: "main",
-        key: "deploy:main",
-        agents: ["bob"],
-        loops: new Map([["bob", loopB]]),
-        contextProvider: {} as ContextProvider,
-        shutdown: async () => {},
-        startedAt: new Date().toISOString(),
-      });
+      testState.workflows.set("deploy:main", createMockWorkflowHandle(
+        "deploy", "main", ["bob"], new Map([["bob", loopB]]),
+      ));
 
       // alice should be found in review workflow
-      testState.configs.set("alice", createTestAgent("alice", { workflow: "review" }));
+      registerTestAgent(testState, "alice");
       const resA = await post(app, "/serve", { agent: "alice", message: "hi" });
       expect(resA.status).toBe(200);
       expect((await json(resA)).content).toBe("from-review");
 
       // bob should be found in deploy workflow
-      testState.configs.set("bob", createTestAgent("bob", { workflow: "deploy" }));
+      registerTestAgent(testState, "bob");
       const resB = await post(app, "/serve", { agent: "bob", message: "hi" });
       expect(resB.status).toBe(200);
       expect((await json(resB)).content).toBe("from-deploy");
     });
 
-    test("delete agent cleans up standalone workflow handle", async () => {
-      testState.configs.set("alice", createTestAgent("alice"));
+    test("delete agent cleans up workspace", async () => {
+      registerTestAgent(testState, "alice");
       let shutdownCalled = false;
+      const ws = createMockWorkspace();
+      ws.shutdown = async () => { shutdownCalled = true; };
+      testState.workspaces.set("agent:alice", ws);
+
+      // Also wire a loop
       const loop = createMockLoop();
-      const wf = createMockWorkflow("alice", loop);
-      wf.shutdown = async () => { shutdownCalled = true; };
-      testState.workflows.set("standalone:alice", wf);
+      testState.agents.get("alice")!.loop = loop;
 
       // Delete the agent
       const res = await app.request("/agents/alice", { method: "DELETE" });
@@ -711,33 +734,27 @@ describe("Daemon API", () => {
       const data = await json(res);
       expect(data.success).toBe(true);
 
-      // Config removed
-      expect(testState.configs.has("alice")).toBe(false);
-      // Standalone workflow handle removed
-      expect(testState.workflows.has("standalone:alice")).toBe(false);
+      // Agent removed from registry
+      expect(testState.agents.has("alice")).toBe(false);
+      // Workspace removed
+      expect(testState.workspaces.has("agent:alice")).toBe(false);
       // Shutdown was called
       expect(shutdownCalled).toBe(true);
     });
 
-    test("delete agent without workflow handle succeeds", async () => {
-      // Config-only agent (loop never created)
-      testState.configs.set("alice", createTestAgent("alice"));
+    test("delete agent without workspace succeeds", async () => {
+      // Agent registered but no workspace or loop created yet
+      registerTestAgent(testState, "alice");
 
       const res = await app.request("/agents/alice", { method: "DELETE" });
       expect(res.status).toBe(200);
-      expect(testState.configs.has("alice")).toBe(false);
+      expect(testState.agents.has("alice")).toBe(false);
     });
 
-    test("standalone agent without workflow/tag works", async () => {
-      // Agent with no workflow or tag (new decoupled behavior)
-      testState.configs.set("solo", createTestAgent("solo", {
-        workflow: undefined,
-        tag: undefined,
-      }));
-
-      // Pre-wire loop
+    test("standalone agent works via handle.loop", async () => {
+      // Agent with loop directly on handle
       const loop = createMockLoop("solo response");
-      testState.workflows.set("standalone:solo", createMockWorkflow("solo", loop));
+      registerTestAgentWithLoop(testState, "solo", loop);
 
       const res = await post(app, "/serve", { agent: "solo", message: "hi" });
       expect(res.status).toBe(200);
@@ -746,19 +763,12 @@ describe("Daemon API", () => {
 
     test("workflow agents visible in GET /agents alongside standalone", async () => {
       // Standalone agent
-      testState.configs.set("alice", createTestAgent("alice"));
+      registerTestAgent(testState, "alice");
 
       // Workflow with inline agent
-      testState.workflows.set("review:main", {
-        name: "review",
-        tag: "main",
-        key: "review:main",
-        agents: ["reviewer"],
-        loops: new Map([["reviewer", createMockLoop()]]),
-        contextProvider: {} as ContextProvider,
-        shutdown: async () => {},
-        startedAt: new Date().toISOString(),
-      });
+      testState.workflows.set("review:main", createMockWorkflowHandle(
+        "review", "main", ["reviewer"], new Map([["reviewer", createMockLoop()]]),
+      ));
 
       const res = await app.request("/agents");
       const data = await json(res);

@@ -3,16 +3,17 @@
  *
  * Architecture: Interface → Daemon → Loop (three layers)
  *   Interface: CLI/REST/MCP clients talk to daemon via HTTP
- *   Daemon:    This module — owns lifecycle, creates workflows + loops
+ *   Daemon:    This module — owns lifecycle, creates workspaces + loops
  *   Loop:      AgentLoop + Backend — executes agent reasoning
  *
  * Data ownership:
- *   Registry (configs)    — what agents exist and their configuration
- *   Workflows (workflows) — running workflow instances with loops + context
+ *   AgentRegistry (agents) — what agents exist + their handles (loop, state)
+ *   WorkspaceRegistry      — active workspaces (shared infrastructure)
+ *   Workflows (workflows)  — running workflow instances
  *
- * Key principle: every agent lives in a workflow. Standalone agents created via
- * POST /agents get a 1-agent workflow (created lazily on first /run or /serve).
- * This unifies the runtime so there's one code path for execution.
+ * Key principle: agents own their loops (stored on AgentHandle). Workspaces
+ * provide shared infrastructure (context, MCP, event log). Standalone agents
+ * get a workspace created lazily on first /run or /serve.
  *
  * HTTP endpoints:
  *   GET  /health, POST /shutdown
@@ -26,7 +27,8 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
-import type { AgentConfig } from "../agent/config.ts";
+import { AgentRegistry } from "../agent/agent-registry.ts";
+import type { AgentDefinition } from "../agent/definition.ts";
 import type { StateStore } from "../agent/store.ts";
 import { MemoryStateStore } from "../agent/store.ts";
 import type { BackendType } from "../backends/types.ts";
@@ -37,6 +39,7 @@ import {
   removeDaemonInfo,
   isDaemonRunning,
 } from "./registry.ts";
+import { WorkspaceRegistry } from "./workspace-registry.ts";
 import { startHttpServer, type ServerHandle } from "./serve.ts";
 import { createContextMCPServer } from "../workflow/context/mcp/server.ts";
 import {
@@ -48,20 +51,12 @@ import type { AgentLoop } from "../workflow/loop/types.ts";
 import type { ContextProvider } from "../workflow/context/provider.ts";
 import type { Context } from "hono";
 import type { ParsedWorkflow, ResolvedWorkflowAgent } from "../workflow/types.ts";
-import { createMinimalRuntime, createWiredLoop } from "../workflow/factory.ts";
+import { createMinimalRuntime, createWiredLoop, type Workspace } from "../workflow/factory.ts";
 import type { Logger } from "../workflow/logger.ts";
 import { createEventLogger, createSilentLogger } from "../workflow/logger.ts";
 import { DaemonEventLog } from "./event-log.ts";
 
 // ── Types ──────────────────────────────────────────────────────────
-
-/** Key prefix for standalone agent workflow handles */
-const STANDALONE_PREFIX = "standalone:";
-
-/** Build a workflow key for standalone agents */
-function standaloneKey(agentName: string): string {
-  return `${STANDALONE_PREFIX}${agentName}`;
-}
 
 /** Handle for a running workflow managed by the daemon */
 export interface WorkflowHandle {
@@ -69,16 +64,14 @@ export interface WorkflowHandle {
   name: string;
   /** Workflow instance tag */
   tag: string;
-  /** Key for lookup: "name:tag" or "standalone:<name>" */
+  /** Key for lookup: "name:tag" */
   key: string;
-  /** Whether this is a standalone agent's runtime (not a real workflow) */
-  standalone?: boolean;
   /** Agent names in this workflow */
   agents: string[];
   /** Agent loops for lifecycle management */
   loops: Map<string, AgentLoop>;
-  /** Context provider for shared state */
-  contextProvider: ContextProvider;
+  /** Workspace providing shared infrastructure */
+  workspace: Workspace;
   /** Shutdown function (stops loops + cleans context) */
   shutdown: () => Promise<void>;
   /** Original workflow file path (for display) */
@@ -88,10 +81,10 @@ export interface WorkflowHandle {
 }
 
 export interface DaemonState {
-  /** Agent configs — the registry (what agents exist) */
-  configs: Map<string, AgentConfig>;
-  /** Agent loops — daemon-owned, one per agent (lazy creation) */
-  loops: Map<string, AgentLoop>;
+  /** Agent registry — manages agent handles (definition + loop + state) */
+  agents: AgentRegistry;
+  /** Workspace registry — active workspaces (shared infrastructure) */
+  workspaces: WorkspaceRegistry;
   /** Running workflows — keyed by "name:tag" */
   workflows: Map<string, WorkflowHandle>;
   /** State store — conversation persistence (pluggable) */
@@ -121,15 +114,17 @@ async function gracefulShutdown(): Promise<void> {
   shuttingDown = true;
 
   if (state) {
-    // Stop daemon-owned loops (standalone agents)
-    for (const [, loop] of state.loops) {
-      try {
-        await loop.stop();
-      } catch {
-        /* best-effort */
+    // Stop all agent-owned loops
+    for (const handle of state.agents.list()) {
+      if (handle.loop) {
+        try {
+          await handle.loop.stop();
+        } catch {
+          /* best-effort */
+        }
+        handle.loop = null;
       }
     }
-    state.loops.clear();
 
     // Stop all workflows (workflow-scoped loops + context)
     for (const [, wf] of state.workflows) {
@@ -140,6 +135,9 @@ async function gracefulShutdown(): Promise<void> {
       }
     }
     state.workflows.clear();
+
+    // Shutdown all workspaces (MCP servers, context providers)
+    await state.workspaces.shutdownAll();
 
     if (state.server) {
       await state.server.close();
@@ -172,115 +170,96 @@ async function parseJsonBody(c: { req: { json: () => Promise<unknown> } }): Prom
 
 // ── Agent → Loop bridge ───────────────────────────────────────────
 
-/** Map AgentConfig to the ResolvedWorkflowAgent type needed by the factory */
-function configToResolvedWorkflowAgent(cfg: AgentConfig): ResolvedWorkflowAgent {
+/** Map AgentDefinition to the ResolvedWorkflowAgent type needed by the factory */
+function defToResolvedAgent(def: AgentDefinition): ResolvedWorkflowAgent {
   return {
-    backend: cfg.backend as ResolvedWorkflowAgent["backend"],
-    model: cfg.model,
-    provider: cfg.provider,
-    resolvedSystemPrompt: cfg.system,
-    schedule: cfg.schedule,
+    backend: def.backend as ResolvedWorkflowAgent["backend"],
+    model: def.model,
+    provider: def.provider,
+    resolvedSystemPrompt: def.prompt.system ?? "",
+    schedule: def.schedule,
   };
 }
 
 /**
  * Find an agent's loop.
- * First checks daemon-level loops (standalone agents),
+ * First checks the agent handle (standalone agents own their loop),
  * then falls back to workflow-scoped loops (workflow agents).
  */
 function findLoop(
   s: DaemonState,
   agentName: string,
-): { loop: AgentLoop; workflow: WorkflowHandle | null } | null {
-  // Check daemon-level loops first (standalone agents)
-  const daemonLoop = s.loops.get(agentName);
-  if (daemonLoop) {
-    // Find the associated workflow handle (if any)
-    const wf = s.workflows.get(standaloneKey(agentName)) ?? null;
-    return { loop: daemonLoop, workflow: wf };
-  }
+): AgentLoop | null {
+  // Check agent handle first (standalone agents)
+  const handle = s.agents.get(agentName);
+  if (handle?.loop) return handle.loop;
 
   // Fall back to workflow-scoped loops
   for (const wf of s.workflows.values()) {
     const l = wf.loops.get(agentName);
-    if (l) return { loop: l, workflow: wf };
+    if (l) return l;
   }
   return null;
 }
 
+/** Build a workspace key for standalone agents */
+function agentWorkspaceKey(agentName: string): string {
+  return `agent:${agentName}`;
+}
+
 /**
- * Ensure a standalone agent has a loop + runtime.
+ * Ensure a standalone agent has a loop + workspace.
  * Creates the infrastructure lazily on first call (starts MCP server, etc.).
  *
- * The loop is stored in `s.loops` (daemon-owned).
- * A WorkflowHandle is still created for runtime resource management (MCP, context).
+ * The loop is stored on the AgentHandle.
+ * The workspace is stored in the WorkspaceRegistry.
  *
- * This is the bridge between POST /agents (stores config only) and
+ * This is the bridge between POST /agents (stores definition only) and
  * POST /run or /serve (needs a loop to execute).
  */
 async function ensureAgentLoop(
   s: DaemonState,
   agentName: string,
-): Promise<{ loop: AgentLoop; workflow: WorkflowHandle | null }> {
+): Promise<AgentLoop> {
   // Check if loop already exists
   const existing = findLoop(s, agentName);
   if (existing) return existing;
 
-  // Need to create: get config
-  const cfg = s.configs.get(agentName);
-  if (!cfg) throw new Error(`Agent not found: ${agentName}`);
+  // Need to create: get handle
+  const handle = s.agents.get(agentName);
+  if (!handle) throw new Error(`Agent not found: ${agentName}`);
 
-  const agentDef = configToResolvedWorkflowAgent(cfg);
-  const wfKey = standaloneKey(agentName);
+  const agentDef = defToResolvedAgent(handle.definition);
+  const wsKey = agentWorkspaceKey(agentName);
 
-  // Create minimal runtime (context + MCP server)
-  const workflowName = cfg.workflow ?? "global";
-  const workflowTag = cfg.tag ?? "main";
-  const runtime = await createMinimalRuntime({
-    workflowName,
-    tag: workflowTag,
+  // Create workspace (context + MCP server)
+  const workspace = await createMinimalRuntime({
+    workflowName: "global",
+    tag: "main",
     agentNames: [agentName],
   });
 
-  // Create wired loop (backend + workspace).
-  // If this fails, clean up the runtime we just created.
+  // Create wired loop (backend + workspace dir).
+  // If this fails, clean up the workspace we just created.
   let loop: AgentLoop;
   try {
     ({ loop } = createWiredLoop({
       name: agentName,
       agent: agentDef,
-      runtime,
+      runtime: workspace,
     }));
   } catch (err) {
-    await runtime.shutdown();
+    await workspace.shutdown();
     throw err;
   }
 
-  // Store loop in daemon-level map (daemon owns agent loops)
-  s.loops.set(agentName, loop);
+  // Store loop on the agent handle (agent owns its loop)
+  handle.loop = loop;
 
-  // Store as a workflow handle (for runtime resource management)
-  const handle: WorkflowHandle = {
-    name: workflowName,
-    tag: workflowTag,
-    key: wfKey,
-    standalone: true,
-    agents: [agentName],
-    loops: new Map([[agentName, loop]]),
-    contextProvider: runtime.contextProvider,
-    shutdown: async () => {
-      // Ensure runtime is always cleaned up even if loop.stop() throws
-      try {
-        await loop.stop();
-      } finally {
-        await runtime.shutdown();
-      }
-    },
-    startedAt: new Date().toISOString(),
-  };
+  // Store workspace in registry
+  s.workspaces.set(wsKey, workspace);
 
-  s.workflows.set(wfKey, handle);
-  return { loop, workflow: handle };
+  return loop;
 }
 
 // ── App Factory ──────────────────────────────────────────────────
@@ -318,36 +297,26 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
     });
   }
 
-  function getWorkflowAgentNames(workflow: string, tag: string): string[] {
-    const s = getState();
-    if (!s) return [];
-    return [...s.configs.values()]
-      .filter((c) => c.workflow === workflow && c.tag === tag)
-      .map((c) => c.name);
-  }
-
   // ── GET /health ──────────────────────────────────────────────
 
   app.get("/health", (c) => {
     const s = getState();
     if (!s) return c.json({ status: "unavailable" }, 503);
 
-    // Collect all agent names: standalone + workflow agents
-    const standaloneAgents = [...s.configs.keys()];
-    const workflowList = [...s.workflows.values()]
-      .filter((wf) => !wf.standalone)
-      .map((wf) => ({
-        name: wf.name,
-        tag: wf.tag,
-        agents: wf.agents,
-      }));
+    // Collect agent names from registry
+    const agentNames = s.agents.list().map((h) => h.name);
+    const workflowList = [...s.workflows.values()].map((wf) => ({
+      name: wf.name,
+      tag: wf.tag,
+      agents: wf.agents,
+    }));
 
     return c.json({
       status: "ok",
       pid: process.pid,
       port: s.port,
       uptime: Date.now() - new Date(s.startedAt).getTime(),
-      agents: standaloneAgents,
+      agents: agentNames,
       workflows: workflowList,
     });
   });
@@ -365,28 +334,28 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
     const s = getState();
     if (!s) return c.json({ error: "Not ready" }, 503);
 
-    // Standalone agents (from `new` command, registered in @global or named workflow)
-    const standaloneAgents = [...s.configs.values()].map((cfg) => {
-      const found = findLoop(s, cfg.name);
+    // Standalone agents (from registry)
+    const standaloneAgents = s.agents.list().map((handle) => {
+      const def = handle.definition;
       return {
-        name: cfg.name,
-        model: cfg.model,
-        backend: cfg.backend,
-        workflow: cfg.workflow,
-        tag: cfg.tag,
-        createdAt: cfg.createdAt,
+        name: def.name,
+        model: def.model,
+        backend: def.backend ?? "default",
+        workflow: undefined as string | undefined,
+        tag: undefined as string | undefined,
+        createdAt: handle.ephemeral ? undefined : undefined,
         source: "standalone" as const,
-        state: found?.loop.state,
+        state: handle.loop?.state,
       };
     });
 
-    // Workflow agents (from `start` command)
+    // Workflow agents (from running workflows)
     const workflowAgents = [...s.workflows.values()].flatMap((wf) =>
       wf.agents.map((agentName) => {
         const loop = wf.loops.get(agentName);
         return {
           name: agentName,
-          model: "", // workflow agents don't expose model at this level
+          model: "",
           backend: "",
           workflow: wf.name,
           tag: wf.tag,
@@ -431,25 +400,22 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
     if (!name || !model || !system) {
       return c.json({ error: "name, model, system required" }, 400);
     }
-    if (s.configs.has(name)) {
+    if (s.agents.has(name)) {
       return c.json({ error: `Agent already exists: ${name}` }, 409);
     }
 
-    // Config — pure data
-    const agentConfig: AgentConfig = {
+    // Convert API params to AgentDefinition
+    const def: AgentDefinition = {
       name,
       model,
-      system,
-      backend,
+      backend: backend as AgentDefinition["backend"],
       provider,
-      workflow,
-      tag,
-      createdAt: new Date().toISOString(),
+      prompt: { system },
       schedule,
     };
 
-    // Store config only. Workflow + loop are created lazily on first /run or /serve.
-    s.configs.set(name, agentConfig);
+    // Register as ephemeral (no YAML file, no context dir)
+    s.agents.registerEphemeral(def);
 
     return c.json({ name, model, backend, workflow, tag, schedule }, 201);
   });
@@ -459,17 +425,18 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
   app.get("/agents/:name", (c) => {
     const s = getState();
     if (!s) return c.json({ error: "Not ready" }, 503);
-    const cfg = s.configs.get(c.req.param("name"));
-    if (!cfg) return c.json({ error: "Agent not found" }, 404);
+    const handle = s.agents.get(c.req.param("name"));
+    if (!handle) return c.json({ error: "Agent not found" }, 404);
+    const def = handle.definition;
     return c.json({
-      name: cfg.name,
-      model: cfg.model,
-      backend: cfg.backend,
-      system: cfg.system,
-      workflow: cfg.workflow,
-      tag: cfg.tag,
-      createdAt: cfg.createdAt,
-      schedule: cfg.schedule,
+      name: def.name,
+      model: def.model,
+      backend: def.backend ?? "default",
+      system: def.prompt.system,
+      workflow: undefined,
+      tag: undefined,
+      createdAt: undefined,
+      schedule: def.schedule,
     });
   });
 
@@ -480,32 +447,35 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
     if (!s) return c.json({ error: "Not ready" }, 503);
     const name = c.req.param("name");
 
-    if (!s.configs.delete(name)) {
+    const handle = s.agents.get(name);
+    if (!handle) {
       return c.json({ error: "Agent not found" }, 404);
     }
 
-    // Clean up daemon-owned loop
-    const daemonLoop = s.loops.get(name);
-    if (daemonLoop) {
+    // Clean up agent-owned loop
+    if (handle.loop) {
       try {
-        await daemonLoop.stop();
+        await handle.loop.stop();
       } catch {
         /* best-effort */
       }
-      s.loops.delete(name);
+      handle.loop = null;
     }
 
-    // Clean up standalone workflow handle (runtime resources: MCP, context)
-    const wfKey = standaloneKey(name);
-    const wf = s.workflows.get(wfKey);
-    if (wf) {
+    // Clean up agent's workspace
+    const wsKey = agentWorkspaceKey(name);
+    const ws = s.workspaces.get(wsKey);
+    if (ws) {
       try {
-        await wf.shutdown();
+        await ws.shutdown();
       } catch {
         /* best-effort */
       }
-      s.workflows.delete(wfKey);
+      s.workspaces.delete(wsKey);
     }
+
+    // Remove from registry
+    s.agents.delete(name);
 
     return c.json({ success: true });
   });
@@ -529,15 +499,14 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
 
     // Find or create a loop for this agent
     let loop: AgentLoop | undefined;
-    const loopResult = findLoop(s, agentName);
+    const existingLoop = findLoop(s, agentName);
 
-    if (loopResult) {
-      loop = loopResult.loop;
-    } else if (s.configs.has(agentName)) {
-      // Lazy creation: agent has a config but no loop yet
+    if (existingLoop) {
+      loop = existingLoop;
+    } else if (s.agents.has(agentName)) {
+      // Lazy creation: agent has a handle but no loop yet
       try {
-        const ensured = await ensureAgentLoop(s, agentName);
-        loop = ensured.loop;
+        loop = await ensureAgentLoop(s, agentName);
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         return c.json({ error: `Failed to create agent runtime: ${msg}` }, 500);
@@ -598,15 +567,14 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
 
     // Find or create a loop for this agent
     let loop: AgentLoop | undefined;
-    const loopResult = findLoop(s, agentName);
+    const existingLoop = findLoop(s, agentName);
 
-    if (loopResult) {
-      loop = loopResult.loop;
-    } else if (s.configs.has(agentName)) {
-      // Lazy creation: config exists but no loop yet
+    if (existingLoop) {
+      loop = existingLoop;
+    } else if (s.agents.has(agentName)) {
+      // Lazy creation: handle exists but no loop yet
       try {
-        const ensured = await ensureAgentLoop(s, agentName);
-        loop = ensured.loop;
+        loop = await ensureAgentLoop(s, agentName);
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         return c.json({ error: msg }, 500);
@@ -665,20 +633,17 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
       const url = new URL(req.url);
       const agentName = url.searchParams.get("agent") || "user";
 
-      const agentCfg = s.configs.get(agentName);
-      const workflow = agentCfg?.workflow ?? "global";
-      const tag = agentCfg?.tag ?? "main";
+      // Look up agent's workspace context provider when available
+      const handle = s.agents.get(agentName);
+      const wsKey = agentWorkspaceKey(agentName);
+      const existingWs = s.workspaces.get(wsKey);
 
-      // Reuse existing workflow's context provider when available
-      const existingWf = findLoop(s, agentName)?.workflow ?? s.workflows.get(`${workflow}:${tag}`);
-
-      const workflowAgents = getWorkflowAgentNames(workflow, tag);
-      const allNames = [...new Set([...workflowAgents, agentName, "user"])];
+      const allNames = [...new Set([agentName, "user"])];
 
       const provider: ContextProvider =
-        existingWf?.contextProvider ??
+        existingWs?.contextProvider ??
         (() => {
-          const contextDir = getDefaultContextDir(workflow, tag);
+          const contextDir = getDefaultContextDir("global", "main");
           mkdirSync(contextDir, { recursive: true });
           return createFileContextProvider(contextDir, allNames);
         })();
@@ -697,7 +662,7 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
       const mcpServer = createContextMCPServer({
         provider,
         validAgents: allNames,
-        name: `${workflow}-context`,
+        name: `${handle?.definition.name ?? agentName}-context`,
         version: "1.0.0",
       }).server;
 
@@ -764,13 +729,26 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
         return c.json({ error: result.error || "Workflow failed to start" }, 500);
       }
 
+      // Create a Workspace-compatible object from the runner result
+      const workspace: Workspace = {
+        contextProvider: result.contextProvider!,
+        contextDir: "",
+        persistent: false,
+        eventLog: null as any, // Not available from runner result
+        httpMcpServer: null as any,
+        mcpUrl: result.mcpUrl ?? "",
+        mcpToolNames: new Set(),
+        projectDir: process.cwd(),
+        shutdown: result.shutdown!,
+      };
+
       const handle: WorkflowHandle = {
         name: workflowName,
         tag,
         key,
         agents: Object.keys(workflow.agents),
         loops: result.loops!,
-        contextProvider: result.contextProvider!,
+        workspace,
         shutdown: result.shutdown!,
         workflowPath: workflow.filePath,
         startedAt: new Date().toISOString(),
@@ -799,23 +777,21 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
     const s = getState();
     if (!s) return c.json({ error: "Not ready" }, 503);
 
-    const workflows = [...s.workflows.values()]
-      .filter((wf) => !wf.standalone)
-      .map((wf) => {
-        const agentStates: Record<string, string> = {};
-        for (const [name, loop] of wf.loops) {
-          agentStates[name] = loop.state;
-        }
-        return {
-          name: wf.name,
-          tag: wf.tag,
-          key: wf.key,
-          agents: wf.agents,
-          agentStates,
-          workflowPath: wf.workflowPath,
-          startedAt: wf.startedAt,
-        };
-      });
+    const workflows = [...s.workflows.values()].map((wf) => {
+      const agentStates: Record<string, string> = {};
+      for (const [name, loop] of wf.loops) {
+        agentStates[name] = loop.state;
+      }
+      return {
+        name: wf.name,
+        tag: wf.tag,
+        key: wf.key,
+        agents: wf.agents,
+        agentStates,
+        workflowPath: wf.workflowPath,
+        startedAt: wf.startedAt,
+      };
+    });
 
     return c.json({ workflows });
   });
@@ -897,8 +873,8 @@ export async function startDaemon(
   });
 
   state = {
-    configs: new Map(),
-    loops: new Map(),
+    agents: new AgentRegistry(process.cwd(), log),
+    workspaces: new WorkspaceRegistry(),
     workflows: new Map(),
     store,
     server,
