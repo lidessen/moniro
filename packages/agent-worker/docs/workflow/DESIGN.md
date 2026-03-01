@@ -12,12 +12,12 @@ Agent Worker enables multiple AI agents to collaborate on tasks through a shared
 
 ### Key Concepts
 
-| Concept            | Description                                                   |
-| ------------------ | ------------------------------------------------------------- |
-| **Workflow:Tag**   | `agent@workflow:tag` syntax for multi-instance workflows      |
-| **Shared Context** | Channel (communication) + Document (workspace)                |
-| **Kickoff Model**  | Natural language workflow initiation via @mentions            |
-| **Two Modes**      | `run` (one-shot) and `start` (persistent)                     |
+| Concept            | Description                                              |
+| ------------------ | -------------------------------------------------------- |
+| **Workflow:Tag**   | `agent@workflow:tag` syntax for multi-instance workflows |
+| **Shared Context** | Channel (communication) + Document (workspace)           |
+| **Kickoff Model**  | Natural language workflow initiation via @mentions       |
+| **Two Modes**      | `run` (one-shot) and `start` (persistent)                |
 
 ---
 
@@ -139,6 +139,7 @@ Channel and Document are two **independent** systems:
 ```
 
 Example paths:
+
 - `.workflow/global/main/` - standalone agents (default)
 - `.workflow/review/main/` - review workflow, main tag
 - `.workflow/review/pr-123/` - review workflow, pr-123 tag
@@ -258,15 +259,16 @@ agent-worker schedule @review:pr-123 set 1h           # Workflow-level default
 
 Full syntax: `agent@workflow:tag`
 
-| Pattern                | Internal              | Display               | Meaning                          |
-| ---------------------- | --------------------- | --------------------- | -------------------------------- |
-| `alice`                | `alice@global:main`   | `alice`               | Standalone agent (global space)  |
-| `alice@review`         | `alice@review:main`   | `alice@review`        | Agent in review workflow         |
-| `alice@review:pr-123`  | `alice@review:pr-123` | `alice@review:pr-123` | Full specification               |
-| `@review`              | `@review:main`        | `@review`             | Workflow (default tag)           |
-| `@review:pr-123`       | `@review:pr-123`      | `@review:pr-123`      | Workflow:tag (full specification)|
+| Pattern               | Internal              | Display               | Meaning                           |
+| --------------------- | --------------------- | --------------------- | --------------------------------- |
+| `alice`               | `alice@global:main`   | `alice`               | Standalone agent (global space)   |
+| `alice@review`        | `alice@review:main`   | `alice@review`        | Agent in review workflow          |
+| `alice@review:pr-123` | `alice@review:pr-123` | `alice@review:pr-123` | Full specification                |
+| `@review`             | `@review:main`        | `@review`             | Workflow (default tag)            |
+| `@review:pr-123`      | `@review:pr-123`      | `@review:pr-123`      | Workflow:tag (full specification) |
 
 **Display rules**:
+
 - Omit `@global` for standalone agents (show `alice`, not `alice@global`)
 - Omit `:main` tag when it's the default (show `alice@review`, not `alice@review:main`)
 

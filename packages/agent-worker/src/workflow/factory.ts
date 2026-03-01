@@ -36,14 +36,20 @@ import { isAutoProvider, resolveModelFallback } from "../agent/models.ts";
 import type { Logger } from "./logger.ts";
 import { createSilentLogger } from "./logger.ts";
 import type { FeedbackEntry } from "../agent/tools/feedback.ts";
+import type { ConversationLog, ThinThread } from "../agent/conversation.ts";
 
-// ── Runtime Handle ──────────────────────────────────────────────────
+// ── Workspace ───────────────────────────────────────────────────────
 
 /**
- * A running workflow runtime — the shared infrastructure for agents.
- * Holds context provider, MCP server, event log.
+ * Workspace — shared infrastructure for agents collaborating in a context.
+ *
+ * A workspace provides the collaboration space: context provider (channel,
+ * inbox, documents), MCP server, and event log. Both standalone agents
+ * and workflow agents operate within a workspace.
+ *
+ * Formerly WorkflowRuntimeHandle.
  */
-export interface WorkflowRuntimeHandle {
+export interface Workspace {
   /** Context provider (channel, inbox, documents, resources) */
   contextProvider: ContextProvider;
   /** Context directory path */
@@ -105,9 +111,7 @@ export interface MinimalRuntimeConfig {
  * For standalone agents created via `POST /agents`, this gives them
  * the same context infrastructure that workflow agents get.
  */
-export async function createMinimalRuntime(
-  config: MinimalRuntimeConfig,
-): Promise<WorkflowRuntimeHandle> {
+export async function createMinimalRuntime(config: MinimalRuntimeConfig): Promise<Workspace> {
   const { workflowName, tag, agentNames, onMention, feedback: feedbackEnabled, debugLog } = config;
 
   // Resolve context provider
@@ -190,7 +194,7 @@ export async function createMinimalRuntime(
 
 /**
  * Subset of runtime fields needed by createWiredLoop.
- * Both WorkflowRuntimeHandle and runner's WorkflowRuntime satisfy this.
+ * Both Workspace and runner's WorkflowRuntime satisfy this.
  */
 export interface RuntimeContext {
   contextProvider: ContextProvider;
@@ -222,6 +226,10 @@ export interface WiredLoopConfig {
   createBackend?: (agentName: string, agent: ResolvedWorkflowAgent) => Backend;
   /** Logger for this agent's output */
   logger?: Logger;
+  /** Conversation log for persistence (standalone agents) */
+  conversationLog?: ConversationLog;
+  /** Thin thread for bounded conversation context (standalone agents) */
+  thinThread?: ThinThread;
 }
 
 /**
@@ -326,6 +334,8 @@ export function createWiredLoop(config: WiredLoopConfig): WiredLoopResult {
     infoLog: (msg) => logger.info(msg),
     errorLog: (msg) => logger.error(msg),
     feedback: feedbackEnabled,
+    conversationLog: config.conversationLog,
+    thinThread: config.thinThread,
   });
 
   return { loop, backend };

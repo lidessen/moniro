@@ -13,10 +13,7 @@ import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from "node
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import {
-  MemoryContextProvider,
-  createFileContextProvider,
-} from "../src/workflow/context/index.ts";
+import { MemoryContextProvider, createFileContextProvider } from "../src/workflow/context/index.ts";
 
 // ==================== destroy() Lifecycle Tests ====================
 
@@ -104,10 +101,7 @@ describe("Cross-Instance Isolation", () => {
   let instanceBDir: string;
 
   beforeEach(() => {
-    baseDir = join(
-      tmpdir(),
-      `isolation-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    );
+    baseDir = join(tmpdir(), `isolation-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     instanceADir = join(baseDir, "instance-a");
     instanceBDir = join(baseDir, "instance-b");
     mkdirSync(instanceADir, { recursive: true });
@@ -208,10 +202,7 @@ describe("Resume Semantics", () => {
   let testDir: string;
 
   beforeEach(() => {
-    testDir = join(
-      tmpdir(),
-      `resume-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    );
+    testDir = join(tmpdir(), `resume-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(testDir, { recursive: true });
   });
 
@@ -290,10 +281,7 @@ describe("Instance Lock", () => {
   let testDir: string;
 
   beforeEach(() => {
-    testDir = join(
-      tmpdir(),
-      `lock-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    );
+    testDir = join(tmpdir(), `lock-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(testDir, { recursive: true });
   });
 
@@ -466,10 +454,7 @@ describe("Bind (Persistent) Context", () => {
   let testDir: string;
 
   beforeEach(() => {
-    testDir = join(
-      tmpdir(),
-      `bind-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    );
+    testDir = join(tmpdir(), `bind-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(testDir, { recursive: true });
   });
 

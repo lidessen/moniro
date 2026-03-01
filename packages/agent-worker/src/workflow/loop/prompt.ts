@@ -10,6 +10,7 @@
 
 import type { Message, InboxMessage } from "../context/types.ts";
 import type { AgentRunContext } from "./types.ts";
+import { formatConversationMessages } from "../../agent/conversation.ts";
 
 // ── Section Type ──────────────────────────────────────────────────
 
@@ -51,6 +52,17 @@ export function formatChannel(entries: Message[]): string {
     .join("\n");
 }
 
+/**
+ * Format conversation messages for display.
+ * Delegates to the shared formatter in conversation.ts.
+ */
+export function formatConversation(
+  messages: import("../../agent/conversation.ts").ConversationMessage[],
+): string {
+  if (messages.length === 0) return "(no conversation history)";
+  return formatConversationMessages(messages);
+}
+
 // ── Built-in Sections ─────────────────────────────────────────────
 
 /** Project context (what codebase to work on) */
@@ -61,6 +73,12 @@ export const inboxSection: PromptSection = (ctx) => {
   const count = ctx.inbox.length;
   const label = count === 1 ? "message" : "messages";
   return `## Inbox (${count} ${label} for you)\n${formatInbox(ctx.inbox)}`;
+};
+
+/** Conversation history (thin thread for continuity) */
+export const thinThreadSection: PromptSection = (ctx) => {
+  if (!ctx.thinThread || ctx.thinThread.length === 0) return null;
+  return `## Conversation History\n${formatConversation(ctx.thinThread)}`;
 };
 
 /** Recent activity hint (use tool instead of injecting messages) */
@@ -183,6 +201,7 @@ export const exitSection: PromptSection = () => {
 export const DEFAULT_SECTIONS: PromptSection[] = [
   projectSection,
   inboxSection,
+  thinThreadSection,
   activitySection,
   documentSection,
   retrySection,

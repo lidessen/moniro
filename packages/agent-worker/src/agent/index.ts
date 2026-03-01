@@ -40,6 +40,13 @@ export {
 export { AgentHandle } from "./agent-handle.ts";
 export type { AgentHandleState } from "./agent-handle.ts";
 export { AgentRegistry } from "./agent-registry.ts";
+export type { ConversationMessage } from "./conversation.ts";
+export {
+  ConversationLog,
+  ThinThread,
+  DEFAULT_THIN_THREAD_SIZE,
+  formatConversationMessages,
+} from "./conversation.ts";
 export {
   parseAgentFile,
   parseAgentObject,

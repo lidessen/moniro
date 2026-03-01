@@ -6,13 +6,13 @@ Detailed criteria for evaluating if changes are ready for review.
 
 ### Mixed Concerns Detection
 
-| Pattern | Signs | Action |
-|---------|-------|--------|
-| **Feature + Refactor** | New functionality alongside rename/restructure | Split: refactor first, feature second |
-| **Multiple Features** | Unrelated modules changed, distinct commit messages needed | Split by feature/domain |
-| **Bug Fix + Feature** | Fix for existing issue plus new capability | Split: fix first (backportable) |
-| **Config + Logic** | CI/build changes with application code | Split: infra separate from logic |
-| **Formatting + Logic** | >30% changes are whitespace/formatting | Split: format commit first |
+| Pattern                | Signs                                                      | Action                                |
+| ---------------------- | ---------------------------------------------------------- | ------------------------------------- |
+| **Feature + Refactor** | New functionality alongside rename/restructure             | Split: refactor first, feature second |
+| **Multiple Features**  | Unrelated modules changed, distinct commit messages needed | Split by feature/domain               |
+| **Bug Fix + Feature**  | Fix for existing issue plus new capability                 | Split: fix first (backportable)       |
+| **Config + Logic**     | CI/build changes with application code                     | Split: infra separate from logic      |
+| **Formatting + Logic** | >30% changes are whitespace/formatting                     | Split: format commit first            |
 
 ### How to Detect
 
@@ -48,12 +48,12 @@ Suggested split:
 
 ### Thresholds
 
-| Size | Lines | Files | Review Effort | Recommendation |
-|------|-------|-------|---------------|----------------|
-| Small | <200 | <5 | 15-30 min | Ideal |
-| Medium | 200-400 | 5-10 | 30-60 min | Good |
-| Large | 400-800 | 10-20 | 1-2 hours | Consider split |
-| X-Large | >800 | >20 | >2 hours | Strongly split |
+| Size    | Lines   | Files | Review Effort | Recommendation |
+| ------- | ------- | ----- | ------------- | -------------- |
+| Small   | <200    | <5    | 15-30 min     | Ideal          |
+| Medium  | 200-400 | 5-10  | 30-60 min     | Good           |
+| Large   | 400-800 | 10-20 | 1-2 hours     | Consider split |
+| X-Large | >800    | >20   | >2 hours      | Strongly split |
 
 ### Context Matters
 
@@ -75,13 +75,13 @@ git diff --stat | grep -v "lock\|generated\|migration"
 
 ### Debug Code Patterns
 
-| Language | Patterns |
-|----------|----------|
-| JavaScript/TS | `console.log`, `console.debug`, `debugger` |
-| Python | `print(`, `breakpoint()`, `pdb.set_trace()` |
-| Go | `fmt.Println`, `log.Print` (in non-log files) |
-| Java | `System.out.print`, `e.printStackTrace()` |
-| Ruby | `puts`, `p `, `binding.pry` |
+| Language      | Patterns                                      |
+| ------------- | --------------------------------------------- |
+| JavaScript/TS | `console.log`, `console.debug`, `debugger`    |
+| Python        | `print(`, `breakpoint()`, `pdb.set_trace()`   |
+| Go            | `fmt.Println`, `log.Print` (in non-log files) |
+| Java          | `System.out.print`, `e.printStackTrace()`     |
+| Ruby          | `puts`, `p `, `binding.pry`                   |
 
 ### TODO/FIXME
 
@@ -95,6 +95,7 @@ Action: Ask if intentional. If debugging, remove. If legitimate TODO, ensure it 
 ### Commented Code
 
 Look for:
+
 - Blocks of commented-out code (>3 lines)
 - Commented imports/requires
 - `// old implementation` patterns
@@ -107,14 +108,14 @@ Action: Remove. Version control preserves history.
 
 ### Patterns
 
-| Type | Detection |
-|------|-----------|
-| **Removed export** | `export` removed from function/class |
-| **Renamed public API** | Function/method/class name changed |
-| **Signature change** | Parameters added (required), removed, reordered |
-| **Type change** | Return type or parameter type changed |
-| **Schema change** | Database/API schema field removed/renamed |
-| **Config change** | Environment variable renamed, config key changed |
+| Type                   | Detection                                        |
+| ---------------------- | ------------------------------------------------ |
+| **Removed export**     | `export` removed from function/class             |
+| **Renamed public API** | Function/method/class name changed               |
+| **Signature change**   | Parameters added (required), removed, reordered  |
+| **Type change**        | Return type or parameter type changed            |
+| **Schema change**      | Database/API schema field removed/renamed        |
+| **Config change**      | Environment variable renamed, config key changed |
 
 ### Impact Assessment
 
@@ -136,7 +137,7 @@ grep -r "functionName" --include="*.ts" src/
 ### Block (require resolution)
 
 - Mixed concerns detected AND user hasn't acknowledged
-- >1000 lines without explicit user confirmation
+- > 1000 lines without explicit user confirmation
 - Debug code found AND not acknowledged as intentional
 
 ### Proceed with warning

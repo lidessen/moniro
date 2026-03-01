@@ -22,6 +22,7 @@ import { buildAgentPrompt } from "./prompt.ts";
 import { generateWorkflowMCPConfig } from "./mcp-config.ts";
 import { resolveSchedule, type ScheduleConfig } from "../../daemon/registry.ts";
 import { msUntilNextCron } from "../../daemon/cron.ts";
+import type { ConversationMessage } from "../../agent/conversation.ts";
 
 /** Check if loop should continue running */
 function shouldContinue(state: AgentState): boolean {
@@ -51,6 +52,8 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
     onRunComplete,
     log = () => {},
     feedback,
+    conversationLog,
+    thinThread,
   } = config;
 
   const infoLog = config.infoLog ?? log;
@@ -369,6 +372,17 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
         // Write user message to channel for history
         await contextProvider.appendChannel("user", `@${name} ${message}`);
 
+        // Track user message in conversation (thin thread + log)
+        if (thinThread) {
+          const userMsg: ConversationMessage = {
+            role: "user",
+            content: message,
+            timestamp: new Date().toISOString(),
+          };
+          thinThread.push(userMsg);
+          conversationLog?.append(userMsg);
+        }
+
         // Build a synthetic inbox from the message we just wrote
         const inbox = await contextProvider.getInbox(name);
         const latestId = inbox.length > 0 ? inbox[inbox.length - 1]!.entry.id : undefined;
@@ -377,7 +391,7 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
           await contextProvider.markInboxSeen(name, latestId);
         }
 
-        // Build run context (same as poll loop)
+        // Build run context (same as poll loop, plus thin thread)
         const runContext: AgentRunContext = {
           name,
           agent,
@@ -394,6 +408,7 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
           provider: contextProvider,
           eventLog,
           feedback,
+          thinThread: thinThread?.getMessages(),
         };
 
         infoLog(`Direct send (${message.length} chars)`);
@@ -403,6 +418,17 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
           // Write response to channel
           if (result.content) {
             await contextProvider.appendChannel(name, result.content);
+
+            // Track assistant response in conversation
+            if (thinThread) {
+              const assistantMsg: ConversationMessage = {
+                role: "assistant",
+                content: result.content,
+                timestamp: new Date().toISOString(),
+              };
+              thinThread.push(assistantMsg);
+              conversationLog?.append(assistantMsg);
+            }
           }
           // Acknowledge inbox
           if (latestId) {

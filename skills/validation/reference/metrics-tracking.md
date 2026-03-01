@@ -16,6 +16,7 @@ Inspired by [openclaw](https://github.com/openclaw/openclaw) session cost tracki
 ## Why Track Metrics
 
 Metrics enable:
+
 - **Cost awareness**: Know the true cost of validation
 - **Performance optimization**: Find slow validators
 - **Effectiveness measurement**: Which validators catch real issues?
@@ -27,30 +28,30 @@ Metrics enable:
 
 ### Execution Metrics
 
-| Metric | Description | Use |
-|--------|-------------|-----|
-| `duration_ms` | Time taken | Find slow validators |
-| `validators_run` | Count of validators | Pipeline efficiency |
-| `findings_count` | Issues found | Validation effectiveness |
-| `exit_code` | Success/failure | Error tracking |
+| Metric           | Description         | Use                      |
+| ---------------- | ------------------- | ------------------------ |
+| `duration_ms`    | Time taken          | Find slow validators     |
+| `validators_run` | Count of validators | Pipeline efficiency      |
+| `findings_count` | Issues found        | Validation effectiveness |
+| `exit_code`      | Success/failure     | Error tracking           |
 
 ### Resource Metrics
 
-| Metric | Description | Use |
-|--------|-------------|-----|
-| `files_validated` | File count | Scope tracking |
-| `lines_checked` | Lines of code | Coverage measurement |
-| `commands_executed` | Shell commands run | Resource usage |
+| Metric              | Description        | Use                  |
+| ------------------- | ------------------ | -------------------- |
+| `files_validated`   | File count         | Scope tracking       |
+| `lines_checked`     | Lines of code      | Coverage measurement |
+| `commands_executed` | Shell commands run | Resource usage       |
 
 ### Cost Metrics (Optional)
 
 If using AI-assisted validation:
 
-| Metric | Description | Use |
-|--------|-------------|-----|
-| `tokens_input` | Input tokens used | Cost calculation |
-| `tokens_output` | Output tokens used | Cost calculation |
-| `estimated_cost` | $ estimate | Budget tracking |
+| Metric           | Description        | Use              |
+| ---------------- | ------------------ | ---------------- |
+| `tokens_input`   | Input tokens used  | Cost calculation |
+| `tokens_output`  | Output tokens used | Cost calculation |
+| `estimated_cost` | $ estimate         | Budget tracking  |
 
 ---
 
@@ -100,36 +101,36 @@ Generate weekly aggregate in `.memory/validations/weekly/YYYY-WNN.md`:
 
 ## Overview
 
-| Metric | Value | Trend |
-|--------|-------|-------|
-| Total validations | 47 | ↑ +12 |
-| Avg duration | 3.2s | ↓ -0.5s |
-| Pass rate | 87% | ↑ +3% |
-| Critical issues | 2 | ↓ -1 |
+| Metric            | Value | Trend   |
+| ----------------- | ----- | ------- |
+| Total validations | 47    | ↑ +12   |
+| Avg duration      | 3.2s  | ↓ -0.5s |
+| Pass rate         | 87%   | ↑ +3%   |
+| Critical issues   | 2     | ↓ -1    |
 
 ## By Pipeline
 
-| Pipeline | Count | Avg Duration | Pass Rate |
-|----------|-------|--------------|-----------|
-| quick | 28 | 0.8s | 96% |
-| standard | 15 | 4.2s | 80% |
-| comprehensive | 4 | 125s | 75% |
+| Pipeline      | Count | Avg Duration | Pass Rate |
+| ------------- | ----- | ------------ | --------- |
+| quick         | 28    | 0.8s         | 96%       |
+| standard      | 15    | 4.2s         | 80%       |
+| comprehensive | 4     | 125s         | 75%       |
 
 ## Validator Effectiveness
 
-| Validator | Findings | True Positives | False Positives |
-|-----------|----------|----------------|-----------------|
-| reviewability | 23 | 21 (91%) | 2 (9%) |
-| security | 3 | 3 (100%) | 0 (0%) |
-| consistency | 12 | 10 (83%) | 2 (17%) |
+| Validator     | Findings | True Positives | False Positives |
+| ------------- | -------- | -------------- | --------------- |
+| reviewability | 23       | 21 (91%)       | 2 (9%)          |
+| security      | 3        | 3 (100%)       | 0 (0%)          |
+| consistency   | 12       | 10 (83%)       | 2 (17%)         |
 
 ## Cost Summary (if tracked)
 
-| Metric | Value |
-|--------|-------|
-| Total tokens | 125,000 |
-| Estimated cost | $2.45 |
-| Cost per validation | $0.05 |
+| Metric              | Value   |
+| ------------------- | ------- |
+| Total tokens        | 125,000 |
+| Estimated cost      | $2.45   |
+| Cost per validation | $0.05   |
 ```
 
 ---
@@ -172,6 +173,7 @@ Compare metrics across time windows:
 ## Trend Analysis
 
 ### Duration Trend (Last 4 Weeks)
+
 W02: 4.5s avg
 W03: 4.2s avg ↓
 W04: 3.8s avg ↓
@@ -180,6 +182,7 @@ W05: 3.2s avg ↓
 Insight: Pipeline optimizations working.
 
 ### False Positive Trend
+
 W02: 15%
 W03: 12% ↓
 W04: 11% ↓
@@ -203,7 +206,7 @@ metrics:
     duration: true
     findings: true
     files: true
-    commands: false  # Can be verbose
+    commands: false # Can be verbose
 
   # AI cost tracking (if applicable)
   cost_tracking:

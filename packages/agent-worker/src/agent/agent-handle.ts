@@ -5,9 +5,8 @@
  *   - Context directory management (memory/, notes/, conversations/, todo/)
  *   - Read/write operations for personal context
  *   - State tracking (idle, running, stopped, error)
- *
- * Phase 1 scope: context directory + read/write ops.
- * Phase 3 adds: loop, workspaces, threads.
+ *   - Loop ownership (lazy — created on first message)
+ *   - Ephemeral vs persistent mode
  */
 
 import { mkdir, readFile, writeFile, readdir } from "node:fs/promises";
@@ -16,7 +15,9 @@ import { join, basename } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import type { AgentDefinition } from "./definition.ts";
 import { CONTEXT_SUBDIRS } from "./definition.ts";
+import type { AgentLoop } from "../workflow/loop/types.ts";
 import type { Logger } from "../workflow/logger.ts";
+import { ConversationLog, ThinThread, DEFAULT_THIN_THREAD_SIZE } from "./conversation.ts";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -25,27 +26,82 @@ export type AgentHandleState = "idle" | "running" | "stopped" | "error";
 // ── AgentHandle ───────────────────────────────────────────────────
 
 export class AgentHandle {
-  /** Agent definition (from YAML) */
+  /** Agent definition (from YAML or API) */
   readonly definition: AgentDefinition;
 
   /** Absolute path to agent's persistent context directory */
   readonly contextDir: string;
 
+  /**
+   * Whether this agent is ephemeral (in-memory only, no disk persistence).
+   * Ephemeral agents are created via the daemon API (POST /agents) and
+   * lost on daemon restart. Persistent agents are loaded from .agents/*.yaml.
+   */
+  readonly ephemeral: boolean;
+
   /** Current agent state */
   state: AgentHandleState = "idle";
+
+  /** The agent's execution loop (lazy — created on first run/serve) */
+  loop: AgentLoop | null = null;
+
+  /** Conversation log (lazy — created on first access) */
+  private _conversationLog?: ConversationLog;
+
+  /** Thin thread (lazy — created on first access) */
+  private _thinThread?: ThinThread;
 
   /** Optional logger (injected by registry; absent in standalone CLI) */
   private log?: Logger;
 
-  constructor(definition: AgentDefinition, contextDir: string, logger?: Logger) {
+  constructor(
+    definition: AgentDefinition,
+    contextDir: string,
+    logger?: Logger,
+    ephemeral: boolean = false,
+  ) {
     this.definition = definition;
     this.contextDir = contextDir;
     this.log = logger;
+    this.ephemeral = ephemeral;
   }
 
   /** Agent name (convenience accessor) */
   get name(): string {
     return this.definition.name;
+  }
+
+  // ── Conversation ─────────────────────────────────────────────────
+
+  /**
+   * Get the conversation log (JSONL persistence).
+   * Returns null for ephemeral agents (no disk).
+   * Lazy — created on first access.
+   */
+  get conversationLog(): ConversationLog | null {
+    if (this.ephemeral) return null;
+    if (!this._conversationLog) {
+      this._conversationLog = new ConversationLog(
+        join(this.contextDir, "conversations", "personal.jsonl"),
+      );
+    }
+    return this._conversationLog;
+  }
+
+  /**
+   * Get the thin thread (bounded in-memory conversation buffer).
+   * Restores from ConversationLog on first access if history exists.
+   * Lazy — created on first access.
+   */
+  get thinThread(): ThinThread {
+    if (!this._thinThread) {
+      const maxMessages = this.definition.context?.thin_thread ?? DEFAULT_THIN_THREAD_SIZE;
+      const log = this.conversationLog;
+      this._thinThread = log?.exists
+        ? ThinThread.fromLog(log, maxMessages)
+        : new ThinThread(maxMessages);
+    }
+    return this._thinThread;
   }
 
   // ── Context Directory ───────────────────────────────────────────

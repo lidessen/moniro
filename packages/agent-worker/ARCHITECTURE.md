@@ -1,6 +1,6 @@
 # agent-worker Architecture
 
-> **Design rationale**: For *why* the architecture is shaped this way — how each layer exists because the previous one exposed a limitation — see [docs/architecture/OVERVIEW.md](./docs/architecture/OVERVIEW.md).
+> **Design rationale**: For _why_ the architecture is shaped this way — how each layer exists because the previous one exposed a limitation — see [docs/architecture/OVERVIEW.md](./docs/architecture/OVERVIEW.md).
 
 ## Overview
 
@@ -101,12 +101,12 @@ AgentLoop wraps AgentWorker. The daemon does not do inbox polling or timer manag
 
 Context provides the collaboration substrate for agents within a workflow. Each workflow has its own context:
 
-| Primitive | Purpose |
-|-----------|---------|
-| **Channel** | Append-only message log with @mentions |
-| **Inbox** | Per-agent filtered view of channel |
-| **Resources** | Content-addressed large content storage |
-| **Documents** | Shared team workspace files |
+| Primitive     | Purpose                                   |
+| ------------- | ----------------------------------------- |
+| **Channel**   | Append-only message log with @mentions    |
+| **Inbox**     | Per-agent filtered view of channel        |
+| **Resources** | Content-addressed large content storage   |
+| **Documents** | Shared team workspace files               |
 | **Proposals** | Voting system for collaborative decisions |
 
 Context is exposed to agents via MCP tools (`channel_send`, `channel_read`, `my_inbox`, `team_doc_*`, `resource_*`, etc.). The same MCP tools are also available through the daemon's MCP endpoint.
@@ -213,6 +213,7 @@ cli/ ──── HTTP ────► daemon/
 ```
 
 Rules:
+
 - `cli/` imports nothing from `daemon/` except registry (reading daemon.json)
 - `daemon/` imports from `workflow/factory`, `workflow/runner`, `agent/`, `backends/`
 - `workflow/factory` imports from `workflow/loop/`, `workflow/context/`, `backends/`
@@ -246,6 +247,7 @@ Both the workflow runner (CLI direct) and the daemon use these same primitives, 
 ### Why AgentWorker vs AgentLoop?
 
 Separation of concerns:
+
 - **Worker** answers "how to talk to an LLM" — stateful conversation, tool loop, streaming
 - **Loop** answers "when to talk and what to do with results" — inbox polling, retry, error recovery
 
@@ -348,6 +350,7 @@ Single `/mcp` route. Agent identity from initialize handshake:
 ```
 
 Tool categories exposed via MCP:
+
 - `channel_send`, `channel_read`, `my_inbox` — context operations
 - `team_doc_*`, `resource_*` — shared storage
 - `proposal_*` — voting/decisions
@@ -405,6 +408,7 @@ interface AgentState {
 ```
 
 CLI 启动 flow:
+
 1. 读 `daemon.json` → PID 还活着？→ 直接用
 2. 没有或进程已死 → spawn daemon 进程 → 等 `daemon.json` 出现
 3. 发 HTTP 请求
@@ -467,13 +471,13 @@ const WorkflowProposal = defineProposal({
   schema: WorkflowSchema,
   execute(data, ctx) {
     for (const agent of data.agents) {
-      ctx.propose(CreateAgentProposal, agent)
+      ctx.propose(CreateAgentProposal, agent);
     }
     for (const trigger of data.triggers) {
-      ctx.propose(RegisterTriggerProposal, trigger)
+      ctx.propose(RegisterTriggerProposal, trigger);
     }
-  }
-})
+  },
+});
 ```
 
 ### Agent — ToolLoop
@@ -484,12 +488,12 @@ Agent receives `(prompt, tools, message)`, runs LLM tool loop, returns result. C
 
 Drives the Message + Proposal evaluation loop. Manages Agent lifecycle. Holds state. Exposes interface to Agents via Tools:
 
-| Tool category | Purpose |
-|---------------|---------|
-| `channel.*` | Message read/write |
-| `space.*` | Space/workflow management |
-| `proposal.*` | Proposal operations |
-| `auth.*` | Authorization operations |
+| Tool category | Purpose                   |
+| ------------- | ------------------------- |
+| `channel.*`   | Message read/write        |
+| `space.*`     | Space/workflow management |
+| `proposal.*`  | Proposal operations       |
+| `auth.*`      | Authorization operations  |
 
 What tools an Agent gets = what it's authorized to do.
 
@@ -497,25 +501,25 @@ What tools an Agent gets = what it's authorized to do.
 
 All other concepts emerge from the four primitives:
 
-| Concept | Emerges from |
-|---------|-------------|
-| **Routing** | Proposal that routes Message to Agent |
-| **Workflow** | Chain of Proposals (each `when` references prior step's completion) |
-| **Permission** | Proposal that gates on authorization Message |
-| **Authorization** | Special Message type (agent grants a right) |
-| **Channel** | Messages accumulating in a Space |
-| **Inbox** | Proposal filtering Messages by @mention |
-| **Space** | Scoped binding of Proposals + Agents + Messages |
-| **Organization** | Space with fixed Proposals + fixed members |
+| Concept           | Emerges from                                                        |
+| ----------------- | ------------------------------------------------------------------- |
+| **Routing**       | Proposal that routes Message to Agent                               |
+| **Workflow**      | Chain of Proposals (each `when` references prior step's completion) |
+| **Permission**    | Proposal that gates on authorization Message                        |
+| **Authorization** | Special Message type (agent grants a right)                         |
+| **Channel**       | Messages accumulating in a Space                                    |
+| **Inbox**         | Proposal filtering Messages by @mention                             |
+| **Space**         | Scoped binding of Proposals + Agents + Messages                     |
+| **Organization**  | Space with fixed Proposals + fixed members                          |
 
 ### Current System as Degenerate Case
 
-| Primitive | Current implementation |
-|-----------|----------------------|
-| **Message** | `ChannelMessage` in `workflow/context/types.ts` |
+| Primitive    | Current implementation                                                         |
+| ------------ | ------------------------------------------------------------------------------ |
+| **Message**  | `ChannelMessage` in `workflow/context/types.ts`                                |
 | **Proposal** | Implicit, hardcoded in loop (inbox polling), approval mechanism, workflow YAML |
-| **Agent** | `AgentWorker` in `agent/worker.ts` |
-| **System** | `Daemon` in `daemon/daemon.ts` |
+| **Agent**    | `AgentWorker` in `agent/worker.ts`                                             |
+| **System**   | `Daemon` in `daemon/daemon.ts`                                                 |
 
 Evolution direction: make implicit Proposals explicit (schema + function).
 

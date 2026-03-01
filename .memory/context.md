@@ -14,26 +14,26 @@
 | Phase 1 | done | Agent 定义 + Context：YAML、Registry、CLI | `.agents/*.yaml`, `AgentHandle`, `AgentRegistry` |
 | Phase 2 | done | Workflow Agent References：`ref:` 引用 | `AgentEntry` 联合类型, prompt assembly |
 | Phase 3a | done | Event Log 基础设施：结构化日志替代 console.* | `EventSink`, `DaemonEventLog`, `Logger` |
-| **Phase 3b** | **next** | **Daemon Registry + Workspace** | 见下方 |
-| Phase 3c | blocked by 3b | Conversation Model：ThinThread + ConversationLog | |
-| Phase 3d | blocked by 3c | Priority Queue + Preemption | |
+| Phase 3b | done | Daemon Registry + Workspace | `Workspace`, `WorkspaceRegistry`, `AgentHandle.loop` |
+| Phase 3c | done | Conversation Model：ThinThread + ConversationLog | `ConversationLog`, `ThinThread`, `thinThreadSection` |
+| **Phase 3d** | **next** | **Priority Queue + Preemption** | |
 | Phase 4 | future | Recall Tools + Auto-Memory + Failure Handling | |
 | Phase 5 | future | Agent Context in Prompt | |
 | Phase 6 | future | CLI + Project Config | |
 
-## Phase 3b: Daemon Registry + Workspace
+## Phase 3d: Priority Queue + Preemption
 
-**目标**: Daemon 通过 AgentRegistry 管理 agent handle。Workspace 替代 standalone WorkflowHandle hack。
+**目标**: 每个 Agent 一个 loop，三级优先队列 + 协作式抢占。
 
 核心任务：
-- [ ] AgentRegistry 集成到 daemon（替代 `configs: Map<string, AgentConfig>`）
-- [ ] `Workspace` 类型从 `WorkflowRuntimeHandle` 分离
-- [ ] `WorkspaceRegistry` 管理活跃 workspace
-- [ ] Workspace attach/detach（workflow start/stop 时）
-- [ ] 移除 `standalone:{name}` workflow key hack
-- [ ] `send` CLI 命令 target 解析（DM / @workspace / agent@workspace）
+- [ ] `AgentLoop` 升级为 priority queue（3 lanes: immediate/normal/background）
+- [ ] `AgentInstruction` 类型 with workspace context + priority
+- [ ] 协作式抢占：step 间 yield，带进度标记 re-queue
+- [ ] Scheduled wakeup → enqueue instruction at background priority
 
-**依赖**: Phase 3a（done）。无其他阻塞。
+**依赖**: Phase 3c（done）。
+
+**遗留**: `send` CLI target 解析（Phase 3b 遗留，不阻塞 3d）。
 
 ## 已知风险 & 开放问题
 
@@ -41,6 +41,7 @@
 - Soul 可变性未定（固定 vs 可进化）
 - 跨项目 Agent 暂不考虑（先 project-scoped）
 - Auto-memory 提取策略未定（agent 主动 vs 系统后处理 vs 两者）
+- Agent 层存储无抽象（memory/notes/todos/conversations 直接 fs，workflow 层用 StorageBackend）— 可统一但不阻塞
 
 ## 关键文件
 

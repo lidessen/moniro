@@ -18,6 +18,7 @@ Strategies for tracking, prioritizing, and systematically addressing technical d
 **Metaphor**: Like financial debt, technical debt lets you go faster now but costs more later.
 
 **Examples**:
+
 - Quick hack instead of proper solution
 - Skipped tests to meet deadline
 - Outdated dependencies
@@ -29,6 +30,7 @@ Strategies for tracking, prioritizing, and systematically addressing technical d
 **Not all shortcuts are debt**: Sometimes quick-and-dirty is appropriate (prototypes, experiments).
 
 **Debt becomes a problem when**:
+
 - It accumulates unchecked
 - Interest (maintenance cost) exceeds value
 - Makes future changes difficult
@@ -39,11 +41,13 @@ Strategies for tracking, prioritizing, and systematically addressing technical d
 ### Deliberate vs. Inadvertent
 
 **Deliberate** (conscious trade-off):
+
 - "Ship now, refactor later"
 - "Hardcode for MVP, make configurable in v2"
 - Documented with TODOs
 
 **Inadvertent** (didn't know better):
+
 - Poor design choices
 - Misunderstood requirements
 - Lack of experience
@@ -52,11 +56,13 @@ Strategies for tracking, prioritizing, and systematically addressing technical d
 ### Reckless vs. Prudent
 
 **Reckless**:
+
 - No tests because "too slow"
 - Copy-paste without understanding
 - Ignoring best practices with no reason
 
 **Prudent**:
+
 - Skip optimization for deadline (measure, optimize later)
 - Use library with known issues (better than blocking)
 - Acceptable hack with documented plan to fix
@@ -86,22 +92,26 @@ const result = data.field || data.field2 || null;
 ```
 
 **Tagging conventions**:
+
 - `TODO`: Needs to be done
 - `FIXME`: Known bug or issue
 - `HACK`: Temporary workaround
 - `XXX`: Warning, problematic code
 
 **Finding TODOs**:
+
 ```bash
 rg "TODO|FIXME|HACK|XXX" --type js
 ```
 
 **Pros**:
+
 - Low friction (add inline)
 - Context right in code
 - Easy to find with search
 
 **Cons**:
+
 - Easy to ignore/forget
 - No prioritization
 - No ownership
@@ -117,6 +127,7 @@ rg "TODO|FIXME|HACK|XXX" --type js
 ## High Priority
 
 ### Authentication System Refactor
+
 **Impact**: High - affects all features
 **Effort**: 1 week
 **Owner**: @auth-team
@@ -124,6 +135,7 @@ rg "TODO|FIXME|HACK|XXX" --type js
 **Reason**: Current JWT implementation has security issues
 
 ### Database Query Optimization
+
 **Impact**: High - slow page loads
 **Effort**: 3 days
 **Owner**: @backend-team
@@ -133,6 +145,7 @@ rg "TODO|FIXME|HACK|XXX" --type js
 ## Medium Priority
 
 ### Consolidate Duplicate Validation Logic
+
 **Impact**: Medium - maintenance burden
 **Effort**: 2 days
 **Owner**: @frontend-team
@@ -141,22 +154,26 @@ rg "TODO|FIXME|HACK|XXX" --type js
 ## Low Priority
 
 ### Update ESLint Configuration
+
 **Impact**: Low - code style inconsistencies
 **Effort**: 1 day
 **Created**: 2025-12-01
 ```
 
 **Finding debt**:
+
 - Read DEBT.md
 - Link from README or AGENTS.md
 
 **Pros**:
+
 - Centralized view
 - Can prioritize
 - Track ownership
 - Minimal overhead
 
 **Cons**:
+
 - Separate from code (can get out of sync)
 - No automated tracking
 - Still manual process
@@ -166,35 +183,42 @@ rg "TODO|FIXME|HACK|XXX" --type js
 **Pattern**: Issues/tickets with "tech-debt" label
 
 **GitHub/GitLab Issues**:
+
 ```markdown
 # Title: Refactor authentication system
 
 **Labels**: tech-debt, high-priority, backend
 
 ## Description
+
 Current JWT implementation has security vulnerabilities.
 Need to migrate to more secure approach.
 
 ## Impact
+
 - Security: High
 - Maintenance: Medium
 - Performance: Low
 
 ## Effort Estimate
+
 1 week (5 days)
 
 ## Acceptance Criteria
+
 - [ ] Replace current JWT library
 - [ ] Add refresh token support
 - [ ] Update all tests
 - [ ] Migrate existing tokens
 
 ## Related Issues
+
 - Fixes #123 (JWT security audit)
 - Blocks #456 (OAuth integration)
 ```
 
 **Querying**:
+
 ```bash
 # GitHub CLI
 gh issue list --label "tech-debt"
@@ -204,6 +228,7 @@ gh issue list --label "tech-debt,high-priority"
 ```
 
 **Pros**:
+
 - Integrates with workflow
 - Can prioritize, assign, track
 - Link to PRs
@@ -211,6 +236,7 @@ gh issue list --label "tech-debt,high-priority"
 - Searchable
 
 **Cons**:
+
 - More overhead
 - Can become backlog noise
 - Requires discipline
@@ -223,21 +249,26 @@ gh issue list --label "tech-debt,high-priority"
 # ADR 015: Use MongoDB for User Sessions
 
 ## Status
+
 Accepted
 
 ## Context
+
 Need session storage. Options: Redis, MongoDB, PostgreSQL.
 
 ## Decision
+
 Use MongoDB (already in stack).
 
 ## Consequences
 
 ### Positive
+
 - No new dependency
 - Team familiar
 
 ### Negative
+
 - Not ideal for session storage (better: Redis)
 
 **TECH DEBT**: Should migrate to Redis when we hit scale issues.
@@ -260,21 +291,25 @@ Low Impact  ─┼─────────────┼──────�
 ```
 
 **FIX NOW** (High impact, low effort):
+
 - Security vulnerabilities (easy fix)
 - Performance bottlenecks (simple query optimization)
 - Critical bugs (1-line fix)
 
 **PLAN** (High impact, high effort):
+
 - Architecture refactors
 - Major upgrades
 - System rewrites
 
 **MAYBE** (Low impact, low effort):
+
 - Code style cleanup
 - Update comments
 - Rename variables
 
 **SKIP** (Low impact, high effort):
+
 - Perfect that rarely-used feature
 - Refactor code that works and never changes
 
@@ -283,6 +318,7 @@ Low Impact  ─┼─────────────┼──────�
 **Formula**: Interest = (Maintenance Cost per Month) × (Months Until Fixed)
 
 **Example**:
+
 ```
 Tech Debt: Messy codebase area
 
@@ -303,6 +339,7 @@ Decision: Fix (saves 24 hours, costs 8 hours = net +16 hours)
 **Measure**: Is debt slowing us down?
 
 **Indicators**:
+
 - Stories take longer than similar past stories
 - More bugs in old code
 - Engineers avoid touching certain areas
@@ -317,17 +354,19 @@ Decision: Fix (saves 24 hours, costs 8 hours = net +16 hours)
 **Pattern**: Clear warnings, migration path
 
 **JavaScript/TypeScript**:
+
 ```typescript
 /**
  * @deprecated Use newFunction() instead. Will be removed in v3.0.
  */
 function oldFunction() {
-  console.warn('oldFunction is deprecated, use newFunction');
+  console.warn("oldFunction is deprecated, use newFunction");
   // ... old implementation
 }
 ```
 
 **Python**:
+
 ```python
 import warnings
 
@@ -349,6 +388,7 @@ def old_function():
 5. **Remove**: Delete deprecated code
 
 **Example timeline**:
+
 ```
 v2.0: Deprecate oldFunction, introduce newFunction
 v2.1-2.9: Both exist, oldFunction warns
@@ -369,18 +409,19 @@ Phase 4: Remove old system
 ```
 
 **Implementation**:
+
 ```javascript
 function handleRequest(req) {
   if (shouldUseNewSystem(req)) {
     return newSystem.handle(req);
   } else {
-    return legacySystem.handle(req);  // Old code
+    return legacySystem.handle(req); // Old code
   }
 }
 
 function shouldUseNewSystem(req) {
   // Gradual rollout (feature flag)
-  return featureFlag('new-system', req.user);
+  return featureFlag("new-system", req.user);
 }
 ```
 
@@ -392,7 +433,7 @@ function shouldUseNewSystem(req) {
 
 ```javascript
 // 1. Write test that captures current behavior
-test('legacy function behavior', () => {
+test("legacy function behavior", () => {
   expect(legacyFunction(input)).toBe(actualOutput);
   // Even if buggy, test current behavior
 });
@@ -426,6 +467,7 @@ adapter/         (bridge between old and new)
 ### Quantitative Metrics
 
 **Code Quality Metrics**:
+
 ```bash
 # Code coverage
 jest --coverage
@@ -445,6 +487,7 @@ npm audit
 ```
 
 **Tracking Over Time**:
+
 ```bash
 # Weekly snapshot
 echo "$(date),$(npm audit --json | jq '.metadata.vulnerabilities.total')" >> metrics.csv
@@ -456,15 +499,18 @@ echo "$(date),$(npm audit --json | jq '.metadata.vulnerabilities.total')" >> met
 ### Qualitative Assessments
 
 **Team Survey**:
+
 - "How much does tech debt slow you down?" (1-10)
 - "Which areas are most painful?"
 - "How confident are you making changes?"
 
 **Code Review Comments**:
+
 - Count "we should refactor this" comments
 - Indicates problematic areas
 
 **Incident Analysis**:
+
 - "Was this bug caused by tech debt?"
 - Track incidents tied to known debt
 
@@ -475,6 +521,7 @@ echo "$(date),$(npm audit --json | jq '.metadata.vulnerabilities.total')" >> met
 **Schedule**: Every 4-6 sprints, dedicate one to debt
 
 **Process**:
+
 1. Team lists debt items
 2. Prioritize by impact/effort
 3. Sprint focused only on debt
@@ -488,6 +535,7 @@ echo "$(date),$(npm audit --json | jq '.metadata.vulnerabilities.total')" >> met
 **Rule**: 20% of each sprint allocated to debt
 
 **Process**:
+
 - For every 5 story points of features, include 1 point of debt
 - Engineers pick debt items each sprint
 - Steady progress
@@ -500,6 +548,7 @@ echo "$(date),$(npm audit --json | jq '.metadata.vulnerabilities.total')" >> met
 **Rule**: Fix debt when you touch code
 
 **Process**:
+
 - Working on feature in area with debt?
 - Fix the debt as part of the story
 - "Leave code better than you found it"
@@ -510,6 +559,7 @@ echo "$(date),$(npm audit --json | jq '.metadata.vulnerabilities.total')" >> met
 ### Pattern 4: Hybrid (Recommended)
 
 **Combine strategies**:
+
 - **Continuous**: 10-20% each sprint for small debt
 - **Opportunistic**: Boy Scout Rule (clean as you go)
 - **Dedicated**: Quarterly debt sprint for big items
@@ -527,6 +577,7 @@ echo "$(date),$(npm audit --json | jq '.metadata.vulnerabilities.total')" >> met
 8. **Prevent new debt** - Code review, standards
 
 **Red flags**:
+
 - No visibility into debt
 - Never addressing debt
 - Velocity decreasing

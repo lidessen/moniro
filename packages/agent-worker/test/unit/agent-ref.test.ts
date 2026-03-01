@@ -15,12 +15,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 
-import {
-  isRefAgentEntry,
-  type RefAgentEntry,
-  type InlineAgentEntry,
-  type AgentEntry,
-} from "@/workflow/types.ts";
+import { isRefAgentEntry, type AgentEntry } from "@/workflow/types.ts";
 import { validateWorkflow, parseWorkflowFile } from "@/workflow/parser.ts";
 import { AgentRegistry } from "@/agent/agent-registry.ts";
 import type { AgentDefinition } from "@/agent/definition.ts";
@@ -308,9 +303,7 @@ kickoff: "@alice Start reviewing."
 
     const workflow = await parseWorkflowFile(path, { agentRegistry: registry });
     const alice = workflow.agents.alice!;
-    expect(alice.resolvedSystemPrompt).toBe(
-      "You are Alice.\n\nFocus on security issues.",
-    );
+    expect(alice.resolvedSystemPrompt).toBe("You are Alice.\n\nFocus on security issues.");
     // system_prompt holds the base prompt
     expect(alice.system_prompt).toBe("You are Alice.");
   });
@@ -399,9 +392,9 @@ kickoff: "@alice Start reviewing."
   test("throws for ref to unknown agent", async () => {
     const registry = setupRegistry([]);
     const path = writeWorkflow("review.yml", `agents:\n  alice: { ref: alice }\n`);
-    await expect(
-      parseWorkflowFile(path, { agentRegistry: registry }),
-    ).rejects.toThrow('not found in registry');
+    await expect(parseWorkflowFile(path, { agentRegistry: registry })).rejects.toThrow(
+      "not found in registry",
+    );
   });
 
   test("inline agents still work alongside ref agents", async () => {

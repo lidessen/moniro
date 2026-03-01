@@ -91,23 +91,23 @@ Would anyone miss it if gone?
 
 ### File Naming
 
-| Type | Pattern | Example |
-|------|---------|---------|
-| General docs | `lowercase-with-hyphens.md` | `api-reference.md` |
-| Temporary docs | `YYYY-MM-DD-topic.md` | `2026-01-30-investigation.md` |
-| RFCs | `NNNN-title.md` | `0042-new-feature.md` |
-| Archived docs | `YYYY-MM-name.md` | `2025-06-old-guide.md` |
+| Type           | Pattern                     | Example                       |
+| -------------- | --------------------------- | ----------------------------- |
+| General docs   | `lowercase-with-hyphens.md` | `api-reference.md`            |
+| Temporary docs | `YYYY-MM-DD-topic.md`       | `2026-01-30-investigation.md` |
+| RFCs           | `NNNN-title.md`             | `0042-new-feature.md`         |
+| Archived docs  | `YYYY-MM-name.md`           | `2025-06-old-guide.md`        |
 
 ### Lifecycle Policies
 
-| Doc Type | Retention | Review |
-|----------|-----------|--------|
-| Meeting notes | 3 months | Quarterly |
-| Investigation notes | Until project done | At completion |
-| Draft RFCs | 2 weeks inactive | Continuous |
-| Temporary docs | 3 months | Quarterly |
-| Permanent docs | Indefinite | Annual or with changes |
-| Archived docs | Indefinite | None (historical) |
+| Doc Type            | Retention          | Review                 |
+| ------------------- | ------------------ | ---------------------- |
+| Meeting notes       | 3 months           | Quarterly              |
+| Investigation notes | Until project done | At completion          |
+| Draft RFCs          | 2 weeks inactive   | Continuous             |
+| Temporary docs      | 3 months           | Quarterly              |
+| Permanent docs      | Indefinite         | Annual or with changes |
+| Archived docs       | Indefinite         | None (historical)      |
 
 ### RFC Status Flow
 
@@ -133,6 +133,7 @@ Root/              # Discovery (README, AGENTS.md, CONTRIBUTING)
 ## Essential Files
 
 ### Minimal Project (Small)
+
 - ✅ README.md (overview, quick start)
 - ✅ CONTRIBUTING.md (if open source)
 - ✅ LICENSE
@@ -140,6 +141,7 @@ Root/              # Discovery (README, AGENTS.md, CONTRIBUTING)
 - ❌ Complex structure (not needed yet)
 
 ### Standard Project (Medium)
+
 - ✅ README.md
 - ✅ AGENTS.md
 - ✅ CONTRIBUTING.md
@@ -148,6 +150,7 @@ Root/              # Discovery (README, AGENTS.md, CONTRIBUTING)
 - ⚠️ CLAUDE.md (if needed)
 
 ### Large Project
+
 - ✅ All of the above
 - ✅ docs/internal/ and docs/public/ separation
 - ✅ docs/rfcs/ for design proposals
@@ -158,21 +161,27 @@ Root/              # Discovery (README, AGENTS.md, CONTRIBUTING)
 ## Key Principles (Memorize These)
 
 ### 1. Fit Your Project, Not a Template
+
 Don't copy structures from other projects. Assess your needs, start simple, evolve as needed.
 
 ### 2. Discoverability Over Organization
+
 Perfect filing means nothing if no one can find it. Index in README/AGENTS.md, use clear names.
 
 ### 3. Delete Liberally, Archive Sparingly
+
 Git history preserves everything. Delete outdated content. Archive only historically significant docs.
 
 ### 4. Living > Dead
+
 Documentation dies without maintenance. Update with code, regular audits, clear ownership.
 
 ### 5. Assume Claude is Smart
+
 For agent docs: Project-specific context only. Don't explain basics. Navigation over tutorials.
 
 ### 6. Progressive Disclosure
+
 - AGENTS.md: Overview (100-300 lines)
 - Reference docs: Details (loaded on demand)
 - Code: Source of truth (read when needed)
@@ -180,6 +189,7 @@ For agent docs: Project-specific context only. Don't explain basics. Navigation 
 ## Common Tasks Quick Start
 
 ### Setting Up New Project
+
 ```bash
 # 1. Create essential files
 touch README.md AGENTS.md CONTRIBUTING.md LICENSE
@@ -193,6 +203,7 @@ mkdir -p docs/notes
 ```
 
 ### Documentation Audit
+
 ```bash
 # 1. Inventory
 find . -name "*.md" > docs-inventory.txt
@@ -207,26 +218,32 @@ find . -name "*.md" -mtime +180
 ```
 
 ### Creating AGENTS.md
+
 ```markdown
 # [Project Name]
 
 [1-2 paragraph overview]
 
 ## Structure
+
 [High-level directory layout]
 
 ## Common Entry Points
+
 - Task X: Start at [location]
 - Task Y: Start at [location]
 
 ## Key Conventions
+
 [Project-specific patterns and constraints]
 
 ## Documentation
+
 [Links to detailed docs]
 ```
 
 ### Writing RFC
+
 ```markdown
 # RFC NNNN: [Title]
 
@@ -235,42 +252,52 @@ find . -name "*.md" -mtime +180
 **Created:** YYYY-MM-DD
 
 ## Summary
+
 [1-2 paragraph overview]
 
 ## Motivation
+
 [Why this change?]
 
 ## Proposal
+
 [Detailed solution]
 
 ## Alternatives Considered
+
 [Other approaches and why not chosen]
 
 ## Implementation Plan
+
 [High-level steps]
 ```
 
 ## When Things Go Wrong
 
 ### "I can't find any documentation"
+
 → Create AGENTS.md with navigation to key docs
 
 ### "Documentation is outdated"
+
 → Implement lifecycle management (see lifecycle.md)
 → Regular audits (quarterly)
 → Update docs with code changes (PR checklist)
 
 ### "Too many documents, overwhelming"
+
 → Audit and delete outdated content
 → Consolidate duplicates
 → Clear organization by audience/type
 
 ### "No one maintains documentation"
+
 → Assign ownership (CODEOWNERS)
 → PR checklist includes docs
 → Make updates part of workflow (not separate task)
 
 ### "Can't decide where to put docs"
+
 → Follow decision tree at top of this file
 → When in doubt, start simple (flat docs/)
 → Reorganize later when pain points emerge

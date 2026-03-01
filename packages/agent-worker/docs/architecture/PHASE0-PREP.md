@@ -33,6 +33,7 @@ AGENT-TOP-LEVEL 定义了 6 个实施阶段。但当前代码有几个结构性�
 当前 `AgentDefinition`（workflow/types.ts:76）描述 workflow 内的 agent 配置。重命名为 `WorkflowAgentDef`，释放 `AgentDefinition` 给新的顶层 agent 定义。
 
 同步重命名：
+
 - `ResolvedAgent` → `ResolvedWorkflowAgent`（已有命名冲突：AGENT-TOP-LEVEL.md 也用了这个名字）
 
 ### 0.2 Decouple `AgentConfig` from workflow
@@ -42,6 +43,7 @@ AGENT-TOP-LEVEL 定义了 6 个实施阶段。但当前代码有几个结构性�
 **Scope**: agent/config.ts, daemon.ts, CLI commands
 
 改动：
+
 - `workflow` 和 `tag` 变为 optional（`workflow?: string`, `tag?: string`）
 - `POST /agents` 不再要求 workflow，默认 undefined
 - `findLoop()` 和 `ensureAgentLoop()` 适配无 workflow 的 agent
@@ -54,6 +56,7 @@ AGENT-TOP-LEVEL 定义了 6 个实施阶段。但当前代码有几个结构性�
 **Scope**: test/unit/
 
 为即将改动的路径增加集成测试：
+
 - Standalone agent lifecycle: create → run → delete
 - `ensureAgentLoop` lazy creation
 - `findLoop` across workflows
@@ -66,6 +69,7 @@ AGENT-TOP-LEVEL 定义了 6 个实施阶段。但当前代码有几个结构性�
 **Scope**: daemon.ts, factory.ts
 
 改动：
+
 - `DaemonState` 增加 `loops: Map<string, AgentLoop>`
 - `WorkflowHandle.loops` 变为引用（ref）而非拥有（own）
 - `ensureAgentLoop()` 在 daemon loops map 中创建
@@ -84,6 +88,7 @@ AGENT-TOP-LEVEL 定义了 6 个实施阶段。但当前代码有几个结构性�
 完全移除需要新的 Workspace 类型接管资源——这是 Phase 3 范围。
 
 实际改动：
+
 - `standaloneKey()` helper + `STANDALONE_PREFIX` 常量集中管理
 - `WorkflowHandle.standalone` 布尔标记（用于 GET /health、GET /workflows 过滤）
 - Loop 存在 `s.loops`（daemon 拥有），WorkflowHandle 仅管理 MCP/context 生命周期
@@ -96,6 +101,7 @@ AGENT-TOP-LEVEL 定义了 6 个实施阶段。但当前代码有几个结构性�
 **Scope**: workflow/loop/prompt.ts
 
 改动：
+
 - 提取 `PromptSection` 接口：`(ctx) => string | null`
 - 每个当前段落变成独立 section（project, inbox, activity, document, retry, instructions）
 - `buildAgentPrompt` 变成组合器：接收 sections 数组，拼接非 null 结果
@@ -108,17 +114,18 @@ AGENT-TOP-LEVEL 定义了 6 个实施阶段。但当前代码有几个结构性�
 
 以下不在 Phase 0 范围内（原因见 AGENT-TOP-LEVEL.md）：
 
-| Item | Reason |
-|------|--------|
-| `FileStateStore` | Phase 3 直接替换为 JSONL ConversationLog + ThinThread，不走中间状态 |
-| `ContextProvider` 拆分 | 当前接口映射到 Workspace，不需要改。Personal context 是新模块 |
-| Legacy workers 清理 | 第 18 任已统一到 controller 路径。剩余 workers map 是测试桩，不阻塞 |
+| Item                   | Reason                                                              |
+| ---------------------- | ------------------------------------------------------------------- |
+| `FileStateStore`       | Phase 3 直接替换为 JSONL ConversationLog + ThinThread，不走中间状态 |
+| `ContextProvider` 拆分 | 当前接口映射到 Workspace，不需要改。Personal context 是新模块       |
+| Legacy workers 清理    | 第 18 任已统一到 controller 路径。剩余 workers map 是测试桩，不阻塞 |
 
 ---
 
 ## Verification
 
 每个 task 完成后：
+
 1. `bun test` 全部通过
 2. `bun run build` clean
 3. 无行为变更（纯结构重构）

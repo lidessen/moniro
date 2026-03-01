@@ -43,6 +43,7 @@ updated: YYYY-MM-DD
 ## Usage
 
 Create session summaries to:
+
 - Hand off context to future sessions
 - Track progress over time
 - Remember open threads

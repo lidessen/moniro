@@ -16,6 +16,7 @@ Strategies for managing documentation through its lifecycle - from creation to a
 ### Living vs Dead Documentation
 
 **Living Documentation** is actively maintained and trusted:
+
 - Updated when code/process changes
 - Reviewed regularly
 - Clear ownership
@@ -23,6 +24,7 @@ Strategies for managing documentation through its lifecycle - from creation to a
 - Integrated into team workflows
 
 **Dead Documentation** accumulates and creates confusion:
+
 - Outdated information that misleads
 - No clear owner or maintenance
 - Buried and forgotten
@@ -34,6 +36,7 @@ Strategies for managing documentation through its lifecycle - from creation to a
 ### The Documentation Decay Problem
 
 Documentation naturally decays over time:
+
 1. **Day 0:** Accurate and complete
 2. **Week 1:** Still mostly accurate
 3. **Month 1:** Some outdated sections
@@ -45,18 +48,21 @@ Documentation naturally decays over time:
 ### Types by Intended Lifespan
 
 **Permanent** - Evolves with the project
+
 - Architecture decisions (ADRs)
 - API documentation
 - User guides
 - Process documentation
 
 **Temporary** - Time-bounded usefulness
+
 - Meeting notes
 - Investigation notes
 - Brainstorming docs
 - Project-specific exploration
 
 **Ephemeral** - Very short lifespan
+
 - Daily standup notes
 - Quick scratch notes
 - Debugging logs
@@ -69,6 +75,7 @@ Documentation naturally decays over time:
 ### Stage 1: Creation
 
 **When to create documentation:**
+
 - ✅ Capturing non-obvious design decisions
 - ✅ Documenting public APIs or interfaces
 - ✅ Recording investigation results
@@ -77,6 +84,7 @@ Documentation naturally decays over time:
 - ❌ Duplicating information that exists elsewhere
 
 **Creation best practices:**
+
 - Tag with creation date (especially for temporary docs)
 - Identify intended audience
 - Set expected lifespan if temporary
@@ -84,6 +92,7 @@ Documentation naturally decays over time:
 - Assign owner (person or team)
 
 **Example frontmatter for temporary docs:**
+
 ```markdown
 ---
 created: 2026-01-30
@@ -97,18 +106,21 @@ related: #issue-123
 ### Stage 2: Active Use
 
 **Characteristics:**
+
 - Referenced regularly
 - Updated with changes
 - Clear current owner
 - Linked from index files (README, AGENTS.md)
 
 **Maintenance triggers:**
+
 - Code changes → Update related docs
 - Process changes → Update process docs
 - Bug found in docs → Fix immediately
 - New team member confused → Improve clarity
 
 **Signs of healthy active docs:**
+
 - Recent git commits
 - Linked from navigation
 - No conflicting versions
@@ -117,6 +129,7 @@ related: #issue-123
 ### Stage 3: Declining Use
 
 **Warning signs:**
+
 - Last updated >6 months ago
 - Rarely referenced
 - Owner left team
@@ -125,11 +138,13 @@ related: #issue-123
 **Decision point:** Refresh or retire?
 
 **Refresh if:**
+
 - Still fundamentally useful
 - Can be updated with reasonable effort
 - Fills a documentation gap
 
 **Retire if:**
+
 - No longer relevant
 - Superseded by newer docs
 - Would require complete rewrite
@@ -137,24 +152,28 @@ related: #issue-123
 ### Stage 4: Archive or Delete
 
 **Archive** - Keep for historical reference
+
 - Accepted RFCs (part of project history)
 - Major architecture decisions
 - Deprecated features (for legacy support)
 - Post-mortems and incident reports
 
 **Delete** - Remove completely
+
 - Outdated temporary docs
 - Superseded drafts
 - Obsolete process docs
 - Misleading or incorrect content
 
 **Archive best practices:**
+
 - Move to designated archive location
 - Add "ARCHIVED" label or prefix
 - Link to replacement documentation
 - Include archive date and reason
 
 **Example:**
+
 ```
 docs/archive/2025-Q4-old-api-guide.md
 
@@ -172,6 +191,7 @@ See: docs/api/v2-reference.md
 **Pattern:** Set explicit expiration for temporary documentation
 
 **Implementation:**
+
 ```markdown
 ---
 created: 2026-01-30
@@ -181,11 +201,13 @@ purpose: Q1 planning exploration
 ```
 
 **Process:**
+
 - Quarterly review of expired docs
 - Decision: delete, extend, or promote to permanent
 - Automated reminders (calendar, bot, CI check)
 
 **Good for:**
+
 - Meeting notes
 - Investigation notes
 - Project-specific drafts
@@ -195,17 +217,20 @@ purpose: Q1 planning exploration
 **Pattern:** Review docs not updated in X months
 
 **Implementation:**
+
 ```bash
 # Find docs not modified in 6 months
 find docs/ -name "*.md" -mtime +180
 ```
 
 **Process:**
+
 - Quarterly or bi-annual audit
 - Review each old doc
 - Update, archive, or delete
 
 **Good for:**
+
 - Process documentation
 - Technical guides
 - Architecture docs
@@ -215,16 +240,19 @@ find docs/ -name "*.md" -mtime +180
 **Pattern:** Each document has a clear owner responsible for maintenance
 
 **Implementation:**
+
 - CODEOWNERS file for documentation
 - Frontmatter with owner tag
 - Team assignment in directory structure
 
 **Process:**
+
 - Owners review their docs on schedule
 - Handoff protocol when owner changes
 - Orphaned docs flagged for review
 
 **Good for:**
+
 - Large teams
 - Distributed documentation
 - Long-lived projects
@@ -234,6 +262,7 @@ find docs/ -name "*.md" -mtime +180
 **Pattern:** Documentation updated when specific events occur
 
 **Events:**
+
 - Code release → Update changelog, API docs
 - Architecture change → Update ADR, diagrams
 - Process change → Update contributing guide
@@ -241,12 +270,14 @@ find docs/ -name "*.md" -mtime +180
 - Quarterly → Review temporary docs
 
 **Implementation:**
+
 - Checklist in release process
 - PR templates include "docs updated?"
 - CI checks for doc-code sync
 - Calendar reminders for periodic reviews
 
 **Good for:**
+
 - Documentation tied to releases
 - Process documentation
 - Compliance requirements
@@ -256,16 +287,19 @@ find docs/ -name "*.md" -mtime +180
 **Pattern:** Different lifecycle management for different doc types
 
 **Example:**
+
 - **Repo (strict lifecycle):** Architecture, API docs, RFCs
 - **Wiki (relaxed lifecycle):** Team notes, how-tos, brainstorming
 - **External (separate):** User-facing docs on website
 
 **Process:**
+
 - Repo docs reviewed with code
 - Wiki docs reviewed quarterly
 - Migration path from wiki to repo for important content
 
 **Good for:**
+
 - Large organizations
 - Multiple documentation needs
 - Different stakeholder groups
@@ -280,23 +314,28 @@ Define clear rules for your project:
 ## Documentation Cleanup Policy
 
 ### Temporary Documents (docs/notes/)
+
 - **Review frequency:** Quarterly
 - **Retention:** 3 months default
 - **Action:** Delete or promote to permanent
 
 ### Investigation Notes
+
 - **Review trigger:** Project completion
 - **Action:** Extract learnings to permanent docs, delete rest
 
 ### Meeting Notes
+
 - **Retention:** 1 quarter
 - **Action:** Consolidate important decisions into decision log, delete rest
 
 ### Draft RFCs
+
 - **Review trigger:** 2 weeks of inactivity
 - **Action:** Promote to active RFC, continue draft, or close
 
 ### Archived Documents
+
 - **Retention:** Indefinite (unless storage constrained)
 - **Location:** docs/archive/ or separate archive repo
 ```
@@ -304,27 +343,32 @@ Define clear rules for your project:
 ### Sample Policies by Document Type
 
 **Meeting Notes**
+
 - Keep: 3 months
 - Process: Extract action items → permanent docs, delete notes
 - Exception: Major decisions → convert to ADR
 
 **Investigation/Exploration**
+
 - Keep: Until project complete
 - Process: Extract findings → knowledge base, delete scratch work
 - Exception: Novel techniques → convert to guide
 
 **Draft Proposals (RFCs, ADRs)**
+
 - Keep: 2 weeks of inactivity
 - Process: Accept, reject, or request updates
 - Accepted: Move to permanent RFCs
 - Rejected: Archive with reason
 
 **Brainstorming/Planning**
+
 - Keep: Sprint/project duration
 - Process: Convert to tasks/issues, delete brainstorming
 - Exception: Strategic decisions → archive for reference
 
 **Runbooks/Procedures**
+
 - Keep: Until process changes
 - Process: Update when process changes
 - Outdated: Archive with link to replacement
@@ -338,6 +382,7 @@ Define clear rules for your project:
 **Process:**
 
 1. **Inventory** (Week 1)
+
    ```bash
    # List all docs with last modified date
    find docs/ -name "*.md" -exec ls -lt {} +
@@ -370,15 +415,18 @@ Define clear rules for your project:
 **Pattern:** Small regular maintenance instead of big quarterly cleanup
 
 **Daily/Weekly:**
+
 - Update docs when code changes (part of PR process)
 - Delete personal scratch notes at end of week
 
 **Monthly:**
+
 - Review temporary docs folder
 - Delete expired investigation notes
 - Check for broken links
 
 **Quarterly:**
+
 - Full inventory and classification
 - Archive old content
 - Update navigation and indexes
@@ -386,6 +434,7 @@ Define clear rules for your project:
 ### Automated Checks
 
 **CI Checks (Optional):**
+
 ```yaml
 # .github/workflows/docs-check.yml
 - Check for broken internal links
@@ -395,6 +444,7 @@ Define clear rules for your project:
 ```
 
 **Git Hooks:**
+
 ```bash
 # pre-commit hook
 # Remind to update docs if code changed in certain areas
@@ -404,6 +454,7 @@ fi
 ```
 
 **Bots/Automation:**
+
 - Slack/email reminder for expired docs
 - GitHub issue created for orphaned docs
 - Weekly summary of stale documentation
@@ -413,6 +464,7 @@ fi
 ### Pattern 1: Date-Prefixed Temporary Docs
 
 **Structure:**
+
 ```
 docs/notes/
 ├── 2026-01-15-oauth-investigation.md
@@ -421,12 +473,14 @@ docs/notes/
 ```
 
 **Cleanup:**
+
 ```bash
 # Delete notes older than 3 months
 find docs/notes/ -name "*.md" -mtime +90 -delete
 ```
 
 **Benefits:**
+
 - Sortable by date
 - Easy to identify old content
 - Obvious candidates for cleanup
@@ -434,6 +488,7 @@ find docs/notes/ -name "*.md" -mtime +90 -delete
 ### Pattern 2: Status Tags in Filename
 
 **Structure:**
+
 ```
 rfcs/
 ├── DRAFT-0042-new-feature.md
@@ -443,12 +498,14 @@ rfcs/
 ```
 
 **Lifecycle:**
+
 1. Create as DRAFT
 2. Review and decide → rename to ACCEPTED/REJECTED
 3. After implementation → rename to IMPLEMENTED
 4. REJECTED → move to archive after 1 year
 
 **Benefits:**
+
 - Status visible in file listing
 - Easy to filter by status
 - Clear lifecycle progression
@@ -456,6 +513,7 @@ rfcs/
 ### Pattern 3: Separate Archive Directory
 
 **Structure:**
+
 ```
 docs/
 ├── current/
@@ -469,6 +527,7 @@ docs/
 ```
 
 **Benefits:**
+
 - Clean separation
 - Can delete entire archive if needed
 - Easy to ignore in searches
@@ -496,6 +555,7 @@ replacement: docs/new-api-guide.md
 ```
 
 **Benefits:**
+
 - Links don't break
 - Historical context preserved
 - Clear warning for readers
@@ -508,17 +568,20 @@ replacement: docs/new-api-guide.md
 # Documentation Changelog
 
 ## 2026-01-30
+
 - Archived old deployment guide, replaced with Kubernetes guide
 - Updated API reference for v2.0 release
 - Deleted Q4 2025 meeting notes
 
 ## 2026-01-15
+
 - Added troubleshooting guide for common issues
 - Updated contributing guide with new PR template
 - Archived legacy authentication docs
 ```
 
 **Benefits:**
+
 - Visibility into documentation maintenance
 - Helps with audits
 - Shows documentation is actively managed
@@ -528,6 +591,7 @@ replacement: docs/new-api-guide.md
 ### 1. Make Lifecycle Part of Creation
 
 When creating documentation, decide:
+
 - Intended lifespan (permanent vs temporary)
 - Owner or maintainer
 - Update triggers (what events require updates)
@@ -546,6 +610,7 @@ Over-archiving creates clutter and confusion.
 ### 3. Link Replacement Documentation
 
 When archiving or deleting:
+
 ```markdown
 This document is superseded by: [New Guide](link)
 ```
@@ -555,6 +620,7 @@ Prevents frustration from finding old docs.
 ### 4. Document Your Lifecycle Policy
 
 In README or CONTRIBUTING:
+
 ```markdown
 ## Documentation Lifecycle
 
@@ -569,6 +635,7 @@ Helps team understand expectations.
 ### 5. Tie to Existing Workflows
 
 **Don't create separate documentation maintenance:**
+
 - Update docs as part of PR review
 - Archive docs when deprecating features
 - Review docs during sprint planning
@@ -588,6 +655,7 @@ Don't try to implement perfect lifecycle management immediately.
 ### 7. Measure Health
 
 **Simple metrics:**
+
 - % of docs updated in last 6 months
 - Number of docs with broken links
 - Number of expired temporary docs
@@ -644,22 +712,26 @@ Elaborate frontmatter, multiple approval steps, complex tools.
 Starting lifecycle management in your project:
 
 ### Immediate (Day 1)
+
 - [ ] Delete obviously outdated documentation
 - [ ] Fix broken links
 - [ ] Update README with current info
 
 ### Short-term (Week 1)
+
 - [ ] Identify temporary vs permanent documentation
 - [ ] Add creation dates to temporary docs
 - [ ] Define basic cleanup policy (e.g., "review quarterly")
 
 ### Medium-term (Month 1)
+
 - [ ] Establish ownership for key documents
 - [ ] Set up calendar reminder for quarterly audit
 - [ ] Create archive directory if needed
 - [ ] Document lifecycle policy in README/CONTRIBUTING
 
 ### Long-term (Ongoing)
+
 - [ ] Regular quarterly audits
 - [ ] Update docs as part of PR process
 - [ ] Measure documentation health
@@ -668,6 +740,7 @@ Starting lifecycle management in your project:
 ## Summary
 
 **Key principles:**
+
 1. Documentation naturally decays without management
 2. Different doc types need different lifecycle strategies
 3. Delete liberally, archive sparingly

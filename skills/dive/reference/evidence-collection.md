@@ -11,6 +11,7 @@ Standard format for all evidence citations:
 ```
 
 **Examples**:
+
 ```
 src/auth/handler.ts:45 - JWT generation logic
 docs/api/endpoints.md:120-135 - POST /auth/login documentation
@@ -20,13 +21,17 @@ config/database.ts:12 - Database connection config
 
 ### Code Snippet Citation
 
-```markdown
+````markdown
 **Source**: [file:line]
+
 ```language
 [code snippet]
 ```
+````
+
 **Shows**: [what this proves]
-```
+
+````
 
 **Example**:
 ```markdown
@@ -37,9 +42,11 @@ export function generateToken(userId: string): string {
     expiresIn: '15m'
   });
 }
-```
+````
+
 **Shows**: Tokens expire after 15 minutes
-```
+
+````
 
 ## Collection Templates
 
@@ -54,7 +61,7 @@ export function generateToken(userId: string): string {
 3. [file:line] - [finding]
 
 **Summary**: [synthesis]
-```
+````
 
 ### With Uncertainty
 
@@ -62,6 +69,7 @@ export function generateToken(userId: string): string {
 **Partial Answer**: [what's confirmed]
 
 **Evidence**:
+
 - [file:line] - [partial information]
 
 **Gaps**: Cannot confirm [X] without [Y]
@@ -103,10 +111,12 @@ When sources disagree:
 
 ```markdown
 **Conflict**:
+
 - Source A: [file:line] - Shows X
 - Source B: [file:line] - Shows Y
 
 **Resolution**:
+
 - Check timestamps (which is newer)
 - Check environment (dev vs prod)
 - Check git history (what changed, why)
@@ -122,6 +132,7 @@ When sources disagree:
 [Feature] works by [mechanism].
 
 Evidence:
+
 1. [docs file:line] - [documentation]
 2. [impl file:line] - [implementation]
 3. [test file:line] - [verification]
@@ -145,12 +156,15 @@ For complex questions:
 
 ```markdown
 **[Aspect 1]**: [answer]
+
 - Evidence: [file:line]
 
 **[Aspect 2]**: [answer]
+
 - Evidence: [file:line]
 
 **[Aspect 3]**: [answer]
+
 - Evidence: [file:line]
 
 Integration: [how aspects work together]
@@ -159,21 +173,27 @@ Integration: [how aspects work together]
 ## Evidence Organization
 
 **By strength** (recommended):
+
 ```markdown
 **Primary Evidence**:
+
 - [strongest sources]
 
 **Supporting Evidence**:
+
 - [supporting sources]
 ```
 
 **By topic**:
+
 ```markdown
 **Authentication**:
+
 - [evidence 1]
 - [evidence 2]
 
 **Authorization**:
+
 - [evidence 3]
 - [evidence 4]
 ```
@@ -183,17 +203,20 @@ Integration: [how aspects work together]
 Before presenting evidence:
 
 **Collection**:
+
 - [ ] Searched docs, code, config, tests
 - [ ] Found multiple sources where possible
 - [ ] Resolved contradictions
 - [ ] Noted gaps explicitly
 
 **Citation**:
+
 - [ ] All sources cited with file:line
 - [ ] Code snippets included where relevant
 - [ ] Context provided for each source
 
 **Presentation**:
+
 - [ ] Direct answer stated first
 - [ ] Evidence organized logically
 - [ ] Certainty level clear
@@ -211,6 +234,7 @@ Before presenting evidence:
 **Answer**: Payment errors use a three-tier error hierarchy with retry logic.
 
 **Evidence**:
+
 1. src/payment/errors.ts:5-25 - Defines error types:
    - InsufficientFundsError
    - PaymentGatewayError
@@ -238,11 +262,13 @@ Confirmed by implementation, documentation, and tests.
 **Partial Answer**: Application uses multer with configurable size limit.
 
 **Evidence**:
+
 - src/middleware/upload.ts:15 - References MAX_UPLOAD_SIZE constant
 
 **Gaps**: Cannot determine actual limit value.
 
 Searched but not found:
+
 - Configuration files
 - Environment variable docs
 - Deployment configs
@@ -260,16 +286,19 @@ Searched but not found:
 **Evidence**:
 
 **Token Generation**:
+
 - docs/api/auth.md:15-20 - Documents POST /auth/login
 - src/auth/handler.ts:45 - Generates JWT (15min expiry)
 - src/auth/handler.ts:67 - Issues refresh token (7 days)
 
 **Verification**:
+
 - src/auth/middleware.ts:23 - Validates JWT on requests
 - tests/auth.test.ts:89 - Confirms 15min expiry
 - tests/auth.test.ts:120 - Validates refresh flow
 
 **Token Rotation**:
+
 - src/auth/handler.ts:78 - Rotates refresh token on use
 - tests/auth.test.ts:145 - Tests rotation logic
 

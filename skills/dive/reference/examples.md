@@ -7,12 +7,14 @@ Practical examples of using project-expert workflow.
 **Question**: "How does user authentication work?"
 
 **Process**:
+
 1. Search docs: `grep -r "authentication" docs/`
 2. Find API docs: `docs/api/auth.md`
 3. Locate implementation: `grep -r "class.*Auth" src/ --include="*.ts"`
 4. Read auth handler and tests
 
 **Answer**:
+
 ```
 Authentication uses JWT tokens with refresh token rotation.
 
@@ -31,12 +33,14 @@ longer refresh tokens (7 days) to balance security and UX.
 **Question**: "What database do we use for caching?"
 
 **Process**:
+
 1. Check README and docs
 2. Search config: `grep -r "cache" config/`
 3. Look at dependencies: `grep redis package.json`
 4. Find usage: `grep "createClient" src/`
 
 **Answer**:
+
 ```
 Redis is used for caching.
 
@@ -54,11 +58,13 @@ Summary: Redis cache with ioredis client library.
 **Question**: "What's the rate limit for API endpoints?"
 
 **Process**:
+
 1. Search docs: No mention of rate limiting
 2. Check middleware: Found rate limiter but no config
 3. Check env vars: Not documented
 
 **Answer**:
+
 ```
 I found rate limiting middleware but cannot determine the exact limits.
 
@@ -81,12 +87,14 @@ infrastructure files?
 **Question**: "How do the frontend and backend communicate?"
 
 **Process**:
+
 1. Check ARCHITECTURE.md
 2. Search for API client: `grep -r "axios\|fetch" src/frontend/`
 3. Check API routes: `grep -r "router\|route" src/backend/`
 4. Look for API specs: Check openapi.yaml
 
 **Answer**:
+
 ```
 Frontend communicates via REST API with JSON payloads.
 
@@ -110,12 +118,14 @@ Confirmed by architecture docs, implementation, and API specification.
 **Question**: "Why might users see 'Payment failed' errors?"
 
 **Process**:
+
 1. Search for error message: `grep -r "Payment failed" src/`
 2. Find error types: `grep -r "PaymentError" src/`
 3. Check error handling: Read payment processor code
 4. Review tests: `grep -r "payment.*error" tests/`
 
 **Answer**:
+
 ```
 "Payment failed" errors can occur from multiple causes:
 
@@ -145,12 +155,14 @@ To debug specific instance, check logs for underlying error type.
 **Question**: "How do I increase the API timeout?"
 
 **Process**:
+
 1. Check config docs: `grep -r "timeout" docs/`
 2. Search .env.example: `grep TIMEOUT .env.example`
 3. Find usage: `grep -r "timeout" config/`
 4. Check default values
 
 **Answer**:
+
 ```
 API timeout is configured via API_TIMEOUT_MS environment variable.
 

@@ -15,6 +15,7 @@ Guide for using RFC (Request for Comments) process to document and decide on sig
 ## What is an RFC
 
 **RFC (Request for Comments)** is a document proposing a significant change, designed to:
+
 - **Capture design decisions** before implementation
 - **Invite feedback** from stakeholders
 - **Build consensus** on approach
@@ -23,19 +24,23 @@ Guide for using RFC (Request for Comments) process to document and decide on sig
 ### RFCs vs Other Documentation
 
 **RFC:** Proposal for something that doesn't exist yet
+
 - "We should migrate to PostgreSQL"
 - "Proposal: New caching architecture"
 - "RFC: Change API authentication to OAuth2"
 
 **ADR (Architecture Decision Record):** Record of decision already made
+
 - Often created from accepted RFC
 - Can also document decisions made without formal RFC
 
 **Design Doc:** Similar to RFC, different name
+
 - Some teams use "design doc" instead of "RFC"
 - Same purpose, choose one term and be consistent
 
 **Issue/Ticket:** Specific task or bug
+
 - RFCs are broader (architecture, approach)
 - Issues are narrower (implementation details)
 
@@ -44,22 +49,26 @@ Guide for using RFC (Request for Comments) process to document and decide on sig
 ### Use RFCs For:
 
 **✅ Significant technical decisions**
+
 - Database technology choice
 - New service/component architecture
 - Major refactoring approach
 - API design changes (breaking or significant)
 
 **✅ Cross-team impact**
+
 - Changes affecting multiple teams
 - New processes or conventions
 - Shared infrastructure changes
 
 **✅ Irreversible or costly decisions**
+
 - Technology migrations
 - Large time investments
 - Changes hard to undo
 
 **✅ Multiple valid approaches**
+
 - Need to evaluate trade-offs
 - Want input on best approach
 - Benefit from diverse perspectives
@@ -67,21 +76,25 @@ Guide for using RFC (Request for Comments) process to document and decide on sig
 ### Don't Use RFCs For:
 
 **❌ Small, localized changes**
+
 - Bug fixes
 - Minor refactoring
 - Single-component improvements
 - Obvious solutions
 
 **❌ Urgent decisions**
+
 - Incident response
 - Critical bugs
 - Time-sensitive fixes
 
 **❌ Already-decided items**
+
 - Don't retrofit RFCs for decisions already made
 - (Exception: Create ADR to document decision)
 
 **❌ Bikeshedding topics**
+
 - Code style (use linter config)
 - Naming conventions (document in style guide)
 - Tool preferences (decide quickly, move on)
@@ -89,6 +102,7 @@ Guide for using RFC (Request for Comments) process to document and decide on sig
 ### Gray Areas (Team Judgment)
 
 **Medium-impact changes:**
+
 - New library adoption → RFC if organization-wide, skip if team-local
 - Service splitting → RFC for first split (sets pattern), skip for subsequent
 - Test strategy change → RFC if affects multiple teams, skip if team-local
@@ -102,6 +116,7 @@ Guide for using RFC (Request for Comments) process to document and decide on sig
 #### 1. Draft
 
 **Author creates RFC document**
+
 - Copy template (see below)
 - Fill in proposal details
 - Include alternatives considered
@@ -113,11 +128,13 @@ Guide for using RFC (Request for Comments) process to document and decide on sig
 #### 2. Review
 
 **Share for feedback**
+
 - Post in team chat/channel
 - Tag relevant stakeholders
 - Set feedback deadline (typically 1-2 weeks)
 
 **Reviewers provide input:**
+
 - Ask clarifying questions
 - Suggest alternatives
 - Identify risks or concerns
@@ -128,11 +145,13 @@ Guide for using RFC (Request for Comments) process to document and decide on sig
 #### 3. Decision
 
 **Decision point approaches:**
+
 - **Consensus:** General agreement (most teams)
 - **Tech lead decision:** Lead makes final call after review
 - **Vote:** Formal vote (rare, large changes)
 
 **Outcomes:**
+
 - **Accepted:** Proceed with implementation
 - **Rejected:** Don't proceed (document why)
 - **Deferred:** Revisit later (document when/why)
@@ -142,25 +161,30 @@ Guide for using RFC (Request for Comments) process to document and decide on sig
 #### 4. Implementation
 
 **If accepted:**
+
 - Create implementation tasks/issues
 - Reference RFC number in tasks
 - Link commits/PRs back to RFC
 
 **Update RFC status as implementation progresses:**
+
 - `ACCEPTED` → `IMPLEMENTING` → `IMPLEMENTED`
 
 **If implementation differs from RFC:**
+
 - Update RFC with actual approach
 - Document reasons for deviation
 
 #### 5. Archive/Reference
 
 **Completed RFCs become historical record:**
+
 - Why decision was made
 - What alternatives were considered
 - Rationale for approach
 
 **Valuable for:**
+
 - Onboarding (understanding past decisions)
 - Revisiting decisions (when context changes)
 - Avoiding repeated debates
@@ -274,9 +298,9 @@ Guide for using RFC (Request for Comments) process to document and decide on sig
 
 ## Risks and Mitigations
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| [Risk 1] | High | [How we address it] |
+| Risk     | Impact | Mitigation          |
+| -------- | ------ | ------------------- |
+| [Risk 1] | High   | [How we address it] |
 | [Risk 2] | Medium | [How we address it] |
 
 ## Open Questions
@@ -287,10 +311,12 @@ Guide for using RFC (Request for Comments) process to document and decide on sig
 ## Implementation Plan
 
 ### Phase 1: [Name]
+
 - [Task]
 - [Task]
 
 ### Phase 2: [Name]
+
 - [Task]
 - [Task]
 
@@ -322,11 +348,13 @@ Guide for using RFC (Request for Comments) process to document and decide on sig
 ### Lightweight RFC (Small Teams, Fast-Moving)
 
 **When:**
+
 - Small team (2-10 people)
 - High trust environment
 - Frequent communication
 
 **Process:**
+
 1. Create simple RFC document (minimal template)
 2. Share in team chat
 3. Async review (3-5 days)
@@ -335,6 +363,7 @@ Guide for using RFC (Request for Comments) process to document and decide on sig
 6. Implement
 
 **File format:**
+
 ```
 rfcs/
 ├── 0001-api-authentication.md
@@ -349,12 +378,14 @@ Simple numbering, status in frontmatter or filename.
 ### Formal RFC (Large Teams, High Stakes)
 
 **When:**
+
 - Large team (10+ people)
 - Multiple stakeholders
 - High-impact changes
 - Compliance/audit requirements
 
 **Process:**
+
 1. Create comprehensive RFC (full template)
 2. Announce formally (RFC created, feedback window)
 3. Structured review (comments in doc or PR)
@@ -364,6 +395,7 @@ Simple numbering, status in frontmatter or filename.
 7. Post-implementation review
 
 **File format:**
+
 ```
 rfcs/
 ├── README.md              # Process documentation
@@ -390,6 +422,7 @@ Organized by status, clear lifecycle.
 **Standard:** Simple RFC, quick review, informal consensus
 
 **Formal process triggered by:**
+
 - High cost/risk
 - Cross-team impact
 - Disagreement emerges
@@ -404,16 +437,19 @@ Organized by status, clear lifecycle.
 **Format:** `NNNN-title.md` (e.g., `0042-new-api.md`)
 
 **Numbering:**
+
 - Sequential (0001, 0002, 0003, ...)
 - Zero-padded for sorting
 - Never reuse numbers
 
 **Benefits:**
+
 - Easy to reference ("See RFC 0042")
 - Chronological order preserved
 - Unique identifier
 
 **Track next number:**
+
 ```markdown
 # rfcs/README.md
 
@@ -425,11 +461,13 @@ Next RFC number: 0043
 **Format:** `STATUS-NNNN-title.md`
 
 Examples:
+
 - `DRAFT-0042-new-feature.md`
 - `ACCEPTED-0023-migration.md`
 - `IMPLEMENTED-0015-caching.md`
 
 **Benefits:**
+
 - Status visible in file listing
 - Easy to filter (`ls rfcs/ACCEPTED-*`)
 - No need to open file to see status
@@ -441,6 +479,7 @@ Examples:
 **Filename:** `NNNN-title.md` (no status)
 
 **Frontmatter:**
+
 ```yaml
 ---
 status: ACCEPTED
@@ -450,6 +489,7 @@ updated: 2026-01-30
 ```
 
 **Benefits:**
+
 - Cleaner filenames
 - Status easily updated (no rename)
 - Can track more metadata
@@ -459,6 +499,7 @@ updated: 2026-01-30
 ### Pattern 4: Separate Directories by Status
 
 **Structure:**
+
 ```
 rfcs/
 ├── drafts/
@@ -468,6 +509,7 @@ rfcs/
 ```
 
 **Benefits:**
+
 - Clear separation
 - Easy to browse by status
 - Can have different retention policies
@@ -477,12 +519,14 @@ rfcs/
 ### Pattern 5: RFC as Pull Request
 
 **Process:**
+
 1. Create RFC markdown file
 2. Open PR with RFC
 3. Review happens via PR comments
 4. Merge PR = Accept RFC
 
 **Benefits:**
+
 - Leverage GitHub/GitLab review flow
 - Comments threaded and resolved
 - History preserved in PR
@@ -534,6 +578,7 @@ Migrate from SQLite to PostgreSQL for production database.
 ## Why
 
 SQLite limitations hit:
+
 - Concurrent writes causing locks
 - Need full-text search (PostgreSQL has better FTS)
 - Future need for replication
@@ -548,6 +593,7 @@ SQLite limitations hit:
 ## Timeline
 
 2 weeks:
+
 - Week 1: Setup PostgreSQL, test migration locally
 - Week 2: Production migration
 
@@ -578,6 +624,7 @@ Proposes architecture for deploying our application across multiple geographic r
 ### Problem
 
 Current single-region deployment (US-West):
+
 - High latency for EU users (200-400ms)
 - Single point of failure (region outage = full downtime)
 - Compliance concerns (EU data residency)
@@ -598,6 +645,7 @@ Current single-region deployment (US-West):
 ### Architecture
 
 **Multi-region active-passive:**
+
 - Primary region: US-West
 - Secondary regions: US-East, EU
 - Reads served locally
@@ -622,11 +670,13 @@ Current single-region deployment (US-West):
 ### Migration
 
 **Phase 1:** Add US-East (4 weeks)
+
 - Set up infrastructure
 - Test replication
 - Gradual traffic shift
 
 **Phase 2:** Add EU (6 weeks)
+
 - Same as Phase 1
 - Additional: EU data residency logic
 
@@ -653,18 +703,19 @@ Current single-region deployment (US-West):
 ## Trade-offs
 
 **Chose:**
+
 - Simple active-passive over complex active-active
 - Accept replication lag (<1s) for operational simplicity
 - Incremental rollout over big-bang migration
 
 ## Risks and Mitigations
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Replication lag causes stale reads | Medium | Monitor lag, alert if >1s |
-| Primary region failure loses write availability | High | Fast failover process, DR plan |
-| Increased operational complexity | Medium | Comprehensive runbooks, training |
-| Cost increase (3x infrastructure) | Medium | Start with cheaper instance tiers |
+| Risk                                            | Impact | Mitigation                        |
+| ----------------------------------------------- | ------ | --------------------------------- |
+| Replication lag causes stale reads              | Medium | Monitor lag, alert if >1s         |
+| Primary region failure loses write availability | High   | Fast failover process, DR plan    |
+| Increased operational complexity                | Medium | Comprehensive runbooks, training  |
+| Cost increase (3x infrastructure)               | Medium | Start with cheaper instance tiers |
 
 ## Open Questions
 
@@ -675,17 +726,20 @@ Current single-region deployment (US-West):
 ## Implementation Plan
 
 ### Phase 0: Preparation (2 weeks)
+
 - Finalize cloud provider choice
 - Design DB replication setup
 - Create IaC for new regions
 
 ### Phase 1: US-East (4 weeks)
+
 - Deploy infrastructure
 - Set up replication
 - Test failover
 - Gradual traffic rollout (10% → 50% → 100%)
 
 ### Phase 2: EU (6 weeks)
+
 - Deploy infrastructure
 - Implement EU data residency logic
 - Set up bidirectional replication for EU data
@@ -724,26 +778,31 @@ Comprehensive, structured, thorough.
 ### Writing RFCs
 
 **1. Be concise** - Respect reviewers' time
+
 - Summary in 1-2 paragraphs
 - Details as needed, but no fluff
 - Use diagrams/examples over long prose
 
 **2. Show your work** - Include alternatives
+
 - What did you consider?
 - Why not those approaches?
 - Shows thoroughness, saves debate
 
 **3. Identify trade-offs** - Nothing is perfect
+
 - What are we giving up?
 - What are we gaining?
 - Honest about costs
 
 **4. Make it reviewable** - Clear structure
+
 - Use template (consistency helps reviewers)
 - Headers, lists, tables (easy to scan)
 - Highlight open questions
 
 **5. Update based on feedback** - Living document during review
+
 - Address questions in the RFC itself
 - Track major changes in decision log
 - Don't be precious about initial proposal
@@ -751,21 +810,25 @@ Comprehensive, structured, thorough.
 ### Reviewing RFCs
 
 **1. Be constructive** - Improve the proposal
+
 - Suggest alternatives if criticizing
 - Ask questions to understand
 - Assume good intent
 
 **2. Focus on substance** - Not bikeshedding
+
 - Architecture, trade-offs, risks
 - Not naming, formatting, minor details
 - Save style feedback for code review
 
 **3. Be timely** - Don't block
+
 - Review within deadline
 - If can't review, say so
 - Silence ≠ approval (explicit sign-off)
 
 **4. Know when to accept "good enough"**
+
 - Perfection is the enemy of done
 - Accept reasonable proposals even if not your preferred approach
 - Can iterate after implementation
@@ -773,26 +836,31 @@ Comprehensive, structured, thorough.
 ### Process Management
 
 **1. Set deadlines** - Don't let RFCs linger
+
 - Feedback deadline (e.g., 2 weeks)
 - Decision deadline
 - If no consensus by deadline, escalate (don't extend forever)
 
 **2. Drive to decision** - Don't get stuck in review
+
 - Author/lead responsible for moving to decision
 - Set decision date upfront
 - If prolonged disagreement, escalate to decision-maker
 
 **3. Archive outcomes** - Document all RFCs
+
 - Accepted RFCs: Keep for reference
 - Rejected RFCs: Keep with rejection reason
 - Deferred RFCs: Note why and when to revisit
 
 **4. Link implementation to RFC** - Traceability
+
 - Reference RFC in PRs/commits
 - Update RFC with implementation notes
 - Mark RFC as implemented when done
 
 **5. Review the process** - Iterate on RFC process itself
+
 - Too heavyweight? Simplify
 - Too many RFCs? Raise threshold
 - Too few RFCs? Encourage use
@@ -846,12 +914,14 @@ Accepting RFC because "implementation already started."
 - Iterate on process based on what works
 
 **Good RFC process:**
+
 - ✅ Improves decision quality
 - ✅ Builds consensus
 - ✅ Documents rationale
 - ✅ Feels helpful, not bureaucratic
 
 **Bad RFC process:**
+
 - ❌ Slows down unnecessarily
 - ❌ Creates busy work
 - ❌ Gets ignored or worked around

@@ -14,12 +14,12 @@ export async function waitFor(
   timeout = 5000,
   interval = 50,
 ): Promise<void> {
-  const start = Date.now()
+  const start = Date.now();
   while (Date.now() - start < timeout) {
-    if (await condition()) return
-    await new Promise((r) => setTimeout(r, interval))
+    if (await condition()) return;
+    await new Promise((r) => setTimeout(r, interval));
   }
-  throw new Error(`Timeout after ${timeout}ms waiting for condition`)
+  throw new Error(`Timeout after ${timeout}ms waiting for condition`);
 }
 
 /**
@@ -28,8 +28,8 @@ export async function waitFor(
  * inbox only to avoid reacting to historical channel messages.
  */
 export function getInboxSection(prompt: string): string {
-  const start = prompt.indexOf('## Inbox')
-  const end = prompt.indexOf('## Recent Activity')
-  if (start === -1) return ''
-  return end === -1 ? prompt.slice(start) : prompt.slice(start, end)
+  const start = prompt.indexOf("## Inbox");
+  const end = prompt.indexOf("## Recent Activity");
+  if (start === -1) return "";
+  return end === -1 ? prompt.slice(start) : prompt.slice(start, end);
 }

@@ -7,6 +7,7 @@ import type { ResolvedWorkflowAgent } from "../types.ts";
 import type { ContextProvider } from "../context/provider.ts";
 import type { Message, InboxMessage } from "../context/types.ts";
 import type { Backend } from "@/backends/types.ts";
+import type { ConversationMessage, ConversationLog, ThinThread } from "../../agent/conversation.ts";
 
 // ==================== Agent Loop ====================
 
@@ -95,6 +96,10 @@ export interface AgentLoopConfig {
   errorLog?: (message: string) => void;
   /** Enable feedback tool in agent prompts */
   feedback?: boolean;
+  /** Conversation log for persistence (absent for workflow agents) */
+  conversationLog?: ConversationLog;
+  /** Thin thread for bounded conversation context (absent for workflow agents) */
+  thinThread?: ThinThread;
 }
 
 // ==================== Agent Run ====================
@@ -125,6 +130,8 @@ export interface AgentRunContext {
   eventLog?: import("../context/event-log.ts").EventLog;
   /** Whether feedback tool is enabled */
   feedback?: boolean;
+  /** Recent conversation messages (thin thread for continuity) */
+  thinThread?: ConversationMessage[];
 }
 
 /** Result of an agent run */

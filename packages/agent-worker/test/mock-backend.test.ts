@@ -7,78 +7,78 @@
  * 3. Mock runner with AI SDK generateText + MCP tools
  */
 
-import { describe, test, expect } from 'bun:test'
-import { validateWorkflow } from '../src/workflow/parser.ts'
-import { createMemoryContextProvider } from '../src/workflow/context/memory-provider.ts'
-import { createContextMCPServer } from '../src/workflow/context/mcp/server.ts'
-import { runWithHttp } from '../src/workflow/context/http-transport.ts'
-import { runMockAgent } from '../src/workflow/loop/mock-runner.ts'
-import type { AgentRunContext } from '../src/workflow/loop/types.ts'
+import { describe, test, expect } from "bun:test";
+import { validateWorkflow } from "../src/workflow/parser.ts";
+import { createMemoryContextProvider } from "../src/workflow/context/memory-provider.ts";
+import { createContextMCPServer } from "../src/workflow/context/mcp/server.ts";
+import { runWithHttp } from "../src/workflow/context/http-transport.ts";
+import { runMockAgent } from "../src/workflow/loop/mock-runner.ts";
+import type { AgentRunContext } from "../src/workflow/loop/types.ts";
 
 // ==================== Parser Validation ====================
 
-describe('parser: mock backend validation', () => {
-  test('accepts backend: mock without model field', () => {
+describe("parser: mock backend validation", () => {
+  test("accepts backend: mock without model field", () => {
     const result = validateWorkflow({
       agents: {
         alice: {
-          backend: 'mock',
-          system_prompt: 'You are Alice.',
+          backend: "mock",
+          system_prompt: "You are Alice.",
         },
       },
-    })
-    expect(result.valid).toBe(true)
-    expect(result.errors).toHaveLength(0)
-  })
+    });
+    expect(result.valid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
 
-  test('accepts backend: mock with optional model field', () => {
+  test("accepts backend: mock with optional model field", () => {
     const result = validateWorkflow({
       agents: {
         alice: {
-          backend: 'mock',
-          model: 'test-model',
-          system_prompt: 'You are Alice.',
+          backend: "mock",
+          model: "test-model",
+          system_prompt: "You are Alice.",
         },
       },
-    })
-    expect(result.valid).toBe(true)
-  })
+    });
+    expect(result.valid).toBe(true);
+  });
 
-  test('rejects default backend without model field', () => {
+  test("rejects default backend without model field", () => {
     const result = validateWorkflow({
       agents: {
         alice: {
-          backend: 'default',
-          system_prompt: 'You are Alice.',
+          backend: "default",
+          system_prompt: "You are Alice.",
         },
       },
-    })
-    expect(result.valid).toBe(false)
-    expect(result.errors.some((e) => e.path.includes('model'))).toBe(true)
-  })
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.path.includes("model"))).toBe(true);
+  });
 
-  test('accepts claude backend without model field', () => {
+  test("accepts claude backend without model field", () => {
     const result = validateWorkflow({
       agents: {
         alice: {
-          backend: 'claude',
-          system_prompt: 'You are Alice.',
+          backend: "claude",
+          system_prompt: "You are Alice.",
         },
       },
-    })
-    expect(result.valid).toBe(true)
-  })
-})
+    });
+    expect(result.valid).toBe(true);
+  });
+});
 
 // ==================== Agent Identity Propagation ====================
 
-describe('agent identity via MCP transport', () => {
-  test('channel_send shows correct agent name (not anonymous)', async () => {
-    const agentNames = ['alice', 'bob']
-    const contextProvider = createMemoryContextProvider(agentNames)
+describe("agent identity via MCP transport", () => {
+  test("channel_send shows correct agent name (not anonymous)", async () => {
+    const agentNames = ["alice", "bob"];
+    const contextProvider = createMemoryContextProvider(agentNames);
 
     // Track channel entries
-    const mentions: { from: string; target: string }[] = []
+    const mentions: { from: string; target: string }[] = [];
 
     // Start HTTP MCP server
     const httpServer = await runWithHttp({
@@ -86,127 +86,127 @@ describe('agent identity via MCP transport', () => {
         createContextMCPServer({
           provider: contextProvider,
           validAgents: agentNames,
-          name: 'identity-test',
-          version: '1.0.0',
+          name: "identity-test",
+          version: "1.0.0",
           onMention: (from, target) => {
-            mentions.push({ from, target })
+            mentions.push({ from, target });
           },
         }).server,
       port: 0,
-    })
+    });
 
     try {
       // Seed inbox with a kickoff message
-      await contextProvider.appendChannel('system', 'Hello @alice, please respond.')
+      await contextProvider.appendChannel("system", "Hello @alice, please respond.");
 
       // Wait for inbox to propagate
-      await new Promise((r) => setTimeout(r, 50))
+      await new Promise((r) => setTimeout(r, 50));
 
-      const inbox = await contextProvider.getInbox('alice')
+      const inbox = await contextProvider.getInbox("alice");
 
       const ctx: AgentRunContext = {
-        name: 'alice',
+        name: "alice",
         agent: {
-          system_prompt: 'You are Alice.',
-          resolvedSystemPrompt: 'You are Alice.',
+          system_prompt: "You are Alice.",
+          resolvedSystemPrompt: "You are Alice.",
         },
         inbox,
         recentChannel: await contextProvider.readChannel(),
-        documentContent: '',
+        documentContent: "",
         mcpUrl: httpServer.url,
-        workspaceDir: '/tmp/test-workspace',
-        projectDir: '/tmp/test-project',
+        workspaceDir: "/tmp/test-workspace",
+        projectDir: "/tmp/test-project",
         retryAttempt: 1,
         provider: contextProvider,
-      }
+      };
 
-      const result = await runMockAgent(ctx)
-      expect(result.success).toBe(true)
+      const result = await runMockAgent(ctx);
+      expect(result.success).toBe(true);
 
       // Wait for channel to be written
-      await new Promise((r) => setTimeout(r, 50))
+      await new Promise((r) => setTimeout(r, 50));
 
       // Read channel and verify sender identity
-      const channel = await contextProvider.readChannel()
-      const aliceMessages = channel.filter((e) => e.from === 'alice')
+      const channel = await contextProvider.readChannel();
+      const aliceMessages = channel.filter((e) => e.from === "alice");
 
-      expect(aliceMessages.length).toBeGreaterThan(0)
+      expect(aliceMessages.length).toBeGreaterThan(0);
 
       // Should NOT have anonymous messages (except system)
-      const anonymousMessages = channel.filter((e) => e.from === 'anonymous')
-      expect(anonymousMessages).toHaveLength(0)
+      const anonymousMessages = channel.filter((e) => e.from === "anonymous");
+      expect(anonymousMessages).toHaveLength(0);
     } finally {
-      await httpServer.close()
+      await httpServer.close();
     }
-  })
+  });
 
-  test('different agents get different identities', async () => {
-    const agentNames = ['agent1', 'agent2']
-    const contextProvider = createMemoryContextProvider(agentNames)
+  test("different agents get different identities", async () => {
+    const agentNames = ["agent1", "agent2"];
+    const contextProvider = createMemoryContextProvider(agentNames);
 
     const httpServer = await runWithHttp({
       createServerInstance: () =>
         createContextMCPServer({
           provider: contextProvider,
           validAgents: agentNames,
-          name: 'multi-id-test',
-          version: '1.0.0',
+          name: "multi-id-test",
+          version: "1.0.0",
         }).server,
       port: 0,
-    })
+    });
 
     try {
       // Seed inbox for both agents
-      await contextProvider.appendChannel('system', 'Hello @agent1 and @agent2.')
-      await new Promise((r) => setTimeout(r, 50))
+      await contextProvider.appendChannel("system", "Hello @agent1 and @agent2.");
+      await new Promise((r) => setTimeout(r, 50));
 
       // Run agent1
-      const inbox1 = await contextProvider.getInbox('agent1')
+      const inbox1 = await contextProvider.getInbox("agent1");
       const result1 = await runMockAgent({
-        name: 'agent1',
-        agent: { system_prompt: 'You are agent1.', resolvedSystemPrompt: 'You are agent1.' },
+        name: "agent1",
+        agent: { system_prompt: "You are agent1.", resolvedSystemPrompt: "You are agent1." },
         inbox: inbox1,
         recentChannel: [],
-        documentContent: '',
+        documentContent: "",
         mcpUrl: httpServer.url,
-        workspaceDir: '/tmp/test-workspace-1',
-        projectDir: '/tmp/test-project',
+        workspaceDir: "/tmp/test-workspace-1",
+        projectDir: "/tmp/test-project",
         retryAttempt: 1,
         provider: contextProvider,
-      })
-      expect(result1.success).toBe(true)
+      });
+      expect(result1.success).toBe(true);
 
       // Run agent2
-      const inbox2 = await contextProvider.getInbox('agent2')
+      const inbox2 = await contextProvider.getInbox("agent2");
       const result2 = await runMockAgent({
-        name: 'agent2',
-        agent: { system_prompt: 'You are agent2.', resolvedSystemPrompt: 'You are agent2.' },
+        name: "agent2",
+        agent: { system_prompt: "You are agent2.", resolvedSystemPrompt: "You are agent2." },
         inbox: inbox2,
         recentChannel: [],
-        documentContent: '',
+        documentContent: "",
         mcpUrl: httpServer.url,
-        workspaceDir: '/tmp/test-workspace-2',
-        projectDir: '/tmp/test-project',
+        workspaceDir: "/tmp/test-workspace-2",
+        projectDir: "/tmp/test-project",
         retryAttempt: 1,
         provider: contextProvider,
-      })
-      expect(result2.success).toBe(true)
+      });
+      expect(result2.success).toBe(true);
 
-      await new Promise((r) => setTimeout(r, 50))
+      await new Promise((r) => setTimeout(r, 50));
 
       // Verify both identities are correct
-      const channel = await contextProvider.readChannel()
-      const agent1Msgs = channel.filter((e) => e.from === 'agent1')
-      const agent2Msgs = channel.filter((e) => e.from === 'agent2')
+      const channel = await contextProvider.readChannel();
+      const agent1Msgs = channel.filter((e) => e.from === "agent1");
+      const agent2Msgs = channel.filter((e) => e.from === "agent2");
 
-      expect(agent1Msgs.length).toBeGreaterThan(0)
-      expect(agent2Msgs.length).toBeGreaterThan(0)
+      expect(agent1Msgs.length).toBeGreaterThan(0);
+      expect(agent2Msgs.length).toBeGreaterThan(0);
 
       // No anonymous messages
-      const anonMsgs = channel.filter((e) => e.from === 'anonymous')
-      expect(anonMsgs).toHaveLength(0)
+      const anonMsgs = channel.filter((e) => e.from === "anonymous");
+      expect(anonMsgs).toHaveLength(0);
     } finally {
-      await httpServer.close()
+      await httpServer.close();
     }
-  })
-})
+  });
+});

@@ -50,6 +50,7 @@ Focused checklists that adjust to change size. **Skip checks below your depth le
 ### 🔴 Impact Analysis (Signature Changes)
 
 When function/type/API signature changed:
+
 - [ ] **All call sites identified** (grep or language tools)
 - [ ] **Sample call sites verified** (3-5 for medium, all for <5 sites)
 - [ ] **Backward compatibility confirmed** OR breaking change documented
@@ -118,11 +119,13 @@ Can afford detail. Include quality checks.
 ### 🟡 Impact Analysis Deep Dive
 
 For medium changes, **do impact analysis for**:
+
 - [ ] Modified shared utilities → grep usage, verify compatibility
 - [ ] Changed data types → check serialization, DB, API alignment
 - [ ] New fields → verify: validation, storage, retrieval, display
 
 **Skip** for medium:
+
 - ❌ Naming improvements (unless truly confusing)
 - ❌ Code style (let linter handle)
 - ❌ Comment style
@@ -160,6 +163,7 @@ For medium changes, **do impact analysis for**:
 - [ ] API contract changes → verify clients notified/updated
 
 **Skip** for large:
+
 - ❌ All code quality feedback
 - ❌ All style/formatting
 - ❌ Minor logic improvements
@@ -195,6 +199,7 @@ For medium changes, **do impact analysis for**:
 - [ ] API versioning → confirm backward compatibility strategy
 
 **Skip** for X-large:
+
 - ❌ Everything except critical security, data integrity, breaking changes
 - ❌ Rely on CI and tests for correctness
 - ❌ Rely on linter for quality
@@ -207,22 +212,26 @@ For medium changes, **do impact analysis for**:
 When functions/types/APIs change, always perform:
 
 ### Step 1: Identify Changes
+
 ```bash
 git diff <from>..<to> | grep -E "^[-+].*(function|def|class|interface|type)"
 ```
 
 ### Step 2: Find Usage
+
 ```bash
 grep -r "functionName" --include="*.ts" .
 # Or use language-specific tools (tsc, mypy, etc.)
 ```
 
 ### Step 3: Assess Impact
+
 - **Breaking change?** (signature incompatible with old calls)
 - **How many call sites?** (<5: check all, 5-20: sample 5-10, >20: sample 10 + rely on tests)
 - **Critical paths affected?** (auth, payments, data integrity)
 
 ### Step 4: Verify
+
 - [ ] Sample call sites checked
 - [ ] Backward compatibility confirmed OR migration complete
 - [ ] Tests cover changed behavior
@@ -234,22 +243,26 @@ grep -r "functionName" --include="*.ts" .
 **Let tools handle these** (don't manually check):
 
 ### ✅ If linter configured (eslint, pylint, clippy):
+
 - Formatting, indentation
 - Import order
 - Unused variables
 - Basic style violations
 
 ### ✅ If type checker enabled (tsc, mypy, flow):
+
 - Type mismatches
 - Missing properties
 - Incorrect function signatures (will error at call sites)
 
 ### ✅ If tests passing:
+
 - Basic correctness
 - Regression prevention
 - Edge cases (if well-tested)
 
 ### ✅ If CI green:
+
 - Build succeeds
 - Dependencies resolve
 - Syntax correct
@@ -261,27 +274,32 @@ grep -r "functionName" --include="*.ts" .
 ## Language-Specific Quick Checks
 
 ### JavaScript/TypeScript
+
 - [ ] Use `const` over `let`, avoid `var`
 - [ ] Promises awaited or .catch() used
 - [ ] `===` not `==`
 - [ ] TypeScript: No `any` without justification
 
 ### Python
+
 - [ ] No bare `except:` (use specific exceptions)
 - [ ] Context managers (`with`) for resources
 - [ ] No mutable default arguments
 
 ### Go
+
 - [ ] Errors checked (not ignored)
 - [ ] `defer` for cleanup
 - [ ] Goroutines have context for cancellation
 
 ### Java
+
 - [ ] Try-with-resources for AutoCloseable
 - [ ] `Optional` instead of null (when possible)
 - [ ] Specific exception catches
 
 ### Rust
+
 - [ ] `Result` and `Option` handled (no `.unwrap()` in production)
 - [ ] Ownership correct
 - [ ] Unsafe blocks justified

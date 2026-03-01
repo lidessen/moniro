@@ -22,6 +22,7 @@ $ find . -name "*.md" -mtime +365 | wc -l  # Not modified in 1+ year
 ```
 
 **Locations found:**
+
 ```
 README.md
 docs/ (87 files)
@@ -31,6 +32,7 @@ services/*/docs/ (14 files scattered)
 ```
 
 **Issues identified:**
+
 1. **Scattered** - Documentation in 4+ locations
 2. **Stale** - 43 files not updated in over a year
 3. **Duplicates** - Same topics in multiple places
@@ -41,12 +43,14 @@ services/*/docs/ (14 files scattered)
 ### Stakeholder Input
 
 **Interviewed team:**
+
 - "I never know where to look for docs"
 - "Wiki is outdated, but sometimes has useful info"
 - "I just grep the repo when I need something"
 - "Service READMEs are hit-or-miss quality"
 
 **Pain points:**
+
 - Discoverability (can't find docs)
 - Trust (is this current?)
 - Duplication (which version is right?)
@@ -58,6 +62,7 @@ services/*/docs/ (14 files scattered)
 Created spreadsheet: [Doc Inventory](https://docs.google.com/spreadsheets/d/xxx)
 
 **Columns:**
+
 - Filepath
 - Last modified
 - Topic
@@ -70,6 +75,7 @@ Created spreadsheet: [Doc Inventory](https://docs.google.com/spreadsheets/d/xxx)
 **Classified all 147 docs** (took ~6 hours with team help)
 
 **Results:**
+
 - **Keep as-is:** 34 docs (current, good quality)
 - **Update:** 27 docs (salvageable with updates)
 - **Archive:** 18 docs (historical value, no longer current)
@@ -82,11 +88,13 @@ Created spreadsheet: [Doc Inventory](https://docs.google.com/spreadsheets/d/xxx)
 **Decided on structure:**
 
 **Reasoning:**
+
 - Internal vs public matters (compliance, publication)
 - Team already thinks in terms of "user docs" vs "team docs"
 - Growing number of docs (147 → reorganize by type within audience)
 
 **New structure:**
+
 ```
 docs/
 ├── public/              # User-facing (published to website)
@@ -104,16 +112,19 @@ docs/
 ```
 
 **Root files:**
+
 - README.md - Project overview, quick start
 - AGENTS.md - Agent navigation (new)
 - CONTRIBUTING.md - Dev workflow
 - CHANGELOG.md - Release notes
 
 **Service-level docs:**
+
 - Each service keeps README.md (service-specific info only)
 - General architecture goes in `docs/internal/architecture/`
 
 **Wiki retirement:**
+
 - Migrate useful content to `docs/internal/`
 - Archive wiki as read-only
 - Add deprecation notice in wiki
@@ -156,6 +167,7 @@ git mv docs/deprecated-auth.md docs/archive/2024-01-deprecated-auth.md
 ```
 
 **Added archive notice** to each:
+
 ```markdown
 ---
 ARCHIVED: 2026-01-30
@@ -171,6 +183,7 @@ See: docs/public/api/reference.md
 #### Day 8-9: Delete Obsolete Content
 
 **Deleted after team confirmation:**
+
 - 23 meeting notes from 2023-2024 (no lasting value)
 - 12 draft docs never completed
 - 6 duplicate copies
@@ -182,6 +195,7 @@ See: docs/public/api/reference.md
 #### Day 10: Merge Duplicates
 
 **Example consolidation:**
+
 - `deployment-dev.md`, `deployment-staging.md`, `deployment-prod.md`
 - → Single `docs/internal/operations/deployment.md` with sections per environment
 
@@ -214,14 +228,17 @@ Shared code in `libs/`.
 ## Documentation
 
 **Getting Started:**
+
 - [Development Setup](docs/internal/processes/development-setup.md)
 - [Architecture Overview](docs/internal/architecture/overview.md)
 
 **For Users:**
+
 - [API Documentation](docs/public/api/) (also at api-docs.company.com)
 - [Integration Guides](docs/public/guides/)
 
 **For Operators:**
+
 - [Deployment Runbooks](docs/internal/operations/)
 - [Monitoring & Alerts](docs/internal/operations/monitoring.md)
 
@@ -321,6 +338,7 @@ See: [lifecycle.md](../documentation/lifecycle.md)
    - Operations guides → `operations/`
    - Process documentation → `processes/`
 3. **Added deprecation notice to wiki:**
+
    ```markdown
    # ⚠️ THIS WIKI IS DEPRECATED
 
@@ -328,6 +346,7 @@ See: [lifecycle.md](../documentation/lifecycle.md)
 
    This wiki is now read-only and will be archived on 2026-03-01.
    ```
+
 4. **Updated all links** pointing to wiki
 
 ## Outcomes
@@ -335,6 +354,7 @@ See: [lifecycle.md](../documentation/lifecycle.md)
 ### Before vs After
 
 **Before:**
+
 ```
 README.md (300 lines, everything)
 docs/ (87 files, flat, no organization)
@@ -344,6 +364,7 @@ Total: 147 docs across 4 locations
 ```
 
 **After:**
+
 ```
 README.md (80 lines, essentials + navigation)
 AGENTS.md (new, agent context)
@@ -362,18 +383,22 @@ Total: 74 active docs in 1 location + 18 archived
 ### Metrics
 
 **Findability:**
+
 - Before: "I just grep" (no clear entry point)
 - After: AGENTS.md + directory structure
 
 **Trust:**
+
 - Before: 43 docs not updated in 1+ year
 - After: 0 docs (all reviewed, outdated ones archived/deleted)
 
 **Duplication:**
+
 - Before: Multiple docs on same topic
 - After: Single source of truth per topic
 
 **Maintenance:**
+
 - Established quarterly review process for temporary docs
 - Clear ownership (CODEOWNERS file added)
 - Documentation updates part of PR checklist
@@ -385,16 +410,19 @@ Total: 74 active docs in 1 location + 18 archived
 **Process established:**
 
 **Week before audit:**
+
 1. Bot posts reminder in #engineering Slack
 2. Create audit checklist issue
 
 **Audit week:**
+
 1. Review `docs/internal/notes/` (delete expired content)
 2. Check for docs not updated in 6+ months (verify still current)
 3. Fix broken links (automated check via CI)
 4. Update AGENTS.md if structure changed
 
 **After audit:**
+
 1. Post summary in team meeting
 2. Update next audit date
 
@@ -405,6 +433,7 @@ Total: 74 active docs in 1 location + 18 archived
 **Integrated into workflow:**
 
 **PR template includes:**
+
 ```markdown
 ## Documentation
 
@@ -414,12 +443,14 @@ Total: 74 active docs in 1 location + 18 archived
 ```
 
 **Pre-commit hook:**
+
 ```bash
 # Checks for broken internal links
 ./scripts/check-docs-links.sh
 ```
 
 **CI checks:**
+
 - Markdown linting
 - Link validation
 - OpenAPI spec validation
@@ -429,23 +460,28 @@ Total: 74 active docs in 1 location + 18 archived
 ### What Worked
 
 ✅ **Iterative approach** - Move first, update later
+
 - Didn't try to perfect everything at once
 - Momentum maintained
 
 ✅ **Team involvement** - Distributed classification
+
 - Each team classified their domain's docs
 - Faster and better quality (they know what's current)
 
 ✅ **Clear criteria for deletion** - Not precious about old content
+
 - "Would we miss this?" test
 - Git history preserves everything (can recover)
 
 ✅ **Retire wiki cleanly** - Not left lingering
+
 - Clear deprecation timeline
 - Migration path provided
 - Archive wiki (don't delete, for reference)
 
 ✅ **Establish ongoing process** - Not one-time cleanup
+
 - Quarterly audits scheduled
 - PR checklist includes docs
 - CI automation for link checking
@@ -453,15 +489,18 @@ Total: 74 active docs in 1 location + 18 archived
 ### Challenges
 
 ⚠️ **Link updates tedious** - Scripted mostly worked
+
 - Automated with sed, but manual verification needed
 - Some links needed contextual updates
 
 ⚠️ **Team skepticism initially** - "Another reorg?"
+
 - Showed clear before/after
 - Quick wins (AGENTS.md immediately useful)
 - Proved value with better findability
 
 ⚠️ **Deciding what to delete** - Some attached to old docs
+
 - Reminded: git history preserves
 - Focus on "is this useful now?"
 - Archive if historical value (don't delete)
@@ -469,11 +508,13 @@ Total: 74 active docs in 1 location + 18 archived
 ### What We'd Change
 
 **Wish we'd done sooner:**
+
 - Established temporary docs policy earlier (would have prevented accumulation)
 - Created AGENTS.md when project started
 - Set up link checking in CI from day 1
 
 **Would do differently:**
+
 - Involve product/design earlier (user docs affected them)
 - Do wiki migration first (less to move overall)
 - Create comparison doc showing old vs new structure (helped communication)
@@ -481,6 +522,7 @@ Total: 74 active docs in 1 location + 18 archived
 ## Cost-Benefit Analysis
 
 **Time invested:**
+
 - Week 1: 6 hours (classification)
 - Week 2: 4 hours (design new structure)
 - Week 3: 20 hours (execution - moving, updating, deleting)
@@ -490,6 +532,7 @@ Total: 74 active docs in 1 location + 18 archived
 **Total:** ~44 hours (across team, not single person)
 
 **Benefits:**
+
 - Faster onboarding (new dev finds docs easily)
 - Better AI assistance (AGENTS.md context)
 - Reduced confusion (single source of truth)
@@ -537,12 +580,14 @@ Total: 74 active docs in 1 location + 18 archived
 ### For Prevention
 
 **Starting a new project?**
+
 - Create AGENTS.md from day 1
 - Establish temporary docs policy early
 - Keep it simple initially (don't over-organize)
 - See: [new-project-setup.md](new-project-setup.md)
 
 **Existing project?**
+
 - Quarterly reviews before clutter accumulates
 - Delete temporary docs regularly
 - One source of truth per topic
@@ -551,9 +596,10 @@ Total: 74 active docs in 1 location + 18 archived
 ## Summary
 
 **Documentation audit transformed:**
+
 - 147 scattered, stale docs
 - → 74 organized, current docs
-- + Clear ownership and maintenance process
+- - Clear ownership and maintenance process
 
 **Key insight:** Organization without maintenance fails. Establish ongoing process, not one-time cleanup.
 

@@ -19,11 +19,11 @@ Use GitHub/GitLab Issues as cross-device memory layer. Issues ARE the memory, no
 
 ## Access Methods
 
-| Method | Best For | Priority |
-|--------|----------|----------|
-| MCP Tools | Agent operations | 1st (if available) |
-| CLI (gh/glab) | Hooks, scripts | 2nd |
-| Local-only | Offline work | Fallback |
+| Method        | Best For         | Priority           |
+| ------------- | ---------------- | ------------------ |
+| MCP Tools     | Agent operations | 1st (if available) |
+| CLI (gh/glab) | Hooks, scripts   | 2nd                |
+| Local-only    | Offline work     | Fallback           |
 
 ### MCP Tools
 
@@ -58,18 +58,23 @@ synced: YYYY-MM-DDTHH:MM:SSZ
 # Project Context
 
 ## Active Work
+
 <!-- Cache of Issue states - may be stale if synced > 1 hour ago -->
+
 - #42 Implement auth - open
 - #43 Add rate limiting - open
 
 ## Local Context
+
 <!-- Agent-specific notes not in Issues -->
+
 - Auth: JWT + refresh tokens
 - Stack: Node.js, TypeScript
 
 ## Key Decisions
-| Date | Decision | Rationale |
-|------|----------|-----------|
+
+| Date       | Decision   | Rationale                |
+| ---------- | ---------- | ------------------------ |
 | YYYY-MM-DD | PostgreSQL | JSONB + relational joins |
 ```
 
@@ -96,18 +101,21 @@ Session End:
 
 **Principle**: Remote (Issues) is source of truth for task state.
 
-| Scenario | Resolution |
-|----------|------------|
-| Issue closed remotely | sync-pull removes from Active Work |
-| Local edits while offline | sync-push appends, doesn't overwrite |
-| Concurrent edits | Remote wins on pull; push is additive |
+| Scenario                  | Resolution                            |
+| ------------------------- | ------------------------------------- |
+| Issue closed remotely     | sync-pull removes from Active Work    |
+| Local edits while offline | sync-push appends, doesn't overwrite  |
+| Concurrent edits          | Remote wins on pull; push is additive |
 
 **sync-push strategy**: Append session summary to tracking Issue rather than replacing body. Use HTML comments to mark agent-managed sections:
 
 ```markdown
 <!-- AGENT-MEMORY-START -->
+
 ## Current State
+
 ...
+
 <!-- AGENT-MEMORY-END -->
 ```
 
@@ -147,12 +155,12 @@ Session End:
 
 ## What Goes Where
 
-| Content | Location | Why |
-|---------|----------|-----|
+| Content            | Location             | Why                      |
+| ------------------ | -------------------- | ------------------------ |
 | Cross-device tasks | GitHub/GitLab Issues | Notifications, assignees |
-| Tracking/Roadmap | Tracking Issue | Single source of truth |
-| Local-only tasks | .memory/todos/ | Offline, no remote |
-| Context cache | context.md | Fast local access |
-| Decisions | .memory/decisions/ | Detailed rationale |
-| Sessions | .memory/sessions/ | Local continuity |
-| Notes | .memory/notes/ | Learnings, references |
+| Tracking/Roadmap   | Tracking Issue       | Single source of truth   |
+| Local-only tasks   | .memory/todos/       | Offline, no remote       |
+| Context cache      | context.md           | Fast local access        |
+| Decisions          | .memory/decisions/   | Detailed rationale       |
+| Sessions           | .memory/sessions/    | Local continuity         |
+| Notes              | .memory/notes/       | Learnings, references    |

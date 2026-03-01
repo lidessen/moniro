@@ -162,39 +162,39 @@ agent-worker new alice -b codex                          # OpenAI Codex
 agent-worker new alice -b mock                           # No API calls (testing)
 ```
 
-| Capability | SDK | Claude CLI | Cursor | Codex | Mock |
-|------------|-----|-----------|--------|-------|------|
-| Custom tools | Yes | Via MCP | No | No | Yes |
-| Streaming | Yes | Yes | Yes | Yes | No |
-| Token tracking | Yes | Partial | No | No | Yes |
-| Skills import | Yes | Filesystem | Filesystem | Filesystem | Yes |
+| Capability     | SDK | Claude CLI | Cursor     | Codex      | Mock |
+| -------------- | --- | ---------- | ---------- | ---------- | ---- |
+| Custom tools   | Yes | Via MCP    | No         | No         | Yes  |
+| Streaming      | Yes | Yes        | Yes        | Yes        | No   |
+| Token tracking | Yes | Partial    | No         | No         | Yes  |
+| Skills import  | Yes | Filesystem | Filesystem | Filesystem | Yes  |
 
 ## Workflow YAML
 
 ### Full Structure
 
 ```yaml
-name: my-workflow                           # Optional, defaults to filename
+name: my-workflow # Optional, defaults to filename
 
 agents:
   alice:
-    backend: sdk                            # sdk | claude | cursor | codex | mock
-    model: anthropic/claude-sonnet-4-5      # Required for SDK backend
+    backend: sdk # sdk | claude | cursor | codex | mock
+    model: anthropic/claude-sonnet-4-5 # Required for SDK backend
     system_prompt: You are Alice.
-    system_prompt_file: ./prompts/alice.txt  # Or load from file
-    tools: [bash, read, write]              # CLI backend tool names
+    system_prompt_file: ./prompts/alice.txt # Or load from file
+    tools: [bash, read, write] # CLI backend tool names
     max_tokens: 8000
     max_steps: 20
 
 context:
   provider: file
   config:
-    dir: ./.workflow/${{ workflow.name }}/${{ workflow.tag }}/  # Ephemeral
-    bind: ./data/                                              # Persistent
+    dir: ./.workflow/${{ workflow.name }}/${{ workflow.tag }}/ # Ephemeral
+    bind: ./data/ # Persistent
 
 setup:
   - shell: git diff main...HEAD
-    as: changes                             # Store output as variable
+    as: changes # Store output as variable
   - shell: echo "$PR_NUMBER"
     as: pr_num
 
@@ -213,74 +213,79 @@ kickoff: |
 ### Coordination Patterns
 
 **Sequential** — One agent finishes, @mentions the next:
+
 ```yaml
 kickoff: "@alice Start the analysis."
 # Alice: "Done! @bob your turn to implement."
 ```
 
 **Parallel** — Multiple agents work simultaneously:
+
 ```yaml
 kickoff: "@alice @bob @charlie All review this code."
 ```
 
 **Document-based** — Agents collaborate through shared documents:
+
 ```yaml
 context:
   provider: file
   config:
-    bind: ./results/                        # Persistent across runs
+    bind: ./results/ # Persistent across runs
 ```
 
 ## SDK Usage
 
 ```typescript
-import { AgentWorker } from 'agent-worker'
+import { AgentWorker } from "agent-worker";
 
 const agent = new AgentWorker({
-  model: 'anthropic/claude-sonnet-4-5',
-  system: 'You are a helpful assistant.',
-  tools: [/* your tools */],
-})
+  model: "anthropic/claude-sonnet-4-5",
+  system: "You are a helpful assistant.",
+  tools: [
+    /* your tools */
+  ],
+});
 
 // Request-response
-const response = await agent.send('Hello')
-console.log(response.content)
+const response = await agent.send("Hello");
+console.log(response.content);
 
 // Streaming
-for await (const chunk of agent.sendStream('Tell me a story')) {
-  process.stdout.write(chunk)
+for await (const chunk of agent.sendStream("Tell me a story")) {
+  process.stdout.write(chunk);
 }
 ```
 
 ### With Skills
 
 ```typescript
-import { AgentWorker, SkillsProvider, createSkillsTool } from 'agent-worker'
+import { AgentWorker, SkillsProvider, createSkillsTool } from "agent-worker";
 
-const skills = new SkillsProvider()
-await skills.scanDirectory('.agents/skills')
+const skills = new SkillsProvider();
+await skills.scanDirectory(".agents/skills");
 
 const agent = new AgentWorker({
-  model: 'anthropic/claude-sonnet-4-5',
-  system: 'You are a helpful assistant.',
+  model: "anthropic/claude-sonnet-4-5",
+  system: "You are a helpful assistant.",
   tools: [createSkillsTool(skills)],
-})
+});
 ```
 
 ### Programmatic Workflows
 
 ```typescript
-import { parseWorkflowFile, runWorkflowWithLoops } from 'agent-worker'
+import { parseWorkflowFile, runWorkflowWithLoops } from "agent-worker";
 
-const workflow = await parseWorkflowFile('review.yaml', { tag: 'pr-123' })
+const workflow = await parseWorkflowFile("review.yaml", { tag: "pr-123" });
 const result = await runWorkflowWithLoops({
   workflow,
-  workflowName: 'review',
-  tag: 'pr-123',
-  mode: 'run',
-})
+  workflowName: "review",
+  tag: "pr-123",
+  mode: "run",
+});
 
-console.log(result.success, result.duration)
+console.log(result.success, result.duration);
 ```
 
 ## Model Formats

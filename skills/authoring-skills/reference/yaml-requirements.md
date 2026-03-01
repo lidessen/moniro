@@ -3,6 +3,7 @@
 Every `SKILL.md` file requires YAML frontmatter with two fields: `name` and `description`.
 
 ## Table of Contents
+
 - [Structure](#structure)
 - [Name Field](#name-field)
 - [Description Field](#description-field)
@@ -22,6 +23,7 @@ description: Brief description of what this skill does and when to use it
 ```
 
 The frontmatter must:
+
 - Start with `---` on first line
 - End with `---` on its own line
 - Come before any markdown content
@@ -31,13 +33,13 @@ The frontmatter must:
 
 ### Requirements
 
-| Requirement | Details |
-|-------------|---------|
-| **Format** | Lowercase letters, numbers, and hyphens only |
-| **Max length** | 64 characters |
-| **No XML tags** | Cannot contain `<`, `>`, or XML-like structures |
-| **No reserved words** | Cannot contain "anthropic" or "claude" |
-| **Must be unique** | No two skills can have same name in same directory |
+| Requirement           | Details                                            |
+| --------------------- | -------------------------------------------------- |
+| **Format**            | Lowercase letters, numbers, and hyphens only       |
+| **Max length**        | 64 characters                                      |
+| **No XML tags**       | Cannot contain `<`, `>`, or XML-like structures    |
+| **No reserved words** | Cannot contain "anthropic" or "claude"             |
+| **Must be unique**    | No two skills can have same name in same directory |
 
 ### Valid Names
 
@@ -65,24 +67,24 @@ name: anthropic-tool               # No "anthropic"
 
 We recommend **gerund form** (verb + -ing) for consistency:
 
-| Good (Gerund) | Also Acceptable | Avoid |
-|---------------|-----------------|-------|
-| `processing-pdfs` | `pdf-processing` | `pdf-helper` |
-| `analyzing-data` | `data-analysis` | `data-tool` |
-| `managing-databases` | `database-management` | `db-utils` |
-| `testing-code` | `code-testing` | `test-stuff` |
+| Good (Gerund)        | Also Acceptable       | Avoid        |
+| -------------------- | --------------------- | ------------ |
+| `processing-pdfs`    | `pdf-processing`      | `pdf-helper` |
+| `analyzing-data`     | `data-analysis`       | `data-tool`  |
+| `managing-databases` | `database-management` | `db-utils`   |
+| `testing-code`       | `code-testing`        | `test-stuff` |
 
 ## Description Field
 
 ### Requirements
 
-| Requirement | Details |
-|-------------|---------|
-| **Must be non-empty** | At least one character |
-| **Max length** | 1024 characters |
-| **No XML tags** | Cannot contain `<`, `>`, or XML-like structures |
-| **Point of view** | Must be third person |
-| **Content** | Must describe WHAT and WHEN |
+| Requirement           | Details                                         |
+| --------------------- | ----------------------------------------------- |
+| **Must be non-empty** | At least one character                          |
+| **Max length**        | 1024 characters                                 |
+| **No XML tags**       | Cannot contain `<`, `>`, or XML-like structures |
+| **Point of view**     | Must be third person                            |
+| **Content**           | Must describe WHAT and WHEN                     |
 
 ### The Formula
 
@@ -126,10 +128,10 @@ description: Process <pdf> files and <docx> documents
 
 **Always use third person**. The description is injected into the system prompt.
 
-| ✓ Third Person | ✗ First Person | ✗ Second Person |
-|---------------|----------------|-----------------|
-| Processes files | I process files | You process files |
-| Analyzes data | I can analyze | You can analyze |
+| ✓ Third Person    | ✗ First Person  | ✗ Second Person         |
+| ----------------- | --------------- | ----------------------- |
+| Processes files   | I process files | You process files       |
+| Analyzes data     | I can analyze   | You can analyze         |
 | Generates reports | I help generate | This helps you generate |
 
 ### Include Trigger Terms
@@ -142,6 +144,7 @@ Good descriptions include specific terms that trigger skill discovery:
 **Domain terms**: "database schema", "API endpoint", "form fields"
 
 **Example with triggers**:
+
 ```yaml
 description: Extract text from PDF and Word documents, convert between formats. Use when processing PDFs, .docx files, or document conversion.
 ```
@@ -151,6 +154,7 @@ Triggers: PDF, Word, .docx, document, conversion
 ## Complete Examples
 
 ### Example 1: PDF Processing
+
 ```yaml
 ---
 name: processing-pdfs
@@ -159,6 +163,7 @@ description: Extract text and tables from PDF files, fill forms, merge documents
 ```
 
 ### Example 2: Code Review
+
 ```yaml
 ---
 name: code-review
@@ -167,6 +172,7 @@ description: Review code for quality, security, and maintainability following te
 ```
 
 ### Example 3: BigQuery Analysis
+
 ```yaml
 ---
 name: bigquery-analysis
@@ -175,6 +181,7 @@ description: Query and analyze company data in BigQuery across finance, sales, a
 ```
 
 ### Example 4: Git Commits
+
 ```yaml
 ---
 name: git-commit-helper
@@ -225,46 +232,55 @@ Before using your skill, verify:
 ## Common Errors
 
 ### Error: Name Too Long
+
 ```yaml
-name: processing-pdf-documents-and-extracting-text-content-utility  # 67 chars
+name: processing-pdf-documents-and-extracting-text-content-utility # 67 chars
 ```
 
 **Fix**: Shorten to ≤64 characters
+
 ```yaml
-name: processing-pdfs  # 15 chars
+name: processing-pdfs # 15 chars
 ```
 
 ### Error: Invalid Characters
+
 ```yaml
-name: Process_PDFs  # Uppercase and underscore
+name: Process_PDFs # Uppercase and underscore
 ```
 
 **Fix**: Use lowercase and hyphens
+
 ```yaml
 name: process-pdfs
 ```
 
 ### Error: First Person Description
+
 ```yaml
 description: I can help you analyze Excel files
 ```
 
 **Fix**: Use third person
+
 ```yaml
 description: Analyzes Excel files and generates reports
 ```
 
 ### Error: Missing Trigger Terms
+
 ```yaml
 description: Helps with data
 ```
 
 **Fix**: Add specific triggers
+
 ```yaml
 description: Analyzes Excel spreadsheets, creates pivot tables, generates charts. Use when working with .xlsx files, spreadsheets, or tabular data.
 ```
 
 ### Error: Missing ---
+
 ```markdown
 name: skill-name
 description: ...
@@ -273,12 +289,12 @@ description: ...
 ```
 
 **Fix**: Add YAML delimiters
+
 ```yaml
 ---
 name: skill-name
 description: ...
 ---
-
 # Skill Content
 ```
 

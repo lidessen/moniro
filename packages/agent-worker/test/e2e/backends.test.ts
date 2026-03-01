@@ -103,7 +103,9 @@ describe.skipIf(!hasClaudeCli || !hasDeepSeekKey || skipClaudeE2E)(
       }
       try {
         rmSync(tmpDir, { recursive: true, force: true });
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     });
 
     test(
@@ -132,39 +134,38 @@ describe.skipIf(!hasClaudeCli || !hasDeepSeekKey || skipClaudeE2E)(
 
 const hasOpenCode = cliAvailable("opencode");
 
-describe.skipIf(!hasOpenCode || !hasDeepSeekKey)(
-  "E2E: OpenCode (DeepSeek)",
-  () => {
-    let tmpDir: string;
+describe.skipIf(!hasOpenCode || !hasDeepSeekKey)("E2E: OpenCode (DeepSeek)", () => {
+  let tmpDir: string;
 
-    beforeAll(() => {
-      tmpDir = makeTmpDir("opencode");
-    });
+  beforeAll(() => {
+    tmpDir = makeTmpDir("opencode");
+  });
 
-    afterAll(() => {
-      try {
-        rmSync(tmpDir, { recursive: true, force: true });
-      } catch { /* ignore */ }
-    });
+  afterAll(() => {
+    try {
+      rmSync(tmpDir, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  });
 
-    test(
-      "sends prompt and receives response",
-      async () => {
-        const backend = new OpenCodeBackend({
-          model: "deepseek/deepseek-chat",
-          cwd: tmpDir,
-          timeout: E2E_TIMEOUT,
-        });
+  test(
+    "sends prompt and receives response",
+    async () => {
+      const backend = new OpenCodeBackend({
+        model: "deepseek/deepseek-chat",
+        cwd: tmpDir,
+        timeout: E2E_TIMEOUT,
+      });
 
-        const result = await backend.send(PROMPT);
-        expect(result.content).toBeDefined();
-        expect(result.content.length).toBeGreaterThan(0);
-        expect(result.content).toContain("4");
-      },
-      E2E_TIMEOUT,
-    );
-  },
-);
+      const result = await backend.send(PROMPT);
+      expect(result.content).toBeDefined();
+      expect(result.content.length).toBeGreaterThan(0);
+      expect(result.content).toContain("4");
+    },
+    E2E_TIMEOUT,
+  );
+});
 
 // ─── Codex CLI (Vercel AI Gateway + Gemini 2.0 Flash) ───────
 
@@ -178,189 +179,193 @@ const hasCodexAuth = hasOpenAIKey;
 // Codex model: Vercel Gateway uses google/gemini-2.0-flash, OpenAI uses default
 const CODEX_MODEL = hasGatewayKey ? "google/gemini-2.0-flash" : undefined;
 
-describe.skipIf(!hasCodex || !hasCodexAuth)(
-  "E2E: Codex CLI",
-  () => {
-    let tmpDir: string;
-    let savedConfig: string | null = null;
-    const codexConfigPath = join(homedir(), ".codex", "config.toml");
+describe.skipIf(!hasCodex || !hasCodexAuth)("E2E: Codex CLI", () => {
+  let tmpDir: string;
+  let savedConfig: string | null = null;
+  const codexConfigPath = join(homedir(), ".codex", "config.toml");
 
-    beforeAll(() => {
-      tmpDir = makeTmpDir("codex");
+  beforeAll(() => {
+    tmpDir = makeTmpDir("codex");
 
-      // If using Vercel AI Gateway, write codex config with vercel provider
-      if (hasGatewayKey) {
-        // Back up existing config
-        if (existsSync(codexConfigPath)) {
-          savedConfig = readFileSync(codexConfigPath, "utf-8");
-        }
-
-        const codexDir = join(homedir(), ".codex");
-        if (!existsSync(codexDir)) mkdirSync(codexDir, { recursive: true });
-
-        writeFileSync(
-          codexConfigPath,
-          [
-            'model = "google/gemini-2.0-flash"',
-            'model_provider = "vercel"',
-            "",
-            "[model_providers.vercel]",
-            'name = "Vercel AI Gateway"',
-            'base_url = "https://ai-gateway.vercel.sh/v1"',
-            'env_key = "AI_GATEWAY_API_KEY"',
-            'wire_api = "responses"',
-            "",
-          ].join("\n"),
-        );
+    // If using Vercel AI Gateway, write codex config with vercel provider
+    if (hasGatewayKey) {
+      // Back up existing config
+      if (existsSync(codexConfigPath)) {
+        savedConfig = readFileSync(codexConfigPath, "utf-8");
       }
-    });
 
-    afterAll(() => {
-      // Restore original codex config
-      if (savedConfig !== null) {
-        writeFileSync(codexConfigPath, savedConfig);
-      } else if (hasGatewayKey) {
-        // Remove config we created if there was no original
-        try { rmSync(codexConfigPath); } catch { /* ignore */ }
-      }
+      const codexDir = join(homedir(), ".codex");
+      if (!existsSync(codexDir)) mkdirSync(codexDir, { recursive: true });
+
+      writeFileSync(
+        codexConfigPath,
+        [
+          'model = "google/gemini-2.0-flash"',
+          'model_provider = "vercel"',
+          "",
+          "[model_providers.vercel]",
+          'name = "Vercel AI Gateway"',
+          'base_url = "https://ai-gateway.vercel.sh/v1"',
+          'env_key = "AI_GATEWAY_API_KEY"',
+          'wire_api = "responses"',
+          "",
+        ].join("\n"),
+      );
+    }
+  });
+
+  afterAll(() => {
+    // Restore original codex config
+    if (savedConfig !== null) {
+      writeFileSync(codexConfigPath, savedConfig);
+    } else if (hasGatewayKey) {
+      // Remove config we created if there was no original
       try {
-        rmSync(tmpDir, { recursive: true, force: true });
-      } catch { /* ignore */ }
-    });
+        rmSync(codexConfigPath);
+      } catch {
+        /* ignore */
+      }
+    }
+    try {
+      rmSync(tmpDir, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  });
 
-    test(
-      "sends prompt and receives response",
-      async () => {
-        const backend = new CodexBackend({
-          model: CODEX_MODEL,
-          cwd: tmpDir,
-          timeout: E2E_TIMEOUT,
-        });
+  test(
+    "sends prompt and receives response",
+    async () => {
+      const backend = new CodexBackend({
+        model: CODEX_MODEL,
+        cwd: tmpDir,
+        timeout: E2E_TIMEOUT,
+      });
 
-        const result = await backend.send(PROMPT);
-        expect(result.content).toBeDefined();
-        expect(result.content.length).toBeGreaterThan(0);
-        expect(result.content).toContain("4");
-      },
-      E2E_TIMEOUT,
-    );
-  },
-);
+      const result = await backend.send(PROMPT);
+      expect(result.content).toBeDefined();
+      expect(result.content.length).toBeGreaterThan(0);
+      expect(result.content).toContain("4");
+    },
+    E2E_TIMEOUT,
+  );
+});
 
 // ─── Cursor Agent ────────────────────────────────────────────
 
 const hasCursor = cliAvailable("cursor") || cliAvailable("agent");
 const hasCursorKey = !!process.env.CURSOR_API_KEY;
 
-describe.skipIf(!hasCursor || !hasCursorKey)(
-  "E2E: Cursor Agent",
-  () => {
-    let tmpDir: string;
+describe.skipIf(!hasCursor || !hasCursorKey)("E2E: Cursor Agent", () => {
+  let tmpDir: string;
 
-    beforeAll(() => {
-      tmpDir = makeTmpDir("cursor");
-    });
+  beforeAll(() => {
+    tmpDir = makeTmpDir("cursor");
+  });
 
-    afterAll(() => {
-      try {
-        rmSync(tmpDir, { recursive: true, force: true });
-      } catch { /* ignore */ }
-    });
+  afterAll(() => {
+    try {
+      rmSync(tmpDir, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  });
 
-    test(
-      "sends prompt and receives response (composer-1)",
-      async () => {
-        const backend = new CursorBackend({
-          model: "composer-1",
-          cwd: tmpDir,
-          timeout: E2E_TIMEOUT,
-        });
+  test(
+    "sends prompt and receives response (composer-1)",
+    async () => {
+      const backend = new CursorBackend({
+        model: "composer-1",
+        cwd: tmpDir,
+        timeout: E2E_TIMEOUT,
+      });
 
-        const result = await backend.send(PROMPT);
-        expect(result.content).toBeDefined();
-        expect(result.content.length).toBeGreaterThan(0);
-        expect(result.content).toContain("4");
-      },
-      E2E_TIMEOUT,
-    );
-  },
-);
+      const result = await backend.send(PROMPT);
+      expect(result.content).toBeDefined();
+      expect(result.content.length).toBeGreaterThan(0);
+      expect(result.content).toContain("4");
+    },
+    E2E_TIMEOUT,
+  );
+});
 
 // ─── MiniMax (SDK via Anthropic provider + custom endpoint) ──
 
 const hasMiniMaxKey = !!process.env.MINIMAX_API_KEY;
 
-describe.skipIf(!hasMiniMaxKey)(
-  "E2E: MiniMax (SDK, provider config)",
-  () => {
-    test(
-      "sends prompt and receives response (MiniMax-M2.5)",
-      async () => {
-        const backend = new SdkBackend({
-          model: "MiniMax-M2.5",
-          provider: {
-            name: "anthropic",
-            base_url: "https://api.minimax.io/anthropic/v1",
-            api_key: "$MINIMAX_API_KEY",
-          },
-        });
+describe.skipIf(!hasMiniMaxKey)("E2E: MiniMax (SDK, provider config)", () => {
+  test(
+    "sends prompt and receives response (MiniMax-M2.5)",
+    async () => {
+      const backend = new SdkBackend({
+        model: "MiniMax-M2.5",
+        provider: {
+          name: "anthropic",
+          base_url: "https://api.minimax.io/anthropic/v1",
+          api_key: "$MINIMAX_API_KEY",
+        },
+      });
 
-        try {
-          const result = await backend.send(PROMPT);
-          expect(result.content).toBeDefined();
-          expect(result.content.length).toBeGreaterThan(0);
-          expect(result.content).toContain("4");
-        } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : String(e);
-          if (msg.includes("authentication") || msg.includes("invalid api key") || msg.includes("401")) {
-            console.warn("MiniMax API key is set but invalid/expired — skipping");
-            return; // treat as skip, not failure
-          }
-          throw e;
+      try {
+        const result = await backend.send(PROMPT);
+        expect(result.content).toBeDefined();
+        expect(result.content.length).toBeGreaterThan(0);
+        expect(result.content).toContain("4");
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (
+          msg.includes("authentication") ||
+          msg.includes("invalid api key") ||
+          msg.includes("401")
+        ) {
+          console.warn("MiniMax API key is set but invalid/expired — skipping");
+          return; // treat as skip, not failure
         }
-      },
-      E2E_TIMEOUT,
-    );
-  },
-);
+        throw e;
+      }
+    },
+    E2E_TIMEOUT,
+  );
+});
 
 // ─── GLM / Zhipu (SDK via Anthropic provider + custom endpoint)
 
 const hasGlmKey = !!process.env.GLM_API_KEY;
 
-describe.skipIf(!hasGlmKey)(
-  "E2E: GLM (SDK, provider config)",
-  () => {
-    test(
-      "sends prompt and receives response (glm-4.7)",
-      async () => {
-        const backend = new SdkBackend({
-          model: "glm-4.7",
-          provider: {
-            name: "anthropic",
-            base_url: "https://open.bigmodel.cn/api/anthropic/v1",
-            api_key: "$GLM_API_KEY",
-          },
-        });
+describe.skipIf(!hasGlmKey)("E2E: GLM (SDK, provider config)", () => {
+  test(
+    "sends prompt and receives response (glm-4.7)",
+    async () => {
+      const backend = new SdkBackend({
+        model: "glm-4.7",
+        provider: {
+          name: "anthropic",
+          base_url: "https://open.bigmodel.cn/api/anthropic/v1",
+          api_key: "$GLM_API_KEY",
+        },
+      });
 
-        try {
-          const result = await backend.send(PROMPT);
-          expect(result.content).toBeDefined();
-          expect(result.content.length).toBeGreaterThan(0);
-          expect(result.content).toContain("4");
-        } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : String(e);
-          if (msg.includes("authentication") || msg.includes("invalid api key") || msg.includes("401")) {
-            console.warn("GLM API key is set but invalid/expired — skipping");
-            return;
-          }
-          throw e;
+      try {
+        const result = await backend.send(PROMPT);
+        expect(result.content).toBeDefined();
+        expect(result.content.length).toBeGreaterThan(0);
+        expect(result.content).toContain("4");
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (
+          msg.includes("authentication") ||
+          msg.includes("invalid api key") ||
+          msg.includes("401")
+        ) {
+          console.warn("GLM API key is set but invalid/expired — skipping");
+          return;
         }
-      },
-      E2E_TIMEOUT,
-    );
-  },
-);
+        throw e;
+      }
+    },
+    E2E_TIMEOUT,
+  );
+});
 
 // ─── Availability Summary ────────────────────────────────────
 
@@ -377,7 +382,7 @@ describe("E2E: Backend Availability", () => {
       CURSOR_API_KEY: hasCursorKey ? "set" : "not set",
       MINIMAX_API_KEY: hasMiniMaxKey ? "set" : "not set",
       GLM_API_KEY: hasGlmKey ? "set" : "not set",
-      CLAUDECODE: !!process.env.CLAUDECODE ? "yes (nested session)" : "no",
+      CLAUDECODE: process.env.CLAUDECODE ? "yes (nested session)" : "no",
       SKIP_CLAUDE_E2E: skipClaudeE2E ? "yes (skipped)" : "no",
       "Codex model": CODEX_MODEL ?? "(OpenAI default)",
       "Codex auth": hasCodexAuth ? "OPENAI_API_KEY set" : "missing OPENAI_API_KEY",
