@@ -152,6 +152,7 @@ export function createConsoleSink(): EventSink {
 /** Format an argument for logging */
 function formatArg(arg: unknown): string {
   if (arg === null || arg === undefined) return String(arg);
+  if (arg instanceof Error) return arg.stack ?? arg.message;
   if (typeof arg === "object") {
     try {
       return JSON.stringify(arg);

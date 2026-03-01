@@ -266,6 +266,19 @@ describe("createEventLogger", () => {
     expect(events[0]!.content).toBe('value is 42 {"key":"val"}');
   });
 
+  test("formats Error args with stack trace", () => {
+    const { sink, events } = collectingSink();
+    const logger = createEventLogger(sink, "test");
+
+    const err = new Error("something broke");
+    logger.error("failed:", err);
+
+    expect(events[0]!.content).toContain("[ERROR] failed:");
+    expect(events[0]!.content).toContain("something broke");
+    // Stack trace should be preserved (not just "Error: something broke")
+    expect(events[0]!.content).toContain("event-log.test.ts");
+  });
+
   test("child creates prefixed logger", () => {
     const { sink, events } = collectingSink();
     const parent = createEventLogger(sink, "daemon");
