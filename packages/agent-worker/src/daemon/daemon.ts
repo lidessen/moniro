@@ -247,6 +247,8 @@ async function ensureAgentLoop(
       name: agentName,
       agent: agentDef,
       runtime: workspace,
+      conversationLog: handle.conversationLog ?? undefined,
+      thinThread: handle.thinThread,
     }));
   } catch (err) {
     await workspace.shutdown();

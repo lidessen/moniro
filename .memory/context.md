@@ -15,26 +15,25 @@
 | Phase 2 | done | Workflow Agent References：`ref:` 引用 | `AgentEntry` 联合类型, prompt assembly |
 | Phase 3a | done | Event Log 基础设施：结构化日志替代 console.* | `EventSink`, `DaemonEventLog`, `Logger` |
 | Phase 3b | done | Daemon Registry + Workspace | `Workspace`, `WorkspaceRegistry`, `AgentHandle.loop` |
-| **Phase 3c** | **next** | **Conversation Model：ThinThread + ConversationLog** | 见下方 |
-| Phase 3d | blocked by 3c | Priority Queue + Preemption | |
+| Phase 3c | done | Conversation Model：ThinThread + ConversationLog | `ConversationLog`, `ThinThread`, `thinThreadSection` |
+| **Phase 3d** | **next** | **Priority Queue + Preemption** | |
 | Phase 4 | future | Recall Tools + Auto-Memory + Failure Handling | |
 | Phase 5 | future | Agent Context in Prompt | |
 | Phase 6 | future | CLI + Project Config | |
 
-## Phase 3c: Conversation Model
+## Phase 3d: Priority Queue + Preemption
 
-**目标**: ThinThread 有界上下文 + ConversationLog 完整历史。Agent 拥有对话连续性。
+**目标**: 每个 Agent 一个 loop，三级优先队列 + 协作式抢占。
 
 核心任务：
-- [ ] `ThinThread` 类型：有界内存消息（per context）
-- [ ] `ConversationLog` 类型：JSONL append-only 存储 + search/time-range read
-- [ ] 日志持久化（personal → `.agents/<name>/conversations/`，workspace → `.workspace/`）
-- [ ] `thin_thread` 配置在 agent definition（default: 10 messages）
-- [ ] ThinThread 集成到 prompt assembly
+- [ ] `AgentLoop` 升级为 priority queue（3 lanes: immediate/normal/background）
+- [ ] `AgentInstruction` 类型 with workspace context + priority
+- [ ] 协作式抢占：step 间 yield，带进度标记 re-queue
+- [ ] Scheduled wakeup → enqueue instruction at background priority
 
-**依赖**: Phase 3b（done）。Agent 必须在 daemon 运行时中存在才能拥有对话。
+**依赖**: Phase 3c（done）。
 
-**遗留**: `send` CLI target 解析（Phase 3b 遗留，不阻塞 3c）。
+**遗留**: `send` CLI target 解析（Phase 3b 遗留，不阻塞 3d）。
 
 ## 已知风险 & 开放问题
 

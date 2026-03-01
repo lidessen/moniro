@@ -1206,17 +1206,17 @@ participation.
 - [x] Remove `standalone:{name}` workflow key hack (Workspace takes over resource management)
 - [ ] `send` CLI command with target parsing (DM / @workspace / agent@workspace)
 
-### Phase 3c: Conversation Model
+### Phase 3c: Conversation Model ✅
 
 **Goal**: Thin thread for bounded context, conversation log for full history.
 
 > **Depends on**: Phase 3b (agents must exist in daemon runtime to own conversations).
 
-- [ ] `ThinThread` type with bounded in-memory messages per context
-- [ ] `ConversationLog` type with JSONL append-only storage and search/time-range read
-- [ ] Log persistence (personal → `.agents/<name>/conversations/`, workspace → `.workspace/`)
-- [ ] `thin_thread` config in agent definition (default: 10 messages)
-- [ ] Thin thread integration in prompt assembly
+- [x] `ThinThread` type with bounded in-memory messages per context
+- [x] `ConversationLog` type with JSONL append-only storage and search/time-range read
+- [x] Log persistence (personal → `.agents/<name>/conversations/`, workspace → `.workspace/`)
+- [x] `thin_thread` config in agent definition (default: 10 messages)
+- [x] Thin thread integration in prompt assembly
 
 ### Phase 3d: Priority Queue + Preemption
 

@@ -17,6 +17,7 @@ import type { AgentDefinition } from "./definition.ts";
 import { CONTEXT_SUBDIRS } from "./definition.ts";
 import type { AgentLoop } from "../workflow/loop/types.ts";
 import type { Logger } from "../workflow/logger.ts";
+import { ConversationLog, ThinThread, DEFAULT_THIN_THREAD_SIZE } from "./conversation.ts";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -44,6 +45,12 @@ export class AgentHandle {
   /** The agent's execution loop (lazy — created on first run/serve) */
   loop: AgentLoop | null = null;
 
+  /** Conversation log (lazy — created on first access) */
+  private _conversationLog?: ConversationLog;
+
+  /** Thin thread (lazy — created on first access) */
+  private _thinThread?: ThinThread;
+
   /** Optional logger (injected by registry; absent in standalone CLI) */
   private log?: Logger;
 
@@ -62,6 +69,38 @@ export class AgentHandle {
   /** Agent name (convenience accessor) */
   get name(): string {
     return this.definition.name;
+  }
+
+  // ── Conversation ─────────────────────────────────────────────────
+
+  /**
+   * Get the conversation log (JSONL persistence).
+   * Returns null for ephemeral agents (no disk).
+   * Lazy — created on first access.
+   */
+  get conversationLog(): ConversationLog | null {
+    if (this.ephemeral) return null;
+    if (!this._conversationLog) {
+      this._conversationLog = new ConversationLog(
+        join(this.contextDir, "conversations", "personal.jsonl"),
+      );
+    }
+    return this._conversationLog;
+  }
+
+  /**
+   * Get the thin thread (bounded in-memory conversation buffer).
+   * Restores from ConversationLog on first access if history exists.
+   * Lazy — created on first access.
+   */
+  get thinThread(): ThinThread {
+    if (!this._thinThread) {
+      const maxMessages = this.definition.context?.thin_thread ?? DEFAULT_THIN_THREAD_SIZE;
+      const log = this.conversationLog;
+      this._thinThread =
+        log?.exists ? ThinThread.fromLog(log, maxMessages) : new ThinThread(maxMessages);
+    }
+    return this._thinThread;
   }
 
   // ── Context Directory ───────────────────────────────────────────

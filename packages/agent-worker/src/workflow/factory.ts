@@ -36,6 +36,7 @@ import { isAutoProvider, resolveModelFallback } from "../agent/models.ts";
 import type { Logger } from "./logger.ts";
 import { createSilentLogger } from "./logger.ts";
 import type { FeedbackEntry } from "../agent/tools/feedback.ts";
+import type { ConversationLog, ThinThread } from "../agent/conversation.ts";
 
 // ── Workspace ───────────────────────────────────────────────────────
 
@@ -227,6 +228,10 @@ export interface WiredLoopConfig {
   createBackend?: (agentName: string, agent: ResolvedWorkflowAgent) => Backend;
   /** Logger for this agent's output */
   logger?: Logger;
+  /** Conversation log for persistence (standalone agents) */
+  conversationLog?: ConversationLog;
+  /** Thin thread for bounded conversation context (standalone agents) */
+  thinThread?: ThinThread;
 }
 
 /**
@@ -331,6 +336,8 @@ export function createWiredLoop(config: WiredLoopConfig): WiredLoopResult {
     infoLog: (msg) => logger.info(msg),
     errorLog: (msg) => logger.error(msg),
     feedback: feedbackEnabled,
+    conversationLog: config.conversationLog,
+    thinThread: config.thinThread,
   });
 
   return { loop, backend };

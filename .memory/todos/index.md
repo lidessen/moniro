@@ -1,14 +1,14 @@
 # Todos
 
-跨会话的任务追踪。当前阶段：**Phase 3c — Conversation Model**。
+跨会话的任务追踪。当前阶段：**Phase 3d — Priority Queue + Preemption**。
 
 ## 活跃任务
 
 | 优先级 | 任务 | 状态 | 备注 |
 |--------|------|------|------|
 | medium | `send` CLI target 解析（DM / @workspace / agent@workspace） | todo | Phase 3b 遗留，见 ADR |
-| high | ThinThread 有界上下文 | todo | Phase 3c |
-| high | ConversationLog JSONL 存储 | todo | Phase 3c |
+| high | AgentLoop → priority queue（3 lanes） | todo | Phase 3d |
+| high | AgentInstruction 类型 + cooperative preemption | todo | Phase 3d |
 
 ## 已完成
 
@@ -21,6 +21,7 @@
 | Phase 3a 审计 + review 修复 | 2026-03-01 | formatArg Error 处理, 993 tests |
 | 统一 logger: 库代码零 console.* | 2026-02-27 | [ADR](../decisions/2026-02-27-unified-logger.md) |
 | Phase 3b: Daemon Registry + Workspace | 2026-03-01 | AgentRegistry + WorkspaceRegistry, 994 tests |
+| Phase 3c: Conversation Model | 2026-03-01 | ConversationLog + ThinThread, 1014 tests |
 
 ## 使用约定
 
