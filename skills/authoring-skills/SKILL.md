@@ -11,7 +11,7 @@ Every skill you create will be loaded into Claude's limited context window. The 
 
 **Every unnecessary token wastes limited context space, slows processing, costs money, and reduces room for actual work.**
 
-Everything else—structure, naming, content—follows from this goal. Understanding *why* these patterns matter allows you to make good decisions in novel situations, rather than mechanically following rules.
+Everything else—structure, naming, content—follows from this goal. Understanding _why_ these patterns matter allows you to make good decisions in novel situations, rather than mechanically following rules.
 
 ## Three Core Principles
 
@@ -22,6 +22,7 @@ Everything else—structure, naming, content—follows from this goal. Understan
 **Why It Matters**: When a skill is triggered, SKILL.md loads entirely into context. If you put everything in one file, every query wastes tokens on irrelevant content. A finance query shouldn't load sales data. A basic usage shouldn't load advanced edge cases.
 
 **How to Apply**:
+
 - Keep SKILL.md as a navigation hub (~500 lines)
 - Defer detailed content to reference files
 - Link directly from SKILL.md (avoid nested references that trigger partial reads)
@@ -37,6 +38,7 @@ See [best-practices/progressive-disclosure.md](best-practices/progressive-disclo
 **Why It Matters**: Explaining "PDF stands for Portable Document Format" wastes tokens and provides zero value. Claude understands file formats, programming concepts, standard tools, and industry patterns. Token space is precious—use it for your domain-specific knowledge, not computer science 101.
 
 **How to Apply**:
+
 - Skip explanations of common concepts (file formats, imports, package managers)
 - Provide code and commands, not tutorials
 - Challenge each sentence: "Does Claude really need this?"
@@ -52,6 +54,7 @@ See [best-practices/conciseness.md](best-practices/conciseness.md) for examples.
 **Why It Matters**: A vague description means your skill won't trigger when needed. "Helps with documents" doesn't tell Claude when to use it. "Extract text from PDF and Word documents" with triggers like "PDF, .docx, extraction" ensures discovery.
 
 **How to Apply**:
+
 - Write descriptions in third person (they're injected into system prompts)
 - Include specific capabilities (WHAT) and trigger scenarios (WHEN)
 - Use concrete terms: file types, technology names, activity phrases
@@ -75,22 +78,26 @@ When creating a skill, apply these principles:
 Some requirements exist for technical reasons:
 
 ### Name Format
+
 - Lowercase letters, numbers, hyphens only (parsing requirement)
 - Max 64 characters (system limit)
 - No XML tags, no "anthropic" or "claude" (reserved terms)
 - Prefer gerund form: `processing-pdfs`, `analyzing-data` (consistency)
 
 ### Description Format
+
 - Max 1024 characters (system limit)
 - Third person: "Processes files..." not "I process..." (system prompt injection)
 - Include capabilities + triggers (discovery mechanism)
 
 **Good example**:
+
 ```yaml
 description: Extract text and tables from PDF files, fill forms, merge documents. Use when working with PDF files or when the user mentions PDFs, forms, or document extraction.
 ```
 
 ### File Organization
+
 - Forward slashes in paths (cross-platform compatibility)
 - One-level references from SKILL.md (avoid partial reads)
 - Reference files >100 lines need TOC (enables preview scanning)
@@ -114,13 +121,13 @@ Match specificity to task fragility:
 - **Medium freedom** (templates): Preferred pattern, acceptable variation
 - **Low freedom** (scripts): Fragile operations requiring exact execution
 
-*Why this matters*: Over-specifying simple tasks wastes tokens. Under-specifying fragile tasks causes errors.
+_Why this matters_: Over-specifying simple tasks wastes tokens. Under-specifying fragile tasks causes errors.
 
 See [best-practices/degrees-of-freedom.md](best-practices/degrees-of-freedom.md).
 
 ## Understanding Anti-Patterns
 
-Rather than memorizing rules, understand *why* certain patterns fail:
+Rather than memorizing rules, understand _why_ certain patterns fail:
 
 - **Windows paths** (`\`) → Parser must handle both styles, adds cognitive load
 - **Nested references** → Triggers partial reads, loses information
@@ -136,17 +143,20 @@ See [anti-patterns.md](anti-patterns.md) for detailed explanations.
 Before finalizing, ask yourself:
 
 **Core Principles**:
+
 - Does this minimize context usage? (Progressive disclosure)
 - Am I explaining things Claude knows? (Respect intelligence)
 - Will Claude discover this skill correctly? (Enable discovery)
 
 **Technical Constraints**:
+
 - Name/description follow format requirements?
 - SKILL.md under 500 lines?
 - References one level deep?
 - All paths use forward slashes?
 
 **Content Quality**:
+
 - Consistent terminology?
 - Concrete examples over abstract descriptions?
 - No time-sensitive information?
@@ -193,11 +203,11 @@ which skill would you recommend?"
 
 ### Quick Test Checklist
 
-| Test | Prompt Example | Expected |
-|------|----------------|----------|
-| Discovery | "How do I [trigger phrase]?" | Recommends this skill |
-| Execution | "[Realistic task]" | Completes using skill workflow |
-| Boundary | "[Similar but different task]" | Recommends other skill |
+| Test      | Prompt Example                 | Expected                       |
+| --------- | ------------------------------ | ------------------------------ |
+| Discovery | "How do I [trigger phrase]?"   | Recommends this skill          |
+| Execution | "[Realistic task]"             | Completes using skill workflow |
+| Boundary  | "[Similar but different task]" | Recommends other skill         |
 
 ## Storage Locations
 
@@ -215,32 +225,38 @@ which skill would you recommend?"
 3. **For project instructions** (not skills), use `AGENTS.md` in project root
 
 **Important**:
+
 - **Never** use `~/.cursor/skills-cursor/` (reserved for Cursor built-ins)
 - Prefer project-level storage for team collaboration
 
 ## Learning Resources
 
 **Start Here**:
+
 - [best-practices/core-principles.md](best-practices/core-principles.md) - **Read this first**: Philosophy, trade-offs, and judgment
 
 **Core Philosophy**:
+
 - [best-practices/progressive-disclosure.md](best-practices/progressive-disclosure.md) - Why and how to layer information
 - [best-practices/conciseness.md](best-practices/conciseness.md) - Respecting Claude's intelligence
 - [best-practices/description.md](best-practices/description.md) - Making skills discoverable
 - [best-practices/degrees-of-freedom.md](best-practices/degrees-of-freedom.md) - Balancing specificity
 
 **Practical Patterns**:
+
 - [patterns/template.md](patterns/template.md) - When consistency matters
 - [patterns/workflow.md](patterns/workflow.md) - Complex multi-step processes
 - [patterns/examples.md](patterns/examples.md) - Show, don't tell
 - [patterns/feedback-loop.md](patterns/feedback-loop.md) - Quality-critical tasks
 
 **Examples**:
+
 - [examples/simple-skill.md](examples/simple-skill.md) - Basic skill with just SKILL.md
 - [examples/complex-skill.md](examples/complex-skill.md) - Progressive disclosure in action
 - [examples/with-scripts.md](examples/with-scripts.md) - Including utility scripts
 
 **Reference**:
+
 - [yaml-requirements.md](reference/yaml-requirements.md) - Technical specifications
 - [file-organization.md](reference/file-organization.md) - Organizational strategies
 - [anti-patterns.md](anti-patterns.md) - Understanding what to avoid and why

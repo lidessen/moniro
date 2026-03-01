@@ -2,22 +2,27 @@
   "name": "agent-worker",
   "version": "0.18.0",
   "description": "SDK and CLI for creating and testing agent workers with Vercel AI SDK",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lidessen/moniro.git",
+    "directory": "packages/agent-worker"
+  },
+  "bin": {
+    "agent-worker": "./dist/cli/index.mjs"
+  },
+  "files": [
+    "dist"
+  ],
   "type": "module",
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
-  "bin": {
-    "agent-worker": "./dist/cli/index.mjs"
-  },
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",
       "import": "./dist/index.mjs"
     }
   },
-  "files": [
-    "dist"
-  ],
   "scripts": {
     "dev": "tsdown --watch",
     "build": "tsdown",
@@ -64,10 +69,5 @@
     "oxfmt": "^0.28.0",
     "oxlint": "^1.43.0",
     "tsdown": "^0.20.1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/lidessen/moniro.git",
-    "directory": "packages/agent-worker"
   }
 }

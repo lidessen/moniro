@@ -4,16 +4,16 @@ Test cases organized by complexity.
 
 ## Validated (✅)
 
-| File | Category | Steps | Description |
-|------|----------|-------|-------------|
-| github-login-error.yaml | foundation | 3 | Login form with invalid credentials |
-| github-user-repos.yaml | flow | 4 | Profile → repos → repo detail |
-| github-repo-commits.yaml | flow | 3 | Repo → commit history |
+| File                     | Category   | Steps | Description                         |
+| ------------------------ | ---------- | ----- | ----------------------------------- |
+| github-login-error.yaml  | foundation | 3     | Login form with invalid credentials |
+| github-user-repos.yaml   | flow       | 4     | Profile → repos → repo detail       |
+| github-repo-commits.yaml | flow       | 3     | Repo → commit history               |
 
 ## Draft (📝)
 
-| File | Category | Notes |
-|------|----------|-------|
+| File                  | Category    | Notes                           |
+| --------------------- | ----------- | ------------------------------- |
 | github-pr-review.yaml | composition | Multi-user template, needs auth |
 
 ## Running Examples

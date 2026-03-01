@@ -18,6 +18,7 @@ Strategies for organizing code within files - detecting dead code, finding dupli
 ### What is Dead Code?
 
 **Unused code**:
+
 - Functions never called
 - Variables never read
 - Imports never used
@@ -25,6 +26,7 @@ Strategies for organizing code within files - detecting dead code, finding dupli
 - Components never rendered
 
 **Why it accumulates**:
+
 - Features removed but code remains
 - Refactoring leaves orphaned code
 - Copy-paste includes unused parts
@@ -35,6 +37,7 @@ Strategies for organizing code within files - detecting dead code, finding dupli
 #### Automated Tools
 
 **JavaScript/TypeScript**:
+
 ```bash
 # ESLint with no-unused-vars
 npm install --save-dev eslint
@@ -50,6 +53,7 @@ npx knip
 ```
 
 **Python**:
+
 ```bash
 # Vulture (finds unused code)
 pip install vulture
@@ -60,6 +64,7 @@ pylint src/ --disable=all --enable=unused-variable,unused-import
 ```
 
 **Rust**:
+
 ```bash
 # Compiler warnings
 cargo build
@@ -71,6 +76,7 @@ cargo build
 ```
 
 **Go**:
+
 ```bash
 # go vet finds some unused code
 go vet ./...
@@ -82,6 +88,7 @@ golangci-lint run --enable=deadcode
 #### Manual Search Patterns
 
 **Find unreferenced functions**:
+
 ```bash
 # List function definitions
 rg "^function |^const \w+ = " --only-matching
@@ -91,6 +98,7 @@ rg "^function |^const \w+ = " --only-matching
 ```
 
 **Find unused imports**:
+
 ```bash
 # TypeScript/JavaScript
 rg "^import .* from" -o | sort -u
@@ -101,6 +109,7 @@ rg "ImportedName" --count
 ```
 
 **Find unreferenced exports**:
+
 ```bash
 # Find all exports
 rg "^export " -l
@@ -120,6 +129,7 @@ rg "exportedFunction" --count
 7. **Monitor** - Watch for errors after deployment
 
 **Example**:
+
 ```bash
 # 1. Tool identifies unused function
 npx ts-prune
@@ -154,19 +164,21 @@ All tests passing."
 ### Types of Duplication
 
 **Exact duplicates**:
+
 ```javascript
 // File A
 function formatDate(date) {
-  return date.toISOString().split('T')[0];
+  return date.toISOString().split("T")[0];
 }
 
 // File B (exact copy)
 function formatDate(date) {
-  return date.toISOString().split('T')[0];
+  return date.toISOString().split("T")[0];
 }
 ```
 
 **Structural duplicates** (same logic, different names):
+
 ```javascript
 // File A
 function calculateTotalPrice(items) {
@@ -180,19 +192,20 @@ function sumPrices(products) {
 ```
 
 **Near duplicates** (mostly similar):
+
 ```javascript
 // File A
 function validateEmail(email) {
   if (!email) return false;
-  if (!email.includes('@')) return false;
+  if (!email.includes("@")) return false;
   return true;
 }
 
 // File B (similar)
 function isValidEmail(email) {
   if (!email) return false;
-  if (!email.includes('@')) return false;
-  if (!email.includes('.')) return false;  // One extra check
+  if (!email.includes("@")) return false;
+  if (!email.includes(".")) return false; // One extra check
   return true;
 }
 ```
@@ -200,6 +213,7 @@ function isValidEmail(email) {
 ### Detection Tools
 
 **General-purpose**:
+
 ```bash
 # jscpd (JavaScript Copy/Paste Detector)
 npm install -g jscpd
@@ -212,17 +226,20 @@ jscpd src/
 **Language-specific**:
 
 **JavaScript/TypeScript**:
+
 ```bash
 jsinspect src/
 ```
 
 **Python**:
+
 ```bash
 # pylint with duplicate detection
 pylint --disable=all --enable=duplicate-code src/
 ```
 
 **Manual pattern**:
+
 ```bash
 # Find files with similar function signatures
 rg "function \w+\(" -o | sort | uniq -c | sort -rn
@@ -233,18 +250,21 @@ rg "function \w+\(" -o | sort | uniq -c | sort -rn
 ### Consolidation Decisions
 
 **When to consolidate**:
+
 - ✅ Exact duplicates (always consolidate)
 - ✅ Structural duplicates with same purpose
 - ✅ More than 2 instances (Rule of Three)
 - ✅ Logic likely to change together
 
 **When to leave separate**:
+
 - ❌ Different domains (coincidentally similar)
 - ❌ Different change rates (one stable, one evolving)
 - ❌ Only 2 instances and unlikely to add more
 - ❌ Consolidation adds complexity (abstraction cost > duplication cost)
 
 **Example decision**:
+
 ```javascript
 // Consolidate (same purpose, exact duplicate)
 formatUserDate(date) { return date.toISOString().split('T')[0]; }
@@ -283,6 +303,7 @@ import { formatDate } from '../shared/format-date';
 ```
 
 **Process**:
+
 1. Create shared module
 2. Move function to shared location
 3. Update all imports
@@ -316,7 +337,7 @@ packages/api/src/...:
 // Before
 function validateEmail(email) {
   if (!email) return false;
-  if (!email.includes('@')) return false;
+  if (!email.includes("@")) return false;
   return true;
 }
 
@@ -329,18 +350,12 @@ function validatePhone(phone) {
 // After (if patterns truly shared)
 function validateField(value, validators) {
   if (!value) return false;
-  return validators.every(validator => validator(value));
+  return validators.every((validator) => validator(value));
 }
 
-const validateEmail = (email) => 
-  validateField(email, [
-    v => v.includes('@')
-  ]);
+const validateEmail = (email) => validateField(email, [(v) => v.includes("@")]);
 
-const validatePhone = (phone) => 
-  validateField(phone, [
-    v => v.length >= 10
-  ]);
+const validatePhone = (phone) => validateField(phone, [(v) => v.length >= 10]);
 ```
 
 **Caution**: Don't over-abstract. Sometimes duplication is clearer.
@@ -350,12 +365,14 @@ const validatePhone = (phone) =>
 ### When to Move Files
 
 **Indicators**:
+
 - File in wrong directory for its purpose
 - Better conceptual location exists
 - Related files scattered
 - Growing feature needs own directory
 
 **Example**:
+
 ```
 Before:
 src/utils/user-validation.ts  (wrong: not a generic utility)
@@ -395,14 +412,16 @@ Tests passing."
 ### Handling Barrel Files
 
 **Barrel file** (index.ts that re-exports):
+
 ```typescript
 // src/user/index.ts
-export * from './User';
-export * from './validation';
-export * from './auth';
+export * from "./User";
+export * from "./validation";
+export * from "./auth";
 ```
 
 **When moving files**, update barrel exports:
+
 ```bash
 # Before
 src/utils/user-validation.ts
@@ -419,12 +438,14 @@ export * from './validation';  // Add this
 ### Good Module Boundaries
 
 **Characteristics**:
+
 - **High cohesion**: Related code stays together
 - **Low coupling**: Modules don't depend on each other's internals
 - **Clear interface**: Public API is explicit
 - **Single responsibility**: Each module does one thing
 
 **Example**:
+
 ```
 src/user/
   User.ts           (domain model)
@@ -439,15 +460,17 @@ External code only imports from `user/index.ts`, not internal files.
 ### Detecting Boundary Violations
 
 **Smell**: Import from internal module
+
 ```typescript
 // Bad - reaching into internals
-import { UserRepository } from '../user/repository';
+import { UserRepository } from "../user/repository";
 
 // Good - using public interface
-import { UserService } from '../user';
+import { UserService } from "../user";
 ```
 
 **Tool check**:
+
 ```bash
 # Find imports that skip barrel files
 rg "from '\.\./\w+/[^']*'" --type ts
@@ -458,6 +481,7 @@ rg "from '\.\./\w+/[^']*'" --type ts
 ### When to Split
 
 **Indicators**:
+
 - File >500 lines
 - Multiple responsibilities (violates Single Responsibility Principle)
 - Hard to navigate
@@ -529,12 +553,14 @@ export function Modal() { ... }
 ### When to Merge
 
 **Indicators**:
+
 - Related code in different files
 - Always changing together
 - Artificial separation
 - Single-function files
 
 **Example**:
+
 ```
 Before (over-organized):
 src/user/
@@ -557,17 +583,17 @@ src/user/
 // Before
 function processOrder(order) {
   // 50 lines of validation
-  if (!order.email.includes('@')) return false;
+  if (!order.email.includes("@")) return false;
   if (!order.items.length) return false;
   // ... 48 more lines
-  
+
   // 30 lines of calculation
   let total = 0;
   for (let item of order.items) {
     total += item.price * item.quantity;
   }
   // ... 28 more lines
-  
+
   // 20 lines of database save
   // ...
 }
@@ -593,6 +619,7 @@ function saveOrder(order, total) {
 ```
 
 **Process**:
+
 1. Identify coherent blocks
 2. Extract each block to named function
 3. Replace inline code with function call
@@ -601,6 +628,7 @@ function saveOrder(order, total) {
 ### Workflow 2: Move Code Between Files
 
 **Process**:
+
 1. Copy code to new location
 2. Update imports in new location
 3. Export from new location
@@ -646,6 +674,7 @@ git commit -m "refactor: consolidate duplicate helper function"
 8. **Use IDE refactoring** - Safer than manual editing
 
 **Red flags**:
+
 - Files >1000 lines
 - Exact duplicates
 - Dead code warnings ignored

@@ -36,7 +36,7 @@ steps:
       - agent-browser wait 3000
     expect:
       # Error message should appear
-      - element_visible: '{{role: alert}}'
+      - element_visible: "{{role: alert}}"
       # Or check for specific text
       - text_contains: "Incorrect username or password"
 

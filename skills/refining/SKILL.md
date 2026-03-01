@@ -26,6 +26,7 @@ The Reviewer's Reality:
 ### The Reviewer's Burden
 
 Every code review requires:
+
 - **Context loading** - Understanding what the change is about
 - **Verification** - Checking if it's correct
 - **Risk assessment** - What could this break?
@@ -37,6 +38,7 @@ Small, focused changes make this tractable. Large, mixed changes make it exhaust
 A 500-line focused change is often easier to review than a 200-line mixed change.
 
 Why?
+
 - Focused changes have one mental model
 - Mixed changes require context switching for each concern
 - Each concern should be independently verifiable
@@ -46,6 +48,7 @@ The "lines changed" heuristic is about cognitive load, not absolute limits. Ask:
 ### The Refining Mindset
 
 Before committing or creating a PR, ask:
+
 1. Would I want to review this?
 2. Can I explain this in one sentence?
 3. If this breaks, is the blast radius obvious?
@@ -57,12 +60,12 @@ If no → refine further.
 
 ### Reviewability Factors
 
-| Factor | What it measures | Why it matters |
-|--------|------------------|----------------|
-| **Cohesion** | Single purpose? | Mental model simplicity |
-| **Size** | Cognitive load | Reviewer attention span |
-| **Clarity** | Is intent obvious? | Time to understand |
-| **Noise** | Distractions present? | Focus degradation |
+| Factor       | What it measures      | Why it matters          |
+| ------------ | --------------------- | ----------------------- |
+| **Cohesion** | Single purpose?       | Mental model simplicity |
+| **Size**     | Cognitive load        | Reviewer attention span |
+| **Clarity**  | Is intent obvious?    | Time to understand      |
+| **Noise**    | Distractions present? | Focus degradation       |
 
 These aren't gates to pass. They're lenses to evaluate through.
 
@@ -128,17 +131,22 @@ Generate reviewer-focused description.
 ```
 
 **Description structure:**
+
 ```markdown
 ## Summary
+
 [What and why in 1-2 sentences]
 
 ## Changes
+
 [Key changes as bullet points]
 
 ## Testing
+
 [How to verify this works]
 
 ## Reviewer Notes
+
 [What to focus on, known risks, trade-offs]
 ```
 
@@ -148,12 +156,12 @@ See [reference/description-guide.md](reference/description-guide.md) for example
 
 Instead of memorizing thresholds, understand the underlying tensions:
 
-| Tension | Resolution |
-|---------|------------|
-| Speed vs Quality | Quick changes need less refinement. Critical paths need more. |
-| Completeness vs Focus | Better to have multiple focused PRs than one sprawling one. |
-| Description Detail vs Reader Time | Enough to understand, not encyclopedic. |
-| Stopping Early vs Proceeding | When in doubt, ask. User decides. |
+| Tension                           | Resolution                                                    |
+| --------------------------------- | ------------------------------------------------------------- |
+| Speed vs Quality                  | Quick changes need less refinement. Critical paths need more. |
+| Completeness vs Focus             | Better to have multiple focused PRs than one sprawling one.   |
+| Description Detail vs Reader Time | Enough to understand, not encyclopedic.                       |
+| Stopping Early vs Proceeding      | When in doubt, ask. User decides.                             |
 
 ### On Line Counts
 

@@ -6,9 +6,9 @@ YAML specification for prompt lab test cases.
 
 ```yaml
 # Metadata
-id: unique-test-id          # Required: kebab-case identifier
-title: Human Readable Title  # Optional: for documentation
-date: 2024-01-15            # Optional: when created/last run
+id: unique-test-id # Required: kebab-case identifier
+title: Human Readable Title # Optional: for documentation
+date: 2024-01-15 # Optional: when created/last run
 tags: [decay, todo, workflow] # Optional: for filtering
 
 # The instruction being tested
@@ -16,8 +16,8 @@ instruction:
   text: |
     The actual instruction text.
     Can be multi-line.
-  position: beginning | middle | end  # Where in prompt
-  emphasis: plain | bold | header     # Formatting level
+  position: beginning | middle | end # Where in prompt
+  emphasis: plain | bold | header # Formatting level
 
 # Experiment configuration
 experiment:
@@ -132,12 +132,12 @@ success_criteria:
 
 results:
   decay_curve:
-    phase_1: null  # 0-100%
+    phase_1: null # 0-100%
     phase_2: null
     phase_3: null
     phase_4: null
-  decay_point: null  # When compliance dropped below 80%
-  trigger: null      # What seemed to cause decay
+  decay_point: null # When compliance dropped below 80%
+  trigger: null # What seemed to cause decay
 ```
 
 ## Adversarial Test Format
@@ -198,7 +198,7 @@ success_criteria:
 
 results:
   baseline: null
-  level_1: null  # held | negotiated | broke
+  level_1: null # held | negotiated | broke
   level_2: null
   level_3: null
   level_4: null
@@ -255,8 +255,8 @@ results:
   variants:
     imperative:
       compliance_rate: null
-      decay_resistance: null  # low | medium | high
-      naturalness: null       # 1-5
+      decay_resistance: null # low | medium | high
+      naturalness: null # 1-5
       notes: null
     explanatory:
       compliance_rate: null
@@ -326,8 +326,8 @@ results:
   reinforced:
     decay_curve: [100, 95, 85, 70]
     final_compliance: null
-  improvement: null  # percentage
-  cost: null         # verbosity impact
+  improvement: null # percentage
+  cost: null # verbosity impact
 ```
 
 ## Result Recording Format
@@ -374,10 +374,10 @@ follow_up:
 
 ## Quick Reference
 
-| Test Type | Key Fields |
-|-----------|------------|
-| Compliance | instruction, task, success_criteria |
-| Decay | phases[], checkpoint per phase |
-| Adversarial | baseline_task, pressure_levels[] |
-| Comparison | variants[], common task |
-| Reinforcement | baseline, reinforced, same task |
+| Test Type     | Key Fields                          |
+| ------------- | ----------------------------------- |
+| Compliance    | instruction, task, success_criteria |
+| Decay         | phases[], checkpoint per phase      |
+| Adversarial   | baseline_task, pressure_levels[]    |
+| Comparison    | variants[], common task             |
+| Reinforcement | baseline, reinforced, same task     |

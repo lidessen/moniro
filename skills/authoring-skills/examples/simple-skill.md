@@ -3,6 +3,7 @@
 This example shows a basic skill with just a SKILL.md file, suitable for straightforward tasks.
 
 ## Table of Contents
+
 - [Use Case](#use-case)
 - [Directory Structure](#directory-structure)
 - [Why This Is a Simple Skill](#why-this-is-a-simple-skill)
@@ -24,7 +25,7 @@ git-commit-helper/
 
 ## SKILL.md
 
-```markdown
+````markdown
 ---
 name: git-commit-helper
 description: Generate descriptive commit messages by analyzing git diffs and staged changes. Use when writing commits, reviewing changes, or when the user asks for help with commit messages.
@@ -57,9 +58,10 @@ Generate conventional commit messages from git changes:
 type(scope): brief description
 
 Detailed explanation of changes
+
 - Key point 1
 - Key point 2
-\```
+  \```
 
 ## Examples
 
@@ -68,10 +70,11 @@ Detailed explanation of changes
 feat(auth): implement JWT-based authentication
 
 Add login endpoint and token validation middleware
+
 - Create /api/login endpoint
 - Add JWT token generation
 - Implement auth middleware for protected routes
-\```
+  \```
 
 **Example 2: Bug Fix**
 \```
@@ -86,10 +89,11 @@ to avoid timezone-related display issues
 refactor(database): extract query builders into separate module
 
 Improve code organization and testability
+
 - Move query builders to db/queries.js
 - Add unit tests for query builders
 - Update imports across codebase
-\```
+  \```
 
 **Example 4: Chore**
 \```
@@ -98,22 +102,25 @@ chore: update dependencies and fix security vulnerabilities
 - Upgrade lodash to 4.17.21
 - Update axios to 1.6.0
 - Fix npm audit issues
-\```
+  \```
 
 ## Guidelines
 
 **Description (first line)**:
+
 - Use imperative mood: "add" not "added"
 - Don't capitalize first letter
 - No period at end
 - Max 72 characters
 
 **Body (optional)**:
+
 - Explain what and why, not how
 - Wrap at 72 characters
 - Use bullet points for multiple changes
 
 **Scope (optional but recommended)**:
+
 - Component or area affected
 - Examples: auth, api, database, ui, docs
 
@@ -126,7 +133,7 @@ refactor(api): reorganize endpoint handlers
 - Move user endpoints to users/ directory
 - Extract validation to middleware
 - Update tests for new structure
-\```
+  \```
 
 **Breaking changes**:
 \```
@@ -142,7 +149,7 @@ fix(login): handle expired token error
 
 Closes #123
 \```
-```
+````
 
 ## Why This Is a Simple Skill
 
@@ -174,6 +181,7 @@ Use a single SKILL.md when:
 ## Metadata Analysis
 
 ### Name
+
 ```yaml
 name: git-commit-helper
 ```
@@ -183,6 +191,7 @@ name: git-commit-helper
 ✓ 17 characters (<64 limit)
 
 ### Description
+
 ```yaml
 description: Generate descriptive commit messages by analyzing git diffs and staged changes. Use when writing commits, reviewing changes, or when the user asks for help with commit messages.
 ```
@@ -197,7 +206,7 @@ description: Generate descriptive commit messages by analyzing git diffs and sta
 1. **Discovery**: User says "help me write a commit message"
 2. **Trigger**: Description matches "commit messages"
 3. **Load**: Claude reads SKILL.md
-4. **Apply**: 
+4. **Apply**:
    - Sees format: `type(scope): description`
    - Reviews examples
    - Follows guidelines
@@ -206,6 +215,7 @@ description: Generate descriptive commit messages by analyzing git diffs and sta
 ## Total Token Cost
 
 This skill's SKILL.md is approximately 500 tokens. When triggered:
+
 - Claude loads ~500 tokens
 - Has all information needed
 - No additional files to read

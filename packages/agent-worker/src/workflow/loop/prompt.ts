@@ -56,7 +56,9 @@ export function formatChannel(entries: Message[]): string {
  * Format conversation messages for display.
  * Delegates to the shared formatter in conversation.ts.
  */
-export function formatConversation(messages: import("../../agent/conversation.ts").ConversationMessage[]): string {
+export function formatConversation(
+  messages: import("../../agent/conversation.ts").ConversationMessage[],
+): string {
   if (messages.length === 0) return "(no conversation history)";
   return formatConversationMessages(messages);
 }

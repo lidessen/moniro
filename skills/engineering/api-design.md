@@ -86,14 +86,14 @@ Can add features without breaking existing clients.
 ### HTTP Methods
 
 | Method | Purpose | Idempotent | Request Body | Success Code |
-|--------|---------|------------|--------------|--------------|
+| ------ | ------- | ---------- | ------------ | ------------ |
 | GET    | Read    | Yes        | No           | 200          |
 | POST   | Create  | No         | Yes          | 201          |
 | PUT    | Replace | Yes        | Yes          | 200          |
-| PATCH  | Update  | No*        | Yes          | 200          |
+| PATCH  | Update  | No\*       | Yes          | 200          |
 | DELETE | Delete  | Yes        | No           | 204          |
 
-*PATCH can be idempotent depending on implementation
+\*PATCH can be idempotent depending on implementation
 
 ### Query Parameters
 
@@ -124,6 +124,7 @@ GET /users?search=john@example.com
 ### Response Structure
 
 **Single resource**:
+
 ```json
 {
   "data": {
@@ -138,6 +139,7 @@ GET /users?search=john@example.com
 ```
 
 **Collection**:
+
 ```json
 {
   "data": [
@@ -155,6 +157,7 @@ GET /users?search=john@example.com
 **Simpler alternative** (if JSON:API is overkill):
 
 Single resource:
+
 ```json
 {
   "user": {
@@ -165,6 +168,7 @@ Single resource:
 ```
 
 Collection:
+
 ```json
 {
   "users": [
@@ -181,11 +185,13 @@ Collection:
 ### HTTP Status Codes
 
 **2xx: Success**
+
 - 200 OK - Request succeeded
 - 201 Created - Resource created
 - 204 No Content - Success with no body (DELETE)
 
 **4xx: Client Error**
+
 - 400 Bad Request - Invalid request syntax
 - 401 Unauthorized - Authentication required
 - 403 Forbidden - Authenticated but not authorized
@@ -194,6 +200,7 @@ Collection:
 - 422 Unprocessable Entity - Validation failed
 
 **5xx: Server Error**
+
 - 500 Internal Server Error - Unexpected error
 - 502 Bad Gateway - Upstream service error
 - 503 Service Unavailable - Temporary overload
@@ -233,6 +240,7 @@ Use machine-readable codes alongside human messages:
 ```
 
 Common error codes:
+
 - `VALIDATION_ERROR` - Input validation failed
 - `NOT_FOUND` - Resource doesn't exist
 - `UNAUTHORIZED` - Authentication required
@@ -274,11 +282,13 @@ GET /users?version=2
 ### Recommendation
 
 **For most APIs**: URL path versioning (`/v1/`)
+
 - Most explicit and understandable
 - Easy for developers to use
 - Simple routing
 
 **Version bump rules**:
+
 - Breaking change → New version
 - Additive change → Same version
 - Bug fix → Same version
@@ -288,12 +298,14 @@ GET /users?version=2
 ### Essential Documentation
 
 **Getting started**:
+
 - Authentication
 - Base URL
 - Rate limits
 - Quick example
 
 **Endpoint reference**:
+
 - URL and method
 - Parameters (path, query, body)
 - Response format
@@ -314,13 +326,13 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: User found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
-        '404':
+                $ref: "#/components/schemas/User"
+        "404":
           description: User not found
 ```
 
@@ -348,10 +360,12 @@ Document API changes:
 
 ```markdown
 ## v2.1.0 (YYYY-MM-DD)
+
 - Added `include` parameter to GET /users
 - Added `profile` field to user response
 
 ## v2.0.0 (YYYY-MM-DD) - BREAKING
+
 - Changed pagination from offset to cursor-based
 - Renamed `user_name` to `username`
 ```

@@ -9,13 +9,13 @@
  * mock backends instead of real CLIs (cursor agent, claude).
  */
 
-import { describe, test, expect, afterEach } from 'bun:test'
-import { createMemoryContextProvider } from '../src/workflow/context/memory-provider.ts'
-import { createAgentLoop, checkWorkflowIdle } from '../src/workflow/loop/loop.ts'
-import type { AgentLoop } from '../src/workflow/loop/types.ts'
-import type { Backend } from '../src/backends/types.ts'
-import type { ResolvedWorkflowAgent } from '../src/workflow/types.ts'
-import type { ContextProvider } from '../src/workflow/context/provider.ts'
+import { describe, test, expect, afterEach } from "bun:test";
+import { createMemoryContextProvider } from "../src/workflow/context/memory-provider.ts";
+import { createAgentLoop, checkWorkflowIdle } from "../src/workflow/loop/loop.ts";
+import type { AgentLoop } from "../src/workflow/loop/types.ts";
+import type { Backend } from "../src/backends/types.ts";
+import type { ResolvedWorkflowAgent } from "../src/workflow/types.ts";
+import type { ContextProvider } from "../src/workflow/context/provider.ts";
 
 // ==================== Helpers ====================
 
@@ -25,24 +25,24 @@ import type { ContextProvider } from '../src/workflow/context/provider.ts'
  * to avoid reacting to historical channel messages.
  */
 function getInboxSection(prompt: string): string {
-  const start = prompt.indexOf('## Inbox')
-  const end = prompt.indexOf('## Recent Activity')
-  if (start === -1) return ''
-  return end === -1 ? prompt.slice(start) : prompt.slice(start, end)
+  const start = prompt.indexOf("## Inbox");
+  const end = prompt.indexOf("## Recent Activity");
+  if (start === -1) return "";
+  return end === -1 ? prompt.slice(start) : prompt.slice(start, end);
 }
 
 /** Wait for a condition, throw on timeout */
 async function waitFor(
   condition: () => Promise<boolean> | boolean,
   timeout = 5000,
-  interval = 50
+  interval = 50,
 ): Promise<void> {
-  const start = Date.now()
+  const start = Date.now();
   while (Date.now() - start < timeout) {
-    if (await condition()) return
-    await new Promise((r) => setTimeout(r, interval))
+    if (await condition()) return;
+    await new Promise((r) => setTimeout(r, interval));
   }
-  throw new Error(`Timeout after ${timeout}ms waiting for condition`)
+  throw new Error(`Timeout after ${timeout}ms waiting for condition`);
 }
 
 /**
@@ -56,16 +56,20 @@ async function waitFor(
  */
 function createMockBackend(
   _name: string,
-  behavior: (prompt: string, provider: ContextProvider, options?: { system?: string }) => Promise<void>,
-  provider: ContextProvider
+  behavior: (
+    prompt: string,
+    provider: ContextProvider,
+    options?: { system?: string },
+  ) => Promise<void>,
+  provider: ContextProvider,
 ): Backend {
   return {
-    type: 'claude' as const,
+    type: "claude" as const,
     async send(message: string, options?: { system?: string }) {
-      await behavior(message, provider, options)
-      return { content: '' }
+      await behavior(message, provider, options);
+      return { content: "" };
     },
-  }
+  };
 }
 
 // ==================== Tests ====================
@@ -87,517 +91,537 @@ function createMockBackend(
  *   @alice - Please ask @bob a simple question about AI agents.
  *   @bob - When you receive a question, answer it briefly.
  */
-describe('Alice-Bob workflow with mock backends', () => {
-  const loops: AgentLoop[] = []
+describe("Alice-Bob workflow with mock backends", () => {
+  const loops: AgentLoop[] = [];
 
   afterEach(async () => {
-    await Promise.all(loops.map((c) => c.stop()))
-    loops.length = 0
-  })
+    await Promise.all(loops.map((c) => c.stop()));
+    loops.length = 0;
+  });
 
   const aliceAgent: ResolvedWorkflowAgent = {
-    backend: 'cursor',
-    model: 'sonnet-4.5',
-    system_prompt: 'You are Alice. You like to ask questions and are curious about everything.',
-    resolvedSystemPrompt: 'You are Alice. You like to ask questions and are curious about everything.',
-  }
+    backend: "cursor",
+    model: "sonnet-4.5",
+    system_prompt: "You are Alice. You like to ask questions and are curious about everything.",
+    resolvedSystemPrompt:
+      "You are Alice. You like to ask questions and are curious about everything.",
+  };
 
   const bobAgent: ResolvedWorkflowAgent = {
-    backend: 'claude',
-    system_prompt: 'You are Bob. You are knowledgeable and patient. You answer questions clearly and concisely.',
+    backend: "claude",
+    system_prompt:
+      "You are Bob. You are knowledgeable and patient. You answer questions clearly and concisely.",
     resolvedSystemPrompt:
-      'You are Bob. You are knowledgeable and patient. You answer questions clearly and concisely.',
-  }
+      "You are Bob. You are knowledgeable and patient. You answer questions clearly and concisely.",
+  };
 
-  test('full conversation flow: kickoff → alice asks → bob answers → complete', async () => {
-    const provider = createMemoryContextProvider(['alice', 'bob'])
+  test("full conversation flow: kickoff → alice asks → bob answers → complete", async () => {
+    const provider = createMemoryContextProvider(["alice", "bob"]);
 
     // Track what each agent received (for assertions)
-    const aliceRuns: { prompt: string; system?: string }[] = []
-    const bobRuns: { prompt: string; system?: string }[] = []
+    const aliceRuns: { prompt: string; system?: string }[] = [];
+    const bobRuns: { prompt: string; system?: string }[] = [];
 
     // Alice behavior: reads kickoff, asks Bob a question
     // Uses getInboxSection() to match only on new inbox messages, not recent channel history
     const aliceBackend = createMockBackend(
-      'mock-cursor',
+      "mock-cursor",
       async (prompt, p, options) => {
-        aliceRuns.push({ prompt, system: options?.system })
-        const inbox = getInboxSection(prompt)
+        aliceRuns.push({ prompt, system: options?.system });
+        const inbox = getInboxSection(prompt);
 
-        if (inbox.includes('Please ask @bob')) {
+        if (inbox.includes("Please ask @bob")) {
           // Alice asks Bob a question (simulates channel_send MCP tool call)
-          await p.appendChannel('alice', '@bob What is an AI agent and how does it work?')
+          await p.appendChannel("alice", "@bob What is an AI agent and how does it work?");
         }
       },
-      provider
-    )
+      provider,
+    );
 
     // Bob behavior: reads Alice's question, answers
     const bobBackend = createMockBackend(
-      'mock-claude',
+      "mock-claude",
       async (prompt, p, options) => {
-        bobRuns.push({ prompt, system: options?.system })
-        const inbox = getInboxSection(prompt)
+        bobRuns.push({ prompt, system: options?.system });
+        const inbox = getInboxSection(prompt);
 
-        if (inbox.includes('What is an AI agent')) {
+        if (inbox.includes("What is an AI agent")) {
           // Bob answers Alice's question (simulates channel_send MCP tool call)
           await p.appendChannel(
-            'bob',
-            '@alice An AI agent is a system that can perceive its environment and take actions to achieve goals autonomously.'
-          )
+            "bob",
+            "@alice An AI agent is a system that can perceive its environment and take actions to achieve goals autonomously.",
+          );
         }
         // Otherwise: Bob receives kickoff but no question yet — do nothing
       },
-      provider
-    )
+      provider,
+    );
 
     const alice = createAgentLoop({
-      name: 'alice',
+      name: "alice",
       agent: aliceAgent,
       contextProvider: provider,
-      mcpUrl: 'http://127.0.0.1:0/mcp',
-      workspaceDir: '/tmp/test-workspace/alice',
-      projectDir: '/tmp/test-project',
+      mcpUrl: "http://127.0.0.1:0/mcp",
+      workspaceDir: "/tmp/test-workspace/alice",
+      projectDir: "/tmp/test-project",
       backend: aliceBackend,
       pollInterval: 30,
-    })
+    });
 
     const bob = createAgentLoop({
-      name: 'bob',
+      name: "bob",
       agent: bobAgent,
       contextProvider: provider,
-      mcpUrl: 'http://127.0.0.1:0/mcp',
-      workspaceDir: '/tmp/test-workspace/bob',
-      projectDir: '/tmp/test-project',
+      mcpUrl: "http://127.0.0.1:0/mcp",
+      workspaceDir: "/tmp/test-workspace/bob",
+      projectDir: "/tmp/test-project",
       backend: bobBackend,
       pollInterval: 30,
-    })
+    });
 
-    loops.push(alice, bob)
-    await alice.start()
-    await bob.start()
+    loops.push(alice, bob);
+    await alice.start();
+    await bob.start();
 
     // Send kickoff (same as runner does)
     const kickoff = `Test workflow started at 2026-02-06
 
 @alice - Please ask @bob a simple question about AI agents.
 
-@bob - When you receive a question, answer it briefly.`
+@bob - When you receive a question, answer it briefly.`;
 
-    await provider.appendChannel('system', kickoff)
-    alice.wake()
-    bob.wake()
+    await provider.appendChannel("system", kickoff);
+    alice.wake();
+    bob.wake();
 
     // Wait for Bob's answer to appear
     await waitFor(async () => {
-      const entries = await provider.readChannel()
-      return entries.some((e) => e.from === 'bob' && e.content.includes('AI agent is a system'))
-    })
+      const entries = await provider.readChannel();
+      return entries.some((e) => e.from === "bob" && e.content.includes("AI agent is a system"));
+    });
 
     // Verify the full conversation flow
-    const entries = await provider.readChannel()
+    const entries = await provider.readChannel();
     // Filter out stream messages (tool calls, assistant messages) to get final responses
-    const messages = entries.filter((e) => !e.kind || e.kind === undefined).map((e) => ({ from: e.from, content: e.content }))
+    const messages = entries
+      .filter((e) => !e.kind || e.kind === undefined)
+      .map((e) => ({ from: e.from, content: e.content }));
 
     // 1. Orchestrator kickoff
-    expect(messages[0]!.from).toBe('system')
-    expect(messages[0]!.content).toContain('@alice')
-    expect(messages[0]!.content).toContain('@bob')
+    expect(messages[0]!.from).toBe("system");
+    expect(messages[0]!.content).toContain("@alice");
+    expect(messages[0]!.content).toContain("@bob");
 
     // 2. Alice asks a question mentioning @bob
-    expect(messages[1]!.from).toBe('alice')
-    expect(messages[1]!.content).toContain('@bob')
-    expect(messages[1]!.content).toContain('AI agent')
+    expect(messages[1]!.from).toBe("alice");
+    expect(messages[1]!.content).toContain("@bob");
+    expect(messages[1]!.content).toContain("AI agent");
 
     // 3. Bob answers mentioning @alice
-    expect(messages[2]!.from).toBe('bob')
-    expect(messages[2]!.content).toContain('@alice')
-    expect(messages[2]!.content).toContain('perceive its environment')
+    expect(messages[2]!.from).toBe("bob");
+    expect(messages[2]!.content).toContain("@alice");
+    expect(messages[2]!.content).toContain("perceive its environment");
 
     // Verify alice received the kickoff (prompt includes inbox content)
-    expect(aliceRuns.length).toBeGreaterThanOrEqual(1)
-    expect(aliceRuns[0]!.prompt).toContain('Please ask @bob')
-    expect(aliceRuns[0]!.system).toContain('Alice')
+    expect(aliceRuns.length).toBeGreaterThanOrEqual(1);
+    expect(aliceRuns[0]!.prompt).toContain("Please ask @bob");
+    expect(aliceRuns[0]!.system).toContain("Alice");
 
     // Verify bob was invoked
-    expect(bobRuns.length).toBeGreaterThanOrEqual(1)
+    expect(bobRuns.length).toBeGreaterThanOrEqual(1);
 
     // Verify idle detection works after conversation completes
-    const loopMap = new Map<string, AgentLoop>()
-    loopMap.set('alice', alice)
-    loopMap.set('bob', bob)
+    const loopMap = new Map<string, AgentLoop>();
+    loopMap.set("alice", alice);
+    loopMap.set("bob", bob);
 
     // Wait for all to go idle
-    await waitFor(() => alice.state === 'idle' && bob.state === 'idle')
+    await waitFor(() => alice.state === "idle" && bob.state === "idle");
 
     // After ack, inboxes should be empty → workflow idle
-    const isIdle = await checkWorkflowIdle(loopMap, provider, 50)
-    expect(isIdle).toBe(true)
-  })
+    const isIdle = await checkWorkflowIdle(loopMap, provider, 50);
+    expect(isIdle).toBe(true);
+  });
 
-  test('agents receive correct run context (system prompt, workspace, project)', async () => {
-    const provider = createMemoryContextProvider(['alice', 'bob'])
-    let capturedAlice: { prompt: string; system?: string; workspace?: string } | null = null
-    let capturedBob: { prompt: string; system?: string; workspace?: string } | null = null
+  test("agents receive correct run context (system prompt, workspace, project)", async () => {
+    const provider = createMemoryContextProvider(["alice", "bob"]);
+    let capturedAlice: { prompt: string; system?: string; workspace?: string } | null = null;
+    let capturedBob: { prompt: string; system?: string; workspace?: string } | null = null;
 
     const aliceBackend: Backend = {
-      type: 'claude' as const,
+      type: "claude" as const,
       async send(message: string, options?: { system?: string }) {
-        capturedAlice = { ...capturedAlice, prompt: message, system: options?.system, workspace: '/tmp/ws/alice' }
-        return { content: '' }
+        capturedAlice = {
+          ...capturedAlice,
+          prompt: message,
+          system: options?.system,
+          workspace: "/tmp/ws/alice",
+        };
+        return { content: "" };
       },
-    }
+    };
 
     const bobBackend: Backend = {
-      type: 'claude' as const,
+      type: "claude" as const,
       async send(message: string, options?: { system?: string }) {
-        capturedBob = { ...capturedBob, prompt: message, system: options?.system, workspace: '/tmp/ws/bob' }
-        return { content: '' }
+        capturedBob = {
+          ...capturedBob,
+          prompt: message,
+          system: options?.system,
+          workspace: "/tmp/ws/bob",
+        };
+        return { content: "" };
       },
-    }
+    };
 
     const alice = createAgentLoop({
-      name: 'alice',
+      name: "alice",
       agent: aliceAgent,
       contextProvider: provider,
-      mcpUrl: 'http://127.0.0.1:0/mcp',
-      workspaceDir: '/tmp/ws/alice',
-      projectDir: '/home/user/my-project',
+      mcpUrl: "http://127.0.0.1:0/mcp",
+      workspaceDir: "/tmp/ws/alice",
+      projectDir: "/home/user/my-project",
       backend: aliceBackend,
       pollInterval: 30,
-    })
+    });
 
     const bob = createAgentLoop({
-      name: 'bob',
+      name: "bob",
       agent: bobAgent,
       contextProvider: provider,
-      mcpUrl: 'http://127.0.0.1:0/mcp',
-      workspaceDir: '/tmp/ws/bob',
-      projectDir: '/home/user/my-project',
+      mcpUrl: "http://127.0.0.1:0/mcp",
+      workspaceDir: "/tmp/ws/bob",
+      projectDir: "/home/user/my-project",
       backend: bobBackend,
       pollInterval: 30,
-    })
+    });
 
-    loops.push(alice, bob)
-    await alice.start()
-    await bob.start()
+    loops.push(alice, bob);
+    await alice.start();
+    await bob.start();
 
     // Kickoff mentioning both
-    await provider.appendChannel('system', '@alice hello @bob hello')
-    alice.wake()
-    bob.wake()
+    await provider.appendChannel("system", "@alice hello @bob hello");
+    alice.wake();
+    bob.wake();
 
-    await waitFor(() => capturedAlice !== null && capturedAlice.prompt !== undefined && capturedBob !== null && capturedBob.prompt !== undefined)
+    await waitFor(
+      () =>
+        capturedAlice !== null &&
+        capturedAlice.prompt !== undefined &&
+        capturedBob !== null &&
+        capturedBob.prompt !== undefined,
+    );
 
     // Alice context — verified through prompt text and system option
-    expect(capturedAlice!.system).toContain('Alice')
-    expect(capturedAlice!.system).toContain('curious')
-    expect(capturedAlice!.workspace).toBe('/tmp/ws/alice')
-    expect(capturedAlice!.prompt).toContain('Working on: /home/user/my-project')
-    expect(capturedAlice!.prompt).toContain('1 message')
-    expect(capturedAlice!.prompt).toContain('From @system')
+    expect(capturedAlice!.system).toContain("Alice");
+    expect(capturedAlice!.system).toContain("curious");
+    expect(capturedAlice!.workspace).toBe("/tmp/ws/alice");
+    expect(capturedAlice!.prompt).toContain("Working on: /home/user/my-project");
+    expect(capturedAlice!.prompt).toContain("1 message");
+    expect(capturedAlice!.prompt).toContain("From @system");
     // No retry notice on first attempt
-    expect(capturedAlice!.prompt).not.toContain('retry attempt')
+    expect(capturedAlice!.prompt).not.toContain("retry attempt");
 
     // Bob context
-    expect(capturedBob!.system).toContain('Bob')
-    expect(capturedBob!.system).toContain('knowledgeable')
-    expect(capturedBob!.workspace).toBe('/tmp/ws/bob')
-    expect(capturedBob!.prompt).toContain('Working on: /home/user/my-project')
-    expect(capturedBob!.prompt).toContain('1 message')
-  })
+    expect(capturedBob!.system).toContain("Bob");
+    expect(capturedBob!.system).toContain("knowledgeable");
+    expect(capturedBob!.workspace).toBe("/tmp/ws/bob");
+    expect(capturedBob!.prompt).toContain("Working on: /home/user/my-project");
+    expect(capturedBob!.prompt).toContain("1 message");
+  });
 
-  test('mention-triggered wake: alice mentions bob, bob wakes up', async () => {
-    const provider = createMemoryContextProvider(['alice', 'bob'])
-    let bobInvokeCount = 0
+  test("mention-triggered wake: alice mentions bob, bob wakes up", async () => {
+    const provider = createMemoryContextProvider(["alice", "bob"]);
+    let bobInvokeCount = 0;
 
     const aliceBackend = createMockBackend(
-      'mock-cursor',
+      "mock-cursor",
       async (prompt, p) => {
-        const inbox = getInboxSection(prompt)
-        if (inbox.includes('start')) {
+        const inbox = getInboxSection(prompt);
+        if (inbox.includes("start")) {
           // Alice sends a message mentioning @bob
-          await p.appendChannel('alice', '@bob Can you help me?')
+          await p.appendChannel("alice", "@bob Can you help me?");
           // Simulate the mention callback (in real workflow, MCP server does this)
-          bob.wake()
+          bob.wake();
         }
       },
-      provider
-    )
+      provider,
+    );
 
     const bobBackend = createMockBackend(
-      'mock-claude',
+      "mock-claude",
       async (prompt, p) => {
-        bobInvokeCount++
-        const inbox = getInboxSection(prompt)
-        if (inbox.includes('Can you help')) {
-          await p.appendChannel('bob', '@alice Sure, I can help!')
+        bobInvokeCount++;
+        const inbox = getInboxSection(prompt);
+        if (inbox.includes("Can you help")) {
+          await p.appendChannel("bob", "@alice Sure, I can help!");
         }
       },
-      provider
-    )
+      provider,
+    );
 
     const alice = createAgentLoop({
-      name: 'alice',
+      name: "alice",
       agent: aliceAgent,
       contextProvider: provider,
-      mcpUrl: 'http://127.0.0.1:0/mcp',
-      workspaceDir: '/tmp/ws/alice',
-      projectDir: '/tmp/project',
+      mcpUrl: "http://127.0.0.1:0/mcp",
+      workspaceDir: "/tmp/ws/alice",
+      projectDir: "/tmp/project",
       backend: aliceBackend,
       pollInterval: 30,
-    })
+    });
 
     const bob = createAgentLoop({
-      name: 'bob',
+      name: "bob",
       agent: bobAgent,
       contextProvider: provider,
-      mcpUrl: 'http://127.0.0.1:0/mcp',
-      workspaceDir: '/tmp/ws/bob',
-      projectDir: '/tmp/project',
+      mcpUrl: "http://127.0.0.1:0/mcp",
+      workspaceDir: "/tmp/ws/bob",
+      projectDir: "/tmp/project",
       backend: bobBackend,
       pollInterval: 30,
-    })
+    });
 
-    loops.push(alice, bob)
-    await alice.start()
-    await bob.start()
+    loops.push(alice, bob);
+    await alice.start();
+    await bob.start();
 
     // Only kickoff to alice (not bob)
-    await provider.appendChannel('system', '@alice please start')
-    alice.wake()
+    await provider.appendChannel("system", "@alice please start");
+    alice.wake();
 
     // Bob should be woken by alice's @mention, not by kickoff
     await waitFor(async () => {
-      const entries = await provider.readChannel()
-      return entries.some((e) => e.from === 'bob' && e.content.includes('Sure'))
-    })
+      const entries = await provider.readChannel();
+      return entries.some((e) => e.from === "bob" && e.content.includes("Sure"));
+    });
 
-    const allEntries = await provider.readChannel()
+    const allEntries = await provider.readChannel();
     // Filter out stream messages to get final responses
-    const entries = allEntries.filter((e) => !e.kind || e.kind === undefined)
-    expect(entries).toHaveLength(3)
-    expect(entries[0]!.from).toBe('system')
-    expect(entries[1]!.from).toBe('alice')
-    expect(entries[1]!.content).toContain('@bob')
-    expect(entries[2]!.from).toBe('bob')
-    expect(entries[2]!.content).toContain('@alice')
-    expect(entries[2]!.content).toContain('Sure')
+    const entries = allEntries.filter((e) => !e.kind || e.kind === undefined);
+    expect(entries).toHaveLength(3);
+    expect(entries[0]!.from).toBe("system");
+    expect(entries[1]!.from).toBe("alice");
+    expect(entries[1]!.content).toContain("@bob");
+    expect(entries[2]!.from).toBe("bob");
+    expect(entries[2]!.content).toContain("@alice");
+    expect(entries[2]!.content).toContain("Sure");
 
     // Bob should have been invoked at least once (for alice's mention)
-    expect(bobInvokeCount).toBeGreaterThanOrEqual(1)
-  })
+    expect(bobInvokeCount).toBeGreaterThanOrEqual(1);
+  });
 
-  test('inbox acknowledgment prevents duplicate processing', async () => {
-    const provider = createMemoryContextProvider(['alice', 'bob'])
-    let aliceInvokeCount = 0
+  test("inbox acknowledgment prevents duplicate processing", async () => {
+    const provider = createMemoryContextProvider(["alice", "bob"]);
+    let aliceInvokeCount = 0;
 
     const aliceBackend = createMockBackend(
-      'mock-cursor',
+      "mock-cursor",
       async () => {
-        aliceInvokeCount++
+        aliceInvokeCount++;
       },
-      provider
-    )
+      provider,
+    );
 
-    const bobBackend = createMockBackend('mock-claude', async () => {}, provider)
+    const bobBackend = createMockBackend("mock-claude", async () => {}, provider);
 
     const alice = createAgentLoop({
-      name: 'alice',
+      name: "alice",
       agent: aliceAgent,
       contextProvider: provider,
-      mcpUrl: 'http://127.0.0.1:0/mcp',
-      workspaceDir: '/tmp/ws/alice',
-      projectDir: '/tmp/project',
+      mcpUrl: "http://127.0.0.1:0/mcp",
+      workspaceDir: "/tmp/ws/alice",
+      projectDir: "/tmp/project",
       backend: aliceBackend,
       pollInterval: 30,
-    })
+    });
 
     const bob = createAgentLoop({
-      name: 'bob',
+      name: "bob",
       agent: bobAgent,
       contextProvider: provider,
-      mcpUrl: 'http://127.0.0.1:0/mcp',
-      workspaceDir: '/tmp/ws/bob',
-      projectDir: '/tmp/project',
+      mcpUrl: "http://127.0.0.1:0/mcp",
+      workspaceDir: "/tmp/ws/bob",
+      projectDir: "/tmp/project",
       backend: bobBackend,
       pollInterval: 30,
-    })
+    });
 
-    loops.push(alice, bob)
-    await alice.start()
-    await bob.start()
+    loops.push(alice, bob);
+    await alice.start();
+    await bob.start();
 
     // Send one message to alice
-    await provider.appendChannel('system', '@alice do something')
-    alice.wake()
+    await provider.appendChannel("system", "@alice do something");
+    alice.wake();
 
     // Wait for alice to process
-    await waitFor(() => aliceInvokeCount >= 1)
+    await waitFor(() => aliceInvokeCount >= 1);
 
     // Wait for a few more poll cycles
-    await new Promise((r) => setTimeout(r, 200))
+    await new Promise((r) => setTimeout(r, 200));
 
     // Alice should have been invoked exactly once (inbox was ack'd after first run)
-    expect(aliceInvokeCount).toBe(1)
+    expect(aliceInvokeCount).toBe(1);
 
     // Inbox should be empty now
-    const inbox = await provider.getInbox('alice')
-    expect(inbox).toHaveLength(0)
-  })
+    const inbox = await provider.getInbox("alice");
+    expect(inbox).toHaveLength(0);
+  });
 
-  test('workflow idle detection: all agents idle + no unread messages', async () => {
-    const provider = createMemoryContextProvider(['alice', 'bob'])
+  test("workflow idle detection: all agents idle + no unread messages", async () => {
+    const provider = createMemoryContextProvider(["alice", "bob"]);
 
-    const aliceBackend = createMockBackend('mock-cursor', async () => {}, provider)
-    const bobBackend = createMockBackend('mock-claude', async () => {}, provider)
+    const aliceBackend = createMockBackend("mock-cursor", async () => {}, provider);
+    const bobBackend = createMockBackend("mock-claude", async () => {}, provider);
 
     const alice = createAgentLoop({
-      name: 'alice',
+      name: "alice",
       agent: aliceAgent,
       contextProvider: provider,
-      mcpUrl: 'http://127.0.0.1:0/mcp',
-      workspaceDir: '/tmp/ws/alice',
-      projectDir: '/tmp/project',
+      mcpUrl: "http://127.0.0.1:0/mcp",
+      workspaceDir: "/tmp/ws/alice",
+      projectDir: "/tmp/project",
       backend: aliceBackend,
       pollInterval: 30,
-    })
+    });
 
     const bob = createAgentLoop({
-      name: 'bob',
+      name: "bob",
       agent: bobAgent,
       contextProvider: provider,
-      mcpUrl: 'http://127.0.0.1:0/mcp',
-      workspaceDir: '/tmp/ws/bob',
-      projectDir: '/tmp/project',
+      mcpUrl: "http://127.0.0.1:0/mcp",
+      workspaceDir: "/tmp/ws/bob",
+      projectDir: "/tmp/project",
       backend: bobBackend,
       pollInterval: 30,
-    })
+    });
 
-    loops.push(alice, bob)
-    await alice.start()
-    await bob.start()
+    loops.push(alice, bob);
+    await alice.start();
+    await bob.start();
 
-    const loopMap = new Map<string, AgentLoop>()
-    loopMap.set('alice', alice)
-    loopMap.set('bob', bob)
+    const loopMap = new Map<string, AgentLoop>();
+    loopMap.set("alice", alice);
+    loopMap.set("bob", bob);
 
     // Initially idle (no messages)
-    await waitFor(() => alice.state === 'idle' && bob.state === 'idle')
-    const idleBeforeMsg = await checkWorkflowIdle(loopMap, provider, 50)
-    expect(idleBeforeMsg).toBe(true)
+    await waitFor(() => alice.state === "idle" && bob.state === "idle");
+    const idleBeforeMsg = await checkWorkflowIdle(loopMap, provider, 50);
+    expect(idleBeforeMsg).toBe(true);
 
     // Send message → not idle anymore (unread inbox)
-    await provider.appendChannel('system', '@alice @bob start')
-    const idleWithUnread = await checkWorkflowIdle(loopMap, provider, 50)
-    expect(idleWithUnread).toBe(false)
+    await provider.appendChannel("system", "@alice @bob start");
+    const idleWithUnread = await checkWorkflowIdle(loopMap, provider, 50);
+    expect(idleWithUnread).toBe(false);
 
     // Wake agents, let them process
-    alice.wake()
-    bob.wake()
-    await waitFor(() => alice.state === 'idle' && bob.state === 'idle')
+    alice.wake();
+    bob.wake();
+    await waitFor(() => alice.state === "idle" && bob.state === "idle");
 
     // Let loops settle into steady idle state
-    await new Promise((r) => setTimeout(r, 100))
+    await new Promise((r) => setTimeout(r, 100));
 
     // After processing + ack, idle again
-    const idleAfterAck = await checkWorkflowIdle(loopMap, provider, 50)
-    expect(idleAfterAck).toBe(true)
-  })
+    const idleAfterAck = await checkWorkflowIdle(loopMap, provider, 50);
+    expect(idleAfterAck).toBe(true);
+  });
 
-  test('multi-turn conversation: alice and bob exchange multiple messages', async () => {
-    const provider = createMemoryContextProvider(['alice', 'bob'])
-    let aliceTurns = 0
+  test("multi-turn conversation: alice and bob exchange multiple messages", async () => {
+    const provider = createMemoryContextProvider(["alice", "bob"]);
+    let aliceTurns = 0;
 
     const aliceBackend = createMockBackend(
-      'mock-cursor',
+      "mock-cursor",
       async (prompt, p) => {
-        aliceTurns++
-        const inbox = getInboxSection(prompt)
+        aliceTurns++;
+        const inbox = getInboxSection(prompt);
 
-        if (inbox.includes('From @system') && inbox.includes('machine learning')) {
-          await p.appendChannel('alice', '@bob What is machine learning?')
-          bob.wake()
-        } else if (inbox.includes('subset of AI')) {
-          await p.appendChannel('alice', '@bob Thank you! That makes sense.')
-          bob.wake()
+        if (inbox.includes("From @system") && inbox.includes("machine learning")) {
+          await p.appendChannel("alice", "@bob What is machine learning?");
+          bob.wake();
+        } else if (inbox.includes("subset of AI")) {
+          await p.appendChannel("alice", "@bob Thank you! That makes sense.");
+          bob.wake();
         }
       },
-      provider
-    )
+      provider,
+    );
 
     const bobBackend = createMockBackend(
-      'mock-claude',
+      "mock-claude",
       async (prompt, p) => {
-        const inbox = getInboxSection(prompt)
+        const inbox = getInboxSection(prompt);
 
-        if (inbox.includes('From @alice') && inbox.includes('machine learning')) {
+        if (inbox.includes("From @alice") && inbox.includes("machine learning")) {
           await p.appendChannel(
-            'bob',
-            '@alice Machine learning is a subset of AI that enables systems to learn from data.'
-          )
-          alice.wake()
-        } else if (inbox.includes('Thank you')) {
-          await p.appendChannel('bob', "You're welcome!")
+            "bob",
+            "@alice Machine learning is a subset of AI that enables systems to learn from data.",
+          );
+          alice.wake();
+        } else if (inbox.includes("Thank you")) {
+          await p.appendChannel("bob", "You're welcome!");
         }
       },
-      provider
-    )
+      provider,
+    );
 
     const alice = createAgentLoop({
-      name: 'alice',
+      name: "alice",
       agent: aliceAgent,
       contextProvider: provider,
-      mcpUrl: 'http://127.0.0.1:0/mcp',
-      workspaceDir: '/tmp/ws/alice',
-      projectDir: '/tmp/project',
+      mcpUrl: "http://127.0.0.1:0/mcp",
+      workspaceDir: "/tmp/ws/alice",
+      projectDir: "/tmp/project",
       backend: aliceBackend,
       pollInterval: 30,
-    })
+    });
 
     const bob = createAgentLoop({
-      name: 'bob',
+      name: "bob",
       agent: bobAgent,
       contextProvider: provider,
-      mcpUrl: 'http://127.0.0.1:0/mcp',
-      workspaceDir: '/tmp/ws/bob',
-      projectDir: '/tmp/project',
+      mcpUrl: "http://127.0.0.1:0/mcp",
+      workspaceDir: "/tmp/ws/bob",
+      projectDir: "/tmp/project",
       backend: bobBackend,
       pollInterval: 30,
-    })
+    });
 
-    loops.push(alice, bob)
-    await alice.start()
-    await bob.start()
+    loops.push(alice, bob);
+    await alice.start();
+    await bob.start();
 
     // Kickoff to alice only
-    await provider.appendChannel('system', '@alice Please ask @bob about machine learning.')
-    alice.wake()
+    await provider.appendChannel("system", "@alice Please ask @bob about machine learning.");
+    alice.wake();
 
     // Wait for full conversation to complete
     await waitFor(async () => {
-      const entries = await provider.readChannel()
-      return entries.some((e) => e.from === 'bob' && e.content.includes("welcome"))
-    })
+      const entries = await provider.readChannel();
+      return entries.some((e) => e.from === "bob" && e.content.includes("welcome"));
+    });
 
-    const allEntries = await provider.readChannel()
+    const allEntries = await provider.readChannel();
     // Filter out stream messages to get final responses
-    const entries = allEntries.filter((e) => !e.kind || e.kind === undefined)
+    const entries = allEntries.filter((e) => !e.kind || e.kind === undefined);
     // Debug: entries.map((e) => `${e.from}: ${e.content.slice(0, 50)}`)
 
     // Verify 5-message flow
-    expect(entries).toHaveLength(5)
-    expect(entries[0]!.from).toBe('system')
-    expect(entries[1]!.from).toBe('alice')
-    expect(entries[1]!.content).toContain('machine learning')
-    expect(entries[2]!.from).toBe('bob')
-    expect(entries[2]!.content).toContain('subset of AI')
-    expect(entries[3]!.from).toBe('alice')
-    expect(entries[3]!.content).toContain('Thank you')
-    expect(entries[4]!.from).toBe('bob')
-    expect(entries[4]!.content).toContain('welcome')
+    expect(entries).toHaveLength(5);
+    expect(entries[0]!.from).toBe("system");
+    expect(entries[1]!.from).toBe("alice");
+    expect(entries[1]!.content).toContain("machine learning");
+    expect(entries[2]!.from).toBe("bob");
+    expect(entries[2]!.content).toContain("subset of AI");
+    expect(entries[3]!.from).toBe("alice");
+    expect(entries[3]!.content).toContain("Thank you");
+    expect(entries[4]!.from).toBe("bob");
+    expect(entries[4]!.content).toContain("welcome");
 
     // Alice should have been invoked twice (kickoff + bob's response)
-    expect(aliceTurns).toBe(2)
-  })
-})
+    expect(aliceTurns).toBe(2);
+  });
+});

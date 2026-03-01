@@ -186,10 +186,7 @@ function defToResolvedAgent(def: AgentDefinition): ResolvedWorkflowAgent {
  * First checks the agent handle (standalone agents own their loop),
  * then falls back to workflow-scoped loops (workflow agents).
  */
-function findLoop(
-  s: DaemonState,
-  agentName: string,
-): AgentLoop | null {
+function findLoop(s: DaemonState, agentName: string): AgentLoop | null {
   // Check agent handle first (standalone agents)
   const handle = s.agents.get(agentName);
   if (handle?.loop) return handle.loop;
@@ -217,10 +214,7 @@ function agentWorkspaceKey(agentName: string): string {
  * This is the bridge between POST /agents (stores definition only) and
  * POST /run or /serve (needs a loop to execute).
  */
-async function ensureAgentLoop(
-  s: DaemonState,
-  agentName: string,
-): Promise<AgentLoop> {
+async function ensureAgentLoop(s: DaemonState, agentName: string): Promise<AgentLoop> {
   // Check if loop already exists
   const existing = findLoop(s, agentName);
   if (existing) return existing;

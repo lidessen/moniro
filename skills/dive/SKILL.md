@@ -41,16 +41,19 @@ Layer 3: Deep Analysis  → HOW it all connects
 ```
 
 Why documentation first?
+
 - It's faster to read
 - It gives you vocabulary for code search
 - Discrepancies between docs and code are themselves findings
 
 Why code second?
+
 - Code is ground truth—it can't lie about what it does
 - Tests show expected behavior in executable form
 - Types reveal contracts and constraints
 
 Why deep analysis last?
+
 - It's expensive (time, context)
 - Only needed when layers 1-2 don't converge
 - Cross-component questions need tracing
@@ -58,6 +61,7 @@ Why deep analysis last?
 ### Cross-Referencing Reveals Truth
 
 When documentation says X but code does Y:
+
 - The code is always correct about behavior
 - The documentation reveals intent or outdated understanding
 - The discrepancy itself is valuable information
@@ -70,15 +74,15 @@ This is not a failure of search. It's a success—you found something real.
 
 Not all evidence is equal:
 
-| Source | Reliability | What it proves |
-|--------|-------------|----------------|
-| Running code | Highest | Current behavior |
-| Tests | High | Expected behavior |
-| Implementation | High | How it works |
-| Type definitions | Medium-High | Contracts |
-| Comments | Medium | Developer intent |
-| Documentation | Medium | Claimed behavior |
-| Commit messages | Low-Medium | Historical intent |
+| Source           | Reliability | What it proves    |
+| ---------------- | ----------- | ----------------- |
+| Running code     | Highest     | Current behavior  |
+| Tests            | High        | Expected behavior |
+| Implementation   | High        | How it works      |
+| Type definitions | Medium-High | Contracts         |
+| Comments         | Medium      | Developer intent  |
+| Documentation    | Medium      | Claimed behavior  |
+| Commit messages  | Low-Medium  | Historical intent |
 
 Multiple sources agreeing = high confidence.
 Single source = verify with another layer.
@@ -97,6 +101,7 @@ Don't apply the same search pattern to every question. Let the question guide yo
 ### Uncertainty is Information
 
 When you can't find clear evidence:
+
 - State what you searched
 - State what you found (even partial)
 - State what's missing
@@ -124,12 +129,12 @@ This isn't a checklist to follow blindly. It's a mental model for thorough inves
 
 Documentation says one thing, code does another. This is common. Here's how to think about it:
 
-| Situation | What to trust | What to report |
-|-----------|---------------|----------------|
-| Docs outdated | Code | Note the discrepancy |
-| Feature removed | Code | Flag potential doc cleanup |
-| Docs wrong | Code | Recommend doc fix |
-| Code buggy | Neither | Flag as potential bug |
+| Situation       | What to trust | What to report             |
+| --------------- | ------------- | -------------------------- |
+| Docs outdated   | Code          | Note the discrepancy       |
+| Feature removed | Code          | Flag potential doc cleanup |
+| Docs wrong      | Code          | Recommend doc fix          |
+| Code buggy      | Neither       | Flag as potential bug      |
 
 The key: **always report both**, let context determine action.
 
@@ -145,11 +150,11 @@ Load these **as needed**, not upfront:
 
 Instead of memorizing anti-patterns, understand the underlying tensions:
 
-| Tension | Resolution |
-|---------|------------|
-| Speed vs Thoroughness | Match depth to stakes. Quick question? Layer 1 may suffice. Critical decision? Go deep. |
-| Confidence vs Evidence | Never state confidence without evidence. "I'm 90% sure" means nothing without sources. |
-| Intuition vs Verification | Use intuition to guide search, not to answer. Then verify. |
-| Completeness vs Relevance | Answer the question asked. Note related findings briefly, don't digress. |
+| Tension                   | Resolution                                                                              |
+| ------------------------- | --------------------------------------------------------------------------------------- |
+| Speed vs Thoroughness     | Match depth to stakes. Quick question? Layer 1 may suffice. Critical decision? Go deep. |
+| Confidence vs Evidence    | Never state confidence without evidence. "I'm 90% sure" means nothing without sources.  |
+| Intuition vs Verification | Use intuition to guide search, not to answer. Then verify.                              |
+| Completeness vs Relevance | Answer the question asked. Note related findings briefly, don't digress.                |
 
 The goal isn't to follow a procedure. It's to **know when you know** something is true.

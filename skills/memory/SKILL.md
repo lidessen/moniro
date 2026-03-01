@@ -47,12 +47,12 @@ This is how learning works. Not through rules handed down, but through patterns 
 
 Not everything deserves memory. Record what would **hurt if forgotten**:
 
-| Remember | Don't Remember |
-|----------|----------------|
+| Remember                      | Don't Remember                    |
+| ----------------------------- | --------------------------------- |
 | Decisions and their rationale | Implementation details (use code) |
-| Mistakes and lessons | Obvious facts (use docs) |
-| Context that explains "why" | Temporary debugging notes |
-| Patterns that emerged | Things Git already tracks |
+| Mistakes and lessons          | Obvious facts (use docs)          |
+| Context that explains "why"   | Temporary debugging notes         |
+| Patterns that emerged         | Things Git already tracks         |
 
 The test: "Would a future agent benefit from knowing this?"
 
@@ -70,6 +70,7 @@ The test: "Would a future agent benefit from knowing this?"
 ### context.md
 
 The handoff document. When a new session starts, this tells them:
+
 - What's currently in progress
 - What concerns are active
 - What needs attention
@@ -86,12 +87,12 @@ Natural sort order. Grep-friendly. Self-documenting.
 
 ## Core Operations
 
-| Intent | Action |
-|--------|--------|
-| "Remember this" | Create note in `.memory/notes/` |
-| "We decided X because Y" | Create ADR in `.memory/decisions/` |
+| Intent                       | Action                                      |
+| ---------------------------- | ------------------------------------------- |
+| "Remember this"              | Create note in `.memory/notes/`             |
+| "We decided X because Y"     | Create ADR in `.memory/decisions/`          |
 | "What did we learn about Z?" | Search `.memory/`, summarize with citations |
-| "Session ending" | Create session summary, update context.md |
+| "Session ending"             | Create session summary, update context.md   |
 
 ### Record Format
 
@@ -123,11 +124,11 @@ memory
 
 ## Understanding, Not Rules
 
-| Tension | Resolution |
-|---------|------------|
-| Completeness vs Noise | Record signal, not noise. Ask: "Would this help a future agent?" |
-| Structure vs Flexibility | Use consistent format, but content matters more than form |
-| Writing vs Doing | Recording takes seconds; re-learning takes hours |
+| Tension                  | Resolution                                                       |
+| ------------------------ | ---------------------------------------------------------------- |
+| Completeness vs Noise    | Record signal, not noise. Ask: "Would this help a future agent?" |
+| Structure vs Flexibility | Use consistent format, but content matters more than form        |
+| Writing vs Doing         | Recording takes seconds; re-learning takes hours                 |
 
 ### The Anti-Pattern
 
@@ -146,6 +147,7 @@ The second takes 30 seconds longer. It saves the next agent hours.
 ## Reference
 
 See `reference/` for:
+
 - [templates/](templates/) - Record templates
 - [remote-sync.md](reference/remote-sync.md) - GitHub/GitLab Issues sync
 - [setup.md](reference/setup.md) - Initialization options

@@ -24,6 +24,7 @@ Server:          [process]
 ```
 
 **Use when**:
+
 - Client needs immediate result
 - Operation is fast
 - Strong consistency required
@@ -41,6 +42,7 @@ Worker:              [process later]
 ```
 
 **Use when**:
+
 - Client doesn't need result
 - Operation can be delayed
 - Decoupling desired
@@ -58,6 +60,7 @@ Publisher ──event──→ Message Bus
 ```
 
 **Use when**:
+
 - Multiple consumers for same event
 - Loose coupling between components
 - Event-driven architecture
@@ -72,6 +75,7 @@ Client ──request──→ Server ──→ processes async
 ```
 
 **Use when**:
+
 - Long-running operations
 - Client can continue other work
 - Need notification on completion
@@ -184,16 +188,19 @@ Write → Primary DB ──replication──→ Replica DB
 ### Consistency Patterns
 
 **Read-your-writes**: User sees their own changes
+
 ```
 After write → Route reads to primary (briefly)
 ```
 
 **Monotonic reads**: Never see older data after seeing newer
+
 ```
 Track version → Reject reads from older replicas
 ```
 
 **Causal consistency**: Related changes appear in order
+
 ```
 Track dependencies → Apply in causal order
 ```

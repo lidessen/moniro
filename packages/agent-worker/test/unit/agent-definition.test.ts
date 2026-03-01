@@ -16,7 +16,12 @@ import { randomUUID } from "node:crypto";
 
 import { AgentDefinitionSchema, CONTEXT_SUBDIRS } from "@/agent/definition.ts";
 import type { AgentDefinition } from "@/agent/definition.ts";
-import { parseAgentFile, parseAgentObject, discoverAgents, serializeAgent } from "@/agent/yaml-parser.ts";
+import {
+  parseAgentFile,
+  parseAgentObject,
+  discoverAgents,
+  serializeAgent,
+} from "@/agent/yaml-parser.ts";
 import { AgentHandle } from "@/agent/agent-handle.ts";
 import { AgentRegistry } from "@/agent/agent-registry.ts";
 
@@ -232,9 +237,7 @@ prompt:
   });
 
   test("throws on missing file", () => {
-    expect(() => parseAgentFile(join(dir, "nonexistent.yaml"))).toThrow(
-      "Agent file not found",
-    );
+    expect(() => parseAgentFile(join(dir, "nonexistent.yaml"))).toThrow("Agent file not found");
   });
 
   test("throws on missing system_file reference", () => {
@@ -269,9 +272,7 @@ describe("parseAgentObject", () => {
   });
 
   test("throws on invalid object", () => {
-    expect(() => parseAgentObject({ name: "alice" })).toThrow(
-      "Invalid agent definition",
-    );
+    expect(() => parseAgentObject({ name: "alice" })).toThrow("Invalid agent definition");
   });
 });
 

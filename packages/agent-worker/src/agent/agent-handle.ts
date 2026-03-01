@@ -97,8 +97,9 @@ export class AgentHandle {
     if (!this._thinThread) {
       const maxMessages = this.definition.context?.thin_thread ?? DEFAULT_THIN_THREAD_SIZE;
       const log = this.conversationLog;
-      this._thinThread =
-        log?.exists ? ThinThread.fromLog(log, maxMessages) : new ThinThread(maxMessages);
+      this._thinThread = log?.exists
+        ? ThinThread.fromLog(log, maxMessages)
+        : new ThinThread(maxMessages);
     }
     return this._thinThread;
   }

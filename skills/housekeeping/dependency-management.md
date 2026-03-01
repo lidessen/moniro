@@ -19,6 +19,7 @@ Strategies and tools for managing project dependencies - cleaning up unused pack
 ### 1. Dependencies Are Liabilities
 
 Every dependency adds:
+
 - **Maintenance burden** - needs updates, security patches
 - **Build complexity** - more downloads, slower installs
 - **Attack surface** - more code that could have vulnerabilities
@@ -29,6 +30,7 @@ Every dependency adds:
 ### 2. Keep Dependencies Current
 
 Outdated dependencies accumulate:
+
 - **Security vulnerabilities** - known exploits
 - **Compatibility issues** - harder to update later
 - **Missing features** - can't use new capabilities
@@ -39,11 +41,13 @@ Outdated dependencies accumulate:
 ### 3. Explicit is Better Than Implicit
 
 **Good**:
+
 - Pinned versions in lockfiles
 - Explicit version ranges in dependency files
 - Documented why each dependency exists
 
 **Bad**:
+
 - Auto-updating to latest (unpredictable)
 - Transitive deps without awareness
 - "It works on my machine" (no lockfile)
@@ -64,6 +68,7 @@ Outdated dependencies accumulate:
 #### JavaScript/Node.js
 
 **Tool: depcheck**
+
 ```bash
 # Install
 npm install -g depcheck
@@ -77,6 +82,7 @@ depcheck
 ```
 
 **Manual check**:
+
 ```bash
 # Find imports in code
 rg "^import .* from ['\"]([^'\"]+)" --only-matching --no-filename | sort -u
@@ -87,6 +93,7 @@ rg "^import .* from ['\"]([^'\"]+)" --only-matching --no-filename | sort -u
 #### Python
 
 **Tool: pip-check**
+
 ```bash
 # Install
 pip install pip-check
@@ -102,6 +109,7 @@ pipdeptree
 ```
 
 **Manual approach**:
+
 ```bash
 # Find imports in Python code
 rg "^import |^from .+ import" -o | sort -u
@@ -112,6 +120,7 @@ rg "^import |^from .+ import" -o | sort -u
 #### Rust
 
 **Tool: cargo-udeps** (requires nightly)
+
 ```bash
 # Install
 cargo install cargo-udeps --locked
@@ -137,6 +146,7 @@ go mod tidy  # Removes unused dependencies
 6. **Commit separately** - Easy to revert if wrong
 
 **Example workflow (npm)**:
+
 ```bash
 # 1. Find unused
 depcheck
@@ -216,6 +226,7 @@ go mod tidy
 - **MAJOR** (2.5.3 → 3.0.0): Breaking changes (requires caution)
 
 **Version ranges**:
+
 ```json
 "^2.5.3"  // 2.5.3 <= version < 3.0.0 (common, allows minor/patch)
 "~2.5.3"  // 2.5.3 <= version < 2.6.0 (only patch updates)
@@ -224,6 +235,7 @@ go mod tidy
 ```
 
 **Strategy**:
+
 - PATCH updates: Low risk, update freely
 - MINOR updates: Medium risk, test before deploying
 - MAJOR updates: High risk, review changelog, test extensively
@@ -292,19 +304,23 @@ govulncheck ./...
 **Priority by severity**:
 
 **Critical/High**: Address immediately
+
 - Production deployment holds
 - Emergency update and deploy
 - May require workarounds if fix unavailable
 
 **Moderate**: Address soon (within sprint)
+
 - Include in planned work
 - May wait for next regular deployment
 
 **Low**: Address eventually
+
 - Track in backlog
 - Include in routine dependency updates
 
 **When no fix available**:
+
 1. Check if vulnerability applies (affected code path used?)
 2. Consider alternative package
 3. Implement mitigation (input validation, isolation)
@@ -317,11 +333,13 @@ govulncheck ./...
 **Pattern**: Dedicate time for dependency updates
 
 **Frequency options**:
+
 - **Weekly**: For fast-moving projects
 - **Monthly**: Common for most projects
 - **Quarterly**: Minimum recommended
 
 **Process**:
+
 ```bash
 # 1. Check for updates
 npm outdated
@@ -343,16 +361,19 @@ npm run build
 ### Strategy 2: Automated PR-Based Updates
 
 **Tools**:
+
 - **Dependabot** (GitHub)
 - **Renovate** (GitHub/GitLab)
 - **Greenkeeper** (deprecated, use Dependabot)
 
 **Pattern**: Bot creates PR for each update
+
 - CI runs automatically
 - Review and merge when green
 - Configurable grouping (all patch updates in one PR)
 
 **Configuration example (Dependabot)**:
+
 ```yaml
 # .github/dependabot.yml
 version: 2
@@ -370,11 +391,13 @@ updates:
 ```
 
 **Pros**:
+
 - Automatic
 - CI validates
 - Clear changelog per update
 
 **Cons**:
+
 - PR noise
 - Requires good CI coverage
 - Merge overhead
@@ -384,11 +407,13 @@ updates:
 **Pattern**: Periodically update many deps at once
 
 **When to use**:
+
 - Before major features
 - After releases (stable period)
 - Addressing tech debt sprint
 
 **Process**:
+
 1. Create branch: `chore/dependency-updates-2026-01`
 2. Update all non-breaking: `npm update`
 3. Selectively update breaking: Review changelogs, update one at a time
@@ -397,30 +422,33 @@ updates:
 6. Merge when stable
 
 **Pros**:
+
 - Controlled timing
 - Batch testing
 - Single large PR
 
 **Cons**:
+
 - Higher risk (many changes)
 - Harder to debug if something breaks
 - Can be disruptive
 
 ### Update Decision Matrix
 
-| Scenario | Strategy | Rationale |
-|----------|----------|-----------|
-| Small team, rapid iteration | Manual scheduled (weekly/monthly) | Flexibility, controlled |
-| Large team, many repos | Automated PRs | Scales, reduces burden |
-| Critical production app | Manual batch + extensive testing | Control risk |
-| Library/framework | Keep current (weekly automated) | Users need latest, compatibility |
-| Legacy codebase | Manual batch (quarterly) | Minimize disruption |
+| Scenario                    | Strategy                          | Rationale                        |
+| --------------------------- | --------------------------------- | -------------------------------- |
+| Small team, rapid iteration | Manual scheduled (weekly/monthly) | Flexibility, controlled          |
+| Large team, many repos      | Automated PRs                     | Scales, reduces burden           |
+| Critical production app     | Manual batch + extensive testing  | Control risk                     |
+| Library/framework           | Keep current (weekly automated)   | Users need latest, compatibility |
+| Legacy codebase             | Manual batch (quarterly)          | Minimize disruption              |
 
 ## Dependency File Organization
 
 ### JavaScript (package.json)
 
 **Good structure**:
+
 ```json
 {
   "dependencies": {
@@ -440,11 +468,13 @@ updates:
 ```
 
 **Bad patterns**:
+
 - Mixed alphabetical order (hard to find)
 - Runtime deps in devDependencies (breaks production)
 - Dev deps in dependencies (bloats production bundle)
 
 **Use `--save-dev` or `-D` for dev dependencies**:
+
 ```bash
 npm install --save-dev jest  # Not regular --save
 ```
@@ -452,6 +482,7 @@ npm install --save-dev jest  # Not regular --save
 ### Python (requirements.txt)
 
 **Good structure**:
+
 ```txt
 # Production dependencies
 django==4.2.5
@@ -475,6 +506,7 @@ pytest-cov==4.1.0
 ```
 
 **Separate files pattern**:
+
 ```
 requirements.txt         # Production only
 requirements-dev.txt     # Development tools (includes requirements.txt)
@@ -482,6 +514,7 @@ requirements-test.txt    # Testing tools
 ```
 
 **requirements-dev.txt**:
+
 ```txt
 -r requirements.txt  # Include production deps
 
@@ -493,6 +526,7 @@ mypy==1.5.1
 ### Rust (Cargo.toml)
 
 **Good structure**:
+
 ```toml
 [dependencies]
 # Runtime dependencies, alphabetical
@@ -508,6 +542,7 @@ proptest = "1.3"
 ### Go (go.mod)
 
 Go handles this automatically:
+
 ```bash
 go mod tidy  # Cleans up and organizes
 ```
@@ -517,6 +552,7 @@ go mod tidy  # Cleans up and organizes
 ### Purpose of Lockfiles
 
 **Lockfiles** (package-lock.json, poetry.lock, Cargo.lock) ensure:
+
 - **Reproducible builds** - Same versions on all machines
 - **Transitive dependency pinning** - Control indirect deps
 - **Faster installs** - No resolution needed
@@ -524,24 +560,29 @@ go mod tidy  # Cleans up and organizes
 ### When to Commit Lockfiles
 
 **Always commit**:
+
 - Applications (deployed software)
 - APIs, services
 - CLI tools
 
 **Sometimes commit**:
+
 - **Libraries**: Commit if running CI tests (ensures CI uses intended versions)
 - **Libraries**: Don't commit if you want consumers to use latest compatible versions
 
 **Never commit**:
+
 - Nothing - always use lockfiles somewhere (at least CI)
 
 ### Lockfile Conflicts
 
 **When they occur**:
+
 - Concurrent dependency changes in different branches
 - Merge conflicts in lockfile
 
 **Resolution**:
+
 ```bash
 # Don't manually edit lockfiles!
 
@@ -670,6 +711,7 @@ git commit -m "chore: remove unused dependency package-name"
 ### npm (Node.js)
 
 **Essential commands**:
+
 ```bash
 npm install              # Install dependencies from package.json
 npm update               # Update to latest within semver range
@@ -681,6 +723,7 @@ npm prune                # Remove packages not in package.json
 ```
 
 **Useful flags**:
+
 ```bash
 npm install --production  # Only production deps (no devDependencies)
 npm install --dry-run     # Preview what would happen
@@ -688,12 +731,14 @@ npm audit fix --dry-run   # Preview security fixes
 ```
 
 **Tools**:
+
 - `npm-check-updates` (ncu) - Interactive major version updates
 - `depcheck` - Find unused dependencies
 
 ### pip (Python)
 
 **Essential commands**:
+
 ```bash
 pip install -r requirements.txt
 pip list --outdated
@@ -703,11 +748,13 @@ pip freeze > requirements.txt  # Generate requirements file
 ```
 
 **Tools**:
+
 - `pip-review` - Interactive update tool
 - `pipdeptree` - Show dependency tree
 - `safety` - Security vulnerability checker
 
 **Best practice: use virtual environments**:
+
 ```bash
 python -m venv venv
 source venv/bin/activate  # or venv\Scripts\activate on Windows
@@ -717,6 +764,7 @@ pip install -r requirements.txt
 ### cargo (Rust)
 
 **Essential commands**:
+
 ```bash
 cargo build              # Build with dependencies
 cargo update             # Update dependencies
@@ -726,6 +774,7 @@ cargo tree               # Show dependency tree
 ```
 
 **Cargo.toml tips**:
+
 - Use `cargo add <crate>` to add dependencies (recent Cargo versions)
 - Cargo.lock should be committed for applications
 - Optional dependencies: `serde = { version = "1.0", optional = true }`
@@ -733,6 +782,7 @@ cargo tree               # Show dependency tree
 ### go mod (Go)
 
 **Essential commands**:
+
 ```bash
 go mod init <module-name>    # Initialize module
 go mod tidy                  # Clean up dependencies
@@ -757,6 +807,7 @@ go list -u -m all            # Show available updates
 8. **Automate where possible** - But maintain control
 
 **Red flags**:
+
 - Dependencies not updated in >1 year
 - Many unused dependencies
 - No lockfile

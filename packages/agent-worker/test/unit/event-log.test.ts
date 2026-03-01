@@ -30,7 +30,10 @@ function tmpDir(): string {
 }
 
 /** Collect events from an EventSink into an array. */
-function collectingSink(): { sink: EventSink; events: Array<{ from: string; content: string; kind?: EventKind }> } {
+function collectingSink(): {
+  sink: EventSink;
+  events: Array<{ from: string; content: string; kind?: EventKind }>;
+} {
   const events: Array<{ from: string; content: string; kind?: EventKind }> = [];
   return {
     events,
@@ -115,9 +118,15 @@ describe("DefaultTimelineStore", () => {
 
   test("read skips malformed JSONL lines", async () => {
     // Write valid + invalid + valid lines directly
-    await storage.append("timeline.jsonl", '{"id":"1","timestamp":"t","from":"a","content":"ok","mentions":[]}\n');
+    await storage.append(
+      "timeline.jsonl",
+      '{"id":"1","timestamp":"t","from":"a","content":"ok","mentions":[]}\n',
+    );
     await storage.append("timeline.jsonl", "not-json\n");
-    await storage.append("timeline.jsonl", '{"id":"2","timestamp":"t","from":"b","content":"also ok","mentions":[]}\n');
+    await storage.append(
+      "timeline.jsonl",
+      '{"id":"2","timestamp":"t","from":"b","content":"also ok","mentions":[]}\n',
+    );
 
     const { events } = await timeline.read();
     expect(events).toHaveLength(2);

@@ -35,11 +35,11 @@ This creates several limitations:
 
 **Elevate Agent to a top-level entity with its own persistent context.** Three orthogonal concepts replace the current conflated model:
 
-| Concept | What It Is | Persistence |
-|---------|-----------|-------------|
-| **Agent** | Identity + own context (prompt, soul, memory, notes, todo) | Persistent across workflows and sessions |
-| **Workspace** | Collaboration space (channel, documents) | Per-workflow instance |
-| **Workflow** | Orchestration (how agents coordinate) | Definition is persistent, instances are ephemeral |
+| Concept       | What It Is                                                 | Persistence                                       |
+| ------------- | ---------------------------------------------------------- | ------------------------------------------------- |
+| **Agent**     | Identity + own context (prompt, soul, memory, notes, todo) | Persistent across workflows and sessions          |
+| **Workspace** | Collaboration space (channel, documents)                   | Per-workflow instance                             |
+| **Workflow**  | Orchestration (how agents coordinate)                      | Definition is persistent, instances are ephemeral |
 
 ### Mental Model
 
@@ -61,10 +61,10 @@ Project
 
 **No global workspace.** Two data types only:
 
-| Data | Belongs To | Persistence |
-|------|-----------|-------------|
-| **Personal context** (memory, notes, conversations, todo) | Agent | Persistent, travels with agent |
-| **Workspace context** (channel, documents, inbox) | Workflow | Per-workflow instance |
+| Data                                                      | Belongs To | Persistence                    |
+| --------------------------------------------------------- | ---------- | ------------------------------ |
+| **Personal context** (memory, notes, conversations, todo) | Agent      | Persistent, travels with agent |
+| **Workspace context** (channel, documents, inbox)         | Workflow   | Per-workflow instance          |
 
 Agent state is determined by workspace attachments, not by a mode switch:
 
@@ -79,6 +79,7 @@ accepts DMs using personal context only. "Standalone" is not a type — it's
 just an agent with no workspace attachments.
 
 When alice participates in the `review` workflow AND the `deploy` workflow:
+
 - She **carries** her personal context (memory, soul, notes) everywhere
 - She **communicates through** each workflow's workspace (channel, docs)
 - Her personal state persists across all workflows
@@ -97,7 +98,7 @@ An agent is defined in its own YAML file or inline within a project config.
 # .agents/alice.yaml
 name: alice
 model: anthropic/claude-sonnet-4-5
-backend: sdk           # sdk | claude | cursor | codex | mock
+backend: sdk # sdk | claude | cursor | codex | mock
 
 prompt:
   system: |
@@ -106,7 +107,7 @@ prompt:
   # OR load from file (mutually exclusive with system):
   # system_file: ./prompts/alice.md
 
-soul:                   # Persistent identity traits (injected into prompt context)
+soul: # Persistent identity traits (injected into prompt context)
   role: code-reviewer
   expertise: [typescript, architecture, testing]
   style: thorough but constructive
@@ -114,8 +115,8 @@ soul:                   # Persistent identity traits (injected into prompt conte
     - Explain the why, not just the what
     - Suggest, don't demand
 
-context:                # Agent's own persistent context directory
-  dir: .agents/alice/   # Default: .agents/<name>/
+context: # Agent's own persistent context directory
+  dir: .agents/alice/ # Default: .agents/<name>/
   # Subdirectories created automatically:
   #   memory/         — persistent key-value notes
   #   notes/          — freeform reflection/learning
@@ -130,7 +131,7 @@ max_steps: 20
 schedule:
   wakeup: 5m
   prompt: Check for pending reviews
-  workspace: review          # Wake in any running review workspace
+  workspace: review # Wake in any running review workspace
   # workspace: review:pr-123 # Or target a specific tagged instance
   # If omitted → DM context (personal only)
   # If workflow not running → falls back to DM context
@@ -229,7 +230,7 @@ agents:
     ref: bob
     prompt:
       append: "Focus on security in this workflow."
-    max_tokens: 16000     # Override for this workflow
+    max_tokens: 16000 # Override for this workflow
 
   # 3. Inline definition — workflow-local, temporary
   helper:
@@ -251,16 +252,18 @@ agents:
 ### Schema Definitions (Zod)
 
 ```typescript
-import { z } from 'zod';
+import { z } from "zod";
 
 // ── Shared ──────────────────────────────────────────────────
 
-const AgentSoul = z.object({
-  role: z.string().optional(),
-  expertise: z.array(z.string()).optional(),
-  style: z.string().optional(),
-  principles: z.array(z.string()).optional(),
-}).passthrough();                            // Extensible
+const AgentSoul = z
+  .object({
+    role: z.string().optional(),
+    expertise: z.array(z.string()).optional(),
+    style: z.string().optional(),
+    principles: z.array(z.string()).optional(),
+  })
+  .passthrough(); // Extensible
 
 const ScheduleConfig = z.object({
   /** Wakeup interval (e.g., "5m", "1h") */
@@ -279,7 +282,7 @@ const SystemPrompt = z.union([
 
 const RuntimeOverrides = z.object({
   model: z.string().optional(),
-  backend: z.enum(['sdk', 'claude', 'cursor', 'codex', 'mock']).optional(),
+  backend: z.enum(["sdk", "claude", "cursor", "codex", "mock"]).optional(),
   max_tokens: z.number().optional(),
   max_steps: z.number().optional(),
   schedule: ScheduleConfig.optional(),
@@ -289,14 +292,16 @@ const RuntimeOverrides = z.object({
 
 const AgentDefinition = RuntimeOverrides.extend({
   name: z.string(),
-  model: z.string(),                        // Required at top level
+  model: z.string(), // Required at top level
   provider: z.union([z.string(), z.object({}).passthrough()]).optional(),
   prompt: SystemPrompt,
   soul: AgentSoul.optional(),
-  context: z.object({
-    dir: z.string().optional(),             // Default: .agents/<name>/
-    thin_thread: z.number().optional(),     // Default: 10 (recent messages in prompt)
-  }).optional(),
+  context: z
+    .object({
+      dir: z.string().optional(), // Default: .agents/<name>/
+      thin_thread: z.number().optional(), // Default: 10 (recent messages in prompt)
+    })
+    .optional(),
 });
 
 // ── Workflow Agent Entry ────────────────────────────────────
@@ -308,9 +313,11 @@ const AgentDefinition = RuntimeOverrides.extend({
 /** ref agent: reference a global agent, optionally extend its prompt */
 const RefAgentEntry = RuntimeOverrides.extend({
   ref: z.string(),
-  prompt: z.object({
-    append: z.string(),
-  }).optional(),
+  prompt: z
+    .object({
+      append: z.string(),
+    })
+    .optional(),
   // No soul — inherits from global definition
 });
 
@@ -318,7 +325,7 @@ const RefAgentEntry = RuntimeOverrides.extend({
 const InlineAgentEntry = RuntimeOverrides.extend({
   model: z.string(),
   prompt: SystemPrompt,
-  soul: AgentSoul.optional(),               // Optional identity (no persistence)
+  soul: AgentSoul.optional(), // Optional identity (no persistence)
 });
 
 /** Shorthand: { ref: name } */
@@ -331,7 +338,7 @@ const AgentEntry = z.union([RefShorthand, RefAgentEntry, InlineAgentEntry]);
 const WorkflowFile = z.object({
   name: z.string().optional(),
   agents: z.record(AgentEntry),
-  workspace: z.object({}).passthrough().optional(),   // WorkspaceConfig
+  workspace: z.object({}).passthrough().optional(), // WorkspaceConfig
   setup: z.array(z.object({}).passthrough()).optional(),
   kickoff: z.string().optional(),
 });
@@ -339,13 +346,13 @@ const WorkflowFile = z.object({
 
 **Validation rules enforced by schema**:
 
-| Rule | How |
-|------|-----|
-| `system` XOR `system_file`, never both | `SystemPrompt` union type |
-| ref agent → only `prompt.append` allowed | `RefAgentEntry` has no `system`/`system_file` |
-| inline agent → only `prompt.system`/`system_file` | `InlineAgentEntry` uses `SystemPrompt` |
-| ref agent cannot define `soul` | `RefAgentEntry` has no `soul` field |
-| `AgentEntry` discriminated by `ref` presence | `z.union` tries ref first, falls back to inline |
+| Rule                                              | How                                             |
+| ------------------------------------------------- | ----------------------------------------------- |
+| `system` XOR `system_file`, never both            | `SystemPrompt` union type                       |
+| ref agent → only `prompt.append` allowed          | `RefAgentEntry` has no `system`/`system_file`   |
+| inline agent → only `prompt.system`/`system_file` | `InlineAgentEntry` uses `SystemPrompt`          |
+| ref agent cannot define `soul`                    | `RefAgentEntry` has no `soul` field             |
+| `AgentEntry` discriminated by `ref` presence      | `z.union` tries ref first, falls back to inline |
 
 ---
 
@@ -376,6 +383,7 @@ workspace:
 ```
 
 Without a project config, the system auto-discovers:
+
 - Agent files in `.agents/*.yaml`
 - Workflow files in `.workflows/*.yaml`
 
@@ -458,11 +466,11 @@ Daemon
 
 **One loop per agent.** DM and workspace messages are both instructions delivered to the same queue. The difference is what context accompanies the instruction:
 
-| Instruction Source | Context Available | Example |
-|--------------------|-------------------|---------|
-| DM | Personal only (memory, notes, todo) | `send alice "hi"` |
-| Workspace | Personal + workspace (channel, docs, inbox) | `send alice@review "task"` |
-| Channel broadcast | Personal + workspace (channel, docs, inbox) | `send @review "@alice check this"` |
+| Instruction Source | Context Available                           | Example                            |
+| ------------------ | ------------------------------------------- | ---------------------------------- |
+| DM                 | Personal only (memory, notes, todo)         | `send alice "hi"`                  |
+| Workspace          | Personal + workspace (channel, docs, inbox) | `send alice@review "task"`         |
+| Channel broadcast  | Personal + workspace (channel, docs, inbox) | `send @review "@alice check this"` |
 
 Context is always **personal + instruction source**. The difference between
 sources is delivery mechanism, not available context — personal context is
@@ -479,11 +487,11 @@ always present.
 **Instruction scheduling** follows a priority lane model (similar to React
 Fiber). Each agent's loop is a priority queue, not a simple FIFO:
 
-| Priority | Sources | Behavior |
-|----------|---------|----------|
-| `immediate` | DM, @mention | Inserted at front of queue, processed next |
-| `normal` | Workspace direct send | FIFO within this lane |
-| `background` | Non-@ channel, scheduled wakeup | Yields to higher priority instructions |
+| Priority     | Sources                         | Behavior                                   |
+| ------------ | ------------------------------- | ------------------------------------------ |
+| `immediate`  | DM, @mention                    | Inserted at front of queue, processed next |
+| `normal`     | Workspace direct send           | FIFO within this lane                      |
+| `background` | Non-@ channel, scheduled wakeup | Yields to higher priority instructions     |
 
 **Cooperative preemption** (modeled after React Fiber's interruptible
 rendering):
@@ -506,6 +514,7 @@ Agent Loop (single thread, priority queue)
 ```
 
 Key behaviors:
+
 - **Yield point** = between steps (between LLM calls), never mid-call
 - **Yielded instruction is re-queued**, not abandoned — it resumes from where
   it left off once all higher-priority work drains
@@ -535,7 +544,7 @@ interface AgentHandle {
   /** Thin threads — last N messages per context ("personal" | "review:pr-123") */
   threads: Map<string, ThinThread>;
   /** Current agent state */
-  state: 'idle' | 'running' | 'stopped' | 'error';
+  state: "idle" | "running" | "stopped" | "error";
   /** Read agent's memory */
   readMemory(): Promise<Record<string, unknown>>;
   /** Read agent's active todos */
@@ -579,24 +588,24 @@ interface ConversationLog {
 }
 
 interface ThreadMessage {
-  role: 'user' | 'assistant' | 'system' | 'tool';
+  role: "user" | "assistant" | "system" | "tool";
   content: string;
   timestamp: string;
 }
 
 /** LLM-level message (richer than ThreadMessage — includes tool calls/results) */
 type ModelMessage = {
-  role: 'user' | 'assistant' | 'tool';
+  role: "user" | "assistant" | "tool";
   content: string | ContentBlock[];
-  tool_calls?: ToolCall[];       // Assistant messages with tool use
-  tool_call_id?: string;         // Tool result messages
+  tool_calls?: ToolCall[]; // Assistant messages with tool use
+  tool_call_id?: string; // Tool result messages
 };
 
 /** Instruction priority — modeled after React Fiber lanes */
 type InstructionPriority =
-  | 'immediate'    // DM, @mention — process next (preempts queue)
-  | 'normal'       // workspace direct send — FIFO order
-  | 'background';  // non-@ channel message, scheduled wakeup — yield to higher priority
+  | "immediate" // DM, @mention — process next (preempts queue)
+  | "normal" // workspace direct send — FIFO order
+  | "background"; // non-@ channel message, scheduled wakeup — yield to higher priority
 
 /** Instruction delivered to an agent's loop */
 interface AgentInstruction {
@@ -605,7 +614,7 @@ interface AgentInstruction {
   /** Which workspace context to use (null = DM, personal context only) */
   workspace: Workspace | null;
   /** Source of the instruction */
-  source: 'dm' | 'workspace' | 'channel' | 'schedule';
+  source: "dm" | "workspace" | "channel" | "schedule";
   /** Processing priority (derived from source, can be overridden) */
   priority: InstructionPriority;
   /** Progress marker for resumed instructions (after preemption yield) */
@@ -627,7 +636,7 @@ interface InstructionProgress {
 }
 
 /** Error classification for failure model */
-type ErrorClass = 'transient' | 'permanent' | 'resource' | 'crash';
+type ErrorClass = "transient" | "permanent" | "resource" | "crash";
 
 /** Workspace — the collaboration space */
 interface Workspace {
@@ -735,11 +744,11 @@ Prompt = system + soul + memory          ← always loaded (who I am, what I kno
 
 ### Three Layers of Context
 
-| Layer | What | Loaded | Cost |
-|-------|------|--------|------|
-| **Memory** (memory/, notes/) | Distilled knowledge, learned patterns, decisions | Always — injected into prompt | Fixed, grows slowly |
-| **Thin thread** | Last N messages in this context | Always — appended to prompt | Fixed, bounded by N |
-| **Full history** | Complete conversation log (JSONL on disk) | On-demand — agent calls recall tools | Zero unless queried |
+| Layer                        | What                                             | Loaded                               | Cost                |
+| ---------------------------- | ------------------------------------------------ | ------------------------------------ | ------------------- |
+| **Memory** (memory/, notes/) | Distilled knowledge, learned patterns, decisions | Always — injected into prompt        | Fixed, grows slowly |
+| **Thin thread**              | Last N messages in this context                  | Always — appended to prompt          | Fixed, bounded by N |
+| **Full history**             | Complete conversation log (JSONL on disk)        | On-demand — agent calls recall tools | Zero unless queried |
 
 ```
 Agent alice processes an instruction
@@ -775,7 +784,7 @@ Agent alice
 ```yaml
 # .agents/alice.yaml
 context:
-  thin_thread: 10     # Number of recent messages to keep in prompt (default: 10)
+  thin_thread: 10 # Number of recent messages to keep in prompt (default: 10)
 ```
 
 Thin threads are **continuous across instructions** — when alice receives a
@@ -787,10 +796,10 @@ provides the "as I mentioned earlier" capability without growing unbounded.
 When the thin thread isn't enough, agents use **recall tools** to search
 their own conversation history:
 
-| Tool | Purpose | Example |
-|------|---------|---------|
-| `history_search` | Search past messages by keyword/topic | `history_search "auth module"` |
-| `history_read` | Read messages by time range or count | `history_read --since 2026-02-20 --limit 20` |
+| Tool             | Purpose                               | Example                                      |
+| ---------------- | ------------------------------------- | -------------------------------------------- |
+| `history_search` | Search past messages by keyword/topic | `history_search "auth module"`               |
+| `history_read`   | Read messages by time range or count  | `history_read --since 2026-02-20 --limit 20` |
 
 These operate on the **full history** stored on disk. No information loss —
 the complete log is always available, just not loaded by default.
@@ -826,22 +835,22 @@ instruction's messages for extractable knowledge. If nothing notable happened
 
 ### Thread Lifecycle
 
-| Event | Effect |
-|-------|--------|
-| First DM to agent | Personal thin thread created, full history log started |
-| Workflow starts (agent attached) | Workspace thin thread created |
-| Instruction processed | Thin thread updated, full history appended, auto-memory runs |
-| Workflow stops (agent detached) | Workspace history archived (if `bind:`) or discarded |
-| Daemon restart | Thin threads restored from most recent N messages on disk |
+| Event                            | Effect                                                       |
+| -------------------------------- | ------------------------------------------------------------ |
+| First DM to agent                | Personal thin thread created, full history log started       |
+| Workflow starts (agent attached) | Workspace thin thread created                                |
+| Instruction processed            | Thin thread updated, full history appended, auto-memory runs |
+| Workflow stops (agent detached)  | Workspace history archived (if `bind:`) or discarded         |
+| Daemon restart                   | Thin threads restored from most recent N messages on disk    |
 
 ### Persistence
 
-| Data | Storage | Growth |
-|------|---------|--------|
-| Full history (personal) | `.agents/<name>/conversations/<date>.jsonl` | Unbounded (append-only log) |
-| Full history (workspace) | `.workspace/<workflow>/<tag>/history/<agent>.jsonl` | Unbounded |
-| Thin thread | In-memory, restored from tail of history on restart | Fixed (last N messages) |
-| Memory | `.agents/<name>/memory/*.yaml` | Slow (distilled knowledge) |
+| Data                     | Storage                                             | Growth                      |
+| ------------------------ | --------------------------------------------------- | --------------------------- |
+| Full history (personal)  | `.agents/<name>/conversations/<date>.jsonl`         | Unbounded (append-only log) |
+| Full history (workspace) | `.workspace/<workflow>/<tag>/history/<agent>.jsonl` | Unbounded                   |
+| Thin thread              | In-memory, restored from tail of history on restart | Fixed (last N messages)     |
+| Memory                   | `.agents/<name>/memory/*.yaml`                      | Slow (distilled knowledge)  |
 
 On cooperative preemption yield: thin thread is NOT snapshotted — it's shared
 and mutable. The re-queued instruction carries only its `stepHistory` (LLM calls
@@ -849,13 +858,13 @@ and mutable. The re-queued instruction carries only its `stepHistory` (LLM calls
 
 ### Relationship to Current Implementation
 
-| Current | New | Change |
-|---------|-----|--------|
-| SDK agent: in-memory `messages[]` (full history) | Thin thread + recall tools | Bounded prompt, on-demand deep access |
-| Workflow agent: channel + inbox (no history) | Thin thread + `channel_read` | Adds conversational continuity |
-| Workflow agent: `channel_read` MCP tool | `history_search` / `history_read` | Extends pattern to DMs |
-| No persistent memory | Auto-memory extraction | Distilled knowledge survives across sessions |
-| `MemoryStateStore` (volatile) | File-based JSONL + memory/ | Required for persistence |
+| Current                                          | New                               | Change                                       |
+| ------------------------------------------------ | --------------------------------- | -------------------------------------------- |
+| SDK agent: in-memory `messages[]` (full history) | Thin thread + recall tools        | Bounded prompt, on-demand deep access        |
+| Workflow agent: channel + inbox (no history)     | Thin thread + `channel_read`      | Adds conversational continuity               |
+| Workflow agent: `channel_read` MCP tool          | `history_search` / `history_read` | Extends pattern to DMs                       |
+| No persistent memory                             | Auto-memory extraction            | Distilled knowledge survives across sessions |
+| `MemoryStateStore` (volatile)                    | File-based JSONL + memory/        | Required for persistence                     |
 
 **Key insight**: Current workflow agents already have the right pattern
 (`channel_read` for on-demand history). What they lack is the thin thread for
@@ -872,17 +881,18 @@ recall tools (on-demand depth).
 Agents communicate through the **workspace channel** using MCP tools. This is
 the current proven pattern, preserved:
 
-| Tool | Purpose | Delivery |
-|------|---------|----------|
-| `channel_send` | Post to channel, optionally @mention or DM | @mention → push (wake), non-@ → pull |
-| `channel_read` | Read channel history | On-demand |
-| `my_inbox` | Check unread @mentions/DMs | Per-instruction |
-| `my_inbox_ack` | Acknowledge processed messages | After handling |
-| `team_members` | Discover other agents | On-demand |
-| `team_doc_*` | Shared documents | Read/write |
-| `team_proposal_*` | Group decisions/voting | Structured coordination |
+| Tool              | Purpose                                    | Delivery                             |
+| ----------------- | ------------------------------------------ | ------------------------------------ |
+| `channel_send`    | Post to channel, optionally @mention or DM | @mention → push (wake), non-@ → pull |
+| `channel_read`    | Read channel history                       | On-demand                            |
+| `my_inbox`        | Check unread @mentions/DMs                 | Per-instruction                      |
+| `my_inbox_ack`    | Acknowledge processed messages             | After handling                       |
+| `team_members`    | Discover other agents                      | On-demand                            |
+| `team_doc_*`      | Shared documents                           | Read/write                           |
+| `team_proposal_*` | Group decisions/voting                     | Structured coordination              |
 
 Flow:
+
 ```
 alice (in review workspace)
 │
@@ -938,23 +948,23 @@ not through direct messaging.
 
 ```typescript
 type ErrorClass =
-  | 'transient'   // Network timeout, rate limit (429), 5xx — retry helps
-  | 'permanent'   // Auth failure, invalid request, 4xx (not 429) — retry won't help
-  | 'resource'    // max_steps, context overflow — structural limit reached
-  | 'crash';      // Process exit, unhandled exception — needs recovery
+  | "transient" // Network timeout, rate limit (429), 5xx — retry helps
+  | "permanent" // Auth failure, invalid request, 4xx (not 429) — retry won't help
+  | "resource" // max_steps, context overflow — structural limit reached
+  | "crash"; // Process exit, unhandled exception — needs recovery
 ```
 
 **Classification heuristic** (applied at loop level, not backend):
 
-| Signal | Class |
-|--------|-------|
-| HTTP 429, 503, ECONNRESET, ETIMEDOUT | `transient` |
-| HTTP 401, 403, 400 | `permanent` |
-| `IdleTimeoutError` with no output | `permanent` (backend not responding) |
-| `IdleTimeoutError` with partial output | `transient` (might have stalled) |
-| `max_steps` reached with pending tool calls | `resource` |
-| Process exit code > 0 | `crash` |
-| Unhandled exception in loop | `crash` |
+| Signal                                      | Class                                |
+| ------------------------------------------- | ------------------------------------ |
+| HTTP 429, 503, ECONNRESET, ETIMEDOUT        | `transient`                          |
+| HTTP 401, 403, 400                          | `permanent`                          |
+| `IdleTimeoutError` with no output           | `permanent` (backend not responding) |
+| `IdleTimeoutError` with partial output      | `transient` (might have stalled)     |
+| `max_steps` reached with pending tool calls | `resource`                           |
+| Process exit code > 0                       | `crash`                              |
+| Unhandled exception in loop                 | `crash`                              |
 
 ### Retry Strategy (Per Instruction)
 
@@ -986,11 +996,11 @@ reducing wasted time on unrecoverable failures.
 
 ### Instruction Failure Notification
 
-| Context | Notification |
-|---------|-------------|
-| DM | Error returned as assistant message in personal thread |
-| Workspace | Error written to channel as system message |
-| Scheduled wakeup | Error logged, next wakeup proceeds normally |
+| Context          | Notification                                           |
+| ---------------- | ------------------------------------------------------ |
+| DM               | Error returned as assistant message in personal thread |
+| Workspace        | Error written to channel as system message             |
+| Scheduled wakeup | Error logged, next wakeup proceeds normally            |
 
 ### Preemption Starvation Protection
 
@@ -1108,14 +1118,15 @@ agent-worker send alice@review "Focus on auth module"
 
 The target is always **one thing**. @mentions inside the message are just text, parsed by the receiving agent, not by the CLI.
 
-| Command | Target | Context Available | Delivery |
-|---------|--------|-------------------|----------|
-| `send alice "hi"` | DM to alice | Personal context only | Immediate (push) |
-| `send @review "msg"` | review workspace channel | Workspace context | Written to channel (pull — agents see on next cycle) |
-| `send @review "@alice check"` | review workspace channel | Workspace context | @alice pushed immediately; message also in channel |
-| `send alice@review "task"` | alice in review workspace | Personal + workspace context | Immediate (push to alice) |
+| Command                       | Target                    | Context Available            | Delivery                                             |
+| ----------------------------- | ------------------------- | ---------------------------- | ---------------------------------------------------- |
+| `send alice "hi"`             | DM to alice               | Personal context only        | Immediate (push)                                     |
+| `send @review "msg"`          | review workspace channel  | Workspace context            | Written to channel (pull — agents see on next cycle) |
+| `send @review "@alice check"` | review workspace channel  | Workspace context            | @alice pushed immediately; message also in channel   |
+| `send alice@review "task"`    | alice in review workspace | Personal + workspace context | Immediate (push to alice)                            |
 
 Target parsing:
+
 - No `@` prefix → DM to agent (personal context only)
 - `@workflow` or `@workflow:tag` → workspace channel (broadcast)
 - `agent@workflow` or `agent@workflow:tag` → specific agent in workspace
@@ -1266,27 +1277,27 @@ participation.
 
 ### 不受影响的功能（无需任何修改）
 
-| 功能 | 状态 | 说明 |
-|------|------|------|
-| **Workflow YAML 格式** | 不变 | `agents:`, `context:`, `setup:`, `kickoff:`, `params:` 全部不变 |
-| **`agent-worker run <file>`** | 不变 | 运行 workflow 并在完成后退出 |
-| **`agent-worker start <file>`** | 不变 | 通过 daemon 启动 workflow 持续运行 |
-| **`agent-worker new <name>`** | 不变 | 创建 daemon 内存 agent（无持久化） |
-| **`agent-worker ls`** | 不变 | 列出 daemon 中的 agent |
-| **`agent-worker stop`** | 不变 | 停止 agent / workflow / daemon |
-| **`agent-worker ask/serve`** | 不变 | 与 agent 交互 |
-| **Workflow 参数传递** | 不变 | `--` 后的 params 正常工作 |
-| **Remote workflow** | 不变 | `github:owner/repo@ref/path` 正常工作 |
-| **Agent @mention 和通信** | 不变 | channel_send, inbox, team_members 等 MCP tools |
+| 功能                            | 状态 | 说明                                                            |
+| ------------------------------- | ---- | --------------------------------------------------------------- |
+| **Workflow YAML 格式**          | 不变 | `agents:`, `context:`, `setup:`, `kickoff:`, `params:` 全部不变 |
+| **`agent-worker run <file>`**   | 不变 | 运行 workflow 并在完成后退出                                    |
+| **`agent-worker start <file>`** | 不变 | 通过 daemon 启动 workflow 持续运行                              |
+| **`agent-worker new <name>`**   | 不变 | 创建 daemon 内存 agent（无持久化）                              |
+| **`agent-worker ls`**           | 不变 | 列出 daemon 中的 agent                                          |
+| **`agent-worker stop`**         | 不变 | 停止 agent / workflow / daemon                                  |
+| **`agent-worker ask/serve`**    | 不变 | 与 agent 交互                                                   |
+| **Workflow 参数传递**           | 不变 | `--` 后的 params 正常工作                                       |
+| **Remote workflow**             | 不变 | `github:owner/repo@ref/path` 正常工作                           |
+| **Agent @mention 和通信**       | 不变 | channel_send, inbox, team_members 等 MCP tools                  |
 
 ### Phase 0 内部变更（对用户透明）
 
-| 变更 | 影响 |
-|------|------|
-| `AgentDefinition` → `WorkflowAgentDef` | 仅类型重命名，YAML schema 不变 |
+| 变更                                     | 影响                                                 |
+| ---------------------------------------- | ---------------------------------------------------- |
+| `AgentDefinition` → `WorkflowAgentDef`   | 仅类型重命名，YAML schema 不变                       |
 | `AgentConfig.workflow/tag` 变为 optional | `new` 命令不再要求 workflow，standalone agent 更自然 |
-| `DaemonState.loops` map | 内部 loop 管理优化，API 行为不变 |
-| `buildAgentPrompt` 可组合化 | 输出内容完全相同，仅内部结构改变 |
+| `DaemonState.loops` map                  | 内部 loop 管理优化，API 行为不变                     |
+| `buildAgentPrompt` 可组合化              | 输出内容完全相同，仅内部结构改变                     |
 
 ### Phase 1 新增功能
 
@@ -1309,18 +1320,18 @@ agent-worker agent delete alice
 
 ### 两套 agent 命令的关系
 
-| 命令 | 存储位置 | 持久化 | 用途 |
-|------|----------|--------|------|
-| `agent-worker new` | daemon 内存 | 否（daemon 停止后丢失） | 临时 agent，快速测试 |
-| `agent-worker agent create` | `.agents/*.yaml` + context 目录 | 是（文件系统） | 持久 agent identity |
+| 命令                        | 存储位置                        | 持久化                  | 用途                 |
+| --------------------------- | ------------------------------- | ----------------------- | -------------------- |
+| `agent-worker new`          | daemon 内存                     | 否（daemon 停止后丢失） | 临时 agent，快速测试 |
+| `agent-worker agent create` | `.agents/*.yaml` + context 目录 | 是（文件系统）          | 持久 agent identity  |
 
 Phase 2 之后，workflow YAML 将支持 `ref:` 引用持久 agent：
 
 ```yaml
 # 未来的 workflow 格式（Phase 2）
 agents:
-  alice: { ref: alice }        # 引用 .agents/alice.yaml
-  helper:                       # 仍然支持 inline 定义
+  alice: { ref: alice } # 引用 .agents/alice.yaml
+  helper: # 仍然支持 inline 定义
     model: anthropic/claude-haiku-4-5
     prompt:
       system: You help with lookups.

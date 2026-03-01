@@ -111,9 +111,7 @@ export interface MinimalRuntimeConfig {
  * For standalone agents created via `POST /agents`, this gives them
  * the same context infrastructure that workflow agents get.
  */
-export async function createMinimalRuntime(
-  config: MinimalRuntimeConfig,
-): Promise<Workspace> {
+export async function createMinimalRuntime(config: MinimalRuntimeConfig): Promise<Workspace> {
   const { workflowName, tag, agentNames, onMention, feedback: feedbackEnabled, debugLog } = config;
 
   // Resolve context provider

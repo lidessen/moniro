@@ -14,6 +14,7 @@ Before you can act wisely, you must understand where you are.
 The danger isn't ignorance—it's **false confidence**.
 
 An agent that dives into action without understanding context will:
+
 - Make assumptions that don't hold
 - Solve the wrong problem
 - Miss crucial constraints
@@ -113,22 +114,27 @@ After orientation, provide:
 
 ```markdown
 ## Project Overview
+
 [1-2 sentences: what this is]
 
 ## Key Entry Points
+
 - CLAUDE.md: [what it tells you]
 - README: [what it tells you]
 
 ## Available Skills
-| Skill | When to use |
-|-------|-------------|
-| [name] | [trigger] |
+
+| Skill  | When to use |
+| ------ | ----------- |
+| [name] | [trigger]   |
 
 ## Project Type
+
 - Stack: [technologies]
 - Notable: [CI, Docker, etc.]
 
 ## Suggested Starting Points
+
 1. [Based on context]
 2. [Based on context]
 ```
@@ -137,12 +143,12 @@ After orientation, provide:
 
 Part of orientation is noticing what's missing:
 
-| Finding | Implication |
-|---------|-------------|
-| No CLAUDE.md or AGENTS.md | Future agents will struggle |
-| Stale docs (>6 months) | Information may be wrong |
-| Empty .memory/ | No institutional knowledge preserved |
-| Missing README | Project purpose unclear |
+| Finding                   | Implication                          |
+| ------------------------- | ------------------------------------ |
+| No CLAUDE.md or AGENTS.md | Future agents will struggle          |
+| Stale docs (>6 months)    | Information may be wrong             |
+| Empty .memory/            | No institutional knowledge preserved |
+| Missing README            | Project purpose unclear              |
 
 When issues exist, note them and suggest `housekeeping` for resolution.
 
@@ -162,15 +168,16 @@ orientation
 
 ## Understanding, Not Rules
 
-| Tension | Resolution |
-|---------|------------|
-| Speed vs Thoroughness | Match depth to unfamiliarity. New project? Read everything. Familiar? Skim for changes. |
-| Comprehensive vs Focused | Start broad (what is this?), narrow to relevant (what matters for my task?). |
-| Reading vs Doing | Orientation is fast. Skipping it feels faster but costs more in mistakes. |
+| Tension                  | Resolution                                                                              |
+| ------------------------ | --------------------------------------------------------------------------------------- |
+| Speed vs Thoroughness    | Match depth to unfamiliarity. New project? Read everything. Familiar? Skim for changes. |
+| Comprehensive vs Focused | Start broad (what is this?), narrow to relevant (what matters for my task?).            |
+| Reading vs Doing         | Orientation is fast. Skipping it feels faster but costs more in mistakes.               |
 
 The goal isn't to check boxes. It's to build enough mental model to act wisely.
 
 ## Reference
 
 See `reference/` for:
+
 - [examples.md](reference/examples.md) - Sample orientation reports

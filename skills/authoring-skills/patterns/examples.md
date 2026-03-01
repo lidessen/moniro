@@ -3,6 +3,7 @@
 Provide concrete input/output examples to show desired style and level of detail.
 
 ## Table of Contents
+
 - [When to Use](#when-to-use)
 - [Basic Structure](#basic-structure)
 - [Types of Examples](#types-of-examples)
@@ -22,7 +23,7 @@ Provide concrete input/output examples to show desired style and level of detail
 
 ## Basic Structure
 
-```markdown
+````markdown
 ## [Task Name]
 
 **Example 1**:
@@ -40,11 +41,11 @@ Output:
 \```
 
 Follow this style for all outputs.
-```
+````
 
 ## Example: Commit Messages
 
-```markdown
+````markdown
 ## Commit Message Format
 
 Generate commit messages following these examples:
@@ -75,14 +76,14 @@ chore: update dependencies and refactor error handling
 
 - Upgrade lodash to 4.17.21
 - Standardize error response format across endpoints
-\```
+  \```
 
 Follow this style: type(scope): brief description, then detailed explanation.
-```
+````
 
 ## Example: Code Review Comments
 
-```markdown
+````markdown
 ## Code Review Feedback Format
 
 **Example 1: Critical Issue**
@@ -94,7 +95,7 @@ Line 45: `query = f"SELECT * FROM users WHERE id = {user_id}"`
 This is vulnerable to SQL injection. Use parameterized queries:
 
 \`\`\`python
-query = "SELECT * FROM users WHERE id = %s"
+query = "SELECT \* FROM users WHERE id = %s"
 cursor.execute(query, (user_id,))
 \`\`\`
 \```
@@ -106,13 +107,11 @@ cursor.execute(query, (user_id,))
 Lines 78-95: This function does too much. Consider extracting:
 
 \`\`\`python
-def validate_user_input(data):
-    # Validation logic here
-    pass
+def validate_user_input(data): # Validation logic here
+pass
 
-def process_validated_data(data):
-    # Processing logic here
-    pass
+def process_validated_data(data): # Processing logic here
+pass
 \`\`\`
 
 This would improve testability and readability.
@@ -126,11 +125,11 @@ Lines 120-135: Great job implementing comprehensive error handling with specific
 \```
 
 Use these emoji indicators and structure for all feedback.
-```
+````
 
 ## Example: Data Analysis Output
 
-```markdown
+````markdown
 ## Analysis Output Format
 
 **Example 1: Sales Data**
@@ -138,45 +137,52 @@ Input: Analyze Q4 sales by region
 
 Output:
 \```markdown
+
 # Q4 Sales Analysis by Region
 
 ## Summary
+
 - **Total Sales**: $2.4M (↑15% vs Q3)
 - **Top Region**: North America ($1.1M, 46%)
 - **Fastest Growth**: Asia-Pacific (↑32% vs Q3)
 
 ## Regional Breakdown
 
-| Region | Q4 Sales | % of Total | vs Q3 |
-|--------|----------|------------|-------|
-| North America | $1.1M | 46% | ↑12% |
-| Europe | $800K | 33% | ↑8% |
-| Asia-Pacific | $500K | 21% | ↑32% |
+| Region        | Q4 Sales | % of Total | vs Q3 |
+| ------------- | -------- | ---------- | ----- |
+| North America | $1.1M    | 46%        | ↑12%  |
+| Europe        | $800K    | 33%        | ↑8%   |
+| Asia-Pacific  | $500K    | 21%        | ↑32%  |
 
 ## Key Insights
+
 - Asia-Pacific showing strong growth due to new market entry
 - North America remains largest but growth slowing
 - Europe steady, meeting expectations
 
 ## Recommendations
+
 1. Increase investment in Asia-Pacific market
 2. Investigate North America growth slowdown
 3. Maintain current Europe strategy
-\```
+   \```
 
 **Example 2: User Engagement**
 Input: Analyze daily active users trend
 
 Output:
 \```markdown
+
 # Daily Active Users Analysis
 
 ## Summary
+
 - **Current DAU**: 12,500 (↓3% vs last week)
 - **7-Day Average**: 13,100
 - **Peak**: 14,200 (Jan 15)
 
 ## Trend
+
 \```
 Week 1: 13,500 → Week 2: 13,100 → Week 3: 12,800 → Week 4: 12,500
 \```
@@ -184,18 +190,20 @@ Week 1: 13,500 → Week 2: 13,100 → Week 3: 12,800 → Week 4: 12,500
 Downward trend over 4 weeks
 
 ## Contributing Factors
+
 - Holiday season ended (expected seasonal drop)
 - No new feature releases this month
 - Increased competition from [Competitor X] launch
 
 ## Recommendations
+
 1. Launch planned feature release next week
 2. Run user re-engagement campaign
 3. Monitor competitor activity
-\```
+   \```
 
 Follow this structure: Summary → Data → Insights → Recommendations
-```
+````
 
 ## Types of Examples
 
@@ -209,6 +217,7 @@ Output: $245,000
 **Example 2**:
 Input: Get top 5 customers by spend
 Output:
+
 - Acme Corp: $50K
 - TechStart: $35K
 - DataFlow: $28K
@@ -218,34 +227,34 @@ Output:
 
 ### Before/After Examples
 
-```markdown
+````markdown
 **Example: Code Refactoring**
 
 Before:
 \```python
 def process(data):
-    result = []
-    for i in range(len(data)):
-        if data[i] > 0 and data[i] < 100 and data[i] % 2 == 0:
-            result.append(data[i] * 2)
-    return result
+result = []
+for i in range(len(data)):
+if data[i] > 0 and data[i] < 100 and data[i] % 2 == 0:
+result.append(data[i] \* 2)
+return result
 \```
 
 After:
 \```python
 def process(data):
-    """Double even numbers in range 0-100."""
-    return [
-        value * 2
-        for value in data
-        if 0 < value < 100 and value % 2 == 0
-    ]
+"""Double even numbers in range 0-100."""
+return [
+value * 2
+for value in data
+if 0 < value < 100 and value % 2 == 0
+]
 \```
-```
+````
 
 ### Good vs Bad Examples
 
-```markdown
+````markdown
 ## Test Naming
 
 **Good Examples**:
@@ -259,13 +268,13 @@ def test_email_validation_rejects_malformed_addresses():
 \```python
 def test1():
 def test_stuff():
-def test_login():  # Too vague
+def test_login(): # Too vague
 \```
-```
+````
 
 ### Graduated Complexity
 
-```markdown
+````markdown
 ## SQL Query Examples
 
 **Simple** (single table):
@@ -289,22 +298,22 @@ GROUP BY u.id, u.name
 SELECT u.name, u.email, monthly_stats.total_orders, monthly_stats.total_revenue
 FROM users u
 JOIN (
-  SELECT user_id,
-         COUNT(*) as total_orders,
-         SUM(amount) as total_revenue
-  FROM orders
-  WHERE date >= DATE_TRUNC('month', CURRENT_DATE)
-  GROUP BY user_id
+SELECT user_id,
+COUNT(\*) as total_orders,
+SUM(amount) as total_revenue
+FROM orders
+WHERE date >= DATE_TRUNC('month', CURRENT_DATE)
+GROUP BY user_id
 ) monthly_stats ON u.id = monthly_stats.user_id
 WHERE u.status = 'active'
-  AND monthly_stats.total_revenue > 1000
+AND monthly_stats.total_revenue > 1000
 ORDER BY monthly_stats.total_revenue DESC
 \```
-```
+````
 
 ## Combining Examples with Templates
 
-```markdown
+````markdown
 ## Commit Message Format
 
 **Template**:
@@ -335,7 +344,7 @@ Add examples for refresh token workflow
 \```
 
 Follow the template structure shown in examples.
-```
+````
 
 ## How Many Examples?
 
@@ -345,15 +354,18 @@ Follow the template structure shown in examples.
 
 ```markdown
 ## Core Examples
+
 [3-5 essential examples here]
 
 ## Additional Examples
+
 See [examples.md](examples.md) for more scenarios.
 ```
 
 ## Making Examples Concrete
 
 **Too abstract**:
+
 ```markdown
 Example:
 Input: Some data
@@ -361,6 +373,7 @@ Output: Processed result
 ```
 
 **Concrete**:
+
 ```markdown
 Example:
 Input: [1, 2, 3, 4, 5]
@@ -368,6 +381,7 @@ Output: [2, 4, 6, 8, 10]
 ```
 
 **Realistic**:
+
 ```markdown
 Example:
 Input: User purchase history: [50, 75, 120, 30, 95]
@@ -377,22 +391,24 @@ Output: Total spend: $370, Average: $74, Max: $120
 ## Examples for Different Output Types
 
 ### Code Examples
-```markdown
+
+````markdown
 **Example: Error Handling**
 \```python
 try:
-    result = process_data(input_data)
+result = process_data(input_data)
 except ValidationError as e:
-    logger.error(f"Invalid input: {e}")
-    return {"error": "Invalid data format", "details": str(e)}
+logger.error(f"Invalid input: {e}")
+return {"error": "Invalid data format", "details": str(e)}
 except ProcessingError as e:
-    logger.error(f"Processing failed: {e}")
-    return {"error": "Processing failed", "retry": True}
+logger.error(f"Processing failed: {e}")
+return {"error": "Processing failed", "retry": True}
 \```
-```
+````
 
 ### Text Examples
-```markdown
+
+````markdown
 **Example: Email Response**
 \```
 Subject: Re: Your question about billing
@@ -410,34 +426,37 @@ Let me know if you have any other questions.
 Best,
 [Your name]
 \```
-```
+````
 
 ### Data Examples
-```markdown
+
+````markdown
 **Example: JSON Response**
 \```json
 {
-  "status": "success",
-  "data": {
-    "user_id": 12345,
-    "name": "Jane Doe",
-    "email": "jane@example.com",
-    "role": "admin"
-  },
-  "timestamp": "2025-01-30T10:30:00Z"
+"status": "success",
+"data": {
+"user_id": 12345,
+"name": "Jane Doe",
+"email": "jane@example.com",
+"role": "admin"
+},
+"timestamp": "2025-01-30T10:30:00Z"
 }
 \```
-```
+````
 
 ## Common Mistakes
 
 ### Mistake 1: Abstract Examples
+
 ```markdown
 ❌ Bad:
 Example: Input some numbers, get results
 ```
 
 **Fix**: Use concrete data
+
 ```markdown
 ✅ Good:
 Example:
@@ -446,16 +465,18 @@ Output: Sum: 150, Average: 30
 ```
 
 ### Mistake 2: No Context
-```markdown
+
+````markdown
 ❌ Bad:
 Example:
 \```
 feat: add feature
 \```
-```
+````
 
 **Fix**: Show input and output
-```markdown
+
+````markdown
 ✅ Good:
 Example:
 Input: Added user profile page with avatar upload
@@ -464,14 +485,16 @@ Output:
 feat(profile): add user profile page with avatar upload
 
 Implement profile view and avatar upload functionality
+
 - Add profile route and component
 - Integrate avatar upload with S3
 - Add profile edit form
-\```
-```
+  \```
+````
 
 ### Mistake 3: Examples Don't Match Template
-```markdown
+
+````markdown
 ❌ Bad:
 Template: type(scope): description
 
@@ -479,10 +502,11 @@ Example:
 \```
 Added new feature for users
 \```
-```
+````
 
 **Fix**: Match template
-```markdown
+
+````markdown
 ✅ Good:
 Template: type(scope): description
 
@@ -490,19 +514,21 @@ Example:
 \```
 feat(users): add profile page
 \```
-```
+````
 
 ### Mistake 4: Only One Example
-```markdown
+
+````markdown
 ❌ Bad:
 Example:
 \```
 feat(auth): add login
 \```
-```
+````
 
 **Fix**: Show pattern with multiple examples
-```markdown
+
+````markdown
 ✅ Good:
 Example 1:
 \```
@@ -518,7 +544,7 @@ Example 3:
 \```
 docs(readme): update installation steps
 \```
-```
+````
 
 ## Checklist
 

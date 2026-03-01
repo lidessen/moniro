@@ -39,6 +39,7 @@ Before any significant technical decision:
 ### Language/Framework Selection
 
 **Consider**:
+
 - Team expertise (learning curve cost is real)
 - Ecosystem maturity (libraries, tooling, community)
 - Performance requirements
@@ -46,6 +47,7 @@ Before any significant technical decision:
 - Long-term maintenance
 
 **Red flags**:
+
 - Choosing based on "what's hot"
 - Ignoring team's existing expertise
 - No consideration of ecosystem
@@ -53,16 +55,19 @@ Before any significant technical decision:
 ### Build vs. Buy vs. Open Source
 
 **Build when**:
+
 - Core differentiator for your business
 - Unique requirements not met by existing solutions
 - Long-term ownership justifies upfront cost
 
 **Buy when**:
+
 - Not core to your business
 - Vendor solution meets needs with acceptable trade-offs
 - Time-to-market is critical
 
 **Open source when**:
+
 - Good solutions exist with acceptable licenses
 - Community is active and healthy
 - You can contribute back if needed
@@ -70,12 +75,14 @@ Before any significant technical decision:
 ### Monolith vs. Microservices
 
 **Start with monolith if**:
+
 - Team is small (<10 developers)
 - Domain boundaries unclear
 - Moving fast is priority
 - Operational expertise limited
 
 **Consider microservices if**:
+
 - Clear domain boundaries exist
 - Teams can own services independently
 - Scaling requirements vary significantly by component
@@ -86,12 +93,14 @@ Before any significant technical decision:
 ### SQL vs. NoSQL
 
 **SQL (relational) when**:
+
 - Data has clear relationships
 - Need ACID transactions
 - Query patterns vary or are unknown
 - Data integrity is critical
 
 **NoSQL when**:
+
 - Data naturally fits document/key-value model
 - Extreme scale requirements
 - Schema flexibility needed
@@ -104,6 +113,7 @@ Before any significant technical decision:
 ### What is an ADR?
 
 A short document capturing a significant architectural decision:
+
 - **Context**: Why this decision matters
 - **Decision**: What was decided
 - **Consequences**: What follows from this decision
@@ -114,25 +124,31 @@ A short document capturing a significant architectural decision:
 # ADR-NNN: Title
 
 ## Status
+
 [Proposed | Accepted | Deprecated | Superseded by ADR-XXX]
 
 ## Context
+
 What is the issue that we're seeing that is motivating this decision?
 
 ## Decision
+
 What is the change that we're proposing and/or doing?
 
 ## Consequences
 
 ### Positive
+
 - Benefit 1
 - Benefit 2
 
 ### Negative
+
 - Cost 1
 - Risk 1
 
 ### Neutral
+
 - Side effect that's neither good nor bad
 ```
 
@@ -142,38 +158,46 @@ What is the change that we're proposing and/or doing?
 # ADR-001: Use PostgreSQL for primary database
 
 ## Status
+
 Accepted
 
 ## Context
+
 We need a database for our user management system. Requirements:
+
 - ACID transactions for financial data
 - Complex queries for reporting
 - Team familiar with SQL
 - Moderate scale (millions of rows, not billions)
 
 ## Decision
+
 Use PostgreSQL as our primary database.
 
 ## Consequences
 
 ### Positive
+
 - Team expertise exists (no learning curve)
 - Excellent ecosystem (extensions, tools)
 - Strong community support
 - Handles our scale easily
 
 ### Negative
+
 - Less flexible schema than document stores
 - Horizontal scaling more complex than NoSQL
 - Need to manage connection pooling carefully
 
 ### Neutral
+
 - Will need separate solution if we need full-text search at scale
 ```
 
 ### When to Write an ADR
 
 **Write ADR for**:
+
 - Database/storage technology choices
 - Framework/language selections
 - Architecture pattern decisions
@@ -182,6 +206,7 @@ Use PostgreSQL as our primary database.
 - Decisions that are hard to reverse
 
 **Skip ADR for**:
+
 - Library choices that are easily changed
 - Implementation details
 - Coding style decisions (use linter config)
@@ -191,7 +216,7 @@ Use PostgreSQL as our primary database.
 ### Trade-off Matrix
 
 | Option | Pros | Cons | Risk | Reversibility |
-|--------|------|------|------|---------------|
+| ------ | ---- | ---- | ---- | ------------- |
 | A      | ...  | ...  | High | Hard          |
 | B      | ...  | ...  | Low  | Easy          |
 | C      | ...  | ...  | Med  | Medium        |
@@ -199,18 +224,22 @@ Use PostgreSQL as our primary database.
 ### Common Trade-offs
 
 **Performance vs. Simplicity**
+
 - Optimize only when measured need exists
 - Simple code that's "fast enough" beats complex fast code
 
 **Flexibility vs. Complexity**
+
 - Every abstraction has a cost
 - YAGNI: don't build for hypothetical futures
 
 **Consistency vs. Availability** (CAP theorem)
+
 - Distributed systems: pick two of three
 - Most systems can be "eventually consistent"
 
 **Speed vs. Quality**
+
 - Technical debt is sometimes acceptable
 - But: know you're taking on debt, plan to pay it back
 

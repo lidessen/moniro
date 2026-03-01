@@ -4,31 +4,31 @@ Agent-worker supports multiple backends with different capabilities.
 
 ## Feature Matrix
 
-| Feature | SDK | Claude CLI | Codex CLI | Cursor CLI | OpenCode CLI | Mock |
-|---------|-----|------------|-----------|------------|-------------|------|
-| **Messaging** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Conversation history** | ✅ | ⚠️ Simplified | ⚠️ Simplified | ⚠️ Simplified | ⚠️ Simplified | ✅ |
-| **Dynamic tools** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Tool mocking** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Approval system** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Skills (via tool)** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Skills (filesystem)** | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| **`--import-skill`** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Token usage** | ✅ | ⚠️ Limited | ⚠️ Limited | ⚠️ Limited | ✅ | ✅ |
-| **Export transcript** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Feature                  | SDK | Claude CLI    | Codex CLI     | Cursor CLI    | OpenCode CLI  | Mock |
+| ------------------------ | --- | ------------- | ------------- | ------------- | ------------- | ---- |
+| **Messaging**            | ✅  | ✅            | ✅            | ✅            | ✅            | ✅   |
+| **Conversation history** | ✅  | ⚠️ Simplified | ⚠️ Simplified | ⚠️ Simplified | ⚠️ Simplified | ✅   |
+| **Dynamic tools**        | ✅  | ❌            | ❌            | ❌            | ❌            | ❌   |
+| **Tool mocking**         | ✅  | ❌            | ❌            | ❌            | ❌            | ❌   |
+| **Approval system**      | ✅  | ❌            | ❌            | ❌            | ❌            | ❌   |
+| **Skills (via tool)**    | ✅  | ❌            | ❌            | ❌            | ❌            | ❌   |
+| **Skills (filesystem)**  | ❌  | ✅            | ✅            | ✅            | ✅            | ❌   |
+| **`--import-skill`**     | ✅  | ❌            | ❌            | ❌            | ❌            | ❌   |
+| **Token usage**          | ✅  | ⚠️ Limited    | ⚠️ Limited    | ⚠️ Limited    | ✅            | ✅   |
+| **Export transcript**    | ✅  | ✅            | ✅            | ✅            | ✅            | ✅   |
 
 **Legend**: ✅ Full | ⚠️ Partial | ❌ Not supported
 
 ## When to Choose
 
-| Backend | Best For |
-|---------|----------|
+| Backend           | Best For                                                                    |
+| ----------------- | --------------------------------------------------------------------------- |
 | **SDK** (default) | Full control, tool injection, mocking, `--import-skill`, programmatic usage |
-| **Claude CLI** | Existing Claude installation, native Claude experience, MCP server support |
-| **Codex CLI** | OpenAI Codex workflows |
-| **Cursor CLI** | Cursor Agent integration |
-| **OpenCode CLI** | Multi-provider support (DeepSeek, Anthropic, OpenAI, Gemini, Ollama) |
-| **Mock** | Testing workflows without real LLM API calls |
+| **Claude CLI**    | Existing Claude installation, native Claude experience, MCP server support  |
+| **Codex CLI**     | OpenAI Codex workflows                                                      |
+| **Cursor CLI**    | Cursor Agent integration                                                    |
+| **OpenCode CLI**  | Multi-provider support (DeepSeek, Anthropic, OpenAI, Gemini, Ollama)        |
+| **Mock**          | Testing workflows without real LLM API calls                                |
 
 ---
 
@@ -50,17 +50,18 @@ getBackendByType() → Backend
 
 **Command**: `cursor agent -p --force --approve-mcps <message> [--model <model>]`
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `model` | `sonnet-4.5` | Model identifier |
-| `timeout` | 300s | Idle timeout (resets on output) |
-| `workspace` | - | Contains `.cursor/mcp.json` |
+| Option      | Default      | Description                     |
+| ----------- | ------------ | ------------------------------- |
+| `model`     | `sonnet-4.5` | Model identifier                |
+| `timeout`   | 300s         | Idle timeout (resets on output) |
+| `workspace` | -            | Contains `.cursor/mcp.json`     |
 
 **MCP config**: JSON at `<workspace>/.cursor/mcp.json`
 
 **Model map**: `sonnet` → `sonnet-4.5`, `opus` → `opus-4.5`, `claude-sonnet-4-5` → `sonnet-4.5`
 
 **Gotchas**:
+
 - stdin must be `'ignore'` — cursor agent hangs otherwise
 - No system prompt flag; embedded in message
 - Timeout is idle-based: resets whenever the process produces output
@@ -70,18 +71,19 @@ getBackendByType() → Backend
 
 **Command**: `claude -p --dangerously-skip-permissions --output-format stream-json <message> [--model <model>] [--mcp-config <path>] [--append-system-prompt <text>]`
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `model` | `sonnet` | Model identifier |
-| `timeout` | 300s | Idle timeout (resets on output) |
-| `outputFormat` | `stream-json` | `text` \| `json` \| `stream-json` |
-| `mcpConfigPath` | - | MCP config file path |
+| Option          | Default       | Description                       |
+| --------------- | ------------- | --------------------------------- |
+| `model`         | `sonnet`      | Model identifier                  |
+| `timeout`       | 300s          | Idle timeout (resets on output)   |
+| `outputFormat`  | `stream-json` | `text` \| `json` \| `stream-json` |
+| `mcpConfigPath` | -             | MCP config file path              |
 
 **MCP config**: JSON via `--mcp-config <path>` flag (per-invocation, not project-level)
 
 **Model map**: `sonnet` → `sonnet`, `opus` → `opus`, `claude-sonnet-4-5` → `sonnet`
 
 **Gotchas**:
+
 - MCP via flag, not project-level config (unlike Cursor/Codex)
 - System prompt via `--append-system-prompt` (appends, doesn't replace)
 - Timeout is idle-based: resets whenever the process produces output
@@ -91,16 +93,17 @@ getBackendByType() → Backend
 
 **Command**: `codex exec --full-auto --json --skip-git-repo-check <message> [--model <model>]`
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `model` | `gpt-5.2-codex` | Model identifier |
-| `timeout` | 300s | Idle timeout (resets on output) |
+| Option    | Default         | Description                     |
+| --------- | --------------- | ------------------------------- |
+| `model`   | `gpt-5.2-codex` | Model identifier                |
+| `timeout` | 300s            | Idle timeout (resets on output) |
 
 **MCP config**: YAML at `<workspace>/.codex/config.yaml` (key: `mcp_servers`, snake_case)
 
 **Model map**: `gpt-5.2` → `gpt-5.2-codex`, `o3` → `o3`
 
 **Gotchas**:
+
 - Uses `codex exec` subcommand (not just `codex`)
 - Only backend using YAML for MCP config
 - Config key is `mcp_servers` (snake_case), not `mcpServers`
@@ -113,16 +116,17 @@ getBackendByType() → Backend
 
 **Command**: `opencode run --format json <message> [--model <provider/model>]`
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `model` | `deepseek/deepseek-chat` | Model in provider/model format |
-| `timeout` | 600s | Idle timeout (resets on output) |
+| Option    | Default                  | Description                     |
+| --------- | ------------------------ | ------------------------------- |
+| `model`   | `deepseek/deepseek-chat` | Model in provider/model format  |
+| `timeout` | 600s                     | Idle timeout (resets on output) |
 
 **MCP config**: JSON at `<workspace>/opencode.json` (key: `mcp`, uses `type: "local"` format)
 
 **Model map**: `deepseek-chat` → `deepseek/deepseek-chat`, `sonnet` → `anthropic/claude-sonnet-4-5-20250514`
 
 **Gotchas**:
+
 - Uses `opencode run` subcommand for non-interactive mode
 - Models use `provider/model` format (e.g., `deepseek/deepseek-chat`)
 - MCP config uses `mcp` key with `type: "local"` and `command: [...]` (array, not string)
@@ -140,7 +144,7 @@ In-process backend for testing. Uses AI SDK `MockLanguageModelV3` with real MCP 
 ```yaml
 agents:
   alice:
-    backend: mock        # no model field required
+    backend: mock # no model field required
     system_prompt: You are Alice.
 ```
 
@@ -148,15 +152,15 @@ agents:
 
 ## CLI Comparison
 
-| Feature | Cursor | Claude | Codex | OpenCode | Mock |
-|---------|--------|--------|-------|----------|------|
-| Command | `cursor agent` | `claude` | `codex exec` | `opencode run` | (in-process) |
-| Auto-approval | `--force --approve-mcps` | `--dangerously-skip-permissions` | `--full-auto` | (auto in run mode) | N/A |
-| MCP config format | JSON | JSON | YAML | JSON | Direct socket |
-| MCP config location | `.cursor/mcp.json` | `--mcp-config <path>` | `.codex/config.yaml` | `opencode.json` | N/A |
-| System prompt | (in message) | `--append-system-prompt` | (in message) | (in message) | `system` param |
-| Session resume | No | `--continue` / `--resume` | `--resume` | No | N/A |
-| Default idle timeout | 600s | 600s | 600s | 600s | N/A |
+| Feature              | Cursor                   | Claude                           | Codex                | OpenCode           | Mock           |
+| -------------------- | ------------------------ | -------------------------------- | -------------------- | ------------------ | -------------- |
+| Command              | `cursor agent`           | `claude`                         | `codex exec`         | `opencode run`     | (in-process)   |
+| Auto-approval        | `--force --approve-mcps` | `--dangerously-skip-permissions` | `--full-auto`        | (auto in run mode) | N/A            |
+| MCP config format    | JSON                     | JSON                             | YAML                 | JSON               | Direct socket  |
+| MCP config location  | `.cursor/mcp.json`       | `--mcp-config <path>`            | `.codex/config.yaml` | `opencode.json`    | N/A            |
+| System prompt        | (in message)             | `--append-system-prompt`         | (in message)         | (in message)       | `system` param |
+| Session resume       | No                       | `--continue` / `--resume`        | `--resume`           | No                 | N/A            |
+| Default idle timeout | 600s                     | 600s                             | 600s                 | 600s               | N/A            |
 
 ---
 
@@ -180,6 +184,7 @@ Parser validation: CLI backends (`claude`, `cursor`, `codex`, `opencode`, `mock`
 Each backend needs specific installation and configuration before E2E tests can use it.
 
 ### Claude Code
+
 ```bash
 # Install (recommended — auto-updates)
 curl -fsSL https://claude.ai/install.sh | bash
@@ -196,6 +201,7 @@ export ANTHROPIC_MODEL="deepseek-chat"
 ```
 
 ### Codex CLI
+
 ```bash
 # Install
 npm i -g @openai/codex
@@ -220,6 +226,7 @@ export OPENAI_API_KEY="sk-..."
 ```
 
 ### Cursor Agent
+
 ```bash
 # Install (command installs as `agent`, also available as `cursor agent`)
 curl -fsS https://cursor.com/install | bash
@@ -232,6 +239,7 @@ export CURSOR_API_KEY="sk_..."
 ```
 
 ### OpenCode
+
 ```bash
 # Install (recommended — auto-updates)
 curl -fsSL https://opencode.ai/install | bash
@@ -243,6 +251,7 @@ export DEEPSEEK_API_KEY="sk-..."
 ```
 
 ### Quick availability check
+
 ```bash
 # Check all backends
 npx agent-worker backends

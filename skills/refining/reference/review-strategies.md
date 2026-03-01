@@ -24,6 +24,7 @@ Different projects need different review approaches. Select based on project con
 ### Conservative
 
 **When to use**:
+
 - Financial services (banking, payments, trading)
 - Healthcare systems (patient data, medical devices)
 - Infrastructure (deployment, cloud, CI/CD)
@@ -31,6 +32,7 @@ Different projects need different review approaches. Select based on project con
 - Security-critical systems
 
 **Indicators**:
+
 - Security scanning in CI (SAST, DAST)
 - Extensive test coverage (>80%)
 - Regulatory comments in code
@@ -38,6 +40,7 @@ Different projects need different review approaches. Select based on project con
 - Slow, cautious release cycle
 
 **Focus areas**:
+
 1. **Security first**: Full threat model review
 2. **Risk analysis**: Identify all potential failure modes
 3. **Backward compatibility**: Never break existing functionality
@@ -48,6 +51,7 @@ Different projects need different review approaches. Select based on project con
 **Review depth**: Deep, methodical, risk-averse
 
 **Checklist priorities**:
+
 - 🔴 Security vulnerabilities
 - 🔴 Data integrity risks
 - 🔴 Breaking changes
@@ -60,6 +64,7 @@ Different projects need different review approaches. Select based on project con
 ### Balanced
 
 **When to use**:
+
 - Standard web applications
 - Internal tools
 - Typical SaaS products
@@ -67,6 +72,7 @@ Different projects need different review approaches. Select based on project con
 - Default strategy if uncertain
 
 **Indicators**:
+
 - Modern tech stack (React, Node, Python, etc.)
 - CI with tests and linter
 - Moderate test coverage (50-80%)
@@ -74,6 +80,7 @@ Different projects need different review approaches. Select based on project con
 - Standard development practices
 
 **Focus areas**:
+
 1. **Best practices**: Follow industry standards
 2. **Maintainability**: Keep code clean and understandable
 3. **Common pitfalls**: Avoid typical bugs (N+1, race conditions)
@@ -83,6 +90,7 @@ Different projects need different review approaches. Select based on project con
 **Review depth**: Moderate, pragmatic
 
 **Checklist priorities**:
+
 - 🔴 Security basics (OWASP top 10)
 - 🔴 Critical bugs and data issues
 - 🟡 Architecture and design
@@ -94,6 +102,7 @@ Different projects need different review approaches. Select based on project con
 ### Best Practice
 
 **When to use**:
+
 - Greenfield projects
 - Modern, well-tooled stacks
 - High-maturity teams
@@ -101,6 +110,7 @@ Different projects need different review approaches. Select based on project con
 - Projects prioritizing quality over speed
 
 **Indicators**:
+
 - Latest framework versions
 - Comprehensive tooling (linter, formatter, type checker, pre-commit hooks)
 - High test coverage (>90%)
@@ -108,6 +118,7 @@ Different projects need different review approaches. Select based on project con
 - Modern architecture (microservices, serverless, etc.)
 
 **Focus areas**:
+
 1. **Architecture patterns**: DDD, CQRS, Event Sourcing, etc.
 2. **Performance optimization**: Profiling, caching strategies
 3. **Modern idioms**: Language-specific best practices
@@ -117,6 +128,7 @@ Different projects need different review approaches. Select based on project con
 **Review depth**: High-level architecture + deep technical excellence
 
 **Checklist priorities**:
+
 - 🔴 Architectural soundness
 - 🔴 Performance and scalability
 - 🟡 Modern patterns and idioms
@@ -155,6 +167,7 @@ coverage=$(grep -oP 'coverage.*\K\d+' coverage-report.txt)
 Add comprehensive risk assessment before detailed review:
 
 **Risk categories**:
+
 1. Security vulnerabilities
 2. Data loss scenarios
 3. Compliance violations
@@ -163,6 +176,7 @@ Add comprehensive risk assessment before detailed review:
 6. Regulatory impacts
 
 **Risk matrix**:
+
 ```
 High Probability + High Impact = BLOCK merge
 High Probability + Low Impact = REQUEST changes
@@ -171,6 +185,7 @@ Low Probability + Low Impact = APPROVE with notes
 ```
 
 **Additional checks**:
+
 - [ ] Threat model reviewed for new features
 - [ ] Security team consulted if needed
 - [ ] Compliance officer notified of relevant changes
@@ -183,6 +198,7 @@ Low Probability + Low Impact = APPROVE with notes
 Focus on common issues that matter in production:
 
 **Practical checks**:
+
 - [ ] Common security issues (OWASP top 10)
 - [ ] Obvious performance problems (N+1, missing indexes)
 - [ ] Clear error handling (user-facing errors are friendly)
@@ -190,6 +206,7 @@ Focus on common issues that matter in production:
 - [ ] Code is maintainable (not too complex)
 
 **Skip**:
+
 - Advanced optimizations
 - Perfect test coverage
 - Theoretical security scenarios
@@ -202,6 +219,7 @@ Focus on common issues that matter in production:
 Go deep on design and technical quality:
 
 **Architecture review**:
+
 - [ ] SOLID principles followed
 - [ ] Design patterns applied appropriately
 - [ ] Separation of concerns clear
@@ -209,6 +227,7 @@ Go deep on design and technical quality:
 - [ ] Testability designed in
 
 **Technical excellence**:
+
 - [ ] Idiomatic language usage
 - [ ] Performance profiled (if relevant)
 - [ ] Error messages developer-friendly
@@ -216,6 +235,7 @@ Go deep on design and technical quality:
 - [ ] Observability considered
 
 **Modern practices**:
+
 - [ ] Immutability preferred
 - [ ] Pure functions where possible
 - [ ] Type safety maximized
@@ -229,13 +249,16 @@ Go deep on design and technical quality:
 If auto-detection uncertain, ask user to confirm:
 
 **Ask if**:
+
 - No clear indicators found
 - Mixed signals (high coverage but no security scanning)
 - Unusual tech stack
 - Custom tooling
 
 **How to ask**:
+
 > "I've analyzed the project and it seems like a standard web application. Should I use:
+>
 > - **Conservative**: Focus heavily on security and risk (financial/healthcare)
 > - **Balanced**: Pragmatic best practices (typical web app) ← Default
 > - **Best practice**: Deep architecture and technical excellence (greenfield/quality-first)"
@@ -248,13 +271,13 @@ If auto-detection uncertain, ask user to confirm:
 
 Examples:
 
-| Strategy | Size | Depth |
-|----------|------|-------|
-| Conservative | Small | Full risk analysis + thorough review |
-| Conservative | X-Large | Risk analysis + critical paths only |
-| Balanced | Small | Best practices + quality |
-| Balanced | X-Large | Architecture + high-risk only |
-| Best Practice | Small | Deep technical review |
+| Strategy      | Size    | Depth                                       |
+| ------------- | ------- | ------------------------------------------- |
+| Conservative  | Small   | Full risk analysis + thorough review        |
+| Conservative  | X-Large | Risk analysis + critical paths only         |
+| Balanced      | Small   | Best practices + quality                    |
+| Balanced      | X-Large | Architecture + high-risk only               |
+| Best Practice | Small   | Deep technical review                       |
 | Best Practice | X-Large | Architecture + critical technical decisions |
 
 **Key insight**: Even conservative + X-Large doesn't review everything - still prioritizes based on risk.
@@ -264,42 +287,52 @@ Examples:
 ## Examples
 
 ### Conservative Review Output
+
 ```markdown
 ## Risk Analysis
+
 - 🔴 High risk: Database migration affects 10M user records
 - 🟡 Medium risk: API change might break mobile app v1.2
 - 🟢 Low risk: UI update in admin panel
 
 ## Security Assessment
+
 - ✅ No new attack surface
 - ⚠️ Input validation needs rate limiting
 - ✅ All data encrypted in transit and at rest
 
 ## Compliance
+
 - ✅ PCI-DSS: No cardholder data logged
 - ✅ GDPR: Personal data handling compliant
 ```
 
 ### Balanced Review Output
+
 ```markdown
 ## Key Issues
+
 - 🔴 Missing authorization check on DELETE endpoint
 - 🟡 N+1 query in user list (use eager loading)
 - 🔵 Consider extracting validation logic to helper
 
 ## Positive
+
 - ✅ Good test coverage
 - ✅ Clear error handling
 ```
 
 ### Best Practice Review Output
+
 ```markdown
 ## Architecture
+
 - ✅ Clean separation: Controller → Service → Repository
 - 🟡 Consider using Result<T> instead of throwing exceptions
 - 🔵 Could benefit from CQRS pattern for complex queries
 
 ## Technical Excellence
+
 - ✅ Excellent TypeScript usage (no any, strict mode)
 - ✅ Proper async/await throughout
 - 🟡 Consider adding distributed tracing spans
@@ -316,12 +349,14 @@ Adapt review focus based on change size to maximize signal-to-noise ratio.
 ### Small Changes (<200 lines, <5 files)
 
 **Can afford detail**:
+
 - Review code quality, naming, structure
 - Check edge cases and error handling
 - Verify test coverage
 - Provide constructive quality feedback
 
 **But still prioritize**:
+
 - Logic correctness
 - Security issues
 - Edge cases
@@ -335,6 +370,7 @@ Adapt review focus based on change size to maximize signal-to-noise ratio.
 ### Medium Changes (200-800 lines, 5-20 files)
 
 **Focus on**:
+
 - Architecture and design decisions
 - API contracts and signatures
 - Data flow and transformations
@@ -344,6 +380,7 @@ Adapt review focus based on change size to maximize signal-to-noise ratio.
 **Ignore**: Style/formatting issues, naming nitpicks
 
 **Key technique**: Signature change analysis
+
 ```bash
 # Find signature changes
 git diff <from>..<to> | grep -E "^[-+].*\b(function|def|class|interface|type|struct)\b"
@@ -361,6 +398,7 @@ grep -r "functionName" --include="*.ts" .
 ### Large Changes (800-2000 lines, 20-50 files)
 
 **Focus only on**:
+
 - High-risk areas (security, data, breaking changes)
 - Architectural decisions and patterns
 - Impact of signature changes on call chains
@@ -369,6 +407,7 @@ grep -r "functionName" --include="*.ts" .
 **Ignore**: All style/quality issues unless security-critical
 
 **Key technique**: Cherry-pick critical files
+
 - Security: auth, input validation, crypto
 - Data: migrations, schema changes
 - APIs: public endpoints, contracts
@@ -384,6 +423,7 @@ grep -r "functionName" --include="*.ts" .
 ### X-Large Changes (>2000 lines, >50 files)
 
 **Focus exclusively on**:
+
 - Critical paths (payments, auth, data integrity)
 - Security vulnerabilities
 - Breaking changes
@@ -392,11 +432,13 @@ grep -r "functionName" --include="*.ts" .
 **Ignore**: Everything else
 
 **Requirements**:
+
 - CI must be green (trust tests, lint, types)
 - Create progress document (see [progress-tracking.md](progress-tracking.md))
 - Multiple review sessions expected
 
 **Impact analysis**: Deep dive on:
+
 - Signature changes in shared utilities
 - State modifications in core systems
 - Data model evolution
@@ -409,19 +451,19 @@ grep -r "functionName" --include="*.ts" .
 
 ## Depth Strategy Decision Matrix
 
-| Strategy | Size | Focus | Skip | Time |
-|----------|------|-------|------|------|
-| Conservative | Small | Risk + Quality | Minor style | 20-30 min |
-| Conservative | Medium | Risk + Architecture | Style | 45-90 min |
-| Conservative | Large | Critical risks only | All quality | 2+ hours |
-| Conservative | X-Large | Critical + breaking | Everything else | Multiple sessions |
-| Balanced | Small | Quality + logic | Format | 10-20 min |
-| Balanced | Medium | Architecture + security | Style | 30-60 min |
-| Balanced | Large | High-risk only | Quality | 1-2 hours |
-| Balanced | X-Large | Critical only | Everything else | Multiple sessions |
-| Best Practice | Small | Excellence + patterns | Format | 15-30 min |
-| Best Practice | Medium | Architecture deep | Style | 45-90 min |
-| Best Practice | Large | Design + critical | Quality | 2+ hours |
+| Strategy      | Size    | Focus                   | Skip            | Time              |
+| ------------- | ------- | ----------------------- | --------------- | ----------------- |
+| Conservative  | Small   | Risk + Quality          | Minor style     | 20-30 min         |
+| Conservative  | Medium  | Risk + Architecture     | Style           | 45-90 min         |
+| Conservative  | Large   | Critical risks only     | All quality     | 2+ hours          |
+| Conservative  | X-Large | Critical + breaking     | Everything else | Multiple sessions |
+| Balanced      | Small   | Quality + logic         | Format          | 10-20 min         |
+| Balanced      | Medium  | Architecture + security | Style           | 30-60 min         |
+| Balanced      | Large   | High-risk only          | Quality         | 1-2 hours         |
+| Balanced      | X-Large | Critical only           | Everything else | Multiple sessions |
+| Best Practice | Small   | Excellence + patterns   | Format          | 15-30 min         |
+| Best Practice | Medium  | Architecture deep       | Style           | 45-90 min         |
+| Best Practice | Large   | Design + critical       | Quality         | 2+ hours          |
 | Best Practice | X-Large | Architecture + critical | Everything else | Multiple sessions |
 
 ---
@@ -443,8 +485,9 @@ glab mr ci-status  # GitLab
 ```
 
 **If CI is green, trust it for**:
+
 - Syntax errors
-- Type errors  
+- Type errors
 - Import errors
 - Formatting violations
 - Test failures
@@ -471,6 +514,7 @@ grep -r "functionName" --include="*.ts" .
 ```
 
 Verify:
+
 - All call sites compatible with new signature
 - Backward compatibility if needed
 - No runtime errors from type mismatches
@@ -504,6 +548,7 @@ When adding new operations:
 ## What to Skip (Time-Limited)
 
 **Low-value details**:
+
 - Variable naming (unless truly confusing)
 - Code formatting (if linter exists)
 - Import organization
@@ -512,6 +557,7 @@ When adding new operations:
 - Subjective "cleaner" alternatives
 
 **Let tools handle**:
+
 - Syntax errors
 - Type errors
 - Unused variables

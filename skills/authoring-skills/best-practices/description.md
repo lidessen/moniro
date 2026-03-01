@@ -3,6 +3,7 @@
 The `description` field is **critical** for skill discovery. Claude uses it to choose the right skill from potentially 100+ available skills.
 
 ## Table of Contents
+
 - [Core Requirements](#core-requirements)
 - [The Formula](#the-formula)
 - [Excellent Examples](#excellent-examples)
@@ -33,31 +34,37 @@ The `description` field is **critical** for skill discovery. Claude uses it to c
 ## Excellent Examples
 
 ### PDF Processing
+
 ```yaml
 description: Extract text and tables from PDF files, fill forms, merge documents. Use when working with PDF files or when the user mentions PDFs, forms, or document extraction.
 ```
 
 **Why it works**:
+
 - WHAT: Extract text/tables, fill forms, merge documents
 - WHEN: PDF files, mentions PDFs/forms/extraction
 - Concrete keywords: "PDF", "forms", "documents", "extraction"
 
 ### Excel Analysis
+
 ```yaml
 description: Analyze Excel spreadsheets, create pivot tables, generate charts. Use when analyzing Excel files, spreadsheets, tabular data, or .xlsx files.
 ```
 
 ### Git Commit Helper
+
 ```yaml
 description: Generate descriptive commit messages by analyzing git diffs. Use when the user asks for help writing commit messages or reviewing staged changes.
 ```
 
 ### Code Review
+
 ```yaml
 description: Review code for quality, security, and maintainability following team standards. Use when reviewing pull requests, examining code changes, or when the user asks for a code review.
 ```
 
 ### Database Schema Query
+
 ```yaml
 description: Query and analyze database schemas for PostgreSQL, MySQL, and MongoDB. Use when the user asks about database structure, table definitions, relationships, or mentions database schemas.
 ```
@@ -65,6 +72,7 @@ description: Query and analyze database schemas for PostgreSQL, MySQL, and Mongo
 ## Point of View: Third Person Only
 
 **Good** (third person):
+
 ```yaml
 description: Processes Excel files and generates reports
 description: Analyzes code quality and suggests improvements
@@ -72,12 +80,14 @@ description: Extracts data from API endpoints
 ```
 
 **Bad** (first person):
+
 ```yaml
 description: I can help you process Excel files
 description: I analyze code quality
 ```
 
 **Bad** (second person):
+
 ```yaml
 description: You can use this to process Excel files
 description: Helps you analyze code
@@ -88,6 +98,7 @@ description: Helps you analyze code
 ## Specificity Levels
 
 ### Too Vague ✗
+
 ```yaml
 description: Helps with documents
 description: Processes data
@@ -98,6 +109,7 @@ description: General utility functions
 **Problem**: No specific capabilities, no trigger terms.
 
 ### Specific Enough ✓
+
 ```yaml
 description: Extract text from PDF and Word documents, convert between formats. Use when processing PDFs, .docx files, or document conversion.
 ```
@@ -114,11 +126,13 @@ Trigger terms help Claude discover your skill. Include:
 ### Example: Before and After
 
 **Before** (vague):
+
 ```yaml
 description: Works with databases
 ```
 
 **After** (specific triggers):
+
 ```yaml
 description: Query and manage PostgreSQL databases, analyze schemas, optimize queries. Use when working with PostgreSQL, database schemas, SQL queries, or performance optimization.
 ```
@@ -130,6 +144,7 @@ description: Query and manage PostgreSQL databases, analyze schemas, optimize qu
 - **Recommended**: 150-300 characters (specific but concise)
 
 ### Too Short ✗
+
 ```yaml
 description: Process PDFs
 ```
@@ -137,6 +152,7 @@ description: Process PDFs
 **Problem**: Not enough context for discovery.
 
 ### Good Length ✓
+
 ```yaml
 description: Extract text and tables from PDF files, fill forms, merge documents. Use when working with PDF files or when the user mentions PDFs, forms, or document extraction.
 ```
@@ -152,6 +168,7 @@ description: Create, update, and analyze Jira tickets. Track sprint progress, ge
 ```
 
 **Structure**:
+
 1. List main capabilities (create, update, analyze)
 2. List secondary capabilities (track, generate, query)
 3. Add trigger terms (Jira, tickets, sprint planning, reports)
@@ -159,11 +176,13 @@ description: Create, update, and analyze Jira tickets. Track sprint progress, ge
 ## Domain-Specific Skills
 
 ### BigQuery Analysis
+
 ```yaml
 description: Analyze company data in BigQuery across finance, sales, and product domains. Query revenue metrics, pipeline data, API usage. Use when analyzing company data, querying BigQuery, or asking about revenue, sales, or product metrics.
 ```
 
 ### Internal Tool Integration
+
 ```yaml
 description: Interact with internal deployment system to check service status, trigger deployments, view logs. Use when checking service health, deploying applications, or troubleshooting production issues.
 ```
@@ -181,41 +200,49 @@ Ask yourself:
 ## Common Mistakes
 
 ### Mistake 1: No Trigger Terms
+
 ```yaml
 description: A skill for processing documents and extracting information
 ```
 
 **Fix**: Add specific file types and scenarios:
+
 ```yaml
 description: Extract text, tables, and metadata from PDF and Word documents. Use when processing .pdf or .docx files, extracting document content, or converting between formats.
 ```
 
 ### Mistake 2: Wrong Point of View
+
 ```yaml
 description: I help you write better commit messages by analyzing your changes
 ```
 
 **Fix**: Use third person:
+
 ```yaml
 description: Generate descriptive commit messages by analyzing git diffs and staged changes. Use when writing commits or reviewing changes.
 ```
 
 ### Mistake 3: Too Generic
+
 ```yaml
 description: Helper functions for data processing
 ```
 
 **Fix**: Be specific about what data and what processing:
+
 ```yaml
 description: Process CSV and JSON data files, clean data, merge datasets, generate summaries. Use when working with .csv or .json files, data cleaning, or data analysis tasks.
 ```
 
 ### Mistake 4: Only What, No When
+
 ```yaml
 description: Analyzes code quality and suggests improvements
 ```
 
 **Fix**: Add trigger scenarios:
+
 ```yaml
 description: Analyze code quality, detect bugs, suggest improvements following team standards. Use when reviewing code, examining pull requests, or performing code audits.
 ```
@@ -229,6 +256,7 @@ description: [Verb] [specific thing] [and other capabilities]. [Verb] [more capa
 ```
 
 **Example using template**:
+
 ```yaml
 description: Process video files, extract frames, generate thumbnails, analyze content. Convert between formats like MP4, AVI, MOV. Use when working with video files, extracting frames, generating thumbnails, or when the user mentions video processing, .mp4, or video conversion.
 ```

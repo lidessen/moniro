@@ -3,6 +3,7 @@
 Progressive disclosure ensures Claude only loads context it actually needs, keeping token usage low and context focused.
 
 ## Table of Contents
+
 - [The Problem](#the-problem)
 - [The Solution](#the-solution)
 - [How It Works](#how-it-works)
@@ -17,6 +18,7 @@ Progressive disclosure ensures Claude only loads context it actually needs, keep
 ## The Problem
 
 Without progressive disclosure:
+
 - Large skills consume massive context space
 - Irrelevant information competes with conversation history
 - Claude must process everything even when only needing a small part
@@ -48,6 +50,7 @@ Without progressive disclosure:
 Best for skills with multiple advanced features or domains.
 
 **SKILL.md structure**:
+
 ```markdown
 ---
 name: pdf-processing
@@ -57,9 +60,11 @@ description: Extract text and tables from PDF files...
 # PDF Processing
 
 ## Quick Start
+
 [Essential instructions for common use case]
 
 ## Advanced Features
+
 - **Form filling**: See [forms.md](forms.md) for complete guide
 - **API reference**: See [reference.md](reference.md) for all methods
 - **Examples**: See [examples.md](examples.md) for common patterns
@@ -72,6 +77,7 @@ description: Extract text and tables from PDF files...
 Best for skills accessing multiple data domains (e.g., database schemas, API endpoints).
 
 **Directory structure**:
+
 ```
 bigquery-skill/
 ├── SKILL.md
@@ -83,7 +89,8 @@ bigquery-skill/
 ```
 
 **SKILL.md structure**:
-```markdown
+
+````markdown
 # BigQuery Data Analysis
 
 ## Available Datasets
@@ -94,12 +101,16 @@ bigquery-skill/
 **Marketing**: Campaigns, email → [reference/marketing.md](reference/marketing.md)
 
 ## Quick Search
+
 Find specific metrics using grep:
+
 ```bash
 grep -i "revenue" reference/finance.md
 grep -i "pipeline" reference/sales.md
 ```
-```
+````
+
+````
 
 **When to use**: Skill provides access to multiple distinct domains.
 
@@ -120,7 +131,7 @@ For simple edits, modify XML directly.
 
 **For tracked changes**: See [redlining.md](redlining.md)
 **For OOXML details**: See [ooxml-spec.md](ooxml-spec.md)
-```
+````
 
 **When to use**: Advanced features are rarely needed.
 
@@ -129,6 +140,7 @@ For simple edits, modify XML directly.
 ### Rule 1: Keep References One Level Deep
 
 **Bad - nested references**:
+
 ```
 SKILL.md → advanced.md → details.md → actual information
 ```
@@ -136,6 +148,7 @@ SKILL.md → advanced.md → details.md → actual information
 Problem: Claude may use `head -100` to preview nested files, getting incomplete information.
 
 **Good - single level**:
+
 ```
 SKILL.md → advanced.md (complete info)
 SKILL.md → reference.md (complete info)
@@ -147,13 +160,16 @@ SKILL.md → examples.md (complete info)
 All reference files should be explicitly mentioned in SKILL.md with clear navigation.
 
 **Good**:
+
 ```markdown
 # SKILL.md
 
 ## Core Workflow
+
 [Essential steps here]
 
 ## Additional Resources
+
 - **Advanced patterns**: See [advanced.md](advanced.md)
 - **API reference**: See [api.md](api.md)
 - **Examples**: See [examples.md](examples.md)
@@ -171,6 +187,7 @@ For reference files >100 lines, include TOC at top:
 # API Reference
 
 ## Contents
+
 - Authentication and setup
 - Core methods (create, read, update, delete)
 - Advanced features (batch operations, webhooks)
@@ -178,9 +195,11 @@ For reference files >100 lines, include TOC at top:
 - Code examples
 
 ## Authentication and setup
+
 ...
 
 ## Core methods
+
 ...
 ```
 
@@ -203,6 +222,7 @@ Claude reads SKILL.md (core workflow + navigation)
 ## Anti-Pattern: The Monolithic Skill
 
 **Bad - everything in SKILL.md**:
+
 ```markdown
 ---
 name: data-analysis
@@ -212,22 +232,27 @@ description: ...
 # Data Analysis
 
 ## Finance Data
+
 [2000 lines of finance schemas and examples]
 
 ## Sales Data
+
 [2000 lines of sales schemas and examples]
 
 ## Product Data
+
 [2000 lines of product schemas and examples]
 ```
 
 **Problems**:
+
 - Every query loads 6000+ lines regardless of relevance
 - Wastes tokens on irrelevant context
 - Slows Claude's processing
 - Makes skill hard to maintain
 
 **Good - progressive disclosure**:
+
 ```markdown
 ---
 name: data-analysis
@@ -237,12 +262,14 @@ description: ...
 # Data Analysis
 
 ## Available Domains
+
 - **Finance**: See [reference/finance.md](reference/finance.md)
 - **Sales**: See [reference/sales.md](reference/sales.md)
 - **Product**: See [reference/product.md](reference/product.md)
 ```
 
 **Benefits**:
+
 - Query about sales only loads ~100 lines (SKILL.md + sales.md)
 - Relevant context only
 - Fast processing

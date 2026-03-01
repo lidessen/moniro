@@ -23,11 +23,11 @@ Checks if changes are easy to review.
 
 ### Checks
 
-| Check | Severity | Description |
-|-------|----------|-------------|
-| Cohesion | 🟡 Important | Single purpose per change |
-| Size | 🟡 Important | <400 lines ideal, >800 flag |
-| Noise | 🔵 Suggestion | Debug code, TODOs, commented code |
+| Check    | Severity      | Description                       |
+| -------- | ------------- | --------------------------------- |
+| Cohesion | 🟡 Important  | Single purpose per change         |
+| Size     | 🟡 Important  | <400 lines ideal, >800 flag       |
+| Noise    | 🔵 Suggestion | Debug code, TODOs, commented code |
 
 ### Cohesion Patterns
 
@@ -47,12 +47,12 @@ Checks if changes are easy to review.
 
 ### Size Thresholds
 
-| Lines | Assessment | Action |
-|-------|------------|--------|
-| <200 | Excellent | Proceed |
-| 200-400 | Good | Proceed |
-| 400-800 | Large | Consider split |
-| >800 | Too large | Strongly recommend split |
+| Lines   | Assessment | Action                   |
+| ------- | ---------- | ------------------------ |
+| <200    | Excellent  | Proceed                  |
+| 200-400 | Good       | Proceed                  |
+| 400-800 | Large      | Consider split           |
+| >800    | Too large  | Strongly recommend split |
 
 ### Noise Patterns
 
@@ -77,7 +77,7 @@ Commented-out code:
 
 ```yaml
 validator: reviewability
-status: warning  # pass, warning, fail
+status: warning # pass, warning, fail
 findings:
   - type: cohesion
     severity: important
@@ -100,10 +100,10 @@ Analyzes blast radius of changes.
 
 ### Checks
 
-| Check | Severity | Description |
-|-------|----------|-------------|
-| Breaking changes | 🔴 Critical | API/schema modifications |
-| Signature changes | 🟡 Important | Function parameter changes |
+| Check                  | Severity     | Description                    |
+| ---------------------- | ------------ | ------------------------------ |
+| Breaking changes       | 🔴 Critical  | API/schema modifications       |
+| Signature changes      | 🟡 Important | Function parameter changes     |
 | Shared utility changes | 🟡 Important | Widely-used code modifications |
 
 ### Breaking Change Detection
@@ -145,11 +145,11 @@ Change Impact Assessment:
 
 ### Sampling Strategy
 
-| Call Sites | Strategy |
-|------------|----------|
-| <5 | Check all |
-| 5-20 | Sample 5-10 diverse |
-| >20 | Sample 10 + rely on tests |
+| Call Sites | Strategy                  |
+| ---------- | ------------------------- |
+| <5         | Check all                 |
+| 5-20       | Sample 5-10 diverse       |
+| >20        | Sample 10 + rely on tests |
 
 ### Output
 
@@ -182,14 +182,14 @@ Checks for security vulnerabilities.
 
 ### Checks
 
-| Check | Severity | Description |
-|-------|----------|-------------|
-| Hardcoded secrets | 🔴 Critical | API keys, passwords, tokens |
-| SQL injection | 🔴 Critical | Unsanitized SQL queries |
-| Command injection | 🔴 Critical | Unsanitized shell commands |
-| XSS vulnerabilities | 🔴 Critical | Unsanitized user input in HTML |
-| Path traversal | 🟡 Important | File path manipulation |
-| Insecure dependencies | 🟡 Important | Known vulnerable packages |
+| Check                 | Severity     | Description                    |
+| --------------------- | ------------ | ------------------------------ |
+| Hardcoded secrets     | 🔴 Critical  | API keys, passwords, tokens    |
+| SQL injection         | 🔴 Critical  | Unsanitized SQL queries        |
+| Command injection     | 🔴 Critical  | Unsanitized shell commands     |
+| XSS vulnerabilities   | 🔴 Critical  | Unsanitized user input in HTML |
+| Path traversal        | 🟡 Important | File path manipulation         |
+| Insecure dependencies | 🟡 Important | Known vulnerable packages      |
 
 ### Secret Patterns
 
@@ -254,12 +254,12 @@ Checks project consistency and documentation health.
 
 ### Checks
 
-| Check | Severity | Description |
-|-------|----------|-------------|
-| Index alignment | 🟡 Important | README lists match directories |
-| Doc freshness | 🔵 Suggestion | Documentation age |
-| Naming conventions | 🔵 Suggestion | Consistent file/folder naming |
-| Import organization | 🔵 Suggestion | Consistent import patterns |
+| Check               | Severity      | Description                    |
+| ------------------- | ------------- | ------------------------------ |
+| Index alignment     | 🟡 Important  | README lists match directories |
+| Doc freshness       | 🔵 Suggestion | Documentation age              |
+| Naming conventions  | 🔵 Suggestion | Consistent file/folder naming  |
+| Import organization | 🔵 Suggestion | Consistent import patterns     |
 
 ### Index Alignment
 
@@ -274,11 +274,11 @@ Example issues:
 
 ### Doc Freshness
 
-| Age | Status | Action |
-|-----|--------|--------|
-| <3 months | Fresh | None |
-| 3-6 months | Aging | Review if still accurate |
-| >6 months | Stale | Flag for update |
+| Age        | Status | Action                   |
+| ---------- | ------ | ------------------------ |
+| <3 months  | Fresh  | None                     |
+| 3-6 months | Aging  | Review if still accurate |
+| >6 months  | Stale  | Flag for update          |
 
 ### Output
 
@@ -307,12 +307,12 @@ Validates architectural patterns and boundaries.
 
 ### Checks
 
-| Check | Severity | Description |
-|-------|----------|-------------|
-| Layer violations | 🟡 Important | Cross-layer dependencies |
-| Circular dependencies | 🟡 Important | Module cycles |
-| Coupling | 🔵 Suggestion | Tight coupling indicators |
-| Pattern compliance | 🔵 Suggestion | Adherence to project patterns |
+| Check                 | Severity      | Description                   |
+| --------------------- | ------------- | ----------------------------- |
+| Layer violations      | 🟡 Important  | Cross-layer dependencies      |
+| Circular dependencies | 🟡 Important  | Module cycles                 |
+| Coupling              | 🔵 Suggestion | Tight coupling indicators     |
+| Pattern compliance    | 🔵 Suggestion | Adherence to project patterns |
 
 ### Layer Boundaries
 
@@ -366,13 +366,13 @@ Basic syntax and lint checks.
 
 Delegates to project's configured tools:
 
-| Tool | Detection | Checks |
-|------|-----------|--------|
-| ESLint | `.eslintrc*` | JS/TS lint |
-| Prettier | `.prettierrc*` | Formatting |
-| Ruff/Flake8 | `pyproject.toml`, `.flake8` | Python lint |
-| Clippy | `Cargo.toml` | Rust lint |
-| golangci-lint | `.golangci.yml` | Go lint |
+| Tool          | Detection                   | Checks      |
+| ------------- | --------------------------- | ----------- |
+| ESLint        | `.eslintrc*`                | JS/TS lint  |
+| Prettier      | `.prettierrc*`              | Formatting  |
+| Ruff/Flake8   | `pyproject.toml`, `.flake8` | Python lint |
+| Clippy        | `Cargo.toml`                | Rust lint   |
+| golangci-lint | `.golangci.yml`             | Go lint     |
 
 ### Output
 
@@ -433,14 +433,14 @@ Custom validators should output JSON:
 ```typescript
 interface ValidatorResult {
   validator: string;
-  status: 'pass' | 'warning' | 'fail';
+  status: "pass" | "warning" | "fail";
   findings: Finding[];
   execution_time?: string;
 }
 
 interface Finding {
   type: string;
-  severity: 'critical' | 'important' | 'suggestion';
+  severity: "critical" | "important" | "suggestion";
   message: string;
   location?: string;
   affected?: string[];

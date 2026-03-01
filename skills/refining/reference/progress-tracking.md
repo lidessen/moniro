@@ -24,6 +24,7 @@ For X-Large changes (>2000 lines or >50 files), use `.code-review-progress.md` t
 ## Progress: 15/47 files (32%)
 
 ### ✅ Reviewed (15 files)
+
 - [x] src/auth/login.ts - 🔴 1 critical (SQL injection)
 - [x] src/auth/session.ts - ✅ Clean
 - [x] src/api/users.ts - 🟡 2 high (missing auth checks)
@@ -31,17 +32,20 @@ For X-Large changes (>2000 lines or >50 files), use `.code-review-progress.md` t
 - ... (11 more)
 
 ### 🔥 High Priority Pending (8 files)
+
 - [ ] src/payment/processor.ts - **CRITICAL PATH**
 - [ ] src/db/migration-002.sql - **DATA INTEGRITY**
 - [ ] src/auth/permissions.ts - **SECURITY**
 - ... (5 more)
 
 ### ⏸️ Medium Priority (18 files)
+
 - [ ] src/api/orders.ts
 - [ ] src/services/email.ts
 - ... (16 more)
 
 ### ⏭️ Skipped (6 files - auto-generated/low-risk)
+
 - package-lock.json
 - dist/bundle.js
 - ... (4 more)
@@ -49,29 +53,34 @@ For X-Large changes (>2000 lines or >50 files), use `.code-review-progress.md` t
 ## Findings: 2 Critical, 5 High, 8 Medium
 
 ### 🔴 Critical #1: SQL Injection in login
+
 **File**: src/auth/login.ts:45
 **Impact**: Database compromise possible
 **Fix**: Use parameterized query
 [Details saved in finding #1 below]
 
 ### 🔴 Critical #2: Missing migration rollback
+
 **File**: src/db/schema.sql
 **Impact**: Cannot rollback deployment if failed
 **Fix**: Add DOWN migration
 [Details saved in finding #2 below]
 
 ### 🟡 High Issues
+
 - src/api/users.ts:67 - Missing authorization check on DELETE
 - src/api/users.ts:89 - No rate limiting on password reset
-... (3 more)
+  ... (3 more)
 
 ## Next Session Focus
+
 1. Complete payment processor review (critical path)
 2. Review remaining security-sensitive files
 3. Check database migrations
 4. Verify API contract changes
 
 ## Context Notes
+
 - Payment integration change: Stripe → Adyen
 - Database schema adds `transactions` table
 - Breaking change: User API now requires auth header
@@ -82,9 +91,11 @@ For X-Large changes (>2000 lines or >50 files), use `.code-review-progress.md` t
 ## Detailed Findings
 
 ### Finding #1: SQL Injection in login
+
 [Full detailed finding with code, impact, suggestion]
 
 ### Finding #2: Missing migration rollback
+
 [Full detailed finding]
 
 ...

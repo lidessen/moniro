@@ -3,18 +3,18 @@
  * E2E tests that simulate multi-agent collaboration
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
-import { mkdtempSync, rmSync } from 'node:fs'
-import { join } from 'node:path'
-import { tmpdir } from 'node:os'
-import { createMemoryContextProvider } from '../src/workflow/context/memory-provider.js'
-import { createAgentLoop, checkWorkflowIdle } from '../src/workflow/loop/loop.js'
-import { createProposalManager } from '../src/workflow/context/proposals.js'
-import { MemoryStorage } from '../src/workflow/context/storage.js'
-import type { AgentLoop } from '../src/workflow/loop/types.js'
-import type { Backend } from '../src/backends/types.js'
-import type { ResolvedWorkflowAgent } from '../src/workflow/types.js'
-import type { ContextProvider } from '../src/workflow/context/provider.js'
+import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { createMemoryContextProvider } from "../src/workflow/context/memory-provider.js";
+import { createAgentLoop, checkWorkflowIdle } from "../src/workflow/loop/loop.js";
+import { createProposalManager } from "../src/workflow/context/proposals.js";
+import { MemoryStorage } from "../src/workflow/context/storage.js";
+import type { AgentLoop } from "../src/workflow/loop/types.js";
+import type { Backend } from "../src/backends/types.js";
+import type { ResolvedWorkflowAgent } from "../src/workflow/types.js";
+import type { ContextProvider } from "../src/workflow/context/provider.js";
 
 // ==================== Test Helpers ====================
 
@@ -24,17 +24,17 @@ import type { ContextProvider } from '../src/workflow/context/provider.js'
  * to avoid reacting to historical channel messages.
  */
 function getInboxSection(prompt: string): string {
-  const start = prompt.indexOf('## Inbox')
-  const end = prompt.indexOf('## Recent Activity')
-  if (start === -1) return ''
-  return end === -1 ? prompt.slice(start) : prompt.slice(start, end)
+  const start = prompt.indexOf("## Inbox");
+  const end = prompt.indexOf("## Recent Activity");
+  if (start === -1) return "";
+  return end === -1 ? prompt.slice(start) : prompt.slice(start, end);
 }
 
 const mockAgent: ResolvedWorkflowAgent = {
-  model: 'mock',
-  system_prompt: 'Test agent',
-  resolvedSystemPrompt: 'Test agent',
-}
+  model: "mock",
+  system_prompt: "Test agent",
+  resolvedSystemPrompt: "Test agent",
+};
 
 /** Create a mock backend with custom behavior.
  * Uses type 'claude' so the loop routes through the normal
@@ -43,348 +43,356 @@ const mockAgent: ResolvedWorkflowAgent = {
 function createMockBackend(
   _name: string,
   behavior: (prompt: string, provider: ContextProvider) => Promise<void>,
-  provider: ContextProvider
+  provider: ContextProvider,
 ): Backend {
   return {
-    type: 'claude' as const,
+    type: "claude" as const,
     async send(message: string) {
-      await behavior(message, provider)
-      return { content: 'ok' }
+      await behavior(message, provider);
+      return { content: "ok" };
     },
-  }
+  };
 }
 
 /** Wait for a condition to be true */
 async function waitFor(
   condition: () => Promise<boolean> | boolean,
   timeout = 2000,
-  interval = 50
+  interval = 50,
 ): Promise<void> {
-  const start = Date.now()
+  const start = Date.now();
   while (Date.now() - start < timeout) {
-    if (await condition()) return
-    await new Promise((r) => setTimeout(r, interval))
+    if (await condition()) return;
+    await new Promise((r) => setTimeout(r, interval));
   }
-  throw new Error('Timeout waiting for condition')
+  throw new Error("Timeout waiting for condition");
 }
 
 // ==================== Simulation Tests ====================
 
-describe('Workflow Simulation', () => {
-  let tempDir: string
+describe("Workflow Simulation", () => {
+  let tempDir: string;
 
   beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), 'workflow-sim-'))
-  })
+    tempDir = mkdtempSync(join(tmpdir(), "workflow-sim-"));
+  });
 
   afterEach(() => {
     try {
-      rmSync(tempDir, { recursive: true })
+      rmSync(tempDir, { recursive: true });
     } catch {
       // Ignore cleanup errors
     }
-  })
+  });
 
-  test('two agents collaborate via @mentions', async () => {
-    const provider = createMemoryContextProvider(['reviewer', 'coder'])
-    const loops: AgentLoop[] = []
+  test("two agents collaborate via @mentions", async () => {
+    const provider = createMemoryContextProvider(["reviewer", "coder"]);
+    const loops: AgentLoop[] = [];
 
     // Reviewer behavior: request code review, then acknowledge
     const reviewerBackend = createMockBackend(
-      'reviewer',
+      "reviewer",
       async (prompt, p) => {
-        const inbox = getInboxSection(prompt)
-        if (inbox.includes('review this')) {
-          await p.appendChannel('reviewer', 'Starting review... @coder looks good!')
-        } else if (inbox.includes('fixed')) {
-          await p.appendChannel('reviewer', 'LGTM, approved!')
+        const inbox = getInboxSection(prompt);
+        if (inbox.includes("review this")) {
+          await p.appendChannel("reviewer", "Starting review... @coder looks good!");
+        } else if (inbox.includes("fixed")) {
+          await p.appendChannel("reviewer", "LGTM, approved!");
         }
       },
-      provider
-    )
+      provider,
+    );
 
     // Coder behavior: respond to reviewer feedback
     const coderBackend = createMockBackend(
-      'coder',
+      "coder",
       async (prompt, p) => {
-        const inbox = getInboxSection(prompt)
-        if (inbox.includes('looks good')) {
-          await p.appendChannel('coder', '@reviewer fixed the issues')
+        const inbox = getInboxSection(prompt);
+        if (inbox.includes("looks good")) {
+          await p.appendChannel("coder", "@reviewer fixed the issues");
         }
       },
-      provider
-    )
+      provider,
+    );
 
     const reviewer = createAgentLoop({
-      name: 'reviewer',
+      name: "reviewer",
       agent: mockAgent,
       contextProvider: provider,
-      mcpUrl: 'http://127.0.0.1:0/mcp',
+      mcpUrl: "http://127.0.0.1:0/mcp",
       backend: reviewerBackend,
-      workspaceDir: '/tmp/workspace',
-      projectDir: '/tmp/project',
+      workspaceDir: "/tmp/workspace",
+      projectDir: "/tmp/project",
       pollInterval: 30,
-    })
+    });
 
     const coder = createAgentLoop({
-      name: 'coder',
+      name: "coder",
       agent: mockAgent,
       contextProvider: provider,
-      mcpUrl: 'http://127.0.0.1:0/mcp',
+      mcpUrl: "http://127.0.0.1:0/mcp",
       backend: coderBackend,
-      workspaceDir: '/tmp/workspace',
-      projectDir: '/tmp/project',
+      workspaceDir: "/tmp/workspace",
+      projectDir: "/tmp/project",
       pollInterval: 30,
-    })
+    });
 
-    loops.push(reviewer, coder)
+    loops.push(reviewer, coder);
 
     // Start loops
-    await reviewer.start()
-    await coder.start()
+    await reviewer.start();
+    await coder.start();
 
     // Kickoff
-    await provider.appendChannel('user', '@reviewer please review this PR')
-    reviewer.wake()
+    await provider.appendChannel("user", "@reviewer please review this PR");
+    reviewer.wake();
 
     // Wait for conversation to complete
     await waitFor(async () => {
-      const entries = await provider.readChannel()
-      return entries.some((e) => e.content.includes('approved'))
-    })
+      const entries = await provider.readChannel();
+      return entries.some((e) => e.content.includes("approved"));
+    });
 
     // Verify conversation flow
-    const entries = await provider.readChannel()
-    const messages = entries.map((e) => `${e.from}: ${e.content}`)
+    const entries = await provider.readChannel();
+    const messages = entries.map((e) => `${e.from}: ${e.content}`);
 
-    expect(messages).toContainEqual(expect.stringContaining('user: @reviewer'))
-    expect(messages).toContainEqual(expect.stringContaining('reviewer: Starting review'))
-    expect(messages).toContainEqual(expect.stringContaining('coder: @reviewer fixed'))
-    expect(messages).toContainEqual(expect.stringContaining('reviewer: LGTM'))
+    expect(messages).toContainEqual(expect.stringContaining("user: @reviewer"));
+    expect(messages).toContainEqual(expect.stringContaining("reviewer: Starting review"));
+    expect(messages).toContainEqual(expect.stringContaining("coder: @reviewer fixed"));
+    expect(messages).toContainEqual(expect.stringContaining("reviewer: LGTM"));
 
     // Cleanup
-    await Promise.all(loops.map((c) => c.stop()))
-  })
+    await Promise.all(loops.map((c) => c.stop()));
+  });
 
-  test('agents vote on a proposal', async () => {
-    const provider = createMemoryContextProvider(['alice', 'bob', 'charlie'])
+  test("agents vote on a proposal", async () => {
+    const provider = createMemoryContextProvider(["alice", "bob", "charlie"]);
     const proposalManager = createProposalManager({
       storage: new MemoryStorage(),
-      validAgents: ['alice', 'bob', 'charlie'],
-    })
+      validAgents: ["alice", "bob", "charlie"],
+    });
 
-    const loops: AgentLoop[] = []
-    let proposal: Awaited<ReturnType<typeof proposalManager.create>> | null = null
+    const loops: AgentLoop[] = [];
+    let proposal: Awaited<ReturnType<typeof proposalManager.create>> | null = null;
 
     // Alice creates proposal and votes
     const aliceBackend = createMockBackend(
-      'alice',
+      "alice",
       async (prompt, p) => {
-        const inbox = getInboxSection(prompt)
-        if (inbox.includes('decide')) {
+        const inbox = getInboxSection(prompt);
+        if (inbox.includes("decide")) {
           proposal = await proposalManager.create({
-            type: 'decision',
-            title: 'Choose database',
+            type: "decision",
+            title: "Choose database",
             options: [
-              { id: 'postgres', label: 'PostgreSQL' },
-              { id: 'mysql', label: 'MySQL' },
+              { id: "postgres", label: "PostgreSQL" },
+              { id: "mysql", label: "MySQL" },
             ],
-            createdBy: 'alice',
-          })
-          await proposalManager.vote({ proposalId: proposal.id, voter: 'alice', choice: 'postgres' })
-          await p.appendChannel('alice', `Created ${proposal.id}. @bob @charlie please vote!`)
+            createdBy: "alice",
+          });
+          await proposalManager.vote({
+            proposalId: proposal.id,
+            voter: "alice",
+            choice: "postgres",
+          });
+          await p.appendChannel("alice", `Created ${proposal.id}. @bob @charlie please vote!`);
         }
       },
-      provider
-    )
+      provider,
+    );
 
     // Bob votes
     const bobBackend = createMockBackend(
-      'bob',
+      "bob",
       async (prompt, _p) => {
-        const inbox = getInboxSection(prompt)
-        if (proposal && inbox.includes('please vote')) {
-          await proposalManager.vote({ proposalId: proposal.id, voter: 'bob', choice: 'postgres' })
+        const inbox = getInboxSection(prompt);
+        if (proposal && inbox.includes("please vote")) {
+          await proposalManager.vote({ proposalId: proposal.id, voter: "bob", choice: "postgres" });
         }
       },
-      provider
-    )
+      provider,
+    );
 
     // Charlie votes
     const charlieBackend = createMockBackend(
-      'charlie',
+      "charlie",
       async (prompt, _p) => {
-        const inbox = getInboxSection(prompt)
-        if (proposal && inbox.includes('please vote')) {
-          await proposalManager.vote({ proposalId: proposal.id, voter: 'charlie', choice: 'mysql' })
+        const inbox = getInboxSection(prompt);
+        if (proposal && inbox.includes("please vote")) {
+          await proposalManager.vote({
+            proposalId: proposal.id,
+            voter: "charlie",
+            choice: "mysql",
+          });
         }
       },
-      provider
-    )
+      provider,
+    );
 
     const alice = createAgentLoop({
-      name: 'alice',
+      name: "alice",
       agent: mockAgent,
       contextProvider: provider,
-      mcpUrl: 'http://127.0.0.1:0/mcp',
+      mcpUrl: "http://127.0.0.1:0/mcp",
       backend: aliceBackend,
       pollInterval: 30,
-      workspaceDir: '/tmp/workspace',
-      projectDir: '/tmp/project',
-    })
+      workspaceDir: "/tmp/workspace",
+      projectDir: "/tmp/project",
+    });
 
     const bob = createAgentLoop({
-      name: 'bob',
+      name: "bob",
       agent: mockAgent,
       contextProvider: provider,
-      mcpUrl: 'http://127.0.0.1:0/mcp',
+      mcpUrl: "http://127.0.0.1:0/mcp",
       backend: bobBackend,
       pollInterval: 30,
-      workspaceDir: '/tmp/workspace',
-      projectDir: '/tmp/project',
-    })
+      workspaceDir: "/tmp/workspace",
+      projectDir: "/tmp/project",
+    });
 
     const charlie = createAgentLoop({
-      name: 'charlie',
+      name: "charlie",
       agent: mockAgent,
       contextProvider: provider,
-      mcpUrl: 'http://127.0.0.1:0/mcp',
+      mcpUrl: "http://127.0.0.1:0/mcp",
       backend: charlieBackend,
       pollInterval: 30,
-      workspaceDir: '/tmp/workspace',
-      projectDir: '/tmp/project',
-    })
+      workspaceDir: "/tmp/workspace",
+      projectDir: "/tmp/project",
+    });
 
-    loops.push(alice, bob, charlie)
+    loops.push(alice, bob, charlie);
 
     // Start loops
-    await Promise.all(loops.map((c) => c.start()))
+    await Promise.all(loops.map((c) => c.start()));
 
     // Kickoff
-    await provider.appendChannel('user', '@alice please decide on database')
-    alice.wake()
+    await provider.appendChannel("user", "@alice please decide on database");
+    alice.wake();
 
     // Wait for proposal creation and votes
     await waitFor(async () => {
-      if (!proposal) return false
-      const p = await proposalManager.get(proposal.id)
-      return p?.status === 'resolved'
-    })
+      if (!proposal) return false;
+      const p = await proposalManager.get(proposal.id);
+      return p?.status === "resolved";
+    });
 
     // Verify proposal resolved with correct winner
-    const finalProposal = await proposalManager.get(proposal!.id)
-    expect(finalProposal?.status).toBe('resolved')
-    expect(finalProposal?.result?.winner).toBe('postgres')
-    expect(finalProposal?.result?.counts['postgres']).toBe(2)
-    expect(finalProposal?.result?.counts['mysql']).toBe(1)
+    const finalProposal = await proposalManager.get(proposal!.id);
+    expect(finalProposal?.status).toBe("resolved");
+    expect(finalProposal?.result?.winner).toBe("postgres");
+    expect(finalProposal?.result?.counts["postgres"]).toBe(2);
+    expect(finalProposal?.result?.counts["mysql"]).toBe(1);
 
     // Cleanup
-    await Promise.all(loops.map((c) => c.stop()))
-  })
+    await Promise.all(loops.map((c) => c.stop()));
+  });
 
-  test('idle detection works correctly', async () => {
-    const provider = createMemoryContextProvider(['agent1', 'agent2'])
-    const loops = new Map<string, AgentLoop>()
+  test("idle detection works correctly", async () => {
+    const provider = createMemoryContextProvider(["agent1", "agent2"]);
+    const loops = new Map<string, AgentLoop>();
 
     const backend: Backend = {
-      type: 'claude' as const,
+      type: "claude" as const,
       async send() {
-        return { content: 'ok' }
+        return { content: "ok" };
       },
-    }
+    };
 
     const agent1 = createAgentLoop({
-      name: 'agent1',
+      name: "agent1",
       agent: mockAgent,
       contextProvider: provider,
-      mcpUrl: 'http://127.0.0.1:0/mcp',
+      mcpUrl: "http://127.0.0.1:0/mcp",
       backend,
       pollInterval: 30,
-      workspaceDir: '/tmp/workspace',
-      projectDir: '/tmp/project',
-    })
+      workspaceDir: "/tmp/workspace",
+      projectDir: "/tmp/project",
+    });
 
     const agent2 = createAgentLoop({
-      name: 'agent2',
+      name: "agent2",
       agent: mockAgent,
       contextProvider: provider,
-      mcpUrl: 'http://127.0.0.1:0/mcp',
+      mcpUrl: "http://127.0.0.1:0/mcp",
       backend,
       pollInterval: 30,
-      workspaceDir: '/tmp/workspace',
-      projectDir: '/tmp/project',
-    })
+      workspaceDir: "/tmp/workspace",
+      projectDir: "/tmp/project",
+    });
 
-    loops.set('agent1', agent1)
-    loops.set('agent2', agent2)
+    loops.set("agent1", agent1);
+    loops.set("agent2", agent2);
 
-    await agent1.start()
-    await agent2.start()
+    await agent1.start();
+    await agent2.start();
 
     // Initially should be idle (no messages)
-    await waitFor(() => agent1.state === 'idle' && agent2.state === 'idle')
+    await waitFor(() => agent1.state === "idle" && agent2.state === "idle");
 
-    const isIdle = await checkWorkflowIdle(loops, provider, 50)
-    expect(isIdle).toBe(true)
+    const isIdle = await checkWorkflowIdle(loops, provider, 50);
+    expect(isIdle).toBe(true);
 
     // Add a message - no longer idle
-    await provider.appendChannel('user', '@agent1 do something')
+    await provider.appendChannel("user", "@agent1 do something");
 
     // Check inbox has message
-    const inbox = await provider.getInbox('agent1')
-    expect(inbox.length).toBe(1)
+    const inbox = await provider.getInbox("agent1");
+    expect(inbox.length).toBe(1);
 
     // Cleanup
-    await agent1.stop()
-    await agent2.stop()
-  })
+    await agent1.stop();
+    await agent2.stop();
+  });
 
-  test('agent retry on failure', async () => {
-    const provider = createMemoryContextProvider(['worker'])
-    let attempts = 0
+  test("agent retry on failure", async () => {
+    const provider = createMemoryContextProvider(["worker"]);
+    let attempts = 0;
 
     const backend: Backend = {
-      type: 'claude' as const,
+      type: "claude" as const,
       async send() {
-        attempts++
+        attempts++;
         if (attempts < 3) {
-          throw new Error('Temporary failure')
+          throw new Error("Temporary failure");
         }
-        await provider.appendChannel('worker', 'Task completed after retries')
-        return { content: 'ok' }
+        await provider.appendChannel("worker", "Task completed after retries");
+        return { content: "ok" };
       },
-    }
+    };
 
     const worker = createAgentLoop({
-      name: 'worker',
+      name: "worker",
       agent: mockAgent,
       contextProvider: provider,
-      mcpUrl: 'http://127.0.0.1:0/mcp',
+      mcpUrl: "http://127.0.0.1:0/mcp",
       backend,
       pollInterval: 30,
       retry: { maxAttempts: 3, backoffMs: 10, backoffMultiplier: 1 },
-      workspaceDir: '/tmp/workspace',
-      projectDir: '/tmp/project',
-    })
+      workspaceDir: "/tmp/workspace",
+      projectDir: "/tmp/project",
+    });
 
-    await worker.start()
+    await worker.start();
 
     // Trigger worker
-    await provider.appendChannel('user', '@worker do task')
-    worker.wake()
+    await provider.appendChannel("user", "@worker do task");
+    worker.wake();
 
     // Wait for success after retries
     await waitFor(async () => {
-      const entries = await provider.readChannel()
-      return entries.some((e) => e.content.includes('completed after retries'))
-    })
+      const entries = await provider.readChannel();
+      return entries.some((e) => e.content.includes("completed after retries"));
+    });
 
-    expect(attempts).toBe(3)
+    expect(attempts).toBe(3);
 
     // Inbox should be acknowledged
-    const inbox = await provider.getInbox('worker')
-    expect(inbox.length).toBe(0)
+    const inbox = await provider.getInbox("worker");
+    expect(inbox.length).toBe(0);
 
-    await worker.stop()
-  })
-})
+    await worker.stop();
+  });
+});

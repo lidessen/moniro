@@ -36,12 +36,14 @@ Progress notes, blockers, related context.
 ## When to Use Local Todos
 
 Use `.memory/todos/` when:
+
 - Working offline
 - No GitHub/GitLab configured
 - Quick personal tasks
 - Project doesn't use Issues
 
 Use GitHub/GitLab Issues when:
+
 - Cross-device sync needed
 - Team visibility required
 - Want notifications/assignees

@@ -108,11 +108,7 @@ function registerTestAgent(
 }
 
 /** Register an ephemeral agent with a pre-wired loop */
-function registerTestAgentWithLoop(
-  s: DaemonState,
-  name: string,
-  loop: AgentLoop,
-): void {
+function registerTestAgentWithLoop(s: DaemonState, name: string, loop: AgentLoop): void {
   registerTestAgent(s, name);
   const handle = s.agents.get(name)!;
   handle.loop = loop;
@@ -303,7 +299,9 @@ describe("Daemon API", () => {
       registerTestAgent(testState, "alice");
       let shutdownCalled = false;
       const ws = createMockWorkspace();
-      ws.shutdown = async () => { shutdownCalled = true; };
+      ws.shutdown = async () => {
+        shutdownCalled = true;
+      };
       testState.workspaces.set("agent:alice", ws);
 
       await app.request("/agents/alice", { method: "DELETE" });
@@ -315,7 +313,9 @@ describe("Daemon API", () => {
     test("stops agent loop on removal", async () => {
       const loop = createMockLoop();
       let stopCalled = false;
-      loop.stop = async () => { stopCalled = true; };
+      loop.stop = async () => {
+        stopCalled = true;
+      };
       registerTestAgentWithLoop(testState, "alice", loop);
 
       await app.request("/agents/alice", { method: "DELETE" });
@@ -696,13 +696,15 @@ describe("Daemon API", () => {
       const loopA = createMockLoop("from-review");
       const loopB = createMockLoop("from-deploy");
 
-      testState.workflows.set("review:main", createMockWorkflowHandle(
-        "review", "main", ["alice"], new Map([["alice", loopA]]),
-      ));
+      testState.workflows.set(
+        "review:main",
+        createMockWorkflowHandle("review", "main", ["alice"], new Map([["alice", loopA]])),
+      );
 
-      testState.workflows.set("deploy:main", createMockWorkflowHandle(
-        "deploy", "main", ["bob"], new Map([["bob", loopB]]),
-      ));
+      testState.workflows.set(
+        "deploy:main",
+        createMockWorkflowHandle("deploy", "main", ["bob"], new Map([["bob", loopB]])),
+      );
 
       // alice should be found in review workflow
       registerTestAgent(testState, "alice");
@@ -721,7 +723,9 @@ describe("Daemon API", () => {
       registerTestAgent(testState, "alice");
       let shutdownCalled = false;
       const ws = createMockWorkspace();
-      ws.shutdown = async () => { shutdownCalled = true; };
+      ws.shutdown = async () => {
+        shutdownCalled = true;
+      };
       testState.workspaces.set("agent:alice", ws);
 
       // Also wire a loop
@@ -766,9 +770,15 @@ describe("Daemon API", () => {
       registerTestAgent(testState, "alice");
 
       // Workflow with inline agent
-      testState.workflows.set("review:main", createMockWorkflowHandle(
-        "review", "main", ["reviewer"], new Map([["reviewer", createMockLoop()]]),
-      ));
+      testState.workflows.set(
+        "review:main",
+        createMockWorkflowHandle(
+          "review",
+          "main",
+          ["reviewer"],
+          new Map([["reviewer", createMockLoop()]]),
+        ),
+      );
 
       const res = await app.request("/agents");
       const data = await json(res);

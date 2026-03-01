@@ -19,16 +19,16 @@
 # Required
 agents:
   agent_name:
-    model: provider/model           # Required
-    system_prompt: string | path    # Required
+    model: provider/model # Required
+    system_prompt: string | path # Required
 
 # Optional
 context:
-  provider: file | memory           # Default: file
+  provider: file | memory # Default: file
   config:
-    dir: ./path/                    # Default: .workflow/{instance}/
-    channel: channel.md             # Default
-    document: document.md           # Default
+    dir: ./path/ # Default: .workflow/{instance}/
+    channel: channel.md # Default
+    document: document.md # Default
 
 setup:
   - shell: command
@@ -51,10 +51,11 @@ agents:
 
   coder:
     model: openai/gpt-5.2
-    system_prompt: prompts/coder.md   # Load from file
+    system_prompt: prompts/coder.md # Load from file
 ```
 
 **Model formats**:
+
 - Gateway: `provider/model` (recommended)
 - Provider-only: `anthropic` (uses frontier model)
 - Direct: `provider:model`
@@ -126,6 +127,7 @@ kickoff: |
 ```
 
 **Reserved variables**:
+
 - `${{ env.VAR }}` - Environment variables
 - `${{ workflow.name }}` - Workflow file name
 - `${{ workflow.instance }}` - Instance ID
@@ -171,27 +173,27 @@ Agents receive these tools via MCP:
 
 ### Channel Tools
 
-| Tool | Description |
-|------|-------------|
+| Tool           | Description                                  |
+| -------------- | -------------------------------------------- |
 | `channel_send` | Post message to channel (supports @mentions) |
-| `channel_read` | Read channel history |
-| `inbox_read` | Read messages directed to this agent |
-| `inbox_ack` | Acknowledge processed messages |
+| `channel_read` | Read channel history                         |
+| `inbox_read`   | Read messages directed to this agent         |
+| `inbox_ack`    | Acknowledge processed messages               |
 
 ### Document Tools
 
-| Tool | Description |
-|------|-------------|
-| `document_read` | Read document content |
-| `document_write` | Replace document content |
-| `document_append` | Append to document |
-| `document_list` | List document files |
+| Tool              | Description              |
+| ----------------- | ------------------------ |
+| `document_read`   | Read document content    |
+| `document_write`  | Replace document content |
+| `document_append` | Append to document       |
+| `document_list`   | List document files      |
 | `document_create` | Create new document file |
 
 ### Workflow Tools
 
-| Tool | Description |
-|------|-------------|
+| Tool              | Description                 |
+| ----------------- | --------------------------- |
 | `workflow_agents` | List all agents in workflow |
 
 ---
@@ -205,45 +207,45 @@ For collaborative decision-making between agents.
 ```typescript
 // Via MCP tool call
 proposal_create({
-  type: 'decision',        // election | decision | approval | assignment
-  title: 'Choose database',
+  type: "decision", // election | decision | approval | assignment
+  title: "Choose database",
   options: [
-    { id: 'postgres', label: 'PostgreSQL' },
-    { id: 'mysql', label: 'MySQL' }
+    { id: "postgres", label: "PostgreSQL" },
+    { id: "mysql", label: "MySQL" },
   ],
   resolution: {
-    type: 'plurality',     // plurality | majority | unanimous
-    quorum: 2,             // Optional, defaults to all agents
-    tieBreaker: 'first'    // first | random | creator-decides
-  }
-})
+    type: "plurality", // plurality | majority | unanimous
+    quorum: 2, // Optional, defaults to all agents
+    tieBreaker: "first", // first | random | creator-decides
+  },
+});
 ```
 
 ### Voting
 
 ```typescript
 vote({
-  proposal: 'prop-1',
-  choice: 'postgres',
-  reason: 'Better JSON support'  // Optional
-})
+  proposal: "prop-1",
+  choice: "postgres",
+  reason: "Better JSON support", // Optional
+});
 ```
 
 ### Checking Status
 
 ```typescript
-proposal_status({ proposal: 'prop-1' })
+proposal_status({ proposal: "prop-1" });
 // or
-proposal_status({})  // All active proposals
+proposal_status({}); // All active proposals
 ```
 
 ### Resolution Types
 
-| Type | Requirement |
-|------|-------------|
+| Type        | Requirement                       |
+| ----------- | --------------------------------- |
 | `plurality` | Most votes wins (quorum required) |
-| `majority` | >50% of votes cast |
-| `unanimous` | All votes same option |
+| `majority`  | >50% of votes cast                |
+| `unanimous` | All votes same option             |
 
 ### Lifecycle
 

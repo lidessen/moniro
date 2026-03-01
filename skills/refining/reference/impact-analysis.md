@@ -23,6 +23,7 @@ Critical for: signature changes, shared utilities, data model changes, breaking 
 ## When to Perform
 
 **Always analyze impact for**:
+
 - Function signature changes (parameters, return type)
 - Modified public APIs or exported functions
 - Changed interfaces, types, or data structures
@@ -32,6 +33,7 @@ Critical for: signature changes, shared utilities, data model changes, breaking 
 - Breaking changes
 
 **Skip impact analysis for**:
+
 - Brand new functions (no existing callers)
 - Private helper functions with local scope
 - Internal implementation changes (signature unchanged)
@@ -42,12 +44,14 @@ Critical for: signature changes, shared utilities, data model changes, breaking 
 ### 1. Function/Method Changes
 
 **Detect signature changes**:
+
 ```bash
 # Find modified function signatures
 git diff <from>..<to> -- path/to/file.ts | grep -E "^[-+].*\b(function|def|async|export)\b"
 ```
 
 **For each changed function**:
+
 ```bash
 # Find all call sites
 grep -r "functionName" --include="*.ts" --include="*.tsx" .
@@ -59,12 +63,14 @@ grep -r "functionName" --include="*.ts" --include="*.tsx" .
 ```
 
 **Check**:
+
 - [ ] All call sites still pass correct parameters
 - [ ] Return type changes handled by callers
 - [ ] Optional parameters have defaults or callers updated
 - [ ] Removed parameters no longer used anywhere
 
 **Example**:
+
 ```typescript
 // Changed from:
 - function getUserById(id: string): User
@@ -81,11 +87,13 @@ grep -r "functionName" --include="*.ts" --include="*.tsx" .
 ### 2. Interface/Type Changes
 
 **Detect type changes**:
+
 ```bash
 git diff <from>..<to> -- path/to/types.ts | grep -E "^[-+].*(interface|type|enum)\b"
 ```
 
 **For each changed type**:
+
 ```bash
 # Find all usage
 grep -r "TypeName" --include="*.ts" .
@@ -95,6 +103,7 @@ grep -r "implements TypeName\|extends TypeName" --include="*.ts" .
 ```
 
 **Check**:
+
 - [ ] All implementations updated for new/removed fields
 - [ ] Serialization/deserialization handles new structure
 - [ ] Database schema aligned if type maps to DB
@@ -102,6 +111,7 @@ grep -r "implements TypeName\|extends TypeName" --include="*.ts" .
 - [ ] Migration path for existing data
 
 **Example**:
+
 ```typescript
 // Changed:
   interface User {
@@ -122,6 +132,7 @@ grep -r "implements TypeName\|extends TypeName" --include="*.ts" .
 ### 3. Data Model/Schema Changes
 
 **For database changes**:
+
 ```bash
 # Find migration files
 git diff <from>..<to> -- **/migrations/*.sql
@@ -131,6 +142,7 @@ git diff <from>..<to> -- **/models/*.ts **/models/*.py
 ```
 
 **Verify complete data flow**:
+
 - [ ] **Migration**: ALTER/CREATE statements present
 - [ ] **Rollback**: DOWN migration exists (for safe rollback)
 - [ ] **Backend model**: Updated to match schema
@@ -140,6 +152,7 @@ git diff <from>..<to> -- **/models/*.ts **/models/*.py
 - [ ] **Tests**: Updated for new schema
 
 **Example**:
+
 ```sql
 -- Migration adds column:
 + ALTER TABLE users ADD COLUMN phone VARCHAR(20);
@@ -157,6 +170,7 @@ git diff <from>..<to> -- **/models/*.ts **/models/*.py
 ### 4. Shared Utility Changes
 
 **Identify shared utilities**:
+
 ```bash
 # Find utilities (common patterns)
 find . -path "*/utils/*" -o -path "*/helpers/*" -o -path "*/lib/*" -o -path "*/core/*"
@@ -166,6 +180,7 @@ git diff <from>..<to> --name-only | grep -E "(utils|helpers|lib|core)/"
 ```
 
 **For each modified utility**:
+
 ```bash
 # Find all imports
 grep -r "from.*utilName\|import.*utilName" --include="*.ts" --include="*.py" .
@@ -175,6 +190,7 @@ grep -r "utilFunctionName" --include="*.ts" | wc -l
 ```
 
 **High usage (>10 call sites) = high risk**:
+
 - [ ] Review utility change carefully
 - [ ] Sample 3-5 diverse call sites to verify compatibility
 - [ ] Check if change is backward compatible
@@ -182,6 +198,7 @@ grep -r "utilFunctionName" --include="*.ts" | wc -l
 - [ ] Ensure tests cover main use cases
 
 **Example**:
+
 ```typescript
 // Utility change in utils/validation.ts:
 - export function validateEmail(email: string): boolean
@@ -224,6 +241,7 @@ grep -r "utilFunctionName" --include="*.ts" | wc -l
 ## Common Impact Patterns
 
 ### Pattern 1: Function Signature Breaking Change
+
 ```
 Change: Required parameter added
 Impact: All N call sites must update
@@ -231,6 +249,7 @@ Action: Verify all sites updated OR make parameter optional
 ```
 
 ### Pattern 2: Data Model Evolution
+
 ```
 Change: New field in database
 Impact: Full stack (DB → API → UI)
@@ -238,6 +257,7 @@ Action: Trace data flow end-to-end, verify each layer updated
 ```
 
 ### Pattern 3: Shared Utility Refactor
+
 ```
 Change: Internal logic improved, signature unchanged
 Impact: None (backward compatible)
@@ -245,6 +265,7 @@ Action: Trust tests, spot-check 2-3 call sites
 ```
 
 ### Pattern 4: Interface Extension
+
 ```
 Change: New optional field in interface
 Impact: Implementations don't break (optional)
@@ -252,6 +273,7 @@ Action: Verify new field used where intended, old code still works
 ```
 
 ### Pattern 5: API Contract Change
+
 ```
 Change: REST endpoint parameter renamed
 Impact: Breaking for all API consumers
@@ -261,25 +283,30 @@ Action: Version API, document migration, verify clients updated
 ## Tools by Language
 
 **TypeScript/JavaScript**:
+
 - `tsc --noEmit`: Type errors reveal incompatible call sites
 - `grep -r "functionName"`: Find usage
 - IDE "Find All References": Most accurate
 
 **Python**:
+
 - `mypy`: Type check reveals issues
 - `grep -r "function_name"`: Find usage
 - `pytest`: Run tests to catch runtime issues
 
 **Go**:
+
 - `go build`: Compile errors show incompatibilities
 - `go test`: Run tests
 - `grep -r "FunctionName"`: Find usage
 
 **Java**:
+
 - `javac` or IDE: Compile errors
 - `grep -r "methodName"`: Find usage
 
 **Rust**:
+
 - `cargo check`: Borrow checker catches issues
 - `cargo test`: Verify changes
 - `grep -r "function_name"`: Find usage
@@ -287,10 +314,11 @@ Action: Version API, document migration, verify clients updated
 ## Red Flags
 
 🚩 **High-risk scenarios**:
+
 - Shared utility changed, no tests ran
 - Data type changed, no migration file
 - Public API modified, no version bump
-- >50 call sites affected by breaking change
+- > 50 call sites affected by breaking change
 - Core function signature changed without deprecation cycle
 
 ## Efficiency Tips

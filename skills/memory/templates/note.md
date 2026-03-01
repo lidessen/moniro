@@ -28,6 +28,7 @@ The actual knowledge/information.
 ## Usage
 
 Notes capture knowledge that doesn't fit other categories:
+
 - Learnings from debugging sessions
 - External references and resources
 - Project-specific patterns discovered
@@ -36,6 +37,7 @@ Notes capture knowledge that doesn't fit other categories:
 ## Tags
 
 Common note tags:
+
 - `architecture` - System design insights
 - `debugging` - Solutions to tricky problems
 - `external` - Third-party documentation/APIs

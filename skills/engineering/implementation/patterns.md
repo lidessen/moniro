@@ -375,18 +375,19 @@ Right mindset:
 
 Signs you might need a pattern:
 
-| Smell | Consider |
-|-------|----------|
-| Long switch/if-else on type | Strategy, Factory |
-| Duplicate code with variations | Template Method, Strategy |
-| Complex object construction | Builder, Factory |
-| Need to notify multiple objects | Observer |
-| Data access mixed with logic | Repository |
-| Hard to test due to dependencies | Dependency Injection |
+| Smell                            | Consider                  |
+| -------------------------------- | ------------------------- |
+| Long switch/if-else on type      | Strategy, Factory         |
+| Duplicate code with variations   | Template Method, Strategy |
+| Complex object construction      | Builder, Factory          |
+| Need to notify multiple objects  | Observer                  |
+| Data access mixed with logic     | Repository                |
+| Hard to test due to dependencies | Dependency Injection      |
 
 ### Pattern Costs
 
 Every pattern has cost:
+
 - **Indirection**: More classes, harder to follow
 - **Complexity**: Must understand pattern to read code
 - **Overhead**: Sometimes slower

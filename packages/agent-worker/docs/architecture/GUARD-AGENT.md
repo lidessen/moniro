@@ -28,14 +28,14 @@ The Guard is not a security firewall (though it enables security). It's a **cont
 
 These emerged from studying OpenClaw, Nanobot (HKUDS), Letta/MemGPT, and academic research on multi-agent memory:
 
-| Principle | Source | Application |
-|-----------|--------|-------------|
-| Files are source of truth, indexes are derived | OpenClaw | Markdown/YAML are authoritative; SQLite is acceleration |
-| LLM-as-memory-curator | HKUDS/nanobot | The Guard uses LLM reasoning to decide what to remember |
-| Per-agent isolation by default | Letta, Collaborative Memory | Agents own their memory; sharing is explicit |
-| Progressive context assembly | HKUDS ContextBuilder | Load identity first, then memory, then task context |
-| Layered mediation | Microsoft, Google ADK | Guard operates at multiple interception points |
-| Behavioral identity over aspirational | Nobody Agents, OpenClaw | Soul describes what agent does, not what it "is" |
+| Principle                                      | Source                      | Application                                             |
+| ---------------------------------------------- | --------------------------- | ------------------------------------------------------- |
+| Files are source of truth, indexes are derived | OpenClaw                    | Markdown/YAML are authoritative; SQLite is acceleration |
+| LLM-as-memory-curator                          | HKUDS/nanobot               | The Guard uses LLM reasoning to decide what to remember |
+| Per-agent isolation by default                 | Letta, Collaborative Memory | Agents own their memory; sharing is explicit            |
+| Progressive context assembly                   | HKUDS ContextBuilder        | Load identity first, then memory, then task context     |
+| Layered mediation                              | Microsoft, Google ADK       | Guard operates at multiple interception points          |
+| Behavioral identity over aspirational          | Nobody Agents, OpenClaw     | Soul describes what agent does, not what it "is"        |
 
 ---
 
@@ -113,11 +113,11 @@ Guard.assembleContext(alice, workflow, task)
 
 **Key insight from HKUDS/nanobot**: Two-tier memory works. "What I know" (always loaded) vs "what happened" (searched on demand). The Guard maintains this distinction:
 
-| Tier | Contents | Loading Strategy |
-|------|----------|-----------------|
-| Core memory | Soul, key facts, active patterns | Always in context |
-| Working memory | Recent learnings, task-specific notes | Selected by relevance |
-| Archive | Historical notes, past decisions | Searched on demand via query |
+| Tier           | Contents                              | Loading Strategy             |
+| -------------- | ------------------------------------- | ---------------------------- |
+| Core memory    | Soul, key facts, active patterns      | Always in context            |
+| Working memory | Recent learnings, task-specific notes | Selected by relevance        |
+| Archive        | Historical notes, past decisions      | Searched on demand via query |
 
 #### 2. Memory Mediation
 
@@ -195,15 +195,15 @@ Guard.askAbout(from: alice, about: bob, query: "deploy pipeline")
 # In agent's memory store
 - key: auth-patterns
   content: "JWT with RSA-256, tokens expire in 1h, refresh via /auth/refresh"
-  visibility: shareable    # Other agents can ask about this
+  visibility: shareable # Other agents can ask about this
 
 - key: my-review-approach
   content: "I tend to miss concurrency bugs, so I now check for race conditions first"
-  visibility: private      # Only this agent and the Guard can see this
+  visibility: private # Only this agent and the Guard can see this
 
 - key: team-convention
   content: "We use conventional commits with scope prefix"
-  visibility: public       # Automatically shared to workspace documents
+  visibility: public # Automatically shared to workspace documents
 ```
 
 #### 3. Identity Governance
@@ -242,6 +242,7 @@ Guard observes alice's behavior across sessions
 ```
 
 Every soul change is:
+
 - Versioned (can be diffed, rolled back)
 - Annotated (why the change was proposed)
 - Logged (who proposed it, when, based on what evidence)
@@ -253,6 +254,7 @@ Every soul change is:
 ### Why Not Pure Files?
 
 File-based storage (current) works for simple cases but fails at:
+
 - **Querying**: "What did alice learn about auth in the last week?" requires scanning all files
 - **Concurrency**: Multiple agents writing to the same directory risks race conditions
 - **Search**: Semantic search over markdown requires external indexing anyway
@@ -261,6 +263,7 @@ File-based storage (current) works for simple cases but fails at:
 ### Why Not Pure SQLite?
 
 Pure database loses:
+
 - **Human readability**: Can't browse agent memory in an editor
 - **Git-friendliness**: Binary SQLite files don't diff well
 - **LLM compatibility**: Models are trained on files, not SQL
@@ -360,6 +363,7 @@ finalScore = vectorWeight * cosineSimilarity + textWeight * bm25Score
 Default weights: 70% vector, 30% BM25.
 
 Post-processing:
+
 - **MMR** (Maximal Marginal Relevance): Reduce redundant near-duplicate results
 - **Temporal decay**: `score * e^(-lambda * ageInDays)` with 30-day half-life
 - **Tier boost**: Core memory gets 2x multiplier, archive gets 0.5x
@@ -367,6 +371,7 @@ Post-processing:
 ### Embedding Strategy
 
 Start simple, upgrade as needed:
+
 1. **Phase 1**: BM25 only (FTS5, zero dependencies)
 2. **Phase 2**: Add vector search when accuracy matters (local GGUF model or API)
 3. **Phase 3**: Hybrid search with tunable weights
@@ -379,16 +384,16 @@ Start simple, upgrade as needed:
 
 **Hybrid.** Most operations are deterministic (search, filter, store, log). LLM reasoning is used only when judgment is needed:
 
-| Operation | Implementation |
-|-----------|---------------|
-| Memory search (query → results) | Deterministic (SQLite FTS5 + vec) |
-| Memory write (validate, classify) | LLM (is this worth remembering? what tier?) |
-| Context assembly (select, compress) | LLM (what's relevant to this task?) |
-| Cross-agent ask (filter, summarize) | LLM (summarize bob's knowledge for alice) |
-| Soul observation (detect patterns) | LLM (what patterns do I see in behavior?) |
-| Soul proposal (suggest updates) | LLM (how should soul evolve?) |
-| Audit logging | Deterministic |
-| Permission checks | Deterministic |
+| Operation                           | Implementation                              |
+| ----------------------------------- | ------------------------------------------- |
+| Memory search (query → results)     | Deterministic (SQLite FTS5 + vec)           |
+| Memory write (validate, classify)   | LLM (is this worth remembering? what tier?) |
+| Context assembly (select, compress) | LLM (what's relevant to this task?)         |
+| Cross-agent ask (filter, summarize) | LLM (summarize bob's knowledge for alice)   |
+| Soul observation (detect patterns)  | LLM (what patterns do I see in behavior?)   |
+| Soul proposal (suggest updates)     | LLM (how should soul evolve?)               |
+| Audit logging                       | Deterministic                               |
+| Permission checks                   | Deterministic                               |
 
 ### The Guard's Own Identity
 
@@ -497,11 +502,11 @@ context:
 # NEW: Memory configuration
 memory:
   # How much token budget for memory in context?
-  budget: 2000          # tokens allocated to memory in prompt
+  budget: 2000 # tokens allocated to memory in prompt
   # What tiers to auto-load vs search?
-  auto_load: [core]     # Always include core memory
-  search: [working]     # Search working memory by relevance
-  archive: on_demand    # Archive only via explicit recall
+  auto_load: [core] # Always include core memory
+  search: [working] # Search working memory by relevance
+  archive: on_demand # Archive only via explicit recall
 ```
 
 ### Updated Workflow Definition
@@ -523,7 +528,7 @@ guard:
   # Auto-store after each agent run?
   auto_store: true
   # Soul evolution mode
-  soul_evolution: propose  # propose | auto | disabled
+  soul_evolution: propose # propose | auto | disabled
 ```
 
 ### Updated Runtime Architecture
@@ -560,8 +565,8 @@ interface MemoryEntry {
   id: string;
   agent: string;
   content: string;
-  tier: 'core' | 'working' | 'archive';
-  visibility: 'private' | 'shareable' | 'public';
+  tier: "core" | "working" | "archive";
+  visibility: "private" | "shareable" | "public";
   sourceFile: string;
   lineRange?: { start: number; end: number };
   embedding?: Float32Array;
@@ -572,10 +577,10 @@ interface MemoryEntry {
 /** Search result from memory query */
 interface MemorySearchResult {
   entry: MemoryEntry;
-  score: number;           // Combined relevance score
-  vectorScore?: number;    // Semantic similarity
-  textScore?: number;      // BM25 keyword match
-  decayedScore: number;    // After temporal decay
+  score: number; // Combined relevance score
+  vectorScore?: number; // Semantic similarity
+  textScore?: number; // BM25 keyword match
+  decayedScore: number; // After temporal decay
 }
 
 /** Guard Agent interface */
@@ -602,11 +607,7 @@ interface GuardAgent {
   ): Promise<MemorySearchResult[]>;
 
   /** Cross-agent ask (mediated) */
-  askAbout(
-    from: string,
-    about: string,
-    query: string,
-  ): Promise<string>;
+  askAbout(from: string, about: string, query: string): Promise<string>;
 
   /** Get current soul for an agent */
   getSoul(agent: string): Promise<AgentSoul>;
@@ -650,12 +651,12 @@ interface AssembledContext {
 interface SoulProposal {
   id: string;
   agent: string;
-  observation: string;       // What behavior was observed
+  observation: string; // What behavior was observed
   currentSoul: AgentSoul;
   proposedSoul: AgentSoul;
-  diff: string;              // Human-readable diff
-  confidence: number;        // 0-1, how confident the Guard is
-  status: 'pending' | 'approved' | 'rejected' | 'auto-applied';
+  diff: string; // Human-readable diff
+  confidence: number; // 0-1, how confident the Guard is
+  status: "pending" | "approved" | "rejected" | "auto-applied";
   createdAt: string;
 }
 
@@ -663,12 +664,18 @@ interface SoulProposal {
 interface AuditEntry {
   id: string;
   timestamp: string;
-  actor: string;             // Who performed the action
-  action: 'memory_write' | 'memory_read' | 'memory_ask' | 'soul_read'
-        | 'soul_propose' | 'soul_apply' | 'context_assemble';
-  target: string;            // Target agent
-  query?: string;            // For search operations
-  resultCount?: number;      // How many results returned
+  actor: string; // Who performed the action
+  action:
+    | "memory_write"
+    | "memory_read"
+    | "memory_ask"
+    | "soul_read"
+    | "soul_propose"
+    | "soul_apply"
+    | "context_assemble";
+  target: string; // Target agent
+  query?: string; // For search operations
+  resultCount?: number; // How many results returned
   metadata?: Record<string, unknown>;
 }
 ```
@@ -733,18 +740,19 @@ interface AuditEntry {
 
 ## Comparison with External Systems
 
-| Feature | Our Guard | OpenClaw | HKUDS/nanobot | Letta/MemGPT |
-|---------|-----------|----------|---------------|-------------|
-| Context assembly | Guard agent | Context Window Guard | ContextBuilder | Memory manager |
-| Memory storage | Files + SQLite | Files + SQLite | Markdown only | SQLite/Postgres |
-| Memory search | FTS5 → hybrid | Hybrid (vec+BM25) | grep | Vector + keyword |
-| Cross-agent memory | Ask protocol | Agent-to-agent messaging | No shared memory | Shared blocks |
-| Identity management | Soul versioning | SOUL.md + IDENTITY.md | SOUL.md | Persona blocks |
-| Identity evolution | Guard proposes | Manual / hook-based | Manual | Manual |
-| Audit trail | SQLite log | JSONL | None | None |
-| LLM in mediation | Yes (curation) | Yes (compaction) | Yes (consolidation) | Yes (memory mgmt) |
+| Feature             | Our Guard       | OpenClaw                 | HKUDS/nanobot       | Letta/MemGPT      |
+| ------------------- | --------------- | ------------------------ | ------------------- | ----------------- |
+| Context assembly    | Guard agent     | Context Window Guard     | ContextBuilder      | Memory manager    |
+| Memory storage      | Files + SQLite  | Files + SQLite           | Markdown only       | SQLite/Postgres   |
+| Memory search       | FTS5 → hybrid   | Hybrid (vec+BM25)        | grep                | Vector + keyword  |
+| Cross-agent memory  | Ask protocol    | Agent-to-agent messaging | No shared memory    | Shared blocks     |
+| Identity management | Soul versioning | SOUL.md + IDENTITY.md    | SOUL.md             | Persona blocks    |
+| Identity evolution  | Guard proposes  | Manual / hook-based      | Manual              | Manual            |
+| Audit trail         | SQLite log      | JSONL                    | None                | None              |
+| LLM in mediation    | Yes (curation)  | Yes (compaction)         | Yes (consolidation) | Yes (memory mgmt) |
 
 **Our differentiators:**
+
 1. **Guard as explicit agent** — not a library function but an entity with its own (minimal) identity
 2. **Ask protocol** — agents never see each other's raw memory; always mediated + summarized
 3. **Soul versioning** — identity changes are tracked, diffable, reversible

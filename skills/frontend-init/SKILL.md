@@ -7,13 +7,13 @@ description: Initialize frontend projects with opinionated modern toolchain - Bu
 
 Opinionated setup using fast, Rust/Go-based tools.
 
-| Tool | Purpose | Replaces |
-|------|---------|----------|
-| **Bun** | Package manager, runtime | npm/yarn/pnpm |
-| **Oxfmt** | Formatter | Prettier |
-| **Oxlint** | Linter | ESLint |
-| **tsdown** | Library bundler | tsup, rollup |
-| **tsgo** | Type checker | tsc |
+| Tool       | Purpose                  | Replaces      |
+| ---------- | ------------------------ | ------------- |
+| **Bun**    | Package manager, runtime | npm/yarn/pnpm |
+| **Oxfmt**  | Formatter                | Prettier      |
+| **Oxlint** | Linter                   | ESLint        |
+| **tsdown** | Library bundler          | tsup, rollup  |
+| **tsgo**   | Type checker             | tsc           |
 
 ## Quick Start
 
@@ -31,6 +31,7 @@ bunx oxlint --init
 ```
 
 Add scripts to `package.json`:
+
 ```json
 {
   "scripts": {
@@ -92,15 +93,16 @@ bun add -d tsdown @typescript/native-preview
 ```
 
 **tsdown.config.ts**:
+
 ```typescript
-import { defineConfig } from 'tsdown'
+import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  entry: ['src/index.ts'],
-  format: ['esm', 'cjs'],
+  entry: ["src/index.ts"],
+  format: ["esm", "cjs"],
   dts: true,
   clean: true,
-})
+});
 ```
 
 ### React
@@ -110,6 +112,7 @@ bun init my-react-app --template react
 ```
 
 Add to `.oxlintrc.json`:
+
 ```json
 {
   "plugins": ["react", "react-hooks"],
@@ -145,6 +148,7 @@ Add to `.oxlintrc.json`:
 ### .oxfmtrc.json (optional)
 
 Defaults work well. Custom if needed:
+
 ```json
 {
   "printWidth": 100,
@@ -156,6 +160,7 @@ Defaults work well. Custom if needed:
 ### tsconfig.json
 
 Bun generates this. Ensure tsgo compatibility:
+
 ```json
 {
   "compilerOptions": {
@@ -182,6 +187,7 @@ dist/
 ## Editor Setup (VS Code / Cursor)
 
 **.vscode/settings.json**:
+
 ```json
 {
   "editor.formatOnSave": true,
@@ -190,6 +196,7 @@ dist/
 ```
 
 **.vscode/extensions.json**:
+
 ```json
 {
   "recommendations": ["oxc.oxc-vscode", "oven.bun-vscode"]
@@ -199,6 +206,7 @@ dist/
 ## CI/CD
 
 **.github/workflows/ci.yml**:
+
 ```yaml
 name: CI
 on: [push, pull_request]
@@ -212,7 +220,7 @@ jobs:
       - run: bun run lint
       - run: bun run format:check
       - run: bun run typecheck
-      - run: bun run build  # library only
+      - run: bun run build # library only
 ```
 
 ## Notes
@@ -220,6 +228,7 @@ jobs:
 **Tool maturity**: Bun, Oxlint, tsdown are stable. Oxfmt is alpha. tsgo is preview.
 
 **Migration from existing project**:
+
 1. Delete `node_modules`, lockfiles
 2. `bun install`
 3. `bun add -d oxlint oxfmt`

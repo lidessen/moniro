@@ -4,12 +4,8 @@ import { describe, test, expect, mock } from "bun:test";
 mock.restore();
 
 // Dynamic import after mock.restore() to get unmocked module
-const {
-  discoverProvider,
-  resolveAutoModel,
-  resolveModelFallback,
-  isAutoProvider,
-} = await import("../../src/agent/models.ts");
+const { discoverProvider, resolveAutoModel, resolveModelFallback, isAutoProvider } =
+  await import("../../src/agent/models.ts");
 
 /** Create a clean env with only the specified keys set */
 function env(keys: Record<string, string>): Record<string, string | undefined> {

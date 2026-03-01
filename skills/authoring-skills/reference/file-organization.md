@@ -3,6 +3,7 @@
 Effective file organization is key to progressive disclosure. This guide shows how to structure skill directories for optimal context usage.
 
 ## Table of Contents
+
 - [Core Principle](#core-principle)
 - [Organization by Domain](#organization-by-domain)
 - [Organization by Feature](#organization-by-feature)
@@ -48,6 +49,7 @@ bigquery-analysis/
 ```
 
 **SKILL.md navigation**:
+
 ```markdown
 ## Available Datasets
 
@@ -85,6 +87,7 @@ pdf-processing/
 ```
 
 **SKILL.md navigation**:
+
 ```markdown
 ## Quick Start
 
@@ -130,6 +133,7 @@ react-testing/
 ```
 
 **SKILL.md navigation**:
+
 ```markdown
 ## Basic Testing
 
@@ -142,6 +146,7 @@ See [examples.md](examples.md) for typical test cases.
 ## Advanced Topics
 
 Only needed for complex scenarios:
+
 - **Mocking strategies**: [advanced/mocking.md](advanced/mocking.md)
 - **Async testing**: [advanced/async-testing.md](advanced/async-testing.md)
 - **Performance**: [advanced/performance.md](advanced/performance.md)
@@ -177,6 +182,7 @@ database-migration/
 ```
 
 **SKILL.md navigation**:
+
 ```markdown
 ## Migration Workflows
 
@@ -219,6 +225,7 @@ api-integration/
 ```
 
 **SKILL.md navigation**:
+
 ```markdown
 ## Quick Start
 
@@ -263,6 +270,7 @@ skill-name/
 ```
 
 **Group by purpose**:
+
 ```
 scripts/
 ├── validation/
@@ -281,12 +289,14 @@ scripts/
 ### Use Descriptive Names
 
 **Good**:
+
 - `authentication-methods.md`
 - `database-schemas.md`
 - `error-handling-patterns.md`
 - `validate_form_fields.py`
 
 **Bad**:
+
 - `doc1.md`
 - `file2.md`
 - `script.py`
@@ -297,6 +307,7 @@ scripts/
 Pick one style and stick to it:
 
 **Markdown files**: Use hyphens
+
 ```
 api-reference.md
 error-handling.md
@@ -304,6 +315,7 @@ common-patterns.md
 ```
 
 **Scripts**: Use underscores (Python convention)
+
 ```python
 validate_data.py
 process_records.py
@@ -315,6 +327,7 @@ generate_report.py
 File names should indicate content:
 
 **Good**:
+
 ```
 reference/finance-schemas.md       # Clear: finance schemas
 workflows/database-migration.md    # Clear: DB migration workflow
@@ -322,6 +335,7 @@ scripts/validate_config.py         # Clear: config validation
 ```
 
 **Bad**:
+
 ```
 reference/data.md                  # Vague: what data?
 workflows/process.md               # Vague: process what?
@@ -333,6 +347,7 @@ scripts/helper.py                  # Vague: helps with what?
 ### Keep It Shallow
 
 **Recommended**: 1-2 levels deep
+
 ```
 skill-name/
 ├── SKILL.md
@@ -342,6 +357,7 @@ skill-name/
 ```
 
 **Maximum**: 3 levels deep
+
 ```
 skill-name/
 ├── SKILL.md
@@ -351,6 +367,7 @@ skill-name/
 ```
 
 **Avoid**: 4+ levels
+
 ```
 # Too deep ✗
 skill-name/
@@ -369,6 +386,7 @@ For reference files >100 lines, add TOC at top:
 # API Reference
 
 ## Contents
+
 - [Authentication](#authentication)
 - [Core Endpoints](#core-endpoints)
 - [Error Handling](#error-handling)
@@ -376,9 +394,11 @@ For reference files >100 lines, add TOC at top:
 - [Examples](#examples)
 
 ## Authentication
+
 ...
 
 ## Core Endpoints
+
 ...
 ```
 
