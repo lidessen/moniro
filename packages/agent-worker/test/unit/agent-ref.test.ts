@@ -17,8 +17,6 @@ import { randomUUID } from "node:crypto";
 
 import {
   isRefAgentEntry,
-  type RefAgentEntry,
-  type InlineAgentEntry,
   type AgentEntry,
 } from "@/workflow/types.ts";
 import { validateWorkflow, parseWorkflowFile } from "@/workflow/parser.ts";

@@ -377,7 +377,7 @@ describe("E2E: Backend Availability", () => {
       CURSOR_API_KEY: hasCursorKey ? "set" : "not set",
       MINIMAX_API_KEY: hasMiniMaxKey ? "set" : "not set",
       GLM_API_KEY: hasGlmKey ? "set" : "not set",
-      CLAUDECODE: !!process.env.CLAUDECODE ? "yes (nested session)" : "no",
+      CLAUDECODE: process.env.CLAUDECODE ? "yes (nested session)" : "no",
       SKIP_CLAUDE_E2E: skipClaudeE2E ? "yes (skipped)" : "no",
       "Codex model": CODEX_MODEL ?? "(OpenAI default)",
       "Codex auth": hasCodexAuth ? "OPENAI_API_KEY set" : "missing OPENAI_API_KEY",

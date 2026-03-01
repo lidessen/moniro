@@ -19,7 +19,6 @@ import type { EventSink } from "@/workflow/context/stores/timeline.ts";
 import { MemoryStorage } from "@/workflow/context/storage.ts";
 import { DaemonEventLog } from "@/daemon/event-log.ts";
 import { createEventLogger, createConsoleSink, createSilentLogger } from "@/workflow/logger.ts";
-import type { Logger } from "@/workflow/logger.ts";
 import type { Message, EventKind } from "@/workflow/context/types.ts";
 
 // ── Helpers ───────────────────────────────────────────────────────
