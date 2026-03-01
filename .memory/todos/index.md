@@ -7,6 +7,7 @@
 | 优先级 | 任务 | 状态 | 备注 |
 |--------|------|------|------|
 | medium | `send` CLI target 解析（DM / @workspace / agent@workspace） | todo | Phase 3b 遗留，见 ADR |
+| low | Agent 层引入 StorageBackend 抽象（memory/notes/todos/conversations 统一） | todo | 当前直接 fs，可延后 |
 | high | AgentLoop → priority queue（3 lanes） | todo | Phase 3d |
 | high | AgentInstruction 类型 + cooperative preemption | todo | Phase 3d |
 

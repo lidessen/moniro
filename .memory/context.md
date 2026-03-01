@@ -41,6 +41,7 @@
 - Soul 可变性未定（固定 vs 可进化）
 - 跨项目 Agent 暂不考虑（先 project-scoped）
 - Auto-memory 提取策略未定（agent 主动 vs 系统后处理 vs 两者）
+- Agent 层存储无抽象（memory/notes/todos/conversations 直接 fs，workflow 层用 StorageBackend）— 可统一但不阻塞
 
 ## 关键文件
 
