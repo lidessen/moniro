@@ -1,5 +1,11 @@
 # agent-worker
 
+## 0.19.0
+
+### Minor Changes
+
+- [`7b699af`](https://github.com/lidessen/moniro/commit/7b699af2290a92e331686094a1617ce6860df2d2) - feat: Add event log infrastructure with EventSink interface, DaemonEventLog, and TimelineStore for structured logging
+
 ## 0.18.0
 
 ### Minor Changes
