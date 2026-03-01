@@ -10,7 +10,7 @@
 
 import type { Message, InboxMessage } from "../context/types.ts";
 import type { AgentRunContext } from "./types.ts";
-import type { ConversationMessage } from "../../agent/conversation.ts";
+import { formatConversationMessages } from "../../agent/conversation.ts";
 
 // ── Section Type ──────────────────────────────────────────────────
 
@@ -53,18 +53,12 @@ export function formatChannel(entries: Message[]): string {
 }
 
 /**
- * Format conversation messages for display
+ * Format conversation messages for display.
+ * Delegates to the shared formatter in conversation.ts.
  */
-export function formatConversation(messages: ConversationMessage[]): string {
+export function formatConversation(messages: import("../../agent/conversation.ts").ConversationMessage[]): string {
   if (messages.length === 0) return "(no conversation history)";
-
-  return messages
-    .map((m) => {
-      const time = m.timestamp.slice(11, 19);
-      const role = m.role === "user" ? "User" : m.role === "assistant" ? "You" : "System";
-      return `[${time}] ${role}: ${m.content}`;
-    })
-    .join("\n");
+  return formatConversationMessages(messages);
 }
 
 // ── Built-in Sections ─────────────────────────────────────────────

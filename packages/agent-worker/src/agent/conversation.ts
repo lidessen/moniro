@@ -116,14 +116,7 @@ export class ThinThread {
   /** Render messages for prompt injection. Returns null if empty. */
   render(): string | null {
     if (this.messages.length === 0) return null;
-
-    const lines = this.messages.map((m) => {
-      const time = m.timestamp.slice(11, 19);
-      const role = m.role === "user" ? "User" : m.role === "assistant" ? "You" : "System";
-      return `[${time}] ${role}: ${m.content}`;
-    });
-
-    return lines.join("\n");
+    return formatConversationMessages(this.messages);
   }
 
   /** Create a ThinThread pre-populated from a ConversationLog's tail. */
@@ -135,6 +128,22 @@ export class ThinThread {
     }
     return thread;
   }
+}
+
+// ── Format ────────────────────────────────────────────────────────
+
+/**
+ * Format conversation messages for display.
+ * Shared by ThinThread.render() and prompt section.
+ */
+export function formatConversationMessages(messages: ConversationMessage[]): string {
+  return messages
+    .map((m) => {
+      const time = m.timestamp.slice(11, 19);
+      const role = m.role === "user" ? "User" : m.role === "assistant" ? "You" : "System";
+      return `[${time}] ${role}: ${m.content}`;
+    })
+    .join("\n");
 }
 
 // ── Helpers ───────────────────────────────────────────────────────
