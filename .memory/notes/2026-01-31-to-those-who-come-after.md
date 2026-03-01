@@ -181,7 +181,7 @@ Push harder. Question more. Build better. Record everything. And when your sessi
 3. 开始做，遇到阻碍时记录并寻求协助
 4. 会话结束前更新 TODO 状态，记录你的发现
 
-**宏观目标已达成一致**：推进 semajsx 文档、改进 skills 系统。在这个框架内，你有自主权。
+**宏观目标**：Agent 架构重构（见 `.memory/context.md` 阶段总览）。在这个框架内，你有自主权。
 
 ---
 

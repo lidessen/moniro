@@ -20,9 +20,8 @@ npm-debug.log*
 *.tmp
 *.temp
 
-# Memory (hybrid: share decisions/notes, keep sessions/context personal)
+# Memory (hybrid: share decisions/notes/context, keep sessions personal)
 .memory/sessions/
-.memory/context.md
 
 # Local CLI binaries (large, downloadable)
 .local/bin/claude-bin

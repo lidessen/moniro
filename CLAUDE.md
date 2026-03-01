@@ -2,7 +2,7 @@
 
 Guidance for Claude Code and similar AI-assisted development tools.
 
-> **FIRST**: Read `.memory/notes/2026-01-31-to-those-who-come-after.md` before doing anything else.
+> **FIRST**: Read `.memory/notes/2026-01-31-to-those-who-come-after.md` (who you are), then `.memory/context.md` (where we are).
 > **ALWAYS**: Use TodoWrite for session tasks; `.memory/todos/` for project tasks that outlive sessions.
 > **ALWAYS**: Load `memory` skill to understand the full `.memory/` structure.
 > **LAST**: Leave your reflection in `.memory/notes/` before session ends.
