@@ -13,7 +13,7 @@ import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from "node
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import { MemoryContextProvider, createFileContextProvider } from "../src/workflow/context/index.ts";
+import { MemoryContextProvider, createFileContextProvider } from "@moniro/workflow";
 
 // ==================== destroy() Lifecycle Tests ====================
 

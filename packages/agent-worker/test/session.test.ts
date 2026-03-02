@@ -626,7 +626,7 @@ describe("AI SDK tool edge cases", () => {
 
 describe("bash-tools integration", () => {
   test("createBashTools returns tools and toolkit", async () => {
-    const { createBashTools } = await import("../src/agent/tools/bash.ts");
+    const { createBashTools } = await import("@moniro/workflow");
 
     const { tools, toolkit } = await createBashTools({
       files: { "test.txt": "hello world" },
@@ -639,7 +639,7 @@ describe("bash-tools integration", () => {
   });
 
   test("createBashTools respects includeReadFile option", async () => {
-    const { createBashTools } = await import("../src/agent/tools/bash.ts");
+    const { createBashTools } = await import("@moniro/workflow");
 
     const { tools } = await createBashTools({
       files: {},
@@ -650,7 +650,7 @@ describe("bash-tools integration", () => {
   });
 
   test("createBashTools respects includeWriteFile option", async () => {
-    const { createBashTools } = await import("../src/agent/tools/bash.ts");
+    const { createBashTools } = await import("@moniro/workflow");
 
     const { tools } = await createBashTools({
       files: {},
@@ -661,7 +661,7 @@ describe("bash-tools integration", () => {
   });
 
   test("bash tool executes commands", async () => {
-    const { createBashTools } = await import("../src/agent/tools/bash.ts");
+    const { createBashTools } = await import("@moniro/workflow");
 
     const { tools } = await createBashTools({
       files: { "test.txt": "hello world" },
@@ -679,7 +679,7 @@ describe("bash-tools integration", () => {
   });
 
   test("readFile tool reads files", async () => {
-    const { createBashTools } = await import("../src/agent/tools/bash.ts");
+    const { createBashTools } = await import("@moniro/workflow");
 
     const { tools } = await createBashTools({
       files: { "hello.txt": "Hello, World!" },
@@ -692,7 +692,7 @@ describe("bash-tools integration", () => {
   });
 
   test("writeFile tool writes files", async () => {
-    const { createBashTools } = await import("../src/agent/tools/bash.ts");
+    const { createBashTools } = await import("@moniro/workflow");
 
     const { tools } = await createBashTools({ files: {} });
 
@@ -706,7 +706,7 @@ describe("bash-tools integration", () => {
   });
 
   test("createBashToolsFromFiles helper", async () => {
-    const { createBashToolsFromFiles } = await import("../src/agent/tools/bash.ts");
+    const { createBashToolsFromFiles } = await import("@moniro/workflow");
 
     const { tools } = await createBashToolsFromFiles({
       "src/index.ts": 'console.log("hello")',
@@ -721,7 +721,7 @@ describe("bash-tools integration", () => {
   });
 
   test("tools have descriptions", async () => {
-    const { createBashTools } = await import("../src/agent/tools/bash.ts");
+    const { createBashTools } = await import("@moniro/workflow");
 
     const { tools } = await createBashTools({ files: {} });
 
@@ -731,7 +731,7 @@ describe("bash-tools integration", () => {
   });
 
   test("tools work with AgentWorker", async () => {
-    const { createBashTools } = await import("../src/agent/tools/bash.ts");
+    const { createBashTools } = await import("@moniro/workflow");
 
     const { tools } = await createBashTools({
       files: { "data.json": '{"key": "value"}' },

@@ -1,139 +1,182 @@
 /**
- * @moniro/workflow barrel — Workflow layer public API.
+ * @moniro/workflow barrel — Re-exports from @moniro/workflow.
  *
- * One-shot multi-agent orchestration. Parse YAML, run agents with shared context.
- * No daemon needed.
- *
- * Boundary validation: This file should import ONLY from:
- *   - workflow/ (all subdirectories)
- *   - agent-lib exports (agent/, backends/) — downward dependency OK
- * It must NOT import from daemon/ or cli/.
- *
- * Known violations (to fix in package extraction):
- *   - workflow/types.ts imports AgentHandle from agent/ (System-layer type)
- *   - workflow/parser.ts imports AgentRegistry from agent/ (System-layer type)
- *   These are Workflow → System dependencies that will be resolved with
- *   interface extraction when packages are physically split.
+ * This file preserves backwards compatibility for internal imports.
+ * All exports now come from the extracted @moniro/workflow package.
  */
 
-// ── Factory ─────────────────────────────────────────────────────
 export {
+  // Factory
   createMinimalRuntime,
   createWiredLoop,
   type Workspace,
   type RuntimeContext,
   type WiredLoopConfig,
-} from "./workflow/factory.ts";
 
-// ── Runner ──────────────────────────────────────────────────────
-export {
+  // Runner
   runWorkflow,
   runWorkflowWithLoops,
   shutdownLoops,
-} from "./workflow/runner.ts";
 
-// ── Parser ──────────────────────────────────────────────────────
-export {
-  parseWorkflowString,
+  // Parser
   parseWorkflowFile,
-  resolveWorkflowRef,
-  validateWorkflowFile,
-} from "./workflow/parser.ts";
+  validateWorkflow,
+  parseWorkflowParams,
+  formatParamHelp,
+  getKickoffMentions,
+  type ParseOptions,
+  type AgentRegistryLike,
 
-// ── Types ───────────────────────────────────────────────────────
-export type {
-  WorkflowFile,
-  WorkflowAgentDef,
-  RefAgentEntry,
-  InlineAgentEntry,
-  AgentEntry,
-  ParsedWorkflow,
-  ResolvedWorkflowAgent,
-  ResolvedContext,
-  ResolvedFileContext,
-  ResolvedMemoryContext,
-  ParamDefinition,
-  SetupTask,
-  ValidationResult,
-  ValidationError,
-} from "./workflow/types.ts";
-export { isRefAgentEntry } from "./workflow/types.ts";
+  // Types
+  isRefAgentEntry,
+  type WorkflowFile,
+  type WorkflowAgentDef,
+  type RefAgentEntry,
+  type InlineAgentEntry,
+  type AgentEntry,
+  type ParsedWorkflow,
+  type ResolvedWorkflowAgent,
+  type ResolvedContext,
+  type ResolvedFileContext,
+  type ResolvedMemoryContext,
+  type ParamDefinition,
+  type SetupTask,
+  type ValidationResult,
+  type ValidationError,
+  type AgentHandleRef,
 
-// ── Loop ────────────────────────────────────────────────────────
-export { createAgentLoop } from "./workflow/loop/loop.ts";
-export type {
-  AgentLoop,
-  AgentLoopConfig,
-  AgentState,
-  AgentRunContext,
-  AgentRunResult,
-  WorkflowIdleState,
-} from "./workflow/loop/types.ts";
-export { LOOP_DEFAULTS } from "./workflow/loop/types.ts";
+  // Loop
+  createAgentLoop,
+  LOOP_DEFAULTS,
+  type AgentLoop,
+  type AgentLoopConfig,
+  type AgentState,
+  type AgentRunContext,
+  type AgentRunResult,
+  type WorkflowIdleState,
 
-// ── Prompt ──────────────────────────────────────────────────────
-export {
+  // Prompt
   buildAgentPrompt,
-  type PromptSection,
+  formatConversation,
+  thinThreadSection,
   DEFAULT_SECTIONS,
-} from "./workflow/loop/prompt.ts";
+  type PromptSection,
 
-// ── Backend adapter ─────────────────────────────────────────────
-export { resolveBackend } from "./workflow/loop/backend.ts";
+  // Backend adapter
+  getBackendByType,
+  getBackendForModel,
 
-// ── MCP Config ──────────────────────────────────────────────────
-export { generateWorkflowMCPConfig } from "./workflow/loop/mcp-config.ts";
+  // Send
+  parseSendTarget,
+  formatUserSender,
+  type SendTargetType,
+  type ParsedSendTarget,
+  type SendResult,
 
-// ── Context (Shared) ────────────────────────────────────────────
-export type { ContextProvider } from "./workflow/context/provider.ts";
-export { ContextProviderImpl } from "./workflow/context/provider.ts";
-export { FileContextProvider, resolveContextDir } from "./workflow/context/file-provider.ts";
-export { createMemoryContextProvider } from "./workflow/context/memory-provider.ts";
-export type {
-  ContextConfig,
-  FileContextConfig,
-  MemoryContextConfig,
-  Message,
-  ChannelEntry,
-  InboxEntry,
-  EventKind,
-} from "./workflow/context/types.ts";
-export type { StorageBackend } from "./workflow/context/storage.ts";
+  // MCP Config
+  generateWorkflowMCPConfig,
 
-// ── Context Stores ──────────────────────────────────────────────
-export type {
-  ChannelStore,
-  InboxStore,
-  DocumentStore,
-  ResourceStore,
-  StatusStore,
-  EventSink,
-  TimelineStore,
-} from "./workflow/context/stores/index.ts";
+  // Context
+  ContextProviderImpl,
+  FileContextProvider,
+  createFileContextProvider,
+  resolveContextDir,
+  getDefaultContextDir,
+  createMemoryContextProvider,
+  CONTEXT_DEFAULTS,
+  type ContextProvider,
+  type ContextConfig,
+  type FileContextConfig,
+  type MemoryContextConfig,
+  type Message,
+  type InboxMessage,
+  type InboxState,
+  type EventKind,
+  type StorageBackend,
 
-// ── Context MCP Server ──────────────────────────────────────────
-export {
+  // Context Stores
+  type ChannelStore,
+  type InboxStore,
+  type DocumentStore,
+  type ResourceStore,
+  type StatusStore,
+  type EventSink,
+  type TimelineStore,
+
+  // Context MCP Server
   createContextMCPServer,
   type ContextMCPServerOptions,
-} from "./workflow/context/mcp/server.ts";
+  runWithHttp,
+  type HttpMCPServer,
 
-// ── Proposals ───────────────────────────────────────────────────
-export { ProposalManagerImpl } from "./workflow/context/proposals.ts";
-export type { ProposalManager } from "./workflow/context/proposals.ts";
+  // Proposals
+  ProposalManager,
+  createProposalManager,
+  PROPOSAL_DEFAULTS,
+  type ProposalManagerOptions,
 
-// ── Event Log ───────────────────────────────────────────────────
-export { EventLog } from "./workflow/context/event-log.ts";
+  // Event Log
+  EventLog,
 
-// ── Logger Factories (Workflow-layer) ───────────────────────────
-export { createChannelLogger, createEventLogger, createConsoleSink } from "./workflow/logger.ts";
-export type { ChannelLoggerConfig } from "./workflow/logger.ts";
+  // Logger
+  createChannelLogger,
+  createEventLogger,
+  createConsoleSink,
+  createSilentLogger,
+  formatArg,
+  type ChannelLoggerConfig,
+  type Logger,
+  type LogLevel,
 
-// ── Display ─────────────────────────────────────────────────────
-export { ChannelWatcher } from "./workflow/display.ts";
-export type { DisplayConfig } from "./workflow/display.ts";
+  // Display
+  startChannelWatcher,
+  createDisplayContext,
+  formatChannelEntry,
+  type ChannelWatcher,
+  type ChannelWatcherConfig,
+  type DisplayContext,
 
-// ── Schema ──────────────────────────────────────────────────────
-export { WorkflowFileSchema } from "./workflow/schema.ts";
+  // Schema
+  WorkflowFileSchema,
 
-// ── Interpolation ───────────────────────────────────────────────
-export { interpolateTemplate } from "./workflow/interpolate.ts";
+  // Interpolation
+  interpolate,
+  hasVariables,
+  extractVariables,
+  createContext,
+  type VariableContext,
+
+  // Source
+  resolveSource,
+  isRemoteSource,
+  parseGitHubRef,
+
+  // Layout
+  calculateLayout,
+  getWidth,
+  padToWidth,
+  getIndent,
+  formatTime,
+  resetTimeTracking,
+  createGroupingState,
+  shouldGroup,
+  LAYOUT_PRESETS,
+  type LayoutConfig,
+  type LayoutOptions,
+  type TimeFormat,
+  type GroupingState,
+
+  // Tools
+  createBashTool,
+  createBashTools,
+  createBashToolsFromDirectory,
+  createBashToolsFromFiles,
+  createFeedbackTool,
+  FEEDBACK_PROMPT,
+  type BashToolkit,
+  type BashToolsOptions,
+  type CreateBashToolOptions,
+  type FeedbackEntry,
+  type FeedbackToolOptions,
+  type FeedbackToolResult,
+} from "@moniro/workflow";

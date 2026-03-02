@@ -18,8 +18,8 @@ import { randomUUID } from "node:crypto";
 import { ConversationLog, ThinThread, DEFAULT_THIN_THREAD_SIZE } from "@moniro/agent";
 import type { ConversationMessage, AgentDefinition } from "@moniro/agent";
 import { AgentHandle } from "@/agent/agent-handle.ts";
-import { thinThreadSection, formatConversation } from "@/workflow/loop/prompt.ts";
-import type { AgentRunContext } from "@/workflow/loop/types.ts";
+import { thinThreadSection, formatConversation } from "@moniro/workflow";
+import type { AgentRunContext } from "@moniro/workflow";
 
 // ── Test Helpers ──────────────────────────────────────────────────
 

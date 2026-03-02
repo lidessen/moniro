@@ -6,14 +6,13 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { tmpdir } from "node:os";
 import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { FileStorage } from "../src/workflow/context/storage.js";
 import {
+  FileStorage,
   createProposalManager,
   formatProposal,
   formatProposalList,
-  type ProposalManager,
-  type Proposal,
-} from "../src/workflow/context/proposals.js";
+} from "@moniro/workflow";
+import type { ProposalManager, Proposal } from "@moniro/workflow";
 
 describe("ProposalManager", () => {
   let manager: ProposalManager;

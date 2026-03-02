@@ -12,7 +12,7 @@ import {
   evaluateCondition,
   createContext,
   type VariableContext,
-} from "../src/workflow/interpolate.ts";
+} from "@moniro/workflow";
 
 describe("interpolate", () => {
   test("interpolates simple variable", () => {
@@ -288,7 +288,7 @@ import {
   parseWorkflowFile,
   parseWorkflowParams,
   formatParamHelp,
-} from "../src/workflow/parser.ts";
+} from "@moniro/workflow";
 
 describe("validateWorkflow", () => {
   test("validates minimal valid workflow", () => {
@@ -890,8 +890,8 @@ context:
 
 // ==================== Runner Tests ====================
 
-import { runWorkflow } from "../src/workflow/runner.ts";
-import type { ParsedWorkflow } from "../src/workflow/types.ts";
+import { runWorkflow } from "@moniro/workflow";
+import type { ParsedWorkflow } from "@moniro/workflow";
 
 describe("runWorkflow", () => {
   let testDir: string;

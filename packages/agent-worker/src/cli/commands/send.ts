@@ -5,7 +5,7 @@ import { listAgents, isDaemonActive } from "../client.ts";
 import {
   createFileContextProvider,
   getDefaultContextDir,
-} from "@/workflow/context/file-provider.ts";
+} from "@moniro/workflow";
 import { DEFAULT_WORKFLOW, parseTarget } from "../target.ts";
 
 /**

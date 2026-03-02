@@ -7,7 +7,7 @@ import {
   createFeedbackTool,
   FEEDBACK_PROMPT,
   type FeedbackEntry,
-} from "../src/agent/tools/feedback.js";
+} from "@moniro/workflow";
 
 /** Helper: call the tool's execute function directly */
 async function submitFeedback(

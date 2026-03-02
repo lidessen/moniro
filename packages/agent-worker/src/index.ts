@@ -52,17 +52,20 @@ export type {
   Transcript,
 } from "@moniro/agent";
 
-// ── Local exports (not moved) ────────────────────────────────────
+// ── Re-export from @moniro/workflow (moved items) ────────────────
 export {
   createBashTool,
   createBashTools,
   createBashToolsFromDirectory,
   createBashToolsFromFiles,
-} from "./agent/tools/bash.ts";
-export { createFeedbackTool, FEEDBACK_PROMPT } from "./agent/tools/feedback.ts";
-export type { BashToolkit, BashToolsOptions, CreateBashToolOptions } from "./agent/tools/bash.ts";
+  createFeedbackTool,
+  FEEDBACK_PROMPT,
+} from "@moniro/workflow";
 export type {
+  BashToolkit,
+  BashToolsOptions,
+  CreateBashToolOptions,
   FeedbackEntry,
   FeedbackToolOptions,
   FeedbackToolResult,
-} from "./agent/tools/feedback.ts";
+} from "@moniro/workflow";

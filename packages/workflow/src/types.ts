@@ -3,8 +3,15 @@
  */
 
 import type { ContextConfig } from "./context/types.ts";
-import type { ProviderConfig, ScheduleConfig } from "@moniro/agent";
-import type { AgentHandle } from "../agent/agent-handle.ts";
+import type { ProviderConfig, ScheduleConfig, AgentDefinition } from "@moniro/agent";
+
+/**
+ * Minimal handle interface — the workflow layer only needs the definition.
+ * The System layer (agent-worker) provides concrete AgentHandle instances.
+ */
+export interface AgentHandleRef {
+  readonly definition: AgentDefinition;
+}
 
 // Re-export context types for convenience
 export type { ContextConfig, FileContextConfig, MemoryContextConfig } from "./context/types.ts";
@@ -192,7 +199,7 @@ export interface ResolvedWorkflowAgent extends WorkflowAgentDef {
   schedule?: ScheduleConfig;
 
   /** Agent handle for ref agents (undefined for inline agents) */
-  handle?: AgentHandle;
+  handle?: AgentHandleRef;
 
   /** Whether this agent was resolved from a global definition */
   isRef?: boolean;

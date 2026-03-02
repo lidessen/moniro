@@ -18,7 +18,16 @@ import type {
 } from "./types.ts";
 import { isRefAgentEntry } from "./types.ts";
 import type { ScheduleConfig } from "@moniro/agent";
-import type { AgentRegistry } from "../agent/agent-registry.ts";
+import type { AgentHandleRef } from "./types.ts";
+
+/**
+ * Minimal registry interface — the workflow layer only needs get/list.
+ * The System layer (agent-worker) provides concrete AgentRegistry instances.
+ */
+export interface AgentRegistryLike {
+  get(name: string): AgentHandleRef | undefined;
+  list(): AgentHandleRef[];
+}
 import { CONTEXT_DEFAULTS } from "./context/types.ts";
 import { resolveContextDir } from "./context/file-provider.ts";
 import { resolveSource, isRemoteSource } from "./source.ts";
@@ -32,7 +41,7 @@ export interface ParseOptions {
   /** Workflow tag (default: 'main') */
   tag?: string;
   /** Agent registry for resolving ref agents. Required if workflow uses ref entries. */
-  agentRegistry?: AgentRegistry;
+  agentRegistry?: AgentRegistryLike;
 }
 
 /**
@@ -207,7 +216,7 @@ async function resolveInlineAgent(
  * Resolve a ref agent entry — load from AgentRegistry, map to WorkflowAgentDef,
  * apply workflow overrides (prompt.append, max_tokens, max_steps).
  */
-function resolveRefAgent(entry: RefAgentEntry, registry?: AgentRegistry): ResolvedWorkflowAgent {
+function resolveRefAgent(entry: RefAgentEntry, registry?: AgentRegistryLike): ResolvedWorkflowAgent {
   if (!registry) {
     throw new Error(
       `Agent ref "${entry.ref}" requires an AgentRegistry. ` +

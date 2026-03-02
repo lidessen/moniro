@@ -57,7 +57,7 @@ export function formatChannel(entries: Message[]): string {
  * Delegates to the shared formatter in conversation.ts.
  */
 export function formatConversation(
-  messages: import("../../agent/conversation.ts").ConversationMessage[],
+  messages: import("@moniro/agent").ConversationMessage[],
 ): string {
   if (messages.length === 0) return "(no conversation history)";
   return formatConversationMessages(messages);

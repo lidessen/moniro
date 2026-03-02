@@ -40,19 +40,25 @@ import {
 } from "./registry.ts";
 import { WorkspaceRegistry } from "./workspace-registry.ts";
 import { startHttpServer, type ServerHandle } from "./serve.ts";
-import { createContextMCPServer } from "../workflow/context/mcp/server.ts";
 import {
+  createContextMCPServer,
   createFileContextProvider,
   getDefaultContextDir,
-} from "../workflow/context/file-provider.ts";
+  createMinimalRuntime,
+  createWiredLoop,
+  createEventLogger,
+  createSilentLogger,
+} from "@moniro/workflow";
+import type {
+  AgentLoop,
+  ContextProvider,
+  ParsedWorkflow,
+  ResolvedWorkflowAgent,
+  Workspace,
+  Logger,
+} from "@moniro/workflow";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import type { AgentLoop } from "../workflow/loop/types.ts";
-import type { ContextProvider } from "../workflow/context/provider.ts";
 import type { Context } from "hono";
-import type { ParsedWorkflow, ResolvedWorkflowAgent } from "../workflow/types.ts";
-import { createMinimalRuntime, createWiredLoop, type Workspace } from "../workflow/factory.ts";
-import type { Logger } from "../workflow/logger.ts";
-import { createEventLogger, createSilentLogger } from "../workflow/logger.ts";
 import { DaemonEventLog } from "./event-log.ts";
 
 // ── Types ──────────────────────────────────────────────────────────

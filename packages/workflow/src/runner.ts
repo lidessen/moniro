@@ -119,7 +119,7 @@ export interface WorkflowRuntime {
   /** Shutdown all resources */
   shutdown: () => Promise<void>;
   /** Retrieve collected feedback (only when feedback enabled) */
-  getFeedback?: () => import("../agent/tools/feedback.ts").FeedbackEntry[];
+  getFeedback?: () => import("./tools/feedback.ts").FeedbackEntry[];
 }
 
 // ==================== Provider Creation ====================
@@ -228,7 +228,7 @@ export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> 
   const projectDir = process.cwd();
 
   // Create MCP server (HTTP)
-  let mcpGetFeedback: (() => import("../agent/tools/feedback.ts").FeedbackEntry[]) | undefined;
+  let mcpGetFeedback: (() => import("./tools/feedback.ts").FeedbackEntry[]) | undefined;
   let mcpToolNames = new Set<string>();
   const eventLog = new EventLog(contextProvider);
   const createMCPServerInstance = () => {
@@ -483,9 +483,9 @@ export interface LoopRunResult {
   /** Shutdown function */
   shutdown?: () => Promise<void>;
   /** Feedback entries collected during workflow (when --feedback enabled, run mode) */
-  feedback?: import("../agent/tools/feedback.ts").FeedbackEntry[];
+  feedback?: import("./tools/feedback.ts").FeedbackEntry[];
   /** Live feedback accessor (when --feedback enabled, start mode) */
-  getFeedback?: () => import("../agent/tools/feedback.ts").FeedbackEntry[];
+  getFeedback?: () => import("./tools/feedback.ts").FeedbackEntry[];
 }
 
 /**

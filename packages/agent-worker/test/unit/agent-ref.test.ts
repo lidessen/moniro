@@ -15,8 +15,8 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 
-import { isRefAgentEntry, type AgentEntry } from "@/workflow/types.ts";
-import { validateWorkflow, parseWorkflowFile } from "@/workflow/parser.ts";
+import { isRefAgentEntry, validateWorkflow, parseWorkflowFile } from "@moniro/workflow";
+import type { AgentEntry } from "@moniro/workflow";
 import { AgentRegistry } from "@/agent/agent-registry.ts";
 import type { AgentDefinition } from "@moniro/agent";
 

@@ -7,14 +7,19 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { createMemoryContextProvider } from "../src/workflow/context/memory-provider.js";
-import { createAgentLoop, checkWorkflowIdle } from "../src/workflow/loop/loop.js";
-import { createProposalManager } from "../src/workflow/context/proposals.js";
-import { MemoryStorage } from "../src/workflow/context/storage.js";
-import type { AgentLoop } from "../src/workflow/loop/types.js";
+import {
+  createMemoryContextProvider,
+  createAgentLoop,
+  checkWorkflowIdle,
+  createProposalManager,
+  MemoryStorage,
+} from "@moniro/workflow";
+import type {
+  AgentLoop,
+  ResolvedWorkflowAgent,
+  ContextProvider,
+} from "@moniro/workflow";
 import type { Backend } from "@moniro/agent";
-import type { ResolvedWorkflowAgent } from "../src/workflow/types.js";
-import type { ContextProvider } from "../src/workflow/context/provider.js";
 
 // ==================== Test Helpers ====================
 

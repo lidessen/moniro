@@ -6,7 +6,7 @@
  */
 
 import type { Backend, BackendResponse } from "@moniro/agent";
-import type { ContextProvider } from "../../src/workflow/context/provider.ts";
+import type { ContextProvider } from "@moniro/workflow";
 
 type BehaviorFn = (
   prompt: string,

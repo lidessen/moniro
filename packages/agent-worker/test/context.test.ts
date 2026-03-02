@@ -10,8 +10,8 @@ import {
   FileContextProvider,
   createFileContextProvider,
   createContextMCPServer,
-} from "../src/workflow/context/index.ts";
-import type { Message } from "../src/workflow/context/index.ts";
+} from "@moniro/workflow";
+import type { Message } from "@moniro/workflow";
 
 // ==================== extractMentions Tests ====================
 

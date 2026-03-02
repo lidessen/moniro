@@ -4,14 +4,8 @@
  * This directory contains tool implementations that agents can use.
  * Each tool produces AI SDK tool() objects as Record<name, tool()>.
  *
- * Available tools:
- * - Skills: Access and read agent skills
- * - Bash: Execute bash commands in sandboxed environment (includes readFile, writeFile)
- * - Feedback: Let agents report observations about tools and workflows
- *
- * Future tools:
- * - Git: Git operations
- * - TodoWrite: Manage todos
+ * Tool infrastructure (createTool, createSkillsTool) comes from @moniro/agent.
+ * Concrete tool implementations (bash, feedback) come from @moniro/workflow.
  */
 
 // Tool creation utility + Skills (from @moniro/agent)
@@ -23,9 +17,9 @@ export {
   createBashToolsFromDirectory,
   createBashToolsFromFiles,
   createBashTool,
-} from "./bash.ts";
-export type { BashToolsOptions, BashToolkit, CreateBashToolOptions } from "./bash.ts";
+} from "@moniro/workflow";
+export type { BashToolsOptions, BashToolkit, CreateBashToolOptions } from "@moniro/workflow";
 
 // Feedback tool
-export { createFeedbackTool, FEEDBACK_PROMPT } from "./feedback.ts";
-export type { FeedbackEntry, FeedbackToolOptions, FeedbackToolResult } from "./feedback.ts";
+export { createFeedbackTool, FEEDBACK_PROMPT } from "@moniro/workflow";
+export type { FeedbackEntry, FeedbackToolOptions, FeedbackToolResult } from "@moniro/workflow";

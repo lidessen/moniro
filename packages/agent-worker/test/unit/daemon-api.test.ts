@@ -18,9 +18,7 @@ import { AgentRegistry } from "../../src/agent/agent-registry.ts";
 import { WorkspaceRegistry } from "../../src/daemon/workspace-registry.ts";
 import { MemoryStateStore } from "../../src/agent/store.ts";
 import type { AgentDefinition } from "@moniro/agent";
-import type { AgentLoop, AgentRunResult } from "../../src/workflow/loop/types.ts";
-import type { ContextProvider } from "../../src/workflow/context/provider.ts";
-import type { Workspace } from "../../src/workflow/factory.ts";
+import type { AgentLoop, AgentRunResult, ContextProvider, Workspace } from "@moniro/workflow";
 
 // ── Test Helpers ──────────────────────────────────────────────────
 

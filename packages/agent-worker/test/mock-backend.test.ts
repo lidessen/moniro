@@ -8,12 +8,14 @@
  */
 
 import { describe, test, expect } from "bun:test";
-import { validateWorkflow } from "../src/workflow/parser.ts";
-import { createMemoryContextProvider } from "../src/workflow/context/memory-provider.ts";
-import { createContextMCPServer } from "../src/workflow/context/mcp/server.ts";
-import { runWithHttp } from "../src/workflow/context/http-transport.ts";
-import { runMockAgent } from "../src/workflow/loop/mock-runner.ts";
-import type { AgentRunContext } from "../src/workflow/loop/types.ts";
+import {
+  validateWorkflow,
+  createMemoryContextProvider,
+  createContextMCPServer,
+  runWithHttp,
+  runMockAgent,
+} from "@moniro/workflow";
+import type { AgentRunContext } from "@moniro/workflow";
 
 // ==================== Parser Validation ====================
 
