@@ -1,4 +1,63 @@
-// ── Re-export from @moniro/agent (moved items) ──────────────────
+/**
+ * agent-worker — System layer public API.
+ *
+ * Persistent daemon service. Long-running agents with identity, conversation
+ * history, scheduled wakeups, priority queues.
+ *
+ * Depends on @moniro/agent (Worker) and @moniro/workflow (Orchestration).
+ *
+ * For agent execution, import from @moniro/agent.
+ * For workflow orchestration, import from @moniro/workflow.
+ */
+
+// ── Daemon ──────────────────────────────────────────────────────
+export { startDaemon } from "./daemon/daemon.ts";
+export type { DaemonState, WorkflowHandle } from "./daemon/daemon.ts";
+
+// ── Discovery ───────────────────────────────────────────────────
+export {
+  DEFAULT_PORT,
+  readDaemonInfo,
+  writeDaemonInfo,
+  removeDaemonInfo,
+  isDaemonRunning,
+} from "./daemon/registry.ts";
+export type { DaemonInfo } from "./daemon/registry.ts";
+
+// ── Workspace Registry ──────────────────────────────────────────
+export { WorkspaceRegistry } from "./daemon/workspace-registry.ts";
+
+// ── Event Log (Daemon) ──────────────────────────────────────────
+export { DaemonEventLog } from "./daemon/event-log.ts";
+
+// ── Agent Handle (System-layer persistence) ─────────────────────
+export { AgentHandle } from "./agent/agent-handle.ts";
+export type { AgentHandleState } from "./agent/agent-handle.ts";
+
+// ── Agent Registry (System-layer discovery) ─────────────────────
+export { AgentRegistry } from "./agent/agent-registry.ts";
+
+// ── Agent Config (daemon runtime) ───────────────────────────────
+export type { AgentConfig } from "./agent/config.ts";
+
+// ── Agent YAML Parser ───────────────────────────────────────────
+export {
+  parseAgentFile,
+  parseAgentObject,
+  discoverAgents,
+  serializeAgent,
+  AGENTS_DIR,
+} from "./agent/yaml-parser.ts";
+
+// ── State Store ─────────────────────────────────────────────────
+export type { StateStore } from "./agent/store.ts";
+export { MemoryStateStore } from "./agent/store.ts";
+
+// ── Worker Handle (execution contract) ──────────────────────────
+export { LocalWorker } from "./agent/handle.ts";
+export type { WorkerHandle } from "./agent/handle.ts";
+
+// ── Backwards-compat re-exports from @moniro/agent ──────────────
 export {
   AgentWorker,
   createModel,
@@ -52,7 +111,7 @@ export type {
   Transcript,
 } from "@moniro/agent";
 
-// ── Re-export from @moniro/workflow (moved items) ────────────────
+// ── Backwards-compat re-exports from @moniro/workflow ────────────
 export {
   createBashTool,
   createBashTools,
