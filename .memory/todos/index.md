@@ -1,15 +1,26 @@
 # Todos
 
-跨会话的任务追踪。当前阶段：**Phase 3d — Priority Queue + Preemption**。
+跨会话的任务追踪。当前阶段：**Phase 4 — Three-Package Split**。
 
 ## 活跃任务
 
 | 优先级 | 任务 | 状态 | 备注 |
 |--------|------|------|------|
+| high | Step 1: Barrel exports 验证三层边界 | todo | Phase 4 — 在现有包内建 barrel，验证无循环 |
+| high | Step 2: Extract `@moniro/agent` | todo | Phase 4 — worker + backends + skills + personal context |
+| high | Step 3: Extract `@moniro/workflow` | todo | Phase 4 — loop + shared context + tools |
+| high | Step 4: Clean up `agent-worker` (System layer) | todo | Phase 4 — 只留 daemon + persistence + CLI |
 | medium | `send` CLI target 解析（DM / @workspace / agent@workspace） | todo | Phase 3b 遗留，见 ADR |
-| low | Agent 层引入 StorageBackend 抽象（memory/notes/todos/conversations 统一） | todo | 当前直接 fs，可延后 |
-| high | AgentLoop → priority queue（3 lanes） | todo | Phase 3d |
-| high | AgentInstruction 类型 + cooperative preemption | todo | Phase 3d |
+
+## 未来任务（Phase 5+）
+
+| 优先级 | 任务 | 阶段 | 备注 |
+|--------|------|------|------|
+| high | AgentLoop → priority queue（3 lanes） | Phase 5 | 在 System 层实现 |
+| high | AgentInstruction 类型 + cooperative preemption | Phase 5 | 在 System 层实现 |
+| medium | Personal context tools 实现（memory/notes/todos） | Phase 6 | 在 Agent 层，pluggable storage |
+| medium | Agent context in prompt（recall tools, auto-memory） | Phase 6 | |
+| low | CLI + Project Config（moniro.yaml） | Phase 7 | |
 
 ## 已完成
 
@@ -23,6 +34,7 @@
 | 统一 logger: 库代码零 console.* | 2026-02-27 | [ADR](../decisions/2026-02-27-unified-logger.md) |
 | Phase 3b: Daemon Registry + Workspace | 2026-03-01 | AgentRegistry + WorkspaceRegistry, 994 tests |
 | Phase 3c: Conversation Model | 2026-03-01 | ConversationLog + ThinThread, 1014 tests |
+| Three-Package Split 设计 | 2026-03-02 | PACKAGE-SPLIT.md |
 
 ## 使用约定
 

@@ -1,10 +1,12 @@
 # Project Context
 
-> 快速了解项目状态。详细设计见 `packages/agent-worker/docs/architecture/AGENT-TOP-LEVEL.md`。
+> 快速了解项目状态。详细设计见 `packages/agent-worker/docs/architecture/` 下各文档。
 
 ## 当前焦点
 
-**Agent 架构重构** — 将 Agent 从 Workflow 内嵌定义提升为顶层实体，拥有独立的持久化上下文（prompt、soul、memory、notes、conversations、todo）。
+**Three-Package Split** — 将 `packages/agent-worker/` 拆分为三个独立包：`@moniro/agent`（Worker）、`@moniro/workflow`（Orchestration）、`agent-worker`（System）。设计已完成，待实施。
+
+详细设计：`packages/agent-worker/docs/architecture/PACKAGE-SPLIT.md`
 
 ## 阶段总览
 
@@ -16,38 +18,53 @@
 | Phase 3a | done | Event Log 基础设施：结构化日志替代 console.* | `EventSink`, `DaemonEventLog`, `Logger` |
 | Phase 3b | done | Daemon Registry + Workspace | `Workspace`, `WorkspaceRegistry`, `AgentHandle.loop` |
 | Phase 3c | done | Conversation Model：ThinThread + ConversationLog | `ConversationLog`, `ThinThread`, `thinThreadSection` |
-| **Phase 3d** | **next** | **Priority Queue + Preemption** | |
-| Phase 4 | future | Recall Tools + Auto-Memory + Failure Handling | |
-| Phase 5 | future | Agent Context in Prompt | |
-| Phase 6 | future | CLI + Project Config | |
+| **Phase 4** | **next** | **Three-Package Split** | `@moniro/agent`, `@moniro/workflow`, `agent-worker` |
+| Phase 5 | future | Priority Queue + Preemption | AgentLoop → 3-lane queue, cooperative yield |
+| Phase 6 | future | Agent Context in Prompt + Personal Context Tools | recall tools, auto-memory |
+| Phase 7 | future | CLI + Project Config | `moniro.yaml`, improved CLI |
 
-## Phase 3d: Priority Queue + Preemption
+## Phase 4: Three-Package Split
 
-**目标**: 每个 Agent 一个 loop，三级优先队列 + 协作式抢占。
+**目标**: 三个包，三种用途，严格向下依赖。
 
-核心任务：
-- [ ] `AgentLoop` 升级为 priority queue（3 lanes: immediate/normal/background）
-- [ ] `AgentInstruction` 类型 with workspace context + priority
-- [ ] 协作式抢占：step 间 yield，带进度标记 re-queue
-- [ ] Scheduled wakeup → enqueue instruction at background priority
+```
+@moniro/agent        ← Worker: 用完即丢的 agent 执行
+    ▲       ▲          worker + backends + tool infra + skills + personal context
+    │       │
+@moniro/workflow     │  ← Workflow: 一次性跑工作流
+    ▲       │          loop + shared context + MCP + bash/feedback
+    │       │
+agent-worker ────────┘  ← System: 持久化 daemon 服务
+                         daemon + AgentHandle + CLI + conversation
+```
+
+实施步骤：
+- [ ] Step 1: Barrel exports — 在现有包内验证三层边界
+- [ ] Step 2: Extract `@moniro/agent` — worker + backends + skills + personal context
+- [ ] Step 3: Extract `@moniro/workflow` — loop + context + tools
+- [ ] Step 4: Clean up `agent-worker` — 只留 daemon + persistence + CLI
+
+关键设计决策：
+- **Personal context 在 Agent 层**（可选 toolkit），System 层只负责 wiring 到持久化路径
+- **Shared context 在 Workflow 层**，personal context 和 shared context 永不重叠
+- **Tool infra + skills 在 Agent 层**，具体 tool 实现（bash、feedback）在 Workflow 层
+- System 层可以同时直接依赖 Agent 和 Workflow
 
 **依赖**: Phase 3c（done）。
 
-**遗留**: `send` CLI target 解析（Phase 3b 遗留，不阻塞 3d）。
-
 ## 已知风险 & 开放问题
 
-- Agent context 格式未定（memory YAML vs JSON vs markdown）
-- Soul 可变性未定（固定 vs 可进化）
-- 跨项目 Agent 暂不考虑（先 project-scoped）
-- Auto-memory 提取策略未定（agent 主动 vs 系统后处理 vs 两者）
-- Agent 层存储无抽象（memory/notes/todos/conversations 直接 fs，workflow 层用 StorageBackend）— 可统一但不阻塞
+- Test splitting: 1014 tests 如何分配到三个包
+- Personal context schema 是否过于 opinionated（当前判断：作为默认实现 ship，storage 接口允许替代）
+- Skills tool 放 Workflow 还是 Agent（当前判断：Workflow，因为 skill 调用可能需要 workspace 感知）
 
 ## 关键文件
 
 | 文件 | 用途 |
 |------|------|
-| `packages/agent-worker/docs/architecture/AGENT-TOP-LEVEL.md` | 架构设计（权威） |
+| `packages/agent-worker/docs/architecture/PACKAGE-SPLIT.md` | 三包拆分设计（权威） |
+| `packages/agent-worker/docs/architecture/AGENT-TOP-LEVEL.md` | Agent 顶层实体设计 |
+| `packages/agent-worker/ARCHITECTURE.md` | 模块结构参考 |
 | `.memory/decisions/` | ADR 记录 |
 | `.memory/todos/index.md` | 活跃任务 |
 | `.memory/notes/` | Session 反思与发现 |

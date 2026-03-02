@@ -195,7 +195,39 @@ src/
         └── mock.ts                # mock commands
 ```
 
-## Dependency Graph
+## Three-Package Direction
+
+> Detailed design: [docs/architecture/PACKAGE-SPLIT.md](./docs/architecture/PACKAGE-SPLIT.md)
+
+The current single package maps to three use cases that should be independently usable:
+
+```
+@moniro/agent          ← Worker: fire-and-forget execution
+    ▲       ▲            (worker + backends + tool infra + skills + personal context)
+    │       │
+@moniro/workflow       │  ← Orchestration: one-shot multi-agent workflows
+    ▲       │            (loop + shared context + MCP + bash/feedback tools)
+    │       │
+agent-worker ──────────┘  ← System: persistent daemon service
+                           (daemon + AgentHandle + CLI + conversation persistence)
+```
+
+**Rule**: No upward dependencies. Same layer or lower only.
+
+### Key boundaries
+
+| Concern | Layer | Why |
+|---|---|---|
+| AgentWorker, backends, model creation | Agent | Pure execution, zero orchestration knowledge |
+| Tool creation infra, skills loading | Agent | Extension mechanism, usable standalone |
+| Personal context (memory/notes/todos) | Agent (toolkit) + System (wiring) | Skills need it; storage is pluggable |
+| AgentLoop, workflow parser, runner | Workflow | Lifecycle + orchestration |
+| Shared context (channel/inbox/docs) | Workflow | Collaboration substrate between agents |
+| bash, feedback tools | Workflow | Environment capabilities for workflow agents |
+| Daemon, AgentHandle, CLI | System | Persistence + service infrastructure |
+| ConversationLog, ThinThread | System | Long-lived conversation state |
+
+## Current Dependency Graph
 
 ```
 cli/ ──── HTTP ────► daemon/
