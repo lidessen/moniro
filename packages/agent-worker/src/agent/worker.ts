@@ -1,6 +1,6 @@
 import { ToolLoopAgent, stepCountIs, type ModelMessage } from "ai";
 import { createModelAsync, createModelWithProvider } from "./models.ts";
-import type { ProviderConfig } from "../workflow/types.ts";
+import type { ProviderConfig } from "./types.ts";
 import type {
   AgentMessage,
   AgentResponse,
@@ -14,7 +14,7 @@ import type {
   Transcript,
 } from "./types.ts";
 import type { Backend } from "../backends/types.ts";
-import type { Logger } from "../workflow/logger.ts";
+import type { Logger } from "./logger.ts";
 
 /**
  * Extended worker config that supports both SDK and CLI backends.

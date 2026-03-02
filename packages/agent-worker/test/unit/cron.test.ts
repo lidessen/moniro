@@ -6,8 +6,8 @@
  */
 
 import { describe, test, expect } from "bun:test";
-import { parseCron, nextCronTime, msUntilNextCron } from "../../src/daemon/cron.ts";
-import { parseDuration, resolveSchedule } from "../../src/daemon/registry.ts";
+import { parseCron, nextCronTime, msUntilNextCron } from "../../src/agent/cron.ts";
+import { parseDuration, resolveSchedule } from "../../src/agent/schedule.ts";
 
 describe("parseCron", () => {
   test("parses wildcard fields", () => {

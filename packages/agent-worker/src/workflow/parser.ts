@@ -17,7 +17,7 @@ import type {
   ParamDefinition,
 } from "./types.ts";
 import { isRefAgentEntry } from "./types.ts";
-import type { ScheduleConfig } from "../daemon/registry.ts";
+import type { ScheduleConfig } from "../agent/schedule.ts";
 import type { AgentRegistry } from "../agent/agent-registry.ts";
 import { CONTEXT_DEFAULTS } from "./context/types.ts";
 import { resolveContextDir } from "./context/file-provider.ts";

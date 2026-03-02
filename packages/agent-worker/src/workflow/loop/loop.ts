@@ -20,8 +20,8 @@ import type {
 import { LOOP_DEFAULTS } from "./types.ts";
 import { buildAgentPrompt } from "./prompt.ts";
 import { generateWorkflowMCPConfig } from "./mcp-config.ts";
-import { resolveSchedule, type ScheduleConfig } from "../../daemon/registry.ts";
-import { msUntilNextCron } from "../../daemon/cron.ts";
+import { resolveSchedule, type ScheduleConfig } from "../../agent/schedule.ts";
+import { msUntilNextCron } from "../../agent/cron.ts";
 import type { ConversationMessage } from "../../agent/conversation.ts";
 
 /** Check if loop should continue running */

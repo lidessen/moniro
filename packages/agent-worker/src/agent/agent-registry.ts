@@ -16,7 +16,7 @@ import { join } from "node:path";
 import { AgentHandle } from "./agent-handle.ts";
 import type { AgentDefinition } from "./definition.ts";
 import { discoverAgents, serializeAgent, AGENTS_DIR } from "./yaml-parser.ts";
-import type { Logger } from "../workflow/logger.ts";
+import type { Logger } from "./logger.ts";
 
 // ── AgentRegistry ─────────────────────────────────────────────────
 

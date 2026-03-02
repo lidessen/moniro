@@ -12,7 +12,7 @@
  */
 
 import { z } from "zod/v4";
-import type { ScheduleConfig } from "../daemon/registry.ts";
+import type { ScheduleConfig } from "./schedule.ts";
 
 // ── Soul ──────────────────────────────────────────────────────────
 

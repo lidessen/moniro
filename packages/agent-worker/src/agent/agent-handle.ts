@@ -16,7 +16,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import type { AgentDefinition } from "./definition.ts";
 import { CONTEXT_SUBDIRS } from "./definition.ts";
 import type { AgentLoop } from "../workflow/loop/types.ts";
-import type { Logger } from "../workflow/logger.ts";
+import type { Logger } from "./logger.ts";
 import { ConversationLog, ThinThread, DEFAULT_THIN_THREAD_SIZE } from "./conversation.ts";
 
 // ── Types ─────────────────────────────────────────────────────────

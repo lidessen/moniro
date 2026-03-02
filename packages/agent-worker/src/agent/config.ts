@@ -6,8 +6,8 @@
  */
 
 import type { BackendType } from "../backends/types.ts";
-import type { ProviderConfig } from "../workflow/types.ts";
-import type { ScheduleConfig } from "../daemon/registry.ts";
+import type { ProviderConfig } from "./types.ts";
+import type { ScheduleConfig } from "./schedule.ts";
 
 export interface AgentConfig {
   /** Agent name (unique within daemon) */

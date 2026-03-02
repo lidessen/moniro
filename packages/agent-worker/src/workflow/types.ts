@@ -3,11 +3,15 @@
  */
 
 import type { ContextConfig } from "./context/types.ts";
-import type { ScheduleConfig } from "../daemon/registry.ts";
+import type { ProviderConfig } from "../agent/types.ts";
+import type { ScheduleConfig } from "../agent/schedule.ts";
 import type { AgentHandle } from "../agent/agent-handle.ts";
 
 // Re-export context types for convenience
 export type { ContextConfig, FileContextConfig, MemoryContextConfig } from "./context/types.ts";
+
+// Re-export ProviderConfig (canonical source: agent/types.ts)
+export type { ProviderConfig } from "../agent/types.ts";
 
 // ==================== Workflow File ====================
 
@@ -48,28 +52,6 @@ export interface WorkflowFile {
    * Optional: if omitted, agents start but wait for external trigger
    */
   kickoff?: string;
-}
-
-// ==================== Provider Configuration ====================
-
-/**
- * Custom provider configuration for API endpoint overrides.
- * Allows pointing any compatible SDK at a different base URL.
- *
- * Examples:
- *   provider: anthropic                    # string → built-in provider
- *   provider:                              # object → custom endpoint
- *     name: anthropic
- *     base_url: https://api.minimax.io/anthropic/v1
- *     api_key: $MINIMAX_API_KEY
- */
-export interface ProviderConfig {
-  /** Provider SDK name (e.g., 'anthropic', 'openai') */
-  name: string;
-  /** Override base URL for the provider */
-  base_url?: string;
-  /** API key — env var reference with '$' prefix (e.g., '$MINIMAX_API_KEY') or literal value */
-  api_key?: string;
 }
 
 // ==================== Agent Entry (Workflow YAML) ════════════════════

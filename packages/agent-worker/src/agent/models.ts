@@ -1,8 +1,8 @@
 import { gateway, type LanguageModel } from "ai";
-import type { ProviderConfig } from "../workflow/types.ts";
+import type { ProviderConfig } from "./types.ts";
 
 // Re-export for convenience
-export type { ProviderConfig } from "../workflow/types.ts";
+export type { ProviderConfig } from "./types.ts";
 
 // Cache for lazy-loaded providers
 const providerCache: Record<string, ((model: string) => LanguageModel) | null> = {};

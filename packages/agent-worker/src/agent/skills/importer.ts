@@ -9,7 +9,7 @@ import {
   getSpecDisplayName,
   type ImportSpec,
 } from "./import-spec.ts";
-import type { Logger } from "../../workflow/logger.ts";
+import type { Logger } from "../logger.ts";
 
 export interface ImportedSkill {
   name: string;
