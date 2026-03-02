@@ -24,7 +24,7 @@ export {
 export { opencodeAdapter, extractOpenCodeResult } from "./opencode.ts";
 
 import type { Backend, BackendType } from "./types.ts";
-import type { ProviderConfig } from "../agent/types.ts";
+import type { ProviderConfig } from "../types.ts";
 import { getModelForBackend, normalizeBackendType } from "./model-maps.ts";
 import { ClaudeCodeBackend, type ClaudeCodeOptions } from "./claude-code.ts";
 import { CodexBackend, type CodexOptions } from "./codex.ts";

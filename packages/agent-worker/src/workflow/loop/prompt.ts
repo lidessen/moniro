@@ -10,7 +10,7 @@
 
 import type { Message, InboxMessage } from "../context/types.ts";
 import type { AgentRunContext } from "./types.ts";
-import { formatConversationMessages } from "../../agent/conversation.ts";
+import { formatConversationMessages } from "@moniro/agent";
 
 // ── Section Type ──────────────────────────────────────────────────
 

@@ -15,7 +15,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { AgentRunContext, AgentRunResult } from "./types.ts";
 import { buildAgentPrompt } from "./prompt.ts";
-import { createTool } from "../../agent/tools/create-tool.ts";
+import { createTool } from "@moniro/agent";
 
 // ==================== MCP Tool Bridge ====================
 

@@ -13,11 +13,9 @@ import { mkdir, readFile, writeFile, readdir } from "node:fs/promises";
 import { mkdirSync, existsSync } from "node:fs";
 import { join, basename } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
-import type { AgentDefinition } from "./definition.ts";
-import { CONTEXT_SUBDIRS } from "./definition.ts";
+import type { AgentDefinition, Logger } from "@moniro/agent";
+import { CONTEXT_SUBDIRS, ConversationLog, ThinThread, DEFAULT_THIN_THREAD_SIZE } from "@moniro/agent";
 import type { AgentLoop } from "../workflow/loop/types.ts";
-import type { Logger } from "./logger.ts";
-import { ConversationLog, ThinThread, DEFAULT_THIN_THREAD_SIZE } from "./conversation.ts";
 
 // ── Types ─────────────────────────────────────────────────────────
 

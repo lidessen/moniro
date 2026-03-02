@@ -3,15 +3,14 @@
  */
 
 import type { ContextConfig } from "./context/types.ts";
-import type { ProviderConfig } from "../agent/types.ts";
-import type { ScheduleConfig } from "../agent/schedule.ts";
+import type { ProviderConfig, ScheduleConfig } from "@moniro/agent";
 import type { AgentHandle } from "../agent/agent-handle.ts";
 
 // Re-export context types for convenience
 export type { ContextConfig, FileContextConfig, MemoryContextConfig } from "./context/types.ts";
 
-// Re-export ProviderConfig (canonical source: agent/types.ts)
-export type { ProviderConfig } from "../agent/types.ts";
+// Re-export ProviderConfig (canonical source: @moniro/agent)
+export type { ProviderConfig } from "@moniro/agent";
 
 // ==================== Workflow File ====================
 

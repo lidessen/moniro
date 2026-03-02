@@ -5,7 +5,7 @@
  * Consolidates patterns from workflow-mock-backend.test.ts and workflow-simulation.test.ts.
  */
 
-import type { Backend, BackendResponse } from "../../src/backends/types.ts";
+import type { Backend, BackendResponse } from "@moniro/agent";
 import type { ContextProvider } from "../../src/workflow/context/provider.ts";
 
 type BehaviorFn = (

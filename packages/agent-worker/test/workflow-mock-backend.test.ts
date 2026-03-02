@@ -13,7 +13,7 @@ import { describe, test, expect, afterEach } from "bun:test";
 import { createMemoryContextProvider } from "../src/workflow/context/memory-provider.ts";
 import { createAgentLoop, checkWorkflowIdle } from "../src/workflow/loop/loop.ts";
 import type { AgentLoop } from "../src/workflow/loop/types.ts";
-import type { Backend } from "../src/backends/types.ts";
+import type { Backend } from "@moniro/agent";
 import type { ResolvedWorkflowAgent } from "../src/workflow/types.ts";
 import type { ContextProvider } from "../src/workflow/context/provider.ts";
 

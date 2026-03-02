@@ -13,7 +13,7 @@ import type {
   TokenUsage,
   Transcript,
 } from "./types.ts";
-import type { Backend } from "../backends/types.ts";
+import type { Backend } from "./backends/types.ts";
 import type { Logger } from "./logger.ts";
 
 /**

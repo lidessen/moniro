@@ -5,7 +5,7 @@
  */
 
 import { createBashTool, type CreateBashToolOptions, type BashToolkit } from "bash-tool";
-import { createTool } from "./create-tool.ts";
+import { createTool } from "@moniro/agent";
 
 export type { CreateBashToolOptions, BashToolkit };
 export { createBashTool };

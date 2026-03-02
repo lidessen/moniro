@@ -1,23 +1,10 @@
+// ── Re-export from @moniro/agent (moved items) ──────────────────
 export {
   AgentWorker,
-  type AgentWorkerConfig,
-  type SendOptions,
-  type StepInfo,
-} from "./agent/worker.ts";
-export {
   createModel,
   createModelAsync,
   FRONTIER_MODELS,
   SUPPORTED_PROVIDERS,
-} from "./agent/models.ts";
-export {
-  createBashTool,
-  createBashTools,
-  createBashToolsFromDirectory,
-  createBashToolsFromFiles,
-} from "./agent/tools/bash.ts";
-export { createFeedbackTool, FEEDBACK_PROMPT } from "./agent/tools/feedback.ts";
-export {
   createBackend,
   checkBackends,
   listBackends,
@@ -27,27 +14,18 @@ export {
   SdkBackend,
   MockAIBackend,
   createMockBackend,
-} from "./backends/index.ts";
-export {
   SkillsProvider,
   createSkillsTool,
   SkillImporter,
   parseImportSpec,
   buildGitUrl,
   getSpecDisplayName,
-  type SkillMetadata,
-  type ImportedSkill,
-  type ImportSpec,
-  type GitProvider,
-} from "./agent/skills/index.ts";
-export type { SupportedProvider } from "./agent/models.ts";
-export type { BashToolkit, BashToolsOptions, CreateBashToolOptions } from "./agent/tools/bash.ts";
+} from "@moniro/agent";
 export type {
-  FeedbackEntry,
-  FeedbackToolOptions,
-  FeedbackToolResult,
-} from "./agent/tools/feedback.ts";
-export type {
+  AgentWorkerConfig,
+  SendOptions,
+  StepInfo,
+  SupportedProvider,
   Backend,
   BackendType,
   BackendConfig,
@@ -57,8 +35,10 @@ export type {
   CodexOptions,
   CursorOptions,
   SdkBackendOptions,
-} from "./backends/index.ts";
-export type {
+  SkillMetadata,
+  ImportedSkill,
+  ImportSpec,
+  GitProvider,
   AgentMessage,
   AgentResponse,
   ApprovalCheck,
@@ -70,4 +50,19 @@ export type {
   ToolInfo,
   TokenUsage,
   Transcript,
-} from "./agent/types.ts";
+} from "@moniro/agent";
+
+// ── Local exports (not moved) ────────────────────────────────────
+export {
+  createBashTool,
+  createBashTools,
+  createBashToolsFromDirectory,
+  createBashToolsFromFiles,
+} from "./agent/tools/bash.ts";
+export { createFeedbackTool, FEEDBACK_PROMPT } from "./agent/tools/feedback.ts";
+export type { BashToolkit, BashToolsOptions, CreateBashToolOptions } from "./agent/tools/bash.ts";
+export type {
+  FeedbackEntry,
+  FeedbackToolOptions,
+  FeedbackToolResult,
+} from "./agent/tools/feedback.ts";

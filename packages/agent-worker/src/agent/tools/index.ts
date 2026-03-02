@@ -14,11 +14,8 @@
  * - TodoWrite: Manage todos
  */
 
-// Tool creation utility (centralizes AI SDK type casts)
-export { createTool } from "./create-tool.ts";
-
-// Skills tool
-export { createSkillsTool } from "./skills.ts";
+// Tool creation utility + Skills (from @moniro/agent)
+export { createTool, createSkillsTool } from "@moniro/agent";
 
 // Bash tools (bash, readFile, writeFile)
 export {

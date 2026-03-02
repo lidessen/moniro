@@ -1,7 +1,7 @@
 import { describe, test, expect } from "bun:test";
 import { MockLanguageModelV3 } from "ai/test";
 import { generateText, tool, jsonSchema } from "ai";
-import { AgentWorker } from "../src/agent/worker.ts";
+import { AgentWorker } from "@moniro/agent";
 
 // Helper to create V3 format response
 function mockResponse(text: string, inputTokens = 10, outputTokens = 5) {
@@ -264,7 +264,7 @@ describe("AI SDK tool creation", () => {
 
 describe("FRONTIER_MODELS", () => {
   test("contains valid provider model lists", async () => {
-    const { FRONTIER_MODELS, SUPPORTED_PROVIDERS } = await import("../src/agent/models.ts");
+    const { FRONTIER_MODELS, SUPPORTED_PROVIDERS } = await import("@moniro/agent");
 
     // All supported providers should have frontier models
     for (const provider of SUPPORTED_PROVIDERS) {
@@ -285,7 +285,7 @@ describe("createModel", () => {
   let savedGatewayKey: string | undefined;
 
   test("throws on unknown provider", async () => {
-    const { createModel } = await import("../src/agent/models.ts");
+    const { createModel } = await import("@moniro/agent");
 
     // Provider-only format throws for unknown providers
     expect(() => createModel("invalid-model")).toThrow(
@@ -297,7 +297,7 @@ describe("createModel", () => {
     savedGatewayKey = process.env.AI_GATEWAY_API_KEY;
     process.env.AI_GATEWAY_API_KEY = savedGatewayKey || "test-key";
     try {
-      const { createModel, FRONTIER_MODELS } = await import("../src/agent/models.ts");
+      const { createModel, FRONTIER_MODELS } = await import("@moniro/agent");
 
       const model = createModel("openai") as any;
       expect(model.modelId).toBe(`openai/${FRONTIER_MODELS.openai[0]}`);
@@ -308,7 +308,7 @@ describe("createModel", () => {
   });
 
   test("throws on empty model name after colon", async () => {
-    const { createModel } = await import("../src/agent/models.ts");
+    const { createModel } = await import("@moniro/agent");
 
     expect(() => createModel("anthropic:")).toThrow(
       "Invalid model identifier: anthropic:. Model name is required.",
@@ -316,14 +316,14 @@ describe("createModel", () => {
   });
 
   test("throws on unloaded provider", async () => {
-    const { createModel } = await import("../src/agent/models.ts");
+    const { createModel } = await import("@moniro/agent");
 
     // Direct provider format requires async loading first
     expect(() => createModel("unknown:model-name")).toThrow("Provider 'unknown' not loaded");
   });
 
   test("createModelAsync throws on unknown provider", async () => {
-    const { createModelAsync } = await import("../src/agent/models.ts");
+    const { createModelAsync } = await import("@moniro/agent");
 
     await expect(createModelAsync("unknown:model-name")).rejects.toThrow(
       "Unknown provider: unknown",
@@ -334,7 +334,7 @@ describe("createModel", () => {
     savedGatewayKey = process.env.AI_GATEWAY_API_KEY;
     process.env.AI_GATEWAY_API_KEY = savedGatewayKey || "test-key";
     try {
-      const { createModel } = await import("../src/agent/models.ts");
+      const { createModel } = await import("@moniro/agent");
 
       const model = createModel("openai/gpt-5.2") as any;
       expect(model).toBeDefined();
@@ -346,7 +346,7 @@ describe("createModel", () => {
   });
 
   test("createModelAsync resolves model", async () => {
-    const { createModelAsync } = await import("../src/agent/models.ts");
+    const { createModelAsync } = await import("@moniro/agent");
 
     // Works with or without gateway — just verify we get a model back
     const model = (await createModelAsync("anthropic/claude-sonnet-4-5")) as any;
@@ -356,7 +356,7 @@ describe("createModel", () => {
   });
 
   test("createModelAsync resolves provider-only format", async () => {
-    const { createModelAsync, FRONTIER_MODELS } = await import("../src/agent/models.ts");
+    const { createModelAsync, FRONTIER_MODELS } = await import("@moniro/agent");
 
     const model = (await createModelAsync("anthropic")) as any;
     expect(model).toBeDefined();
@@ -365,7 +365,7 @@ describe("createModel", () => {
   });
 
   test("createModelAsync throws on unknown provider-only format", async () => {
-    const { createModelAsync } = await import("../src/agent/models.ts");
+    const { createModelAsync } = await import("@moniro/agent");
 
     await expect(createModelAsync("invalid-provider")).rejects.toThrow(
       "Unknown provider: invalid-provider. Supported:",
@@ -373,7 +373,7 @@ describe("createModel", () => {
   });
 
   test("createModelAsync throws on empty model name", async () => {
-    const { createModelAsync } = await import("../src/agent/models.ts");
+    const { createModelAsync } = await import("@moniro/agent");
 
     await expect(createModelAsync("openai:")).rejects.toThrow(
       "Invalid model identifier: openai:. Model name is required.",
@@ -382,14 +382,14 @@ describe("createModel", () => {
 
   test("getDefaultModel returns correct format", async () => {
     const { getDefaultModel, DEFAULT_PROVIDER, FRONTIER_MODELS } =
-      await import("../src/agent/models.ts");
+      await import("@moniro/agent");
 
     const defaultModel = getDefaultModel();
     expect(defaultModel).toBe(`${DEFAULT_PROVIDER}/${FRONTIER_MODELS[DEFAULT_PROVIDER][0]}`);
   });
 
   test("all providers in SUPPORTED_PROVIDERS have frontier models", async () => {
-    const { SUPPORTED_PROVIDERS, FRONTIER_MODELS } = await import("../src/agent/models.ts");
+    const { SUPPORTED_PROVIDERS, FRONTIER_MODELS } = await import("@moniro/agent");
 
     for (const provider of SUPPORTED_PROVIDERS) {
       expect(FRONTIER_MODELS[provider]).toBeDefined();
@@ -403,7 +403,7 @@ describe("createModel", () => {
     process.env.AI_GATEWAY_API_KEY = savedGatewayKey || "test-key";
     try {
       const { createModel, SUPPORTED_PROVIDERS, FRONTIER_MODELS } =
-        await import("../src/agent/models.ts");
+        await import("@moniro/agent");
 
       for (const provider of SUPPORTED_PROVIDERS) {
         const model = createModel(provider) as any;
@@ -1159,7 +1159,7 @@ describe("tool approval workflow", () => {
 
 describe("Backend factory", () => {
   test("createBackend creates default backend", async () => {
-    const { createBackend } = await import("../src/backends/index.ts");
+    const { createBackend } = await import("@moniro/agent");
 
     const backend = createBackend({ type: "default", model: "openai/gpt-5.2" });
     expect(backend.type).toBe("default");
@@ -1168,14 +1168,14 @@ describe("Backend factory", () => {
   });
 
   test('createBackend accepts deprecated "sdk" type', async () => {
-    const { createBackend } = await import("../src/backends/index.ts");
+    const { createBackend } = await import("@moniro/agent");
 
     const backend = createBackend({ type: "sdk" as any, model: "openai/gpt-5.2" });
     expect(backend.type).toBe("default");
   });
 
   test("createBackend creates Claude CLI backend", async () => {
-    const { createBackend } = await import("../src/backends/index.ts");
+    const { createBackend } = await import("@moniro/agent");
 
     const backend = createBackend({ type: "claude", model: "sonnet" });
     expect(backend.type).toBe("claude");
@@ -1184,7 +1184,7 @@ describe("Backend factory", () => {
   });
 
   test("createBackend creates Codex CLI backend", async () => {
-    const { createBackend } = await import("../src/backends/index.ts");
+    const { createBackend } = await import("@moniro/agent");
 
     const backend = createBackend({ type: "codex", model: "o3" });
     expect(backend.type).toBe("codex");
@@ -1192,7 +1192,7 @@ describe("Backend factory", () => {
   });
 
   test("createBackend creates Cursor CLI backend", async () => {
-    const { createBackend } = await import("../src/backends/index.ts");
+    const { createBackend } = await import("@moniro/agent");
 
     const backend = createBackend({ type: "cursor" });
     expect(backend.type).toBe("cursor");
@@ -1200,7 +1200,7 @@ describe("Backend factory", () => {
   });
 
   test("createBackend throws for unknown type", async () => {
-    const { createBackend } = await import("../src/backends/index.ts");
+    const { createBackend } = await import("@moniro/agent");
 
     expect(() => createBackend({ type: "invalid" as "default", model: "test" })).toThrow(
       "Unknown backend type: invalid",
@@ -1208,7 +1208,7 @@ describe("Backend factory", () => {
   });
 
   test("checkBackends returns availability map", async () => {
-    const { checkBackends } = await import("../src/backends/index.ts");
+    const { checkBackends } = await import("@moniro/agent");
 
     const availability = await checkBackends();
     expect(availability).toHaveProperty("default");
@@ -1220,7 +1220,7 @@ describe("Backend factory", () => {
   });
 
   test("listBackends returns backend info array", async () => {
-    const { listBackends } = await import("../src/backends/index.ts");
+    const { listBackends } = await import("@moniro/agent");
 
     const backends = await listBackends();
     expect(backends).toHaveLength(5);
@@ -1237,7 +1237,7 @@ describe("Backend factory", () => {
 
 describe("CLI backend implementations", () => {
   test("ClaudeCodeBackend builds correct args", async () => {
-    const { ClaudeCodeBackend } = await import("../src/backends/claude-code.ts");
+    const { ClaudeCodeBackend } = await import("@moniro/agent");
 
     const backend = new ClaudeCodeBackend({
       model: "opus",
@@ -1250,7 +1250,7 @@ describe("CLI backend implementations", () => {
   });
 
   test("CodexBackend builds correct args", async () => {
-    const { CodexBackend } = await import("../src/backends/codex.ts");
+    const { CodexBackend } = await import("@moniro/agent");
 
     const backend = new CodexBackend({
       model: "o3",
@@ -1261,7 +1261,7 @@ describe("CLI backend implementations", () => {
   });
 
   test("CursorBackend builds correct args", async () => {
-    const { CursorBackend } = await import("../src/backends/cursor.ts");
+    const { CursorBackend } = await import("@moniro/agent");
 
     const backend = new CursorBackend({
       model: "gpt-5.2",
@@ -1272,7 +1272,7 @@ describe("CLI backend implementations", () => {
   });
 
   test("SdkBackend getInfo returns correct info", async () => {
-    const { SdkBackend } = await import("../src/backends/sdk.ts");
+    const { SdkBackend } = await import("@moniro/agent");
 
     const backend = new SdkBackend({ model: "anthropic/claude-sonnet-4-5" });
     const info = backend.getInfo();
@@ -1286,7 +1286,7 @@ describe("CLI backend implementations", () => {
 
 describe("getModelForBackend", () => {
   test("returns default model when no model specified", async () => {
-    const { getModelForBackend, BACKEND_DEFAULT_MODELS } = await import("../src/backends/types.ts");
+    const { getModelForBackend, BACKEND_DEFAULT_MODELS } = await import("@moniro/agent");
 
     expect(getModelForBackend(undefined, "cursor")).toBe(BACKEND_DEFAULT_MODELS.cursor);
     expect(getModelForBackend(undefined, "claude")).toBe(BACKEND_DEFAULT_MODELS.claude);
@@ -1295,7 +1295,7 @@ describe("getModelForBackend", () => {
   });
 
   test("translates model names for cursor backend", async () => {
-    const { getModelForBackend } = await import("../src/backends/types.ts");
+    const { getModelForBackend } = await import("@moniro/agent");
 
     // Generic names -> cursor format
     expect(getModelForBackend("sonnet", "cursor")).toBe("sonnet-4.5");
@@ -1311,7 +1311,7 @@ describe("getModelForBackend", () => {
   });
 
   test("translates model names for claude backend", async () => {
-    const { getModelForBackend } = await import("../src/backends/types.ts");
+    const { getModelForBackend } = await import("@moniro/agent");
 
     // Generic names -> claude format
     expect(getModelForBackend("sonnet", "claude")).toBe("sonnet");
@@ -1326,7 +1326,7 @@ describe("getModelForBackend", () => {
   });
 
   test("translates model names for default backend", async () => {
-    const { getModelForBackend } = await import("../src/backends/types.ts");
+    const { getModelForBackend } = await import("@moniro/agent");
 
     // Generic names -> full model ID
     expect(getModelForBackend("sonnet", "default")).toBe("claude-sonnet-4-5-20250514");
@@ -1338,7 +1338,7 @@ describe("getModelForBackend", () => {
   });
 
   test("passes through unknown models unchanged", async () => {
-    const { getModelForBackend } = await import("../src/backends/types.ts");
+    const { getModelForBackend } = await import("@moniro/agent");
 
     expect(getModelForBackend("unknown-model", "cursor")).toBe("unknown-model");
     expect(getModelForBackend("custom-model-v2", "claude")).toBe("custom-model-v2");
@@ -1347,7 +1347,7 @@ describe("getModelForBackend", () => {
 
 describe("createBackend with model translation", () => {
   test("cursor backend receives translated model", async () => {
-    const { createBackend } = await import("../src/backends/index.ts");
+    const { createBackend } = await import("@moniro/agent");
 
     // Create with generic model name
     const backend = createBackend({ type: "cursor", model: "sonnet" });
@@ -1358,7 +1358,7 @@ describe("createBackend with model translation", () => {
   });
 
   test("claude backend receives translated model", async () => {
-    const { createBackend } = await import("../src/backends/index.ts");
+    const { createBackend } = await import("@moniro/agent");
 
     // Create with provider-prefixed model
     const backend = createBackend({ type: "claude", model: "anthropic/claude-sonnet-4-5" });
@@ -1369,8 +1369,8 @@ describe("createBackend with model translation", () => {
   });
 
   test("backend uses default model when not specified", async () => {
-    const { createBackend } = await import("../src/backends/index.ts");
-    const { BACKEND_DEFAULT_MODELS } = await import("../src/backends/types.ts");
+    const { createBackend } = await import("@moniro/agent");
+    const { BACKEND_DEFAULT_MODELS } = await import("@moniro/agent");
 
     const cursorBackend = createBackend({ type: "cursor" });
     expect(cursorBackend.getInfo?.().model).toBe(BACKEND_DEFAULT_MODELS.cursor);

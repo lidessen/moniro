@@ -20,7 +20,7 @@
  * ```
  */
 
-import { createTool } from "./create-tool.ts";
+import { createTool } from "@moniro/agent";
 
 // ── Types ──────────────────────────────────────────────────────────
 

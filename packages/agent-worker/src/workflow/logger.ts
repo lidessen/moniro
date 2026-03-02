@@ -11,10 +11,10 @@
 
 import type { ContextProvider } from "./context/provider.ts";
 import type { EventSink } from "./context/stores/timeline.ts";
-import { formatArg, type LogLevel } from "../agent/logger.ts";
+import { formatArg, type LogLevel } from "@moniro/agent";
 
-// Re-export from canonical source (agent/logger.ts)
-export { createSilentLogger, formatArg, type Logger, type LogLevel } from "../agent/logger.ts";
+// Re-export from canonical source (@moniro/agent)
+export { createSilentLogger, formatArg, type Logger, type LogLevel } from "@moniro/agent";
 
 // ==================== Channel Logger ====================
 

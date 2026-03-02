@@ -6,8 +6,7 @@
  */
 
 import { describe, test, expect } from "bun:test";
-import { parseCron, nextCronTime, msUntilNextCron } from "../../src/agent/cron.ts";
-import { parseDuration, resolveSchedule } from "../../src/agent/schedule.ts";
+import { parseCron, nextCronTime, msUntilNextCron, parseDuration, resolveSchedule } from "@moniro/agent";
 
 describe("parseCron", () => {
   test("parses wildcard fields", () => {

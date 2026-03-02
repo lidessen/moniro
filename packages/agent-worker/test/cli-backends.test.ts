@@ -7,16 +7,18 @@
 import { describe, test, expect } from "bun:test";
 import { spawn } from "node:child_process";
 import { join } from "node:path";
-import { CursorBackend } from "../src/backends/cursor.ts";
-import { opencodeAdapter, extractOpenCodeResult } from "../src/backends/opencode.ts";
-import { execWithIdleTimeout, IdleTimeoutError } from "../src/backends/idle-timeout.ts";
 import {
+  CursorBackend,
+  opencodeAdapter,
+  extractOpenCodeResult,
+  execWithIdleTimeout,
+  IdleTimeoutError,
   formatEvent,
   claudeAdapter,
   codexAdapter,
   extractClaudeResult,
   extractCodexResult,
-} from "../src/backends/stream-json.ts";
+} from "@moniro/agent";
 
 const MOCK_CLI_PATH = join(import.meta.dir, "mock-cli.ts");
 

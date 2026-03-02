@@ -14,10 +14,9 @@ import { generateText, tool, stepCountIs } from "ai";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { execSync } from "node:child_process";
-import { createModelAsync } from "@/agent/models.ts";
+import { createModelAsync, createTool } from "@moniro/agent";
 import type { AgentRunContext, AgentRunResult } from "./types.ts";
 import { buildAgentPrompt } from "./prompt.ts";
-import { createTool } from "../../agent/tools/create-tool.ts";
 
 // ==================== Debug Formatting ====================
 

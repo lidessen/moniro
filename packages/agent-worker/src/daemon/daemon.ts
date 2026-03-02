@@ -27,11 +27,10 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
+import type { AgentDefinition, BackendType } from "@moniro/agent";
 import { AgentRegistry } from "../agent/agent-registry.ts";
-import type { AgentDefinition } from "../agent/definition.ts";
 import type { StateStore } from "../agent/store.ts";
 import { MemoryStateStore } from "../agent/store.ts";
-import type { BackendType } from "../backends/types.ts";
 import {
   CONFIG_DIR,
   DEFAULT_PORT,

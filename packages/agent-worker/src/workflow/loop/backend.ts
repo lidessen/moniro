@@ -3,12 +3,8 @@
  * Maps workflow config to Backend instances from backends/
  */
 
-import type { Backend } from "@/backends/types.ts";
-import type { StreamParserCallbacks } from "@/backends/stream-json.ts";
-import type { ProviderConfig } from "@/workflow/types.ts";
-import { parseModel } from "@/backends/model-maps.ts";
-import { createBackend } from "@/backends/index.ts";
-import { createMockBackend } from "@/backends/mock.ts";
+import type { Backend, StreamParserCallbacks, ProviderConfig } from "@moniro/agent";
+import { parseModel, createBackend, createMockBackend } from "@moniro/agent";
 
 /** Options for creating a workflow backend */
 export interface WorkflowBackendOptions {

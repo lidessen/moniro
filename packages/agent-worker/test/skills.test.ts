@@ -9,7 +9,7 @@ import {
   buildGitUrl,
   getSpecDisplayName,
   SkillImporter,
-} from "../src/agent/skills/index.ts";
+} from "@moniro/agent";
 
 // Test skill content
 const validSkillMd = `---
@@ -452,7 +452,7 @@ describe("Skills integration", () => {
   });
 
   test("works with AgentWorker", async () => {
-    const { AgentWorker } = await import("../src/agent/worker.ts");
+    const { AgentWorker } = await import("@moniro/agent");
 
     const skillDir = join(testDir, "session-skill");
     mkdirSync(skillDir);

@@ -20,9 +20,8 @@ import type {
 import { LOOP_DEFAULTS } from "./types.ts";
 import { buildAgentPrompt } from "./prompt.ts";
 import { generateWorkflowMCPConfig } from "./mcp-config.ts";
-import { resolveSchedule, type ScheduleConfig } from "../../agent/schedule.ts";
-import { msUntilNextCron } from "../../agent/cron.ts";
-import type { ConversationMessage } from "../../agent/conversation.ts";
+import { resolveSchedule, msUntilNextCron } from "@moniro/agent";
+import type { ScheduleConfig, ConversationMessage } from "@moniro/agent";
 
 /** Check if loop should continue running */
 function shouldContinue(state: AgentState): boolean {
@@ -449,7 +448,7 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
 
 // ==================== Agent Run Orchestration ====================
 
-import type { Backend } from "@/backends/types.ts";
+import type { Backend } from "@moniro/agent";
 import { runMockAgent } from "./mock-runner.ts";
 import { runSdkAgent } from "./sdk-runner.ts";
 import { writeBackendMcpConfig } from "./mcp-config.ts";

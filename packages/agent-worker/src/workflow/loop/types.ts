@@ -6,8 +6,7 @@
 import type { ResolvedWorkflowAgent } from "../types.ts";
 import type { ContextProvider } from "../context/provider.ts";
 import type { Message, InboxMessage } from "../context/types.ts";
-import type { Backend } from "@/backends/types.ts";
-import type { ConversationMessage, ConversationLog, ThinThread } from "../../agent/conversation.ts";
+import type { Backend, ConversationMessage, ConversationLog, ThinThread } from "@moniro/agent";
 
 // ==================== Agent Loop ====================
 

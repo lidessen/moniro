@@ -17,7 +17,7 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { BackendType } from "../backends/types.ts";
+import type { BackendType } from "@moniro/agent";
 
 export const CONFIG_DIR = join(homedir(), ".agent-worker");
 export const SESSIONS_DIR = join(CONFIG_DIR, "sessions");
@@ -75,13 +75,13 @@ export function isDaemonRunning(): DaemonInfo | null {
   }
 }
 
-// Re-export from canonical source (agent/schedule.ts)
+// Re-export from canonical source (@moniro/agent)
 export {
   type ScheduleConfig,
   type ResolvedSchedule,
   parseDuration,
   resolveSchedule,
-} from "../agent/schedule.ts";
+} from "@moniro/agent";
 
 export interface SessionInfo {
   id: string;

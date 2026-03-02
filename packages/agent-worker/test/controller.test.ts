@@ -9,8 +9,8 @@ import {
   type AgentRunContext,
   type AgentRunResult,
 } from "../src/workflow/loop/types.ts";
-import type { Backend } from "../src/backends/types.ts";
-import { parseModel, resolveModelAlias } from "../src/backends/model-maps.ts";
+import type { Backend } from "@moniro/agent";
+import { parseModel, resolveModelAlias } from "@moniro/agent";
 import { formatInbox, formatChannel, buildAgentPrompt } from "../src/workflow/loop/prompt.ts";
 import {
   createAgentLoop,

@@ -18,7 +18,7 @@ import { randomUUID } from "node:crypto";
 import { isRefAgentEntry, type AgentEntry } from "@/workflow/types.ts";
 import { validateWorkflow, parseWorkflowFile } from "@/workflow/parser.ts";
 import { AgentRegistry } from "@/agent/agent-registry.ts";
-import type { AgentDefinition } from "@/agent/definition.ts";
+import type { AgentDefinition } from "@moniro/agent";
 
 function tmpDir(): string {
   const dir = join(tmpdir(), `agent-ref-test-${randomUUID().slice(0, 8)}`);

@@ -27,16 +27,14 @@ import { runWithHttp, type HttpMCPServer } from "./context/http-transport.ts";
 import { EventLog } from "./context/event-log.ts";
 import type { Message } from "./context/types.ts";
 import type { ResolvedWorkflowAgent } from "./types.ts";
-import type { Backend } from "../backends/types.ts";
-import type { StreamParserCallbacks } from "../backends/stream-json.ts";
+import type { Backend, StreamParserCallbacks, ConversationLog, ThinThread } from "@moniro/agent";
+import { isAutoProvider, resolveModelFallback } from "@moniro/agent";
 import { createAgentLoop } from "./loop/loop.ts";
 import { getBackendByType, getBackendForModel } from "./loop/backend.ts";
 import type { AgentLoop } from "./loop/types.ts";
-import { isAutoProvider, resolveModelFallback } from "../agent/models.ts";
 import type { Logger } from "./logger.ts";
 import { createSilentLogger } from "./logger.ts";
 import type { FeedbackEntry } from "../agent/tools/feedback.ts";
-import type { ConversationLog, ThinThread } from "../agent/conversation.ts";
 
 // ── Workspace ───────────────────────────────────────────────────────
 
