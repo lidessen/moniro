@@ -712,7 +712,7 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
     }
 
     try {
-      const { runWorkflowWithLoops } = await import("../workflow/runner.ts");
+      const { runWorkflowWithLoops } = await import("@moniro/workflow");
 
       const result = await runWorkflowWithLoops({
         workflow,
