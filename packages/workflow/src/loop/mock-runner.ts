@@ -16,6 +16,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import type { AgentRunContext, AgentRunResult } from "./types.ts";
 import { buildAgentPrompt } from "./prompt.ts";
 import { createTool } from "@moniro/agent";
+import { PreemptionError } from "./sdk-runner.ts";
 
 // ==================== MCP Tool Bridge ====================
 
@@ -121,8 +122,14 @@ export async function runMockAgent(
     });
 
     // 3. Build prompt and run
-    const prompt = buildAgentPrompt(ctx);
+    let prompt = buildAgentPrompt(ctx);
+    if (ctx.resumeProgress?.completedWork) {
+      prompt += `\n\n## Resume Context\nYou were preempted after completing ${ctx.resumeProgress.resumeFromStep} steps. Here's what you already did:\n${ctx.resumeProgress.completedWork}\n\nContinue from where you left off.`;
+    }
     log(`Prompt (${prompt.length} chars)`);
+
+    let _stepNum = 0;
+    const stepLog: string[] = [];
 
     const result = await generateText({
       model: mockModel,
@@ -130,7 +137,20 @@ export async function runMockAgent(
       prompt,
       system: ctx.agent.resolvedSystemPrompt,
       stopWhen: stepCountIs(3),
-      // Tool calls are logged by MCP server with tool_call type
+      onStepFinish: (step) => {
+        _stepNum++;
+        if (step.toolCalls?.length) {
+          for (const tc of step.toolCalls) {
+            stepLog.push(`Step ${_stepNum}: ${tc.toolName}(...)`);
+          }
+        }
+
+        // Cooperative preemption
+        if (ctx.shouldYield?.()) {
+          log(`Yielding after step ${_stepNum}`);
+          throw new PreemptionError(_stepNum, stepLog.join("\n"));
+        }
+      },
     });
 
     const totalToolCalls = result.steps.reduce((n, s) => n + s.toolCalls.length, 0);
@@ -143,6 +163,15 @@ export async function runMockAgent(
       toolCalls: totalToolCalls,
     };
   } catch (error) {
+    if (error instanceof PreemptionError) {
+      return {
+        success: true,
+        preempted: true,
+        completedWork: error.completedWork,
+        duration: Date.now() - startTime,
+        steps: error.stepsCompleted,
+      };
+    }
     const errorMsg = error instanceof Error ? error.message : String(error);
     return { success: false, error: errorMsg, duration: Date.now() - startTime };
   }

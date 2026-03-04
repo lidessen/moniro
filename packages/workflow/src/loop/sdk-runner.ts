@@ -104,6 +104,32 @@ function createBashTool() {
   });
 }
 
+// ==================== Preemption ====================
+
+/**
+ * Error thrown when an agent is preempted by a higher-priority instruction.
+ * Not a real error — signals that the agent should yield and resume later.
+ */
+export class PreemptionError extends Error {
+  /** Number of steps completed before preemption */
+  readonly stepsCompleted: number;
+  /** Summary of completed work */
+  readonly completedWork: string;
+
+  constructor(stepsCompleted: number, completedWork: string) {
+    super(`Preempted after ${stepsCompleted} steps`);
+    this.name = "PreemptionError";
+    this.stepsCompleted = stepsCompleted;
+    this.completedWork = completedWork;
+  }
+}
+
+/** Summarize completed steps for resume context */
+function summarizeSteps(stepLog: string[]): string {
+  if (stepLog.length === 0) return "";
+  return stepLog.join("\n");
+}
+
 // ==================== SDK Agent Runner ====================
 
 /**
@@ -114,6 +140,9 @@ function createBashTool() {
  * 1. Connects to MCP server for context tools (channel, document)
  * 2. Adds bash tool for shell access
  * 3. Runs generateText with full tool loop
+ *
+ * Supports cooperative preemption: between LLM steps, checks ctx.shouldYield()
+ * and throws PreemptionError if a higher-priority instruction is waiting.
  */
 export async function runSdkAgent(
   ctx: AgentRunContext,
@@ -137,11 +166,17 @@ export async function runSdkAgent(
     // 3. Assemble tools: MCP context + bash
     const tools = { ...mcp.tools, bash: createBashTool() };
 
-    // 4. Build prompt and run
-    const prompt = buildAgentPrompt(ctx);
+    // 4. Build prompt (with resume context if resuming)
+    let prompt = buildAgentPrompt(ctx);
+    if (ctx.resumeProgress?.completedWork) {
+      prompt += `\n\n## Resume Context\nYou were preempted after completing ${ctx.resumeProgress.resumeFromStep} steps. Here's what you already did:\n${ctx.resumeProgress.completedWork}\n\nContinue from where you left off.`;
+    }
     log(`Prompt (${prompt.length} chars) → sdk with ${Object.keys(tools).length} tools`);
 
+    // 5. Track steps for preemption
     let _stepNum = 0;
+    const stepLog: string[] = [];
+
     const result = await generateText({
       model,
       tools,
@@ -152,13 +187,23 @@ export async function runSdkAgent(
       stopWhen: stepCountIs(ctx.agent.max_steps ?? 200),
       onStepFinish: (step) => {
         _stepNum++;
-        if (step.toolCalls?.length && ctx.eventLog) {
+
+        // Log tool calls
+        if (step.toolCalls?.length) {
           for (const tc of step.toolCalls) {
-            // Only log non-MCP tools (like bash) — MCP tools are logged by MCP server
-            if (tc.toolName === "bash") {
+            stepLog.push(`Step ${_stepNum}: ${formatToolCall(tc)}`);
+            if (ctx.eventLog && tc.toolName === "bash") {
               ctx.eventLog.toolCall(ctx.name, tc.toolName, formatToolCall(tc), "sdk");
             }
           }
+        } else if (step.text) {
+          stepLog.push(`Step ${_stepNum}: (text output)`);
+        }
+
+        // Cooperative preemption: check if higher-priority work is waiting
+        if (ctx.shouldYield?.()) {
+          log(`Yielding after step ${_stepNum} (higher-priority instruction waiting)`);
+          throw new PreemptionError(_stepNum, summarizeSteps(stepLog));
         }
       },
     });
@@ -187,6 +232,16 @@ export async function runSdkAgent(
       toolCalls: totalToolCalls,
     };
   } catch (error) {
+    // Preemption is not a failure — return partial result
+    if (error instanceof PreemptionError) {
+      return {
+        success: true,
+        preempted: true,
+        completedWork: error.completedWork,
+        duration: Date.now() - startTime,
+        steps: error.stepsCompleted,
+      };
+    }
     const errorMsg = formatError(error);
     return { success: false, error: errorMsg, duration: Date.now() - startTime };
   }

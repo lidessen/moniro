@@ -13,15 +13,18 @@ import type {
   AgentLoop,
   AgentLoopConfig,
   AgentState,
+  AgentInstruction,
   AgentRunContext,
   AgentRunResult,
   WorkflowIdleState,
 } from "./types.ts";
 import { LOOP_DEFAULTS } from "./types.ts";
+import { InstructionQueue, generateInstructionId, classifyInboxPriority } from "./priority-queue.ts";
 import { buildAgentPrompt } from "./prompt.ts";
 import { generateWorkflowMCPConfig } from "./mcp-config.ts";
 import { resolveSchedule, msUntilNextCron } from "@moniro/agent";
 import type { ScheduleConfig, ConversationMessage } from "@moniro/agent";
+import type { InboxMessage } from "../context/types.ts";
 
 /** Check if loop should continue running */
 function shouldContinue(state: AgentState): boolean {
@@ -74,6 +77,9 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
   let _hasFailures = false;
   let _lastError: string | undefined;
 
+  // Priority queue: three lanes (immediate > normal > background)
+  const queue = new InstructionQueue();
+
   // Schedule support: resolve agent's wakeup config into a typed schedule.
   // Validate eagerly so invalid cron expressions fail at creation, not at runtime.
   const scheduleConfig: ScheduleConfig | undefined = agent.schedule;
@@ -102,10 +108,192 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
   }
 
   /**
-   * Main poll loop
+   * Convert inbox messages to instructions and enqueue them by priority.
+   */
+  function enqueueInbox(inbox: InboxMessage[]): void {
+    // Group all inbox messages into a single instruction.
+    // The agent processes the full batch — priority determines ordering
+    // relative to other instructions (e.g., externally enqueued ones).
+    if (inbox.length === 0) return;
+
+    // Classify priority: highest priority message wins for the batch
+    let batchPriority: "immediate" | "normal" | "background" = "background";
+    for (const msg of inbox) {
+      const isDm = !!msg.entry.to;
+      const instrPriority = classifyInboxPriority(msg.priority, isDm);
+      if (instrPriority === "immediate") {
+        batchPriority = "immediate";
+        break;
+      }
+      if (instrPriority === "normal") {
+        batchPriority = "normal";
+      }
+    }
+
+    // Determine source from first message
+    const first = inbox[0]!;
+    const source = first.entry.to ? "dm" : "mention";
+
+    queue.enqueue({
+      id: generateInstructionId(),
+      message: inbox.map((m) => m.entry.content).join("\n"),
+      source,
+      priority: batchPriority,
+      queuedAt: new Date().toISOString(),
+      inboxMessages: inbox,
+    } satisfies AgentInstruction);
+  }
+
+  /**
+   * Process a single instruction: run agent with retry logic.
+   */
+  async function processInstruction(instruction: AgentInstruction): Promise<void> {
+    const inbox = instruction.inboxMessages ?? [];
+
+    // Log inbox summary (always visible) and details (debug only)
+    if (inbox.length > 0) {
+      const senders = inbox.map((m) => m.entry.from);
+      infoLog(`Inbox: ${inbox.length} message(s) from [${senders.join(", ")}] [${instruction.priority}]`);
+      for (const msg of inbox) {
+        const preview =
+          msg.entry.content.length > 120
+            ? msg.entry.content.slice(0, 120) + "..."
+            : msg.entry.content;
+        log(`  from @${msg.entry.from}: ${preview}`);
+      }
+    } else {
+      infoLog(`Processing instruction [${instruction.priority}/${instruction.source}]`);
+    }
+
+    // Get latest message ID for acknowledgment
+    const latestId = inbox.length > 0 ? inbox[inbox.length - 1]!.entry.id : undefined;
+
+    // Mark inbox as seen (loop picked it up, now processing)
+    if (latestId) {
+      await contextProvider.markInboxSeen(name, latestId);
+    }
+
+    // Run agent with retry
+    let attempt = 0;
+    let lastResult: AgentRunResult | null = null;
+
+    while (attempt < retryConfig.maxAttempts && shouldContinue(state)) {
+      attempt++;
+      state = "running";
+
+      // Update status to running
+      await contextProvider.setAgentStatus(name, { state: "running" });
+
+      infoLog(`Running (attempt ${attempt}/${retryConfig.maxAttempts})`);
+
+      // Build run context
+      const runContext: AgentRunContext = {
+        name,
+        agent,
+        inbox,
+        recentChannel: await contextProvider.readChannel({
+          limit: LOOP_DEFAULTS.recentChannelLimit,
+          agent: name,
+        }),
+        documentContent: await contextProvider.readDocument(),
+        mcpUrl,
+        workspaceDir,
+        projectDir,
+        retryAttempt: attempt,
+        provider: contextProvider,
+        eventLog,
+        feedback,
+        // Cooperative preemption: yield if higher-priority instruction arrives
+        shouldYield: () => queue.hasHigherPriority(instruction.priority),
+        // Resume from previous progress if this instruction was preempted before
+        resumeProgress: instruction.progress,
+      };
+
+      // Orchestrate: build prompt → configure workspace → send
+      lastResult = await runAgent(backend, runContext, log, infoLog);
+
+      // Handle preemption: re-queue with progress, break to process higher-priority
+      if (lastResult.preempted) {
+        const preemptCount = (instruction.progress?.preemptCount ?? 0) + 1;
+        infoLog(`Preempted after ${lastResult.steps ?? 0} steps (count: ${preemptCount})`);
+        queue.enqueue({
+          ...instruction,
+          progress: {
+            resumeFromStep: lastResult.steps ?? 0,
+            completedWork: lastResult.completedWork ?? "",
+            preemptCount,
+            queuedAt: instruction.progress?.queuedAt ?? instruction.queuedAt,
+          },
+        });
+        // Don't ack inbox — instruction will be resumed
+        break;
+      }
+
+      if (lastResult.success) {
+        const detail = lastResult.steps
+          ? `${lastResult.steps} steps, ${lastResult.toolCalls} tool calls, ${lastResult.duration}ms`
+          : `${lastResult.duration}ms`;
+        infoLog(`DONE ${detail}`);
+
+        // Write agent's final response to channel (so it's visible to user)
+        if (lastResult.content) {
+          await contextProvider.appendChannel(name, lastResult.content);
+        }
+
+        // Acknowledge inbox on success
+        if (latestId) {
+          await contextProvider.ackInbox(name, latestId);
+        }
+
+        // Reset schedule timer on activity
+        lastActivityTime = Date.now();
+
+        // Update status to idle after successful completion
+        await contextProvider.setAgentStatus(name, { state: "idle" });
+
+        break;
+      }
+
+      errorLog(`ERROR ${lastResult.error}`);
+
+      // Retry with backoff (unless last attempt)
+      if (attempt < retryConfig.maxAttempts && shouldContinue(state)) {
+        const delay = retryConfig.backoffMs * Math.pow(retryConfig.backoffMultiplier, attempt - 1);
+        log(`Retrying in ${delay}ms...`);
+        await sleep(delay);
+      }
+    }
+
+    // If all retries exhausted, still acknowledge to prevent infinite loop
+    if (lastResult && !lastResult.success) {
+      _hasFailures = true;
+      _lastError = lastResult.error;
+      errorLog(`ERROR max retries exhausted, acknowledging to prevent loop`);
+      if (latestId) {
+        await contextProvider.ackInbox(name, latestId);
+      }
+    }
+
+    // Notify completion
+    if (lastResult && onRunComplete) {
+      onRunComplete(lastResult);
+    }
+  }
+
+  /**
+   * Main poll loop — polls inbox, classifies into instructions, processes by priority.
    */
   async function runLoop(): Promise<void> {
     while (shouldContinue(state)) {
+      // Process any queued instructions first (from external enqueue())
+      if (!queue.isEmpty && !directRunning) {
+        const instruction = queue.dequeue()!;
+        await processInstruction(instruction);
+        state = "idle";
+        await contextProvider.setAgentStatus(name, { state: "idle" });
+        continue;
+      }
+
       // Wait for poll interval or wake
       await waitForWakeOrPoll();
 
@@ -114,6 +302,9 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
 
       // Skip if a sendDirect call is in progress
       if (directRunning) continue;
+
+      // Check externally enqueued instructions first
+      if (!queue.isEmpty) continue;
 
       // Check inbox
       const inbox = await contextProvider.getInbox(name);
@@ -143,9 +334,16 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
             const wakeupPrompt =
               resolvedSchedule.prompt ?? "Scheduled wakeup. Check for any pending work or updates.";
             log(`Schedule wakeup triggered for ${name}`);
-            await contextProvider.appendChannel("system", `@${name} ${wakeupPrompt}`);
+            // Enqueue directly as background priority (skip synthetic channel message)
+            queue.enqueue({
+              id: generateInstructionId(),
+              message: wakeupPrompt,
+              source: "schedule",
+              priority: "background",
+              queuedAt: new Date().toISOString(),
+            });
             lastActivityTime = now;
-            // Re-check inbox — the wakeup message should now be there
+            // Process the queued instruction on next iteration
             continue;
           }
         }
@@ -156,104 +354,12 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
         continue;
       }
 
-      // Log inbox summary (always visible) and details (debug only)
-      const senders = inbox.map((m) => m.entry.from);
-      infoLog(`Inbox: ${inbox.length} message(s) from [${senders.join(", ")}]`);
-      for (const msg of inbox) {
-        const preview =
-          msg.entry.content.length > 120
-            ? msg.entry.content.slice(0, 120) + "..."
-            : msg.entry.content;
-        log(`  from @${msg.entry.from}: ${preview}`);
-      }
+      // Classify inbox messages into instructions and enqueue
+      enqueueInbox(inbox);
 
-      // Get latest message ID for acknowledgment
-      const latestId = inbox[inbox.length - 1]!.entry.id;
-
-      // Mark inbox as seen (loop picked it up, now processing)
-      await contextProvider.markInboxSeen(name, latestId);
-
-      // Run agent with retry
-      let attempt = 0;
-      let lastResult: AgentRunResult | null = null;
-
-      while (attempt < retryConfig.maxAttempts && shouldContinue(state)) {
-        attempt++;
-        state = "running";
-
-        // Update status to running
-        await contextProvider.setAgentStatus(name, { state: "running" });
-
-        infoLog(`Running (attempt ${attempt}/${retryConfig.maxAttempts})`);
-
-        // Build run context
-        const runContext: AgentRunContext = {
-          name,
-          agent,
-          inbox,
-          recentChannel: await contextProvider.readChannel({
-            limit: LOOP_DEFAULTS.recentChannelLimit,
-            agent: name,
-          }),
-          documentContent: await contextProvider.readDocument(),
-          mcpUrl,
-          workspaceDir,
-          projectDir,
-          retryAttempt: attempt,
-          provider: contextProvider,
-          eventLog,
-          feedback,
-        };
-
-        // Orchestrate: build prompt → configure workspace → send
-        lastResult = await runAgent(backend, runContext, log, infoLog);
-
-        if (lastResult.success) {
-          const detail = lastResult.steps
-            ? `${lastResult.steps} steps, ${lastResult.toolCalls} tool calls, ${lastResult.duration}ms`
-            : `${lastResult.duration}ms`;
-          infoLog(`DONE ${detail}`);
-
-          // Write agent's final response to channel (so it's visible to user)
-          if (lastResult.content) {
-            await contextProvider.appendChannel(name, lastResult.content);
-          }
-
-          // Acknowledge inbox on success
-          await contextProvider.ackInbox(name, latestId);
-
-          // Reset schedule timer on activity
-          lastActivityTime = Date.now();
-
-          // Update status to idle after successful completion
-          await contextProvider.setAgentStatus(name, { state: "idle" });
-
-          break;
-        }
-
-        errorLog(`ERROR ${lastResult.error}`);
-
-        // Retry with backoff (unless last attempt)
-        if (attempt < retryConfig.maxAttempts && shouldContinue(state)) {
-          const delay =
-            retryConfig.backoffMs * Math.pow(retryConfig.backoffMultiplier, attempt - 1);
-          log(`Retrying in ${delay}ms...`);
-          await sleep(delay);
-        }
-      }
-
-      // If all retries exhausted, still acknowledge to prevent infinite loop
-      if (lastResult && !lastResult.success) {
-        _hasFailures = true;
-        _lastError = lastResult.error;
-        errorLog(`ERROR max retries exhausted, acknowledging to prevent loop`);
-        await contextProvider.ackInbox(name, latestId);
-      }
-
-      // Notify completion
-      if (lastResult && onRunComplete) {
-        onRunComplete(lastResult);
-      }
+      // Process the highest-priority instruction
+      const instruction = queue.dequeue()!;
+      await processInstruction(instruction);
 
       state = "idle";
       // Update status after completing work
@@ -343,6 +449,13 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
         wakeResolver();
         wakeResolver = null;
       }
+    },
+
+    enqueue(instruction: AgentInstruction) {
+      queue.enqueue(instruction);
+      log(`Enqueued instruction [${instruction.priority}/${instruction.source}]`);
+      // Wake the poll loop so it processes the instruction immediately
+      this.wake();
     },
 
     async sendDirect(message: string): Promise<AgentRunResult> {

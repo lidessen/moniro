@@ -51,6 +51,16 @@ export interface AgentLoop {
    * a logical lock so the two paths don't race.
    */
   sendDirect(message: string): Promise<AgentRunResult>;
+
+  /**
+   * Enqueue an instruction for priority-based processing.
+   *
+   * Instructions are processed in priority order: immediate > normal > background.
+   * Within the same priority lane, FIFO order is preserved.
+   *
+   * If the loop is idle, it will be woken immediately.
+   */
+  enqueue(instruction: AgentInstruction): void;
 }
 
 /** Retry configuration */
@@ -131,6 +141,10 @@ export interface AgentRunContext {
   feedback?: boolean;
   /** Recent conversation messages (thin thread for continuity) */
   thinThread?: ConversationMessage[];
+  /** Check if a higher-priority instruction is waiting (for cooperative preemption) */
+  shouldYield?: () => boolean;
+  /** Previous progress to resume from (if this is a resumed instruction) */
+  resumeProgress?: InstructionProgress;
 }
 
 /** Result of an agent run */
@@ -147,6 +161,51 @@ export interface AgentRunResult {
   steps?: number;
   /** Number of tool calls (SDK/mock backends) */
   toolCalls?: number;
+  /** Whether the run was preempted (yielded to higher-priority instruction) */
+  preempted?: boolean;
+  /** Summary of completed work before preemption */
+  completedWork?: string;
+}
+
+// ==================== Priority Queue ====================
+
+/** Instruction priority — modeled after React Fiber lanes */
+export type InstructionPriority =
+  | "immediate" // DM, @mention — process next
+  | "normal" // workspace direct send — FIFO within lane
+  | "background"; // non-@ channel, scheduled wakeup — yield to higher
+
+/** Source of an instruction */
+export type InstructionSource = "dm" | "mention" | "channel" | "schedule" | "workspace";
+
+/** Instruction delivered to an agent's loop */
+export interface AgentInstruction {
+  /** Unique instruction ID */
+  id: string;
+  /** The message content */
+  message: string;
+  /** Source of the instruction */
+  source: InstructionSource;
+  /** Processing priority */
+  priority: InstructionPriority;
+  /** ISO timestamp when queued */
+  queuedAt: string;
+  /** Associated inbox messages (for ack tracking) */
+  inboxMessages?: InboxMessage[];
+  /** Progress marker for resumed instructions (after preemption yield) */
+  progress?: InstructionProgress;
+}
+
+/** Saved progress for a yielded instruction */
+export interface InstructionProgress {
+  /** Step number to resume from */
+  resumeFromStep: number;
+  /** Summary of completed work (text representation of previous steps) */
+  completedWork: string;
+  /** How many times this instruction has been preempted */
+  preemptCount: number;
+  /** When this instruction was first queued */
+  queuedAt: string;
 }
 
 // ==================== Idle Detection ====================
