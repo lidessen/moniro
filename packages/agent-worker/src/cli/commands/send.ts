@@ -2,10 +2,7 @@ import type { Command } from "commander";
 import { mkdirSync } from "node:fs";
 import { outputJson } from "../output.ts";
 import { listAgents, isDaemonActive } from "../client.ts";
-import {
-  createFileContextProvider,
-  getDefaultContextDir,
-} from "@moniro/workflow";
+import { createFileContextProvider, getDefaultContextDir } from "@moniro/workflow";
 import { DEFAULT_WORKFLOW, parseTarget } from "../target.ts";
 
 /**

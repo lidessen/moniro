@@ -6,14 +6,13 @@
 
 | 优先级 | 任务 | 状态 | 备注 |
 |--------|------|------|------|
+| high | Phase 5 PR 合并 (#110) | in-progress | Priority Queue + Cooperative Preemption |
 | medium | `send` CLI target 解析（DM / @workspace / agent@workspace） | todo | Phase 3b 遗留，见 ADR |
 
-## 未来任务（Phase 5+）
+## 未来任务（Phase 6+）
 
 | 优先级 | 任务 | 阶段 | 备注 |
 |--------|------|------|------|
-| high | AgentLoop → priority queue（3 lanes） | Phase 5 | 在 System 层实现 |
-| high | AgentInstruction 类型 + cooperative preemption | Phase 5 | 在 System 层实现 |
 | medium | Personal context tools 实现（memory/notes/todos） | Phase 6 | 在 Agent 层，pluggable storage |
 | medium | Agent context in prompt（recall tools, auto-memory） | Phase 6 | |
 | low | CLI + Project Config（moniro.yaml） | Phase 7 | |
@@ -33,6 +32,7 @@
 | Three-Package Split 设计 | 2026-03-02 | PACKAGE-SPLIT.md |
 | Phase 4: Three-Package Split 实施 | 2026-03-04 | @moniro/agent + @moniro/workflow 提取, 1012 tests |
 | CI 更新: 三包构建顺序 | 2026-03-04 | test.yml, agent-workflow.yml, changeset-agent.yml |
+| Phase 5: Priority Queue + Cooperative Preemption | 2026-03-04 | PR #110, 1047 tests |
 
 ## 使用约定
 

@@ -15,11 +15,7 @@ export {
 } from "./factory.ts";
 
 // ── Runner ──────────────────────────────────────────────────────
-export {
-  runWorkflow,
-  runWorkflowWithLoops,
-  shutdownLoops,
-} from "./runner.ts";
+export { runWorkflow, runWorkflowWithLoops, shutdownLoops } from "./runner.ts";
 
 // ── Parser ──────────────────────────────────────────────────────
 export {
@@ -53,7 +49,12 @@ export type {
 export { isRefAgentEntry } from "./types.ts";
 
 // ── Loop ────────────────────────────────────────────────────────
-export { createAgentLoop, checkWorkflowIdle, isWorkflowComplete, buildWorkflowIdleState } from "./loop/loop.ts";
+export {
+  createAgentLoop,
+  checkWorkflowIdle,
+  isWorkflowComplete,
+  buildWorkflowIdleState,
+} from "./loop/loop.ts";
 export type {
   AgentLoop,
   AgentLoopConfig,
@@ -69,7 +70,11 @@ export type {
 export { LOOP_DEFAULTS } from "./loop/types.ts";
 
 // ── Priority Queue ─────────────────────────────────────────────
-export { InstructionQueue, generateInstructionId, classifyInboxPriority } from "./loop/priority-queue.ts";
+export {
+  InstructionQueue,
+  generateInstructionId,
+  classifyInboxPriority,
+} from "./loop/priority-queue.ts";
 
 // ── Prompt ──────────────────────────────────────────────────────
 export {
@@ -86,11 +91,7 @@ export {
 export { getBackendByType, getBackendForModel } from "./loop/backend.ts";
 
 // ── Send ────────────────────────────────────────────────────────
-export {
-  parseSendTarget,
-  formatUserSender,
-  sendToWorkflowChannel,
-} from "./loop/send.ts";
+export { parseSendTarget, formatUserSender, sendToWorkflowChannel } from "./loop/send.ts";
 export type { SendTargetType, ParsedSendTarget, SendResult } from "./loop/send.ts";
 
 // ── Mock runner ─────────────────────────────────────────────────
@@ -145,14 +146,17 @@ export type {
 } from "./context/stores/index.ts";
 
 // ── Context MCP Server ──────────────────────────────────────────
-export {
-  createContextMCPServer,
-  type ContextMCPServerOptions,
-} from "./context/mcp/server.ts";
+export { createContextMCPServer, type ContextMCPServerOptions } from "./context/mcp/server.ts";
 export { runWithHttp, type HttpMCPServer } from "./context/http-transport.ts";
 
 // ── Proposals ───────────────────────────────────────────────────
-export { ProposalManager, createProposalManager, PROPOSAL_DEFAULTS, formatProposal, formatProposalList } from "./context/proposals.ts";
+export {
+  ProposalManager,
+  createProposalManager,
+  PROPOSAL_DEFAULTS,
+  formatProposal,
+  formatProposalList,
+} from "./context/proposals.ts";
 export type { ProposalManagerOptions, Proposal } from "./context/proposals.ts";
 
 // ── Event Log ───────────────────────────────────────────────────
@@ -175,7 +179,13 @@ export type { PrettyDisplayConfig, PrettyDisplayWatcher } from "./display-pretty
 export { WorkflowFileSchema } from "./schema.ts";
 
 // ── Interpolation ───────────────────────────────────────────────
-export { interpolate, hasVariables, extractVariables, createContext, evaluateCondition } from "./interpolate.ts";
+export {
+  interpolate,
+  hasVariables,
+  extractVariables,
+  createContext,
+  evaluateCondition,
+} from "./interpolate.ts";
 export type { VariableContext } from "./interpolate.ts";
 
 // ── Source ──────────────────────────────────────────────────────
@@ -204,8 +214,4 @@ export {
 } from "./tools/bash.ts";
 export type { BashToolkit, BashToolsOptions, CreateBashToolOptions } from "./tools/bash.ts";
 export { createFeedbackTool, FEEDBACK_PROMPT } from "./tools/feedback.ts";
-export type {
-  FeedbackEntry,
-  FeedbackToolOptions,
-  FeedbackToolResult,
-} from "./tools/feedback.ts";
+export type { FeedbackEntry, FeedbackToolOptions, FeedbackToolResult } from "./tools/feedback.ts";

@@ -19,7 +19,11 @@ import type {
   WorkflowIdleState,
 } from "./types.ts";
 import { LOOP_DEFAULTS } from "./types.ts";
-import { InstructionQueue, generateInstructionId, classifyInboxPriority } from "./priority-queue.ts";
+import {
+  InstructionQueue,
+  generateInstructionId,
+  classifyInboxPriority,
+} from "./priority-queue.ts";
 import { buildAgentPrompt } from "./prompt.ts";
 import { generateWorkflowMCPConfig } from "./mcp-config.ts";
 import { resolveSchedule, msUntilNextCron } from "@moniro/agent";
@@ -153,7 +157,9 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
     // Log inbox summary (always visible) and details (debug only)
     if (inbox.length > 0) {
       const senders = inbox.map((m) => m.entry.from);
-      infoLog(`Inbox: ${inbox.length} message(s) from [${senders.join(", ")}] [${instruction.priority}]`);
+      infoLog(
+        `Inbox: ${inbox.length} message(s) from [${senders.join(", ")}] [${instruction.priority}]`,
+      );
       for (const msg of inbox) {
         const preview =
           msg.entry.content.length > 120
