@@ -144,9 +144,8 @@ jobs:
         if: steps.resolve.outputs.file != ''
         run: bun install && bun add @ai-sdk/deepseek
 
-      - name: Build agent-worker
+      - name: Build all packages
         if: steps.resolve.outputs.file != ''
-        working-directory: packages/agent-worker
         run: bun run build
 
       - name: Run workflow
