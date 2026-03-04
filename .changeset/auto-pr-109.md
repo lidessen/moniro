@@ -1,0 +1,7 @@
+---
+"@moniro/agent": minor
+"@moniro/workflow": minor
+"agent-worker": minor
+---
+
+Major architecture refactor: three-package split, adds conversation model and daemon registry
