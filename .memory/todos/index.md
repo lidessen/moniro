@@ -1,15 +1,11 @@
 # Todos
 
-跨会话的任务追踪。当前阶段：**Phase 4 — Three-Package Split**。
+跨会话的任务追踪。当前阶段：**Phase 5+ — 后续功能**。
 
 ## 活跃任务
 
 | 优先级 | 任务 | 状态 | 备注 |
 |--------|------|------|------|
-| high | Step 1: Barrel exports 验证三层边界 | todo | Phase 4 — 在现有包内建 barrel，验证无循环 |
-| high | Step 2: Extract `@moniro/agent` | todo | Phase 4 — worker + backends + skills + personal context |
-| high | Step 3: Extract `@moniro/workflow` | todo | Phase 4 — loop + shared context + tools |
-| high | Step 4: Clean up `agent-worker` (System layer) | todo | Phase 4 — 只留 daemon + persistence + CLI |
 | medium | `send` CLI target 解析（DM / @workspace / agent@workspace） | todo | Phase 3b 遗留，见 ADR |
 
 ## 未来任务（Phase 5+）
@@ -35,6 +31,8 @@
 | Phase 3b: Daemon Registry + Workspace | 2026-03-01 | AgentRegistry + WorkspaceRegistry, 994 tests |
 | Phase 3c: Conversation Model | 2026-03-01 | ConversationLog + ThinThread, 1014 tests |
 | Three-Package Split 设计 | 2026-03-02 | PACKAGE-SPLIT.md |
+| Phase 4: Three-Package Split 实施 | 2026-03-04 | @moniro/agent + @moniro/workflow 提取, 1012 tests |
+| CI 更新: 三包构建顺序 | 2026-03-04 | test.yml, agent-workflow.yml, changeset-agent.yml |
 
 ## 使用约定
 
