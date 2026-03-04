@@ -57,7 +57,13 @@ export type { CronFields } from "./cron.ts";
 export { createBackend, checkBackends, listBackends } from "./backends/index.ts";
 export type { Backend, BackendType, BackendConfig, BackendResponse } from "./backends/types.ts";
 export type { BackendOptions } from "./backends/index.ts";
-export { parseModel, normalizeBackendType, getModelForBackend, resolveModelAlias, BACKEND_DEFAULT_MODELS } from "./backends/model-maps.ts";
+export {
+  parseModel,
+  normalizeBackendType,
+  getModelForBackend,
+  resolveModelAlias,
+  BACKEND_DEFAULT_MODELS,
+} from "./backends/model-maps.ts";
 export { SdkBackend } from "./backends/sdk.ts";
 export type { SdkBackendOptions } from "./backends/sdk.ts";
 export { ClaudeCodeBackend } from "./backends/claude-code.ts";

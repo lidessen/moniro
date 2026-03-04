@@ -31,3 +31,6 @@ test-skills.ts
 test-skills-cli.ts
 test-skills-with-mock.ts
 .agents/
+
+# Workflow templates (local, user-specific)
+.workflows/

@@ -216,7 +216,10 @@ async function resolveInlineAgent(
  * Resolve a ref agent entry — load from AgentRegistry, map to WorkflowAgentDef,
  * apply workflow overrides (prompt.append, max_tokens, max_steps).
  */
-function resolveRefAgent(entry: RefAgentEntry, registry?: AgentRegistryLike): ResolvedWorkflowAgent {
+function resolveRefAgent(
+  entry: RefAgentEntry,
+  registry?: AgentRegistryLike,
+): ResolvedWorkflowAgent {
   if (!registry) {
     throw new Error(
       `Agent ref "${entry.ref}" requires an AgentRegistry. ` +
