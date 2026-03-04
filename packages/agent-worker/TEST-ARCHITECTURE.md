@@ -4,27 +4,27 @@
 
 ### Coverage Map
 
-| Module | Unit | Integration | E2E | Notes |
-|--------|------|-------------|-----|-------|
-| **AgentWorker** | Partial | None | None | Config/state tested; `send()` never called through session |
-| **AgentWorker.sendStream()** | None | None | None | Completely untested |
-| **Backends (SDK/Claude/Codex/Cursor)** | Factory only | Mock CLI | CLI integration | `send()` never tested with mock models |
-| **Backend model mapping** | Good | - | - | `getModelForBackend()` well covered |
-| **Daemon handler** | None | None | CLI integration | Request dispatch never unit tested |
-| **Daemon lifecycle** | None | None | Partial | Server start/stop only via CLI |
-| **Session registry** | Good | - | - | register/unregister/list well tested |
-| **CLI client (IPC)** | Error paths | None | Partial | Happy path never tested |
-| **CLI commands** | Help/flags | Partial | Partial | Many rely on real daemon |
-| **Workflow parser** | Good | - | - | validate, parse, interpolate well tested |
-| **Workflow runner** | Good | - | - | Setup, kickoff, context init tested |
-| **Agent controller** | Good | Good | - | Lifecycle, retry, wake, idle tested |
-| **Context (Memory)** | Excellent | MCP tools | - | All operations well covered |
-| **Context (File)** | Good | - | - | JSONL, inbox state, documents tested |
-| **MCP server** | Good | HTTP transport | - | Tool handlers tested via internal API |
-| **Proposals** | Excellent | Simulation | - | Create, vote, resolve, persist tested |
-| **Skills system** | Excellent | - | - | Provider, import, security well tested |
-| **Bash tools** | Good | - | - | Create, execute, sandbox tested |
-| **Multi-agent workflow** | - | Good | - | Mock backends simulate conversations |
+| Module                                 | Unit         | Integration    | E2E             | Notes                                                      |
+| -------------------------------------- | ------------ | -------------- | --------------- | ---------------------------------------------------------- |
+| **AgentWorker**                        | Partial      | None           | None            | Config/state tested; `send()` never called through session |
+| **AgentWorker.sendStream()**           | None         | None           | None            | Completely untested                                        |
+| **Backends (SDK/Claude/Codex/Cursor)** | Factory only | Mock CLI       | CLI integration | `send()` never tested with mock models                     |
+| **Backend model mapping**              | Good         | -              | -               | `getModelForBackend()` well covered                        |
+| **Daemon handler**                     | None         | None           | CLI integration | Request dispatch never unit tested                         |
+| **Daemon lifecycle**                   | None         | None           | Partial         | Server start/stop only via CLI                             |
+| **Session registry**                   | Good         | -              | -               | register/unregister/list well tested                       |
+| **CLI client (IPC)**                   | Error paths  | None           | Partial         | Happy path never tested                                    |
+| **CLI commands**                       | Help/flags   | Partial        | Partial         | Many rely on real daemon                                   |
+| **Workflow parser**                    | Good         | -              | -               | validate, parse, interpolate well tested                   |
+| **Workflow runner**                    | Good         | -              | -               | Setup, kickoff, context init tested                        |
+| **Agent controller**                   | Good         | Good           | -               | Lifecycle, retry, wake, idle tested                        |
+| **Context (Memory)**                   | Excellent    | MCP tools      | -               | All operations well covered                                |
+| **Context (File)**                     | Good         | -              | -               | JSONL, inbox state, documents tested                       |
+| **MCP server**                         | Good         | HTTP transport | -               | Tool handlers tested via internal API                      |
+| **Proposals**                          | Excellent    | Simulation     | -               | Create, vote, resolve, persist tested                      |
+| **Skills system**                      | Excellent    | -              | -               | Provider, import, security well tested                     |
+| **Bash tools**                         | Good         | -              | -               | Create, execute, sandbox tested                            |
+| **Multi-agent workflow**               | -            | Good           | -               | Mock backends simulate conversations                       |
 
 ### Key Gaps
 
@@ -116,46 +116,50 @@ test/
 ```typescript
 // Factory for creating MockLanguageModelV3 with common patterns
 
-import { MockLanguageModelV3 } from 'ai/test'
+import { MockLanguageModelV3 } from "ai/test";
 
 /** Simple text response */
 export function textResponse(text: string, inputTokens = 10, outputTokens = 5) {
   return new MockLanguageModelV3({
     doGenerate: {
-      content: [{ type: 'text' as const, text }],
-      finishReason: { unified: 'stop' as const, raw: 'stop' },
+      content: [{ type: "text" as const, text }],
+      finishReason: { unified: "stop" as const, raw: "stop" },
       usage: { inputTokens, outputTokens },
     },
-  })
+  });
 }
 
 /** Response with tool call then text */
-export function toolCallResponse(toolName: string, input: Record<string, unknown>, finalText: string) {
+export function toolCallResponse(
+  toolName: string,
+  input: Record<string, unknown>,
+  finalText: string,
+) {
   return new MockLanguageModelV3({
     doGenerate: {
       content: [
-        { type: 'tool-call' as const, toolCallId: `call-${Date.now()}`, toolName, input },
-        { type: 'text' as const, text: finalText },
+        { type: "tool-call" as const, toolCallId: `call-${Date.now()}`, toolName, input },
+        { type: "text" as const, text: finalText },
       ],
-      finishReason: { unified: 'stop' as const, raw: 'stop' },
+      finishReason: { unified: "stop" as const, raw: "stop" },
       usage: { inputTokens: 20, outputTokens: 15 },
     },
-  })
+  });
 }
 
 /** Sequence of responses (for multi-turn) */
 export function sequenceResponses(responses: Array<{ text: string }>) {
-  let callIndex = 0
+  let callIndex = 0;
   return new MockLanguageModelV3({
     doGenerate: () => {
-      const resp = responses[Math.min(callIndex++, responses.length - 1)]
+      const resp = responses[Math.min(callIndex++, responses.length - 1)];
       return {
-        content: [{ type: 'text' as const, text: resp.text }],
-        finishReason: { unified: 'stop' as const, raw: 'stop' },
+        content: [{ type: "text" as const, text: resp.text }],
+        finishReason: { unified: "stop" as const, raw: "stop" },
         usage: { inputTokens: 10, outputTokens: 5 },
-      }
+      };
     },
-  })
+  });
 }
 ```
 
@@ -164,14 +168,14 @@ export function sequenceResponses(responses: Array<{ text: string }>) {
 ```typescript
 // Reusable mock backend factory (consolidate from workflow-mock-backend.test.ts)
 
-import type { Backend } from '../../src/backends/types'
-import type { ContextProvider } from '../../src/workflow/context/provider'
+import type { Backend } from "../../src/backends/types";
+import type { ContextProvider } from "../../src/workflow/context/provider";
 
 type BehaviorFn = (
   prompt: string,
   provider: ContextProvider,
-  options?: { system?: string }
-) => Promise<void>
+  options?: { system?: string },
+) => Promise<void>;
 
 /**
  * Create a mock backend that uses type 'claude' for normal prompt routing.
@@ -180,35 +184,35 @@ type BehaviorFn = (
  */
 export function createMockBackend(behavior: BehaviorFn, provider: ContextProvider): Backend {
   return {
-    type: 'claude' as const,
+    type: "claude" as const,
     async send(message: string, options?: { system?: string }) {
-      await behavior(message, provider, options)
-      return { content: 'ok' }
+      await behavior(message, provider, options);
+      return { content: "ok" };
     },
-  }
+  };
 }
 
 /** No-op backend for idle tests */
 export function noopBackend(): Backend {
   return {
-    type: 'claude' as const,
+    type: "claude" as const,
     async send() {
-      return { content: 'ok' }
+      return { content: "ok" };
     },
-  }
+  };
 }
 
 /** Failing backend for retry tests */
 export function failingBackend(failCount: number): Backend {
-  let attempts = 0
+  let attempts = 0;
   return {
-    type: 'claude' as const,
+    type: "claude" as const,
     async send() {
-      attempts++
-      if (attempts <= failCount) throw new Error(`Attempt ${attempts} failed`)
-      return { content: 'ok' }
+      attempts++;
+      if (attempts <= failCount) throw new Error(`Attempt ${attempts} failed`);
+      return { content: "ok" };
     },
-  }
+  };
 }
 ```
 
@@ -222,19 +226,19 @@ export async function waitFor(
   timeout = 5000,
   interval = 50,
 ): Promise<void> {
-  const start = Date.now()
+  const start = Date.now();
   while (Date.now() - start < timeout) {
-    if (await condition()) return
-    await new Promise((r) => setTimeout(r, interval))
+    if (await condition()) return;
+    await new Promise((r) => setTimeout(r, interval));
   }
-  throw new Error(`Timeout after ${timeout}ms waiting for condition`)
+  throw new Error(`Timeout after ${timeout}ms waiting for condition`);
 }
 
 export function getInboxSection(prompt: string): string {
-  const start = prompt.indexOf('## Inbox')
-  const end = prompt.indexOf('## Recent Activity')
-  if (start === -1) return ''
-  return end === -1 ? prompt.slice(start) : prompt.slice(start, end)
+  const start = prompt.indexOf("## Inbox");
+  const end = prompt.indexOf("## Recent Activity");
+  if (start === -1) return "";
+  return end === -1 ? prompt.slice(start) : prompt.slice(start, end);
 }
 ```
 
@@ -253,6 +257,7 @@ Session.send("hello") → model generates → response returned
 ```
 
 **What to test:**
+
 - Text-only response: send message, get text back, verify history and stats updated
 - Multi-turn: send → response → send again → verify context accumulation
 - Tool calling: model calls tool → tool executes → model uses result → final text
@@ -268,6 +273,7 @@ Session.send("hello") → backend.send() → response returned
 ```
 
 **What to test:**
+
 - Backend receives message and system prompt correctly
 - Response mapped to AgentMessage format
 - Usage stats accumulated (even if backend doesn't report usage)
@@ -283,6 +289,7 @@ Session.send("delete file") → tool needs approval → pending approval returne
 ```
 
 **What to test:**
+
 - Tool with approval: send → response includes pendingApprovals
 - Approve: tool executes, result matches
 - Deny: tool not executed, deny reason stored
@@ -293,6 +300,7 @@ Session.send("delete file") → tool needs approval → pending approval returne
 Every CLI command goes through the handler. Unit testing it:
 
 **What to test:**
+
 - `send` action → session.send() called with correct args
 - `tool_add` action → session.addTool() called
 - `tool_mock` action → session.mockTool() called
@@ -310,6 +318,7 @@ Session.sendStream("hello") → yields chunks → final response
 ```
 
 **What to test:**
+
 - Yields text chunks in order
 - Final return value has complete response, tool calls, usage
 - Backend fallback: CLI backend → yields full response as single chunk
@@ -317,6 +326,7 @@ Session.sendStream("hello") → yields chunks → final response
 #### 6. Controller ↔ Context ↔ MCP full loop
 
 Test that the controller correctly:
+
 1. Reads inbox from context provider
 2. Builds prompt with inbox content
 3. Sends to backend
@@ -334,6 +344,7 @@ Currently tested in workflow-mock-backend.test.ts but the "backend uses MCP tool
 ```
 
 **What to test:**
+
 - Parallel appendChannel calls → all messages present
 - Parallel getInbox + appendChannel → no corruption
 - FileContextProvider under concurrent writes → JSONL integrity
@@ -343,6 +354,7 @@ Currently tested in workflow-mock-backend.test.ts but the "backend uses MCP tool
 The MCP server exposed over HTTP:
 
 **What to test:**
+
 - Server starts on random port
 - Agent identity extracted from URL query parameter
 - Tool call routed to correct handler
@@ -351,18 +363,21 @@ The MCP server exposed over HTTP:
 ### P2 — Edge Cases (nice to have)
 
 #### 9. Session state edge cases
+
 - Restore session with corrupt state (missing fields)
 - Send after clear() resets everything
 - addTool on CLI backend → throws
 - mockTool with execute that throws → error propagated in send()
 
 #### 10. Workflow lifecycle edge cases
+
 - Workflow with 0 agents → validation error
 - Kickoff with missing variable → unresolved template kept
 - Setup task timeout
 - Controller stop during active run
 
 #### 11. Backend availability checking
+
 - checkBackends when binaries not found → false for CLI backends
 - Timeout handling in isAvailable()
 
@@ -382,12 +397,14 @@ Also has double import of `afterEach` (line 658).
 ### 2. Backend timeout tests
 
 `checkBackends` and `listBackends` tests timeout (5s) because they check CLI availability by spawning processes. Consider:
+
 - Mocking `execa` for availability checks
 - Or moving these to integration tests with longer timeout
 
 ### 3. CLI integration tests fragile
 
 Tests depend on daemon startup timing (500ms sleeps). Consider:
+
 - Using proper wait-for-socket-ready pattern
 - Or restructuring to test command logic separately from process spawning
 
@@ -426,8 +443,8 @@ Strategy: In-process with mock backends for runner tests. Process-level for CLI 
 The biggest gap is testing `AgentWorker.send()` → model → response. The pattern:
 
 ```typescript
-import { MockLanguageModelV3 } from 'ai/test'
-import { AgentWorker } from '../src/agent/session'
+import { MockLanguageModelV3 } from "ai/test";
+import { AgentWorker } from "../src/agent/session";
 
 // Override model creation to use mock
 // Option A: Pass mock model directly (requires API change)
@@ -435,17 +452,18 @@ import { AgentWorker } from '../src/agent/session'
 // Option C: Use ToolLoopAgent with mock model directly
 
 // Recommended: Option B - mock at module level
-import { mock } from 'bun:test'
+import { mock } from "bun:test";
 
 // In beforeEach:
-mock.module('../src/agent/models.ts', () => ({
+mock.module("../src/agent/models.ts", () => ({
   createModelAsync: async () => mockModel,
   createModel: () => mockModel,
   // ... other exports
-}))
+}));
 ```
 
 This approach lets us test the full `send()` flow including:
+
 - Message accumulation
 - Tool loop execution
 - Usage tracking

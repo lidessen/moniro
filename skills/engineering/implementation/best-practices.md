@@ -17,6 +17,7 @@ Writing code that is correct, readable, and maintainable.
 ### Naming
 
 **Variables**: What it holds
+
 ```python
 # Bad
 d = get_data()
@@ -28,6 +29,7 @@ first_user = users[0]
 ```
 
 **Functions**: What it does (verb + noun)
+
 ```python
 # Bad
 def data(): ...
@@ -39,6 +41,7 @@ def validate_order(): ...
 ```
 
 **Booleans**: Question form
+
 ```python
 # Bad
 active = True
@@ -53,6 +56,7 @@ can_edit = True
 ### Function Design
 
 **Single responsibility**: One function, one job
+
 ```python
 # Bad: Does too much
 def process_order(order):
@@ -72,6 +76,7 @@ def process_order(order):
 ```
 
 **Small functions**: If it needs a comment explaining what a block does, extract it
+
 ```python
 # Before
 def process():
@@ -95,6 +100,7 @@ def process():
 ```
 
 **Pure functions when possible**: Same input → same output, no side effects
+
 ```python
 # Impure (harder to test, understand)
 total = 0
@@ -110,6 +116,7 @@ def add(a, b):
 ### Comments
 
 **Comment why, not what**:
+
 ```python
 # Bad: explains what (obvious from code)
 # Increment counter by 1
@@ -121,6 +128,7 @@ counter = 0
 ```
 
 **Better than comments: clear code**:
+
 ```python
 # Instead of comment
 # Check if user can edit
@@ -221,6 +229,7 @@ def test_user_can_be_created():
 ### What to Test
 
 **Test behavior, not implementation**:
+
 ```python
 # Bad: Tests implementation detail
 def test_user_service_calls_repository():
@@ -237,6 +246,7 @@ def test_get_user_returns_user():
 ```
 
 **Test edge cases**:
+
 ```python
 def test_divide():
     assert divide(10, 2) == 5      # Normal case
@@ -291,6 +301,7 @@ def test_get_user():
 **Guideline**: Files over 500 lines often need splitting.
 
 **Split by**:
+
 - Separate classes into own files
 - Group related functions
 - Extract utilities

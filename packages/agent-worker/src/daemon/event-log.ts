@@ -12,8 +12,7 @@ import { appendFileSync, mkdirSync, existsSync } from "node:fs";
 import { readFile, open } from "node:fs/promises";
 import { join } from "node:path";
 import { nanoid } from "nanoid";
-import type { Message, EventKind } from "../workflow/context/types.ts";
-import type { EventSink } from "../workflow/context/stores/timeline.ts";
+import type { Message, EventKind, EventSink } from "@moniro/workflow";
 
 const EVENTS_FILE = "events.jsonl";
 

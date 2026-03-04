@@ -5,9 +5,7 @@
  * Separates identity/configuration from execution and conversation state.
  */
 
-import type { BackendType } from "../backends/types.ts";
-import type { ProviderConfig } from "../workflow/types.ts";
-import type { ScheduleConfig } from "../daemon/registry.ts";
+import type { BackendType, ProviderConfig, ScheduleConfig } from "@moniro/agent";
 
 export interface AgentConfig {
   /** Agent name (unique within daemon) */

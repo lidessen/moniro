@@ -7,10 +7,13 @@
  * createModelAsync("auto") which threw "Unknown provider: auto".
  */
 import { describe, test, expect } from "bun:test";
-import { createWiredLoop, type RuntimeContext } from "../../src/workflow/factory.ts";
-import { createMemoryContextProvider } from "../../src/workflow/context/memory-provider.ts";
-import { EventLog } from "../../src/workflow/context/event-log.ts";
-import type { ResolvedWorkflowAgent } from "../../src/workflow/types.ts";
+import {
+  createWiredLoop,
+  type RuntimeContext,
+  createMemoryContextProvider,
+  EventLog,
+} from "@moniro/workflow";
+import type { ResolvedWorkflowAgent } from "@moniro/workflow";
 
 /** Minimal runtime context for testing (no HTTP server needed) */
 function createTestRuntime(): RuntimeContext {

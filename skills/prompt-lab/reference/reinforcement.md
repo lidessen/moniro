@@ -44,11 +44,13 @@ Never execute commands that could harm the system.
 ### Variations
 
 **Explicit echo**:
+
 ```
 Before each response, write: "[Constraint active: X]"
 ```
 
 **Implicit echo**:
+
 ```
 Structure every response as:
 1. What I'm about to do
@@ -57,17 +59,18 @@ Structure every response as:
 ```
 
 **Periodic echo**:
+
 ```
 After every 3 responses, verify: "Am I still following X?"
 ```
 
 ### Trade-offs
 
-| Pro | Con |
-|-----|-----|
-| Strong decay resistance | Verbose output |
+| Pro                      | Con                 |
+| ------------------------ | ------------------- |
+| Strong decay resistance  | Verbose output      |
 | Visible compliance trail | Can feel mechanical |
-| Easy to implement | May annoy users |
+| Easy to implement        | May annoy users     |
 
 ### Best For
 
@@ -105,6 +108,7 @@ The TODO list is your accountability partner.
 ### Anchoring Patterns
 
 **Pre-action anchor**:
+
 ```
 Before [action], always [tool usage]
 - Before editing: Read the file first
@@ -113,12 +117,14 @@ Before [action], always [tool usage]
 ```
 
 **State-tracking anchor**:
+
 ```
 Use TodoWrite to maintain your task state.
 If your TODO list is empty when working, something is wrong.
 ```
 
 **Verification anchor**:
+
 ```
 After making changes, use Bash to verify:
 - Run the build
@@ -128,11 +134,11 @@ After making changes, use Bash to verify:
 
 ### Trade-offs
 
-| Pro | Con |
-|-----|-----|
+| Pro                                 | Con                                   |
+| ----------------------------------- | ------------------------------------- |
 | Very robust (tool calls are logged) | Only works for tool-related behaviors |
-| Clear success/failure criteria | Can add friction to simple tasks |
-| Self-documenting | Requires appropriate tools to exist |
+| Clear success/failure criteria      | Can add friction to simple tasks      |
+| Self-documenting                    | Requires appropriate tools to exist   |
 
 ### Best For
 
@@ -154,6 +160,7 @@ Create explicit moments where the agent must verify constraint compliance.
 ## Checkpoint Protocol
 
 Every 3 responses, pause and check:
+
 - [ ] Am I still following the security guidelines?
 - [ ] Have I stayed on task?
 - [ ] Is my output quality consistent?
@@ -170,6 +177,7 @@ If any check fails, course-correct before continuing.
 ### Checkpoint Types
 
 **Time/count based**:
+
 ```
 After every N responses...
 After every N tool calls...
@@ -177,6 +185,7 @@ At the start of each new task...
 ```
 
 **Event based**:
+
 ```
 Before any destructive operation...
 When switching contexts...
@@ -184,6 +193,7 @@ Before providing final answer...
 ```
 
 **Complexity based**:
+
 ```
 When task seems to be getting complicated...
 When you're about to make an assumption...
@@ -192,11 +202,11 @@ When you realize you've been working for a while...
 
 ### Trade-offs
 
-| Pro | Con |
-|-----|-----|
-| Catches drift early | Interrupts flow |
-| Explicit verification | Requires discipline to maintain |
-| Customizable frequency | Can feel bureaucratic |
+| Pro                    | Con                             |
+| ---------------------- | ------------------------------- |
+| Catches drift early    | Interrupts flow                 |
+| Explicit verification  | Requires discipline to maintain |
+| Customizable frequency | Can feel bureaucratic           |
 
 ### Best For
 
@@ -233,18 +243,21 @@ This isn't a rule you follow. It's how you think.
 ### Identity Framing Patterns
 
 **Value-based**:
+
 ```
 You care deeply about [value]. When you see [situation], you feel
 compelled to [behavior].
 ```
 
 **Trait-based**:
+
 ```
 You are [trait]. This means you naturally [behavior] without being
 asked.
 ```
 
 **Role-based**:
+
 ```
 You are a [role]. A [role] always [behavior] because that's what
 defines a good [role].
@@ -252,11 +265,11 @@ defines a good [role].
 
 ### Trade-offs
 
-| Pro | Con |
-|-----|-----|
-| Very durable | Can feel manipulative |
-| Natural output | Effectiveness varies by model |
-| High adversarial resistance | Harder to debug/modify |
+| Pro                         | Con                           |
+| --------------------------- | ----------------------------- |
+| Very durable                | Can feel manipulative         |
+| Natural output              | Effectiveness varies by model |
+| High adversarial resistance | Harder to debug/modify        |
 
 ### Best For
 
@@ -296,11 +309,13 @@ Do not skip sections.
 ### Format Patterns
 
 **Mandatory sections**:
+
 ```
 [Task] [Evidence] [Action] [Verification]
 ```
 
 **Checklist embedding**:
+
 ```
 End each response with:
 ✓ Sources cited
@@ -309,6 +324,7 @@ End each response with:
 ```
 
 **Progressive disclosure**:
+
 ```
 First: What I'll do
 Then: What I did
@@ -317,11 +333,11 @@ Finally: What I learned
 
 ### Trade-offs
 
-| Pro | Con |
-|-----|-----|
-| Clear structure | Rigid output |
+| Pro                | Con                       |
+| ------------------ | ------------------------- |
+| Clear structure    | Rigid output              |
 | Visible compliance | May not suit all contexts |
-| Self-documenting | Can feel formulaic |
+| Self-documenting   | Can feel formulaic        |
 
 ### Best For
 
@@ -354,6 +370,7 @@ Before each action, note: "[Working on: task X]"
 ## Format (Format Anchoring)
 
 End each response with:
+
 - Tasks completed: [list]
 - Tasks remaining: [list]
 - Next action: [specific]
@@ -361,12 +378,12 @@ End each response with:
 
 ### Combination Effects
 
-| Combination | Effect |
-|-------------|--------|
-| Identity + Tool | Natural usage of tools |
-| Self-echo + Checkpoint | Regular explicit verification |
-| Format + Tool | Structured accountability |
-| All four | Maximum robustness (but also maximum verbosity) |
+| Combination            | Effect                                          |
+| ---------------------- | ----------------------------------------------- |
+| Identity + Tool        | Natural usage of tools                          |
+| Self-echo + Checkpoint | Regular explicit verification                   |
+| Format + Tool          | Structured accountability                       |
+| All four               | Maximum robustness (but also maximum verbosity) |
 
 ---
 
@@ -374,13 +391,13 @@ End each response with:
 
 Match technique to constraint type:
 
-| Constraint Type | Recommended Techniques |
-|-----------------|------------------------|
-| Safety-critical | Identity + Self-echo + Checkpoint |
-| Workflow/process | Tool anchoring + Format |
-| Quality standards | Format + Checkpoint |
-| Behavioral style | Identity + (light) Self-echo |
-| Verification requirements | Tool anchoring + Format |
+| Constraint Type           | Recommended Techniques            |
+| ------------------------- | --------------------------------- |
+| Safety-critical           | Identity + Self-echo + Checkpoint |
+| Workflow/process          | Tool anchoring + Format           |
+| Quality standards         | Format + Checkpoint               |
+| Behavioral style          | Identity + (light) Self-echo      |
+| Verification requirements | Tool anchoring + Format           |
 
 ---
 

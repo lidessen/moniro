@@ -7,7 +7,7 @@ status: active | superseded
 tags: []
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
-superseded_by: YYYY-MM-DD-new-decision-slug  # if superseded
+superseded_by: YYYY-MM-DD-new-decision-slug # if superseded
 ---
 
 # {Decision Title}
@@ -44,6 +44,7 @@ Why this choice over alternatives?
 ## Usage
 
 Record architectural and technical decisions that:
+
 - Affect multiple components
 - Are hard to reverse
 - Team members might question later
@@ -57,6 +58,7 @@ Record architectural and technical decisions that:
 ## Tags
 
 Common decision tags:
+
 - `database` - Data storage choices
 - `api` - API design decisions
 - `security` - Security-related choices

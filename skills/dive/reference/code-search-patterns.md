@@ -7,12 +7,14 @@ Strategic approaches for navigating codebases to find implementation details.
 ### "How does feature X work?"
 
 **Search sequence**:
+
 1. Find entry point (routes, handlers, main)
 2. Trace to business logic (services, controllers)
 3. Follow to data layer (models, repositories)
 4. Check tests for behavior validation
 
 **Key files to search**:
+
 - API routes/endpoints
 - Controllers/handlers
 - Service layer implementations
@@ -22,12 +24,14 @@ Strategic approaches for navigating codebases to find implementation details.
 ### "Where is X implemented?"
 
 **Search sequence**:
+
 1. Search for type definitions first
 2. Find function/class definitions
 3. Locate usage/imports
 4. Check tests for examples
 
 **Patterns**:
+
 - Type definitions reveal structure
 - Tests reveal usage patterns
 - Imports map dependencies
@@ -35,6 +39,7 @@ Strategic approaches for navigating codebases to find implementation details.
 ### "What causes error Y?"
 
 **Search sequence**:
+
 1. Find error definition (class/constant)
 2. Find where error is thrown
 3. Trace to calling code
@@ -43,6 +48,7 @@ Strategic approaches for navigating codebases to find implementation details.
 ### "Why is X designed this way?"
 
 **Search sequence**:
+
 1. Check design docs and ADRs
 2. Review git history for rationale
 3. Examine related code patterns
@@ -53,11 +59,13 @@ Strategic approaches for navigating codebases to find implementation details.
 ### Entry Point → Implementation
 
 **For web apps**:
+
 ```
 Route → Controller → Service → Repository → Database
 ```
 
 **Search approach**:
+
 1. Find route definition
 2. Extract handler name
 3. Search for handler implementation
@@ -70,6 +78,7 @@ Route → Controller → Service → Repository → Database
 **Find**: Where it's called
 
 **Search approach**:
+
 1. Note function name
 2. Search for imports of the module
 3. Search for function calls (excluding definition)
@@ -80,16 +89,19 @@ Route → Controller → Service → Repository → Database
 ### Common Entry Points
 
 **Web frameworks**:
+
 - Routes/endpoints definitions
 - Main application file
 - Server initialization
 
 **CLIs**:
+
 - Main function
 - Command definitions
 - Argument parsers
 
 **Libraries**:
+
 - Exported functions/classes
 - Public API surface
 - Index files
@@ -97,7 +109,8 @@ Route → Controller → Service → Repository → Database
 ### Configuration Discovery
 
 **What to search**:
-1. Config files (*.config.*, config/)
+
+1. Config files (_.config._, config/)
 2. Environment variables (process.env, getenv)
 3. Constants files
 4. Settings modules
@@ -108,11 +121,13 @@ Route → Controller → Service → Repository → Database
 ### Dependency Mapping
 
 **Find what component depends on**:
+
 1. Check imports at file top
 2. Review package.json/requirements.txt
 3. Look for dependency injection
 
 **Find what depends on component**:
+
 1. Search for imports of the module
 2. Check for usages of exports
 3. Review test files
@@ -122,6 +137,7 @@ Route → Controller → Service → Repository → Database
 ### TypeScript/JavaScript
 
 **Key searches**:
+
 - Type definitions in `*.types.ts`, `*.d.ts`
 - React components in `*.tsx`, `*.jsx`
 - Entry points: `index.ts`, `main.ts`, `app.ts`
@@ -129,6 +145,7 @@ Route → Controller → Service → Repository → Database
 ### Python
 
 **Key searches**:
+
 - Class definitions with `^class `
 - Decorators (e.g., `@app.route`, `@dataclass`)
 - Entry points: `__main__.py`, `main.py`, `app.py`
@@ -136,6 +153,7 @@ Route → Controller → Service → Repository → Database
 ### Go
 
 **Key searches**:
+
 - Use `.` (project root) not `src/` for searches
 - Entry points: `main.go`, `cmd/`
 - Interfaces and structs
@@ -143,6 +161,7 @@ Route → Controller → Service → Repository → Database
 ### Java
 
 **Key searches**:
+
 - Annotations (e.g., `@Service`, `@Entity`, `@RestController`)
 - Entry points: `*Application.java`, `main()` methods
 - Package structure in `src/main/java/`
@@ -152,6 +171,7 @@ Route → Controller → Service → Repository → Database
 ### Finding Implicit Behavior
 
 **Look for**:
+
 - Middleware (authentication, logging, validation)
 - Hooks/lifecycle methods
 - Event listeners
@@ -162,6 +182,7 @@ Route → Controller → Service → Repository → Database
 ### Cross-Referencing
 
 **When findings conflict**:
+
 1. Check git history (what changed, when, why)
 2. Compare dev vs prod configs
 3. Look for feature flags
@@ -170,6 +191,7 @@ Route → Controller → Service → Repository → Database
 ### Pattern Recognition
 
 **After exploring**, note:
+
 - Project-specific naming conventions
 - Common utility locations
 - Standard file organization
@@ -260,6 +282,7 @@ Step 5: Verify with tests
 ### Use File Type Filters
 
 Focus searches on relevant files:
+
 - `--include="*.ts"` for TypeScript
 - `--include="*.py"` for Python
 - `--exclude-dir="node_modules"` to skip dependencies
@@ -280,6 +303,7 @@ Use `-A`, `-B`, `-C` flags to see surrounding code when matches are found.
 **Problem**: Can't find implementation
 
 **Solutions**:
+
 - Check for aliases/re-exports
 - Look in parent/child directories
 - Search for similar naming patterns
@@ -288,6 +312,7 @@ Use `-A`, `-B`, `-C` flags to see surrounding code when matches are found.
 **Problem**: Too many results
 
 **Solutions**:
+
 - Add file type filters
 - Search in specific subdirectories
 - Use more specific terms
@@ -296,6 +321,7 @@ Use `-A`, `-B`, `-C` flags to see surrounding code when matches are found.
 **Problem**: Outdated code found
 
 **Solutions**:
+
 - Check file timestamps
 - Review git history
 - Look for deprecation notices

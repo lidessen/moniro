@@ -3,6 +3,7 @@
 Break complex operations into clear, sequential steps. For particularly complex workflows, provide a checklist that Claude can copy and check off.
 
 ## Table of Contents
+
 - [When to Use](#when-to-use)
 - [Basic Workflow Structure](#basic-workflow-structure)
 - [Workflow with Checklists](#workflow-with-checklists)
@@ -40,44 +41,46 @@ Break complex operations into clear, sequential steps. For particularly complex 
 
 For complex workflows, provide a copyable checklist:
 
-```markdown
+````markdown
 ## [Workflow Name]
 
 Copy this checklist and track your progress:
 
 \```
 Task Progress:
+
 - [ ] Step 1: [Brief description]
 - [ ] Step 2: [Brief description]
 - [ ] Step 3: [Brief description]
 - [ ] Step 4: [Brief description]
 - [ ] Step 5: [Brief description]
-\```
+      \```
 
 **Step 1: [Name]**
 [Detailed instructions for step 1]
 
 **Step 2: [Name]**
 [Detailed instructions for step 2]
-```
+````
 
 ## Example 1: Skills Without Code
 
 **Research Synthesis Workflow**:
 
-```markdown
+````markdown
 ## Research Synthesis Workflow
 
 Copy this checklist and track your progress:
 
 \```
 Research Progress:
+
 - [ ] Step 1: Read all source documents
 - [ ] Step 2: Identify key themes
 - [ ] Step 3: Cross-reference claims
 - [ ] Step 4: Create structured summary
 - [ ] Step 5: Verify citations
-\```
+      \```
 
 **Step 1: Read all source documents**
 
@@ -86,6 +89,7 @@ Review each document in the `sources/` directory. Note the main arguments and su
 **Step 2: Identify key themes**
 
 Look for patterns across sources:
+
 - What themes appear repeatedly?
 - Where do sources agree or disagree?
 - What are the main areas of focus?
@@ -93,6 +97,7 @@ Look for patterns across sources:
 **Step 3: Cross-reference claims**
 
 For each major claim:
+
 - Verify it appears in the source material
 - Note which source(s) support it
 - Identify conflicting viewpoints if any
@@ -100,6 +105,7 @@ For each major claim:
 **Step 4: Create structured summary**
 
 Organize findings by theme. For each theme include:
+
 - Main claim
 - Supporting evidence from sources (with citations)
 - Conflicting viewpoints (if any)
@@ -108,30 +114,32 @@ Organize findings by theme. For each theme include:
 **Step 5: Verify citations**
 
 Check that:
+
 - Every claim references the correct source
 - Citation format is consistent
 - No unsupported claims remain
 
 If citations are incomplete, return to Step 3.
-```
+````
 
 ## Example 2: Skills With Code
 
 **PDF Form Filling Workflow**:
 
-```markdown
+````markdown
 ## PDF Form Filling Workflow
 
 Copy this checklist and check off items as you complete them:
 
 \```
 Task Progress:
+
 - [ ] Step 1: Analyze the form (run analyze_form.py)
 - [ ] Step 2: Create field mapping (edit fields.json)
 - [ ] Step 3: Validate mapping (run validate_fields.py)
 - [ ] Step 4: Fill the form (run fill_form.py)
 - [ ] Step 5: Verify output (run verify_output.py)
-\```
+      \```
 
 **Step 1: Analyze the form**
 
@@ -145,8 +153,8 @@ Edit `fields.json` to add values for each field:
 
 \```json
 {
-  "field_name": "value to insert",
-  "signature_date": "2025-01-30"
+"field_name": "value to insert",
+"signature_date": "2025-01-30"
 }
 \```
 
@@ -155,6 +163,7 @@ Edit `fields.json` to add values for each field:
 Run: `python scripts/validate_fields.py fields.json`
 
 This checks:
+
 - All required fields have values
 - Field types match expected types
 - No unknown fields in mapping
@@ -172,7 +181,7 @@ Run: `python scripts/verify_output.py output.pdf`
 This confirms all fields were filled correctly.
 
 If verification fails, return to Step 2.
-```
+````
 
 ## Workflow Elements
 
@@ -181,11 +190,13 @@ If verification fails, return to Step 2.
 Use descriptive, action-oriented step names:
 
 **Good**:
+
 - "Analyze the form"
 - "Create field mapping"
 - "Validate mapping"
 
 **Bad**:
+
 - "Step 1"
 - "Do stuff"
 - "Process"
@@ -193,12 +204,14 @@ Use descriptive, action-oriented step names:
 ### Step Details
 
 Each step should include:
+
 - What to do
 - How to do it (command, process, method)
 - What the result should be
 - What to do if it fails
 
 **Example**:
+
 ```markdown
 **Step 3: Validate configuration**
 
@@ -207,6 +220,7 @@ Run: `python scripts/validate_config.py config.json`
 Expected output: "Configuration valid ✓"
 
 If validation fails:
+
 - Review error message
 - Fix issues in config.json
 - Run validation again
@@ -230,9 +244,11 @@ Or use conditional flow:
 **Step 3: Error handling**
 
 If Step 2 completed successfully:
+
 - Proceed to Step 4
 
 If Step 2 failed:
+
 - Review logs at `logs/errors.log`
 - Fix issues
 - Return to Step 2
@@ -287,18 +303,19 @@ For iterative workflows:
 
 Include verification at critical points:
 
-```markdown
+````markdown
 ## Deployment Workflow
 
 \```
 Deployment Progress:
+
 - [ ] Step 1: Run tests locally
 - [ ] Step 2: Build release package
 - [ ] Step 3: Deploy to staging
 - [ ] Step 4: Verify staging
 - [ ] Step 5: Deploy to production
 - [ ] Step 6: Verify production
-\```
+      \```
 
 **Step 1: Run tests locally**
 
@@ -312,13 +329,14 @@ npm run lint
 **Step 4: Verify staging**
 
 Check:
+
 - [ ] Application responds at staging URL
 - [ ] Health check returns 200
 - [ ] Key features work correctly
 - [ ] No errors in logs
 
 **Do not proceed to production if any checks fail.**
-```
+````
 
 ## Parallel Steps
 
@@ -341,13 +359,14 @@ Indicate when steps can run in parallel:
 
 ## Example: Complete Complex Workflow
 
-```markdown
+````markdown
 ## Code Review Workflow
 
 Copy this checklist:
 
 \```
 Review Progress:
+
 - [ ] Step 1: Setup - Pull branch and run tests
 - [ ] Step 2: Initial scan - Check file changes
 - [ ] Step 3: Deep review - Examine code quality
@@ -355,7 +374,7 @@ Review Progress:
 - [ ] Step 5: Testing review - Verify test coverage
 - [ ] Step 6: Documentation - Check documentation updates
 - [ ] Step 7: Provide feedback - Write review comments
-\```
+      \```
 
 **Step 1: Setup**
 
@@ -373,6 +392,7 @@ If tests fail, note for review comments.
 **Step 2: Initial scan**
 
 Check:
+
 - Which files changed? `git diff main...HEAD --name-only`
 - How many lines? `git diff main...HEAD --stat`
 - Any generated files that shouldn't be committed?
@@ -380,6 +400,7 @@ Check:
 **Step 3: Deep review**
 
 For each changed file, check:
+
 - [ ] Logic is correct and handles edge cases
 - [ ] No security vulnerabilities
 - [ ] Code follows project style
@@ -395,6 +416,7 @@ Note any security issues for feedback.
 **Step 5: Testing review**
 
 Check:
+
 - [ ] New features have tests
 - [ ] Tests cover edge cases
 - [ ] Test names are descriptive
@@ -405,6 +427,7 @@ Run: `npm run coverage` to check coverage percentage.
 **Step 6: Documentation**
 
 Check:
+
 - [ ] Public APIs are documented
 - [ ] README updated if needed
 - [ ] Comments explain "why" not "what"
@@ -420,11 +443,12 @@ Use the code review template to provide feedback:
 - Note positive aspects
 
 Post review on GitHub/GitLab.
-```
+````
 
 ## Combining Workflows with Other Patterns
 
 ### Workflow + Feedback Loop
+
 ```markdown
 ## Document Editing Workflow
 
@@ -439,6 +463,7 @@ Post review on GitHub/GitLab.
 ```
 
 ### Workflow + Template
+
 ```markdown
 ## Report Generation Workflow
 
@@ -452,6 +477,7 @@ Post review on GitHub/GitLab.
 ## Testing Workflows
 
 Verify your workflow by:
+
 1. **Walking through it yourself**: Does each step make sense?
 2. **Checking dependencies**: Are prerequisites clear?
 3. **Testing with Claude**: Does Claude follow steps correctly?
@@ -460,16 +486,20 @@ Verify your workflow by:
 ## Common Mistakes
 
 ### Mistake 1: Steps Too Vague
+
 ```markdown
 ❌ Bad:
+
 1. Prepare the data
 2. Process everything
 3. Generate output
 ```
 
 **Fix**: Be specific
+
 ```markdown
 ✅ Good:
+
 1. **Load data**: Read from `data/input.csv`
 2. **Clean data**: Remove rows with missing values
 3. **Transform**: Apply transformations from `config.json`
@@ -477,15 +507,19 @@ Verify your workflow by:
 ```
 
 ### Mistake 2: Missing Verification
+
 ```markdown
 ❌ Bad:
+
 1. Make changes
 2. Deploy to production
 ```
 
 **Fix**: Add verification
+
 ```markdown
 ✅ Good:
+
 1. Make changes
 2. Run tests: `npm test`
 3. Deploy to staging
@@ -495,16 +529,20 @@ Verify your workflow by:
 ```
 
 ### Mistake 3: No Error Handling
+
 ```markdown
 ❌ Bad:
+
 1. Run script A
 2. Run script B
 3. Run script C
 ```
 
 **Fix**: Add error handling
+
 ```markdown
 ✅ Good:
+
 1. Run script A
 2. If script A fails, check logs and fix before continuing
 3. Run script B

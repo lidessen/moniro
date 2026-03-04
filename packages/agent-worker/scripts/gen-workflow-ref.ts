@@ -282,7 +282,7 @@ reviewer:
   provider:
     name: anthropic
     base_url: https://custom.api.com
-    api_key: \$CUSTOM_API_KEY
+    api_key: $CUSTOM_API_KEY
   system_prompt: prompts/reviewer.md
   tools: [read_file, write_file]
   max_tokens: 8000
@@ -316,7 +316,7 @@ provider: anthropic
 provider:
   name: anthropic
   base_url: https://api.minimax.io/anthropic/v1
-  api_key: \$MINIMAX_API_KEY
+  api_key: $MINIMAX_API_KEY
 \`\`\``);
 
   // ── Context

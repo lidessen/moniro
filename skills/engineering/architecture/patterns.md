@@ -30,11 +30,13 @@ The classic approach: separate concerns into horizontal layers.
 ```
 
 **Rules**:
+
 - Each layer only depends on layer below
 - No skipping layers
 - Changes in one layer don't affect others
 
 **Example structure**:
+
 ```
 src/
 ├── api/           # Presentation
@@ -85,11 +87,13 @@ Business logic at center, external concerns at edges.
 ```
 
 **Key concepts**:
+
 - **Core**: Business logic, no framework dependencies
 - **Port**: Interface defined by core (what it needs)
 - **Adapter**: Implementation of port (how it's provided)
 
 **Example**:
+
 ```typescript
 // Port (interface defined by core)
 interface UserRepository {
@@ -134,11 +138,13 @@ Components communicate through events.
 ```
 
 **Event types**:
+
 - **Event notification**: Something happened (fire and forget)
 - **Event-carried state transfer**: Event contains data
 - **Event sourcing**: Events are the source of truth
 
 **Example flow**:
+
 ```
 Order placed:
 1. OrderService emits "OrderCreated" event
@@ -168,18 +174,21 @@ System as collection of independently deployable services.
 ```
 
 **Characteristics**:
+
 - Each service owns its data
 - Services communicate via API/messages
 - Independent deployment
 - Team ownership per service
 
 **When to use**:
+
 - Large team (>10 developers)
 - Clear domain boundaries
 - Different scaling needs per component
 - Polyglot requirements
 
 **When NOT to use**:
+
 - Small team
 - Unclear boundaries
 - Limited operational expertise
@@ -196,13 +205,13 @@ System as collection of independently deployable services.
 
 ### Decision Matrix
 
-| Factor | Layered | Hexagonal | Event-Driven | Microservices |
-|--------|---------|-----------|--------------|---------------|
-| Team size | Small | Small-Med | Medium | Large |
-| Complexity | Low | Medium | High | High |
-| Testability | Medium | High | Medium | High |
-| Scalability | Limited | Medium | High | High |
-| Learning curve | Low | Medium | High | High |
+| Factor         | Layered | Hexagonal | Event-Driven | Microservices |
+| -------------- | ------- | --------- | ------------ | ------------- |
+| Team size      | Small   | Small-Med | Medium       | Large         |
+| Complexity     | Low     | Medium    | High         | High          |
+| Testability    | Medium  | High      | Medium       | High          |
+| Scalability    | Limited | Medium    | High         | High          |
+| Learning curve | Low     | Medium    | High         | High          |
 
 ### Start Simple
 

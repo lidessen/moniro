@@ -17,6 +17,7 @@ Configuration files, build systems, development environments, and tooling setup 
 ### Essential Configuration Files
 
 **.gitignore**:
+
 ```gitignore
 # Dependencies
 node_modules/
@@ -44,6 +45,7 @@ Thumbs.db
 ```
 
 **.editorconfig** (consistent formatting):
+
 ```ini
 root = true
 
@@ -66,11 +68,13 @@ indent_style = tab
 ```
 
 **.nvmrc** (Node version):
+
 ```
 18.17.0
 ```
 
 **pyproject.toml** (Python project metadata):
+
 ```toml
 [project]
 name = "myproject"
@@ -90,11 +94,13 @@ testpaths = ["tests"]
 ### Configuration Best Practices
 
 **1. Version control all config** (except secrets)
+
 - `.gitignore` - yes
 - `.env.example` - yes
 - `.env` - NO (contains secrets)
 
 **2. Provide examples for local config**:
+
 ```bash
 # .env.example
 DATABASE_URL=postgresql://localhost/myapp
@@ -111,6 +117,7 @@ cp .env.example .env
 ### JavaScript/TypeScript
 
 **package.json scripts**:
+
 ```json
 {
   "scripts": {
@@ -129,6 +136,7 @@ cp .env.example .env
 ```
 
 **tsconfig.json**:
+
 ```json
 {
   "compilerOptions": {
@@ -148,6 +156,7 @@ cp .env.example .env
 ### Python
 
 **setup.py or pyproject.toml**:
+
 ```toml
 [build-system]
 requires = ["setuptools>=61.0"]
@@ -172,6 +181,7 @@ dev = [
 ### Rust
 
 **Cargo.toml**:
+
 ```toml
 [package]
 name = "myapp"
@@ -195,6 +205,7 @@ path = "src/main.rs"
 ### GitHub Actions
 
 **.github/workflows/ci.yml**:
+
 ```yaml
 name: CI
 
@@ -207,28 +218,28 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
-      
+          node-version: "18"
+          cache: "npm"
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Lint
         run: npm run lint
-      
+
       - name: Type check
         run: npm run type-check
-      
+
       - name: Test
         run: npm test
-      
+
       - name: Build
         run: npm run build
 ```
@@ -236,6 +247,7 @@ jobs:
 ### GitLab CI
 
 **.gitlab-ci.yml**:
+
 ```yaml
 stages:
   - lint
@@ -269,8 +281,9 @@ build:
 ### Docker Compose (local development)
 
 **docker-compose.yml**:
+
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
   db:
@@ -311,6 +324,7 @@ volumes:
 ### Makefile (task runner)
 
 **Makefile**:
+
 ```makefile
 .PHONY: install dev test build clean
 
@@ -344,35 +358,36 @@ type-check:
 ### JavaScript (package.json scripts)
 
 **Organized by category**:
+
 ```json
 {
   "scripts": {
     "// Development": "",
     "dev": "next dev",
     "dev:debug": "NODE_OPTIONS='--inspect' next dev",
-    
+
     "// Build": "",
     "build": "next build",
     "build:analyze": "ANALYZE=true next build",
-    
+
     "// Test": "",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:e2e": "playwright test",
-    
+
     "// Lint & Format": "",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    
+
     "// Type Check": "",
     "type-check": "tsc --noEmit",
-    
+
     "// Validation": "",
     "validate": "npm run lint && npm run type-check && npm test",
-    
+
     "// Deploy": "",
     "deploy:staging": "npm run build && deploy-staging.sh",
     "deploy:production": "npm run build && deploy-production.sh"
@@ -383,6 +398,7 @@ type-check:
 ### Shell Scripts (scripts/ directory)
 
 **scripts/validate.sh**:
+
 ```bash
 #!/bin/bash
 set -e
@@ -400,6 +416,7 @@ echo "✓ All checks passed!"
 ```
 
 **Make executable**:
+
 ```bash
 chmod +x scripts/validate.sh
 ```
@@ -409,20 +426,21 @@ chmod +x scripts/validate.sh
 ### ESLint (JavaScript/TypeScript)
 
 **.eslintrc.js**:
+
 ```javascript
 module.exports = {
   extends: [
-    'eslint:recommended',
-    'plugin:@typescript-eslint/recommended',
-    'plugin:react/recommended',
-    'prettier'  // Disable style rules (Prettier handles)
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:react/recommended",
+    "prettier", // Disable style rules (Prettier handles)
   ],
-  parser: '@typescript-eslint/parser',
-  plugins: ['@typescript-eslint', 'react'],
+  parser: "@typescript-eslint/parser",
+  plugins: ["@typescript-eslint", "react"],
   rules: {
-    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-    '@typescript-eslint/explicit-module-boundary-types': 'off',
-    'react/react-in-jsx-scope': 'off',  // Next.js doesn't need this
+    "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+    "@typescript-eslint/explicit-module-boundary-types": "off",
+    "react/react-in-jsx-scope": "off", // Next.js doesn't need this
   },
 };
 ```
@@ -430,6 +448,7 @@ module.exports = {
 ### Prettier (code formatting)
 
 **.prettierrc**:
+
 ```json
 {
   "semi": true,
@@ -441,6 +460,7 @@ module.exports = {
 ```
 
 **.prettierignore**:
+
 ```
 dist
 build
@@ -451,6 +471,7 @@ coverage
 ### TypeScript
 
 **tsconfig.json** (strict):
+
 ```json
 {
   "compilerOptions": {
@@ -471,6 +492,7 @@ coverage
 ### pytest (Python testing)
 
 **pytest.ini**:
+
 ```ini
 [pytest]
 testpaths = tests
@@ -482,6 +504,7 @@ addopts = --verbose --cov=src --cov-report=html
 ### Rust (Cargo)
 
 **rust-toolchain.toml**:
+
 ```toml
 [toolchain]
 channel = "1.75.0"
@@ -489,6 +512,7 @@ components = ["rustfmt", "clippy"]
 ```
 
 **. clippy.toml**:
+
 ```toml
 cognitive-complexity-threshold = 30
 ```
@@ -498,27 +522,32 @@ cognitive-complexity-threshold = 30
 ### Update Immediately
 
 **Security issues**:
+
 - Vulnerabilities in dependencies
 - Outdated Node.js/Python/etc. versions with known exploits
 
 **Blocking bugs**:
+
 - Tools don't work
 - Configuration breaks builds
 
 ### Update Regularly (Monthly/Quarterly)
 
 **Dependencies**:
+
 - CI actions (e.g., actions/checkout)
 - Linters (ESLint, Prettier)
 - Testing frameworks
 
 **Process**:
+
 - Scheduled dependency updates
 - Test in CI before merging
 
 ### Leave Stable (If Working)
 
 **Core tooling** that rarely needs updates:
+
 - `.editorconfig` (rarely changes)
 - `.gitignore` (add as needed, don't churn)
 - Build configs (webpack, vite) if stable
@@ -539,6 +568,7 @@ cognitive-complexity-threshold = 30
 8. **Update dependencies** regularly but not compulsively
 
 **Red flags**:
+
 - No `.gitignore` (files committed that shouldn't be)
 - No CI configuration (no automated testing)
 - Secrets in version control

@@ -3,6 +3,7 @@
 Implement validation loops for quality-critical tasks. The pattern: create → validate → fix errors → repeat.
 
 ## Table of Contents
+
 - [When to Use](#when-to-use)
 - [Core Pattern](#core-pattern)
 - [Key Elements](#key-elements)
@@ -59,7 +60,7 @@ Implement validation loops for quality-critical tasks. The pattern: create → v
 
 ## Example 2: With Code (Document Editing)
 
-```markdown
+````markdown
 ## Document Editing Process
 
 1. **Make your edits** to `word/document.xml`
@@ -82,7 +83,7 @@ Implement validation loops for quality-critical tasks. The pattern: create → v
    \```
 
 6. **Test the output** - open and verify
-```
+````
 
 ## Key Elements
 
@@ -91,6 +92,7 @@ Implement validation loops for quality-critical tasks. The pattern: create → v
 Validate right after the action, not at the end:
 
 **Good**:
+
 ```markdown
 1. Make changes to config.json
 2. **Validate immediately**: `python validate_config.py`
@@ -99,11 +101,12 @@ Validate right after the action, not at the end:
 ```
 
 **Bad**:
+
 ```markdown
 1. Make changes to config.json
 2. Make changes to other files
 3. Make more changes
-4. Finally validate everything  # Too late!
+4. Finally validate everything # Too late!
 ```
 
 ### 2. Clear Error Feedback
@@ -111,6 +114,7 @@ Validate right after the action, not at the end:
 Make validation errors actionable:
 
 **Good**:
+
 ```bash
 $ python validate.py
 ERROR: Field 'email' has invalid format on line 45
@@ -119,6 +123,7 @@ SUGGESTION: Use ISO8601 format for 'created_at' field
 ```
 
 **Bad**:
+
 ```bash
 $ python validate.py
 Error: validation failed
@@ -151,7 +156,7 @@ Only proceed when validation passes:
 
 Validate in stages:
 
-```markdown
+````markdown
 ## Multi-Stage Validation
 
 1. **Edit configuration**
@@ -175,13 +180,13 @@ Validate in stages:
    Fix integration issues before proceeding.
 
 5. **Deploy configuration**
-```
+````
 
 ### Variation 2: Automated Fix Attempts
 
 Try automatic fixes first:
 
-```markdown
+````markdown
 ## Code Formatting Workflow
 
 1. **Write code**
@@ -198,13 +203,13 @@ Try automatic fixes first:
    - Run linter again
 
 4. **Only proceed when linter passes**
-```
+````
 
 ### Variation 3: Validation with Metrics
 
 Include quality metrics:
 
-```markdown
+````markdown
 ## Test Coverage Workflow
 
 1. **Write tests for new feature**
@@ -221,17 +226,18 @@ Include quality metrics:
    - Run tests again
 
 4. **Only proceed when coverage ≥ 80%**
-```
+````
 
 ## Feedback Loop with Workflow Pattern
 
 Integrate into larger workflows:
 
-```markdown
+````markdown
 ## Database Migration Workflow
 
 \```
 Migration Progress:
+
 - [ ] Step 1: Write migration script
 - [ ] Step 2: Validate syntax
 - [ ] Step 3: Test on development database
@@ -240,7 +246,7 @@ Migration Progress:
 - [ ] Step 6: Validate staging
 - [ ] Step 7: Run on production
 - [ ] Step 8: Validate production
-\```
+      \```
 
 **Step 1: Write migration script**
 Create migration in `migrations/` directory.
@@ -264,65 +270,65 @@ python scripts/validate_data.py --env dev
 \```
 
 **If validation fails**:
+
 - Rollback: `python scripts/rollback.py --env dev --migration 001`
 - Fix migration script
 - Return to Step 2
 
 **Only proceed to staging when dev validation passes.**
-```
+````
 
 ## Example: Plan-Validate-Execute Pattern
 
 For complex, open-ended tasks:
 
-```markdown
+````markdown
 ## Batch Update Workflow
 
 **Use this pattern for updating multiple records/files:**
 
 **Phase 1: Plan**
+
 1. Create changes plan: `changes.json`
    \```json
    {
-     "record_1": {"field": "new_value"},
-     "record_2": {"field": "new_value"}
+   "record_1": {"field": "new_value"},
+   "record_2": {"field": "new_value"}
    }
    \```
 
-**Phase 2: Validate Plan**
-2. Validate the plan:
-   \```bash
-   python scripts/validate_changes.py changes.json
-   \```
-   
-   Checks:
-   - All record IDs exist
-   - All fields are valid
-   - No conflicts
-   - Required fields present
+**Phase 2: Validate Plan** 2. Validate the plan:
+\```bash
+python scripts/validate_changes.py changes.json
+\```
+
+Checks:
+
+- All record IDs exist
+- All fields are valid
+- No conflicts
+- Required fields present
 
 3. **If validation fails**:
    - Review error messages
    - Fix `changes.json`
    - Return to step 2
 
-**Phase 3: Execute**
-4. **Only execute when plan validates**:
-   \```bash
-   python scripts/apply_changes.py changes.json
-   \```
+**Phase 3: Execute** 4. **Only execute when plan validates**:
+\```bash
+python scripts/apply_changes.py changes.json
+\```
 
-**Phase 4: Verify**
-5. Verify results:
-   \```bash
-   python scripts/verify_changes.py changes.json
-   \```
+**Phase 4: Verify** 5. Verify results:
+\```bash
+python scripts/verify_changes.py changes.json
+\```
 
 6. **If verification fails**:
    - Rollback: `python scripts/rollback.py`
    - Review issues
    - Return to Phase 1
-```
+````
 
 ## Validation Script Best Practices
 
@@ -331,19 +337,20 @@ When creating validation scripts for feedback loops:
 ### 1. Verbose Error Messages
 
 **Good**:
+
 ```python
 def validate_fields(data):
     errors = []
-    
+
     if 'user_id' not in data:
         errors.append("Missing required field 'user_id'")
-    
+
     if 'email' in data and not is_valid_email(data['email']):
         errors.append(
             f"Invalid email format: '{data['email']}'. "
             f"Expected format: user@domain.com"
         )
-    
+
     if errors:
         print("Validation failed:")
         for error in errors:
@@ -354,6 +361,7 @@ def validate_fields(data):
 ```
 
 **Bad**:
+
 ```python
 def validate_fields(data):
     assert 'user_id' in data
@@ -378,6 +386,7 @@ sys.exit(1)
 Don't fail on first error - show all errors:
 
 **Good**:
+
 ```python
 errors = []
 # Collect all errors
@@ -393,6 +402,7 @@ if errors:
 ```
 
 **Bad**:
+
 ```python
 # Fails on first error only
 if condition1:
@@ -404,6 +414,7 @@ if condition1:
 ## Testing Feedback Loops
 
 Verify your feedback loop by:
+
 1. **Introduce an error** - Does validation catch it?
 2. **Check error message** - Is it clear how to fix?
 3. **Fix and revalidate** - Does it pass now?
@@ -412,64 +423,68 @@ Verify your feedback loop by:
 ## Common Mistakes
 
 ### Mistake 1: Validation Too Late
+
 ```markdown
 ❌ Bad:
+
 1. Make 10 changes
 2. Finally validate
+
 # Hard to find which change caused error
 ```
 
 **Fix**: Validate after each change
+
 ```markdown
 ✅ Good:
+
 1. Make change 1 → Validate
 2. Make change 2 → Validate
 3. Make change 3 → Validate
 ```
 
 ### Mistake 2: No Clear Fix Path
+
 ```markdown
-❌ Bad:
-2. Validate
-3. If fails, try to fix somehow
-4. Move on
+❌ Bad: 2. Validate 3. If fails, try to fix somehow 4. Move on
 ```
 
 **Fix**: Explicit return to validation
+
 ```markdown
-✅ Good:
-2. Validate
-3. If fails:
-   - Fix issues
-   - **Return to step 2 (validate again)**
+✅ Good: 2. Validate 3. If fails:
+
+- Fix issues
+- **Return to step 2 (validate again)**
+
 4. Only proceed when validation passes
 ```
 
 ### Mistake 3: Weak Gate
+
 ```markdown
-❌ Bad:
-3. If validation fails, note the errors
-4. Continue anyway
+❌ Bad: 3. If validation fails, note the errors 4. Continue anyway
 ```
 
 **Fix**: Strong gate
+
 ```markdown
-✅ Good:
-3. If validation fails, fix and revalidate
-4. **Only proceed when validation passes**
+✅ Good: 3. If validation fails, fix and revalidate 4. **Only proceed when validation passes**
 ```
 
 ### Mistake 4: Vague Validation
-```markdown
+
+````markdown
 ❌ Bad:
 \```bash
 $ python validate.py
 Failed
 \```
-```
+````
 
 **Fix**: Specific errors
-```markdown
+
+````markdown
 ✅ Good:
 \```bash
 $ python validate.py
@@ -477,7 +492,7 @@ ERROR: Invalid email format on line 45: 'userexample.com'
 ERROR: Missing required field 'created_at' in record 3
 FAILED: 2 errors found
 \```
-```
+````
 
 ## Checklist
 

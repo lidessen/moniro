@@ -3,6 +3,7 @@
 This example shows a skill with multiple reference files using progressive disclosure.
 
 ## Table of Contents
+
 - [Use Case](#use-case)
 - [Directory Structure](#directory-structure)
 - [SKILL.md](#skillmd)
@@ -35,7 +36,7 @@ bigquery-analysis/
 
 ## SKILL.md
 
-```markdown
+````markdown
 ---
 name: bigquery-analysis
 description: Query and analyze company data in BigQuery across finance, sales, and product domains. Query revenue metrics, pipeline data, API usage. Use when analyzing company data, querying BigQuery, or asking about revenue, sales, or product metrics.
@@ -51,7 +52,7 @@ Connect and query BigQuery:
 from google.cloud import bigquery
 
 client = bigquery.Client(project='company-data')
-query = "SELECT * FROM finance.revenue WHERE date >= '2025-01-01'"
+query = "SELECT \* FROM finance.revenue WHERE date >= '2025-01-01'"
 results = client.query(query).to_dataframe()
 \```
 
@@ -96,11 +97,11 @@ grep -i "revenue" reference/finance.md
 grep -i "pipeline" reference/sales.md
 grep -i "api usage" reference/product.md
 \```
-```
+````
 
 ## reference/finance.md
 
-```markdown
+````markdown
 # Finance Data Reference
 
 ## Revenue Tables
@@ -110,6 +111,7 @@ grep -i "api usage" reference/product.md
 Daily revenue by customer and region.
 
 **Schema**:
+
 - `date` (DATE): Transaction date
 - `customer_id` (STRING): Customer identifier
 - `region` (STRING): Geographic region (NA, EU, APAC)
@@ -121,13 +123,13 @@ Daily revenue by customer and region.
 
 Revenue by region for Q4 2024:
 \```sql
-SELECT 
-  region,
-  SUM(amount) as total_revenue,
-  COUNT(DISTINCT customer_id) as unique_customers
+SELECT
+region,
+SUM(amount) as total_revenue,
+COUNT(DISTINCT customer_id) as unique_customers
 FROM finance.revenue_daily
 WHERE date BETWEEN '2024-10-01' AND '2024-12-31'
-  AND is_test = false
+AND is_test = false
 GROUP BY region
 ORDER BY total_revenue DESC
 \```
@@ -135,18 +137,18 @@ ORDER BY total_revenue DESC
 Month-over-month growth:
 \```sql
 WITH monthly AS (
-  SELECT 
-    DATE_TRUNC(date, MONTH) as month,
-    SUM(amount) as revenue
-  FROM finance.revenue_daily
-  WHERE is_test = false
-  GROUP BY month
+SELECT
+DATE_TRUNC(date, MONTH) as month,
+SUM(amount) as revenue
+FROM finance.revenue_daily
+WHERE is_test = false
+GROUP BY month
 )
-SELECT 
-  month,
-  revenue,
-  LAG(revenue) OVER (ORDER BY month) as prev_month,
-  (revenue - LAG(revenue) OVER (ORDER BY month)) / LAG(revenue) OVER (ORDER BY month) * 100 as growth_pct
+SELECT
+month,
+revenue,
+LAG(revenue) OVER (ORDER BY month) as prev_month,
+(revenue - LAG(revenue) OVER (ORDER BY month)) / LAG(revenue) OVER (ORDER BY month) \* 100 as growth_pct
 FROM monthly
 ORDER BY month DESC
 \```
@@ -156,6 +158,7 @@ ORDER BY month DESC
 Annual Recurring Revenue by customer.
 
 **Schema**:
+
 - `date` (DATE): Snapshot date
 - `customer_id` (STRING): Customer identifier
 - `arr_amount` (FLOAT): ARR in USD
@@ -166,13 +169,13 @@ Annual Recurring Revenue by customer.
 
 Total ARR by plan:
 \```sql
-SELECT 
-  plan_type,
-  SUM(arr_amount) as total_arr,
-  COUNT(customer_id) as customer_count
+SELECT
+plan_type,
+SUM(arr_amount) as total_arr,
+COUNT(customer_id) as customer_count
 FROM finance.arr
 WHERE date = CURRENT_DATE()
-  AND is_test = false
+AND is_test = false
 GROUP BY plan_type
 \```
 
@@ -183,6 +186,7 @@ GROUP BY plan_type
 Invoice records.
 
 **Schema**:
+
 - `invoice_id` (STRING): Unique invoice ID
 - `customer_id` (STRING): Customer identifier
 - `date` (DATE): Invoice date
@@ -194,12 +198,12 @@ Invoice records.
 
 Pending invoices:
 \```sql
-SELECT 
-  customer_id,
-  SUM(amount) as total_pending
+SELECT
+customer_id,
+SUM(amount) as total_pending
 FROM finance.invoices
 WHERE status = 'pending'
-  AND is_test = false
+AND is_test = false
 GROUP BY customer_id
 HAVING total_pending > 1000
 ORDER BY total_pending DESC
@@ -211,11 +215,11 @@ ORDER BY total_pending DESC
 - **Currency**: All amounts in USD after conversion
 - **Dates**: Use `date` field, not `created_at` timestamp
 - **Time zones**: All dates in UTC
-```
+````
 
 ## reference/sales.md
 
-```markdown
+````markdown
 # Sales Data Reference
 
 ## Pipeline Tables
@@ -225,6 +229,7 @@ ORDER BY total_pending DESC
 Sales opportunities and deals.
 
 **Schema**:
+
 - `opportunity_id` (STRING): Unique opportunity ID
 - `customer_name` (STRING): Prospective customer
 - `stage` (STRING): Discovery, proposal, negotiation, closed_won, closed_lost
@@ -239,44 +244,44 @@ Sales opportunities and deals.
 
 Pipeline by stage:
 \```sql
-SELECT 
-  stage,
-  COUNT(*) as count,
-  SUM(amount) as total_value,
-  SUM(amount * probability) as weighted_value
+SELECT
+stage,
+COUNT(_) as count,
+SUM(amount) as total_value,
+SUM(amount _ probability) as weighted_value
 FROM sales.opportunities
 WHERE stage NOT IN ('closed_won', 'closed_lost')
-  AND is_test = false
+AND is_test = false
 GROUP BY stage
-ORDER BY 
-  CASE stage
-    WHEN 'discovery' THEN 1
-    WHEN 'proposal' THEN 2
-    WHEN 'negotiation' THEN 3
-  END
+ORDER BY
+CASE stage
+WHEN 'discovery' THEN 1
+WHEN 'proposal' THEN 2
+WHEN 'negotiation' THEN 3
+END
 \```
 
 Win rate by rep:
 \```sql
-WITH rep_stats AS (
-  SELECT 
-    owner_id,
-    COUNT(*) as total_deals,
-    SUM(CASE WHEN stage = 'closed_won' THEN 1 ELSE 0 END) as won_deals,
-    SUM(CASE WHEN stage = 'closed_won' THEN amount ELSE 0 END) as won_amount
-  FROM sales.opportunities
-  WHERE stage IN ('closed_won', 'closed_lost')
-    AND is_test = false
-  GROUP BY owner_id
+WITH rep*stats AS (
+SELECT
+owner_id,
+COUNT(*) as total*deals,
+SUM(CASE WHEN stage = 'closed_won' THEN 1 ELSE 0 END) as won_deals,
+SUM(CASE WHEN stage = 'closed_won' THEN amount ELSE 0 END) as won_amount
+FROM sales.opportunities
+WHERE stage IN ('closed_won', 'closed_lost')
+AND is_test = false
+GROUP BY owner_id
 )
-SELECT 
-  owner_id,
-  total_deals,
-  won_deals,
-  ROUND(won_deals / total_deals * 100, 1) as win_rate_pct,
-  won_amount
+SELECT
+owner_id,
+total_deals,
+won_deals,
+ROUND(won_deals / total_deals * 100, 1) as win_rate_pct,
+won_amount
 FROM rep_stats
-WHERE total_deals >= 5  -- Minimum deal count for meaningful win rate
+WHERE total_deals >= 5 -- Minimum deal count for meaningful win rate
 ORDER BY win_rate_pct DESC
 \```
 
@@ -285,6 +290,7 @@ ORDER BY win_rate_pct DESC
 Customer and prospect accounts.
 
 **Schema**:
+
 - `account_id` (STRING): Unique account ID
 - `account_name` (STRING): Company name
 - `industry` (STRING): Industry sector
@@ -297,20 +303,20 @@ Customer and prospect accounts.
 
 Accounts by industry:
 \```sql
-SELECT 
-  industry,
-  COUNT(*) as account_count,
-  COUNT(CASE WHEN status = 'customer' THEN 1 END) as customer_count
+SELECT
+industry,
+COUNT(\*) as account_count,
+COUNT(CASE WHEN status = 'customer' THEN 1 END) as customer_count
 FROM sales.accounts
 WHERE is_test = false
 GROUP BY industry
 ORDER BY account_count DESC
 \```
-```
+````
 
 ## reference/product.md
 
-```markdown
+````markdown
 # Product Data Reference
 
 ## Usage Tables
@@ -320,6 +326,7 @@ ORDER BY account_count DESC
 API usage by customer.
 
 **Schema**:
+
 - `timestamp` (TIMESTAMP): Call timestamp
 - `customer_id` (STRING): Customer identifier
 - `endpoint` (STRING): API endpoint called
@@ -332,15 +339,15 @@ API usage by customer.
 
 API usage by customer (last 30 days):
 \```sql
-SELECT 
-  customer_id,
-  COUNT(*) as total_calls,
-  COUNT(DISTINCT endpoint) as unique_endpoints,
-  AVG(latency_ms) as avg_latency,
-  SUM(CASE WHEN response_code >= 500 THEN 1 ELSE 0 END) as error_count
+SELECT
+customer_id,
+COUNT(\*) as total_calls,
+COUNT(DISTINCT endpoint) as unique_endpoints,
+AVG(latency_ms) as avg_latency,
+SUM(CASE WHEN response_code >= 500 THEN 1 ELSE 0 END) as error_count
 FROM product.api_calls
 WHERE timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
-  AND is_test = false
+AND is_test = false
 GROUP BY customer_id
 ORDER BY total_calls DESC
 LIMIT 100
@@ -348,14 +355,14 @@ LIMIT 100
 
 Top endpoints by usage:
 \```sql
-SELECT 
-  endpoint,
-  COUNT(*) as call_count,
-  AVG(latency_ms) as avg_latency_ms,
-  ROUND(SUM(CASE WHEN response_code >= 400 THEN 1 ELSE 0 END) / COUNT(*) * 100, 2) as error_rate_pct
+SELECT
+endpoint,
+COUNT(_) as call_count,
+AVG(latency_ms) as avg_latency_ms,
+ROUND(SUM(CASE WHEN response_code >= 400 THEN 1 ELSE 0 END) / COUNT(_) \* 100, 2) as error_rate_pct
 FROM product.api_calls
 WHERE timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
-  AND is_test = false
+AND is_test = false
 GROUP BY endpoint
 ORDER BY call_count DESC
 LIMIT 20
@@ -366,6 +373,7 @@ LIMIT 20
 Feature adoption and usage.
 
 **Schema**:
+
 - `date` (DATE): Usage date
 - `customer_id` (STRING): Customer identifier
 - `feature_name` (STRING): Feature identifier
@@ -377,65 +385,67 @@ Feature adoption and usage.
 Feature adoption rate:
 \```sql
 WITH customer_base AS (
-  SELECT COUNT(DISTINCT customer_id) as total_customers
-  FROM finance.arr
-  WHERE date = CURRENT_DATE() AND is_test = false
+SELECT COUNT(DISTINCT customer_id) as total_customers
+FROM finance.arr
+WHERE date = CURRENT_DATE() AND is_test = false
 ),
 feature_users AS (
-  SELECT 
-    feature_name,
-    COUNT(DISTINCT customer_id) as users
-  FROM product.feature_usage
-  WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
-    AND is_test = false
-  GROUP BY feature_name
+SELECT
+feature_name,
+COUNT(DISTINCT customer_id) as users
+FROM product.feature_usage
+WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+AND is_test = false
+GROUP BY feature_name
 )
-SELECT 
-  f.feature_name,
-  f.users,
-  c.total_customers,
-  ROUND(f.users / c.total_customers * 100, 1) as adoption_rate_pct
+SELECT
+f.feature_name,
+f.users,
+c.total_customers,
+ROUND(f.users / c.total_customers \* 100, 1) as adoption_rate_pct
 FROM feature_users f
 CROSS JOIN customer_base c
 ORDER BY adoption_rate_pct DESC
 \```
-```
+````
 
 ## reference/common-queries.md
 
-```markdown
+````markdown
 # Common Query Patterns
 
 ## Time-Series Analysis
 
 ### Daily trend
+
 \```sql
-SELECT 
-  DATE_TRUNC(date, DAY) as day,
-  SUM(amount) as daily_total
+SELECT
+DATE_TRUNC(date, DAY) as day,
+SUM(amount) as daily_total
 FROM finance.revenue_daily
 WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
-  AND is_test = false
+AND is_test = false
 GROUP BY day
 ORDER BY day
 \```
 
 ### Week-over-week comparison
+
 \```sql
 WITH weekly AS (
-  SELECT 
-    DATE_TRUNC(date, WEEK) as week,
-    SUM(amount) as revenue
-  FROM finance.revenue_daily
-  WHERE is_test = false
-  GROUP BY week
+SELECT
+DATE_TRUNC(date, WEEK) as week,
+SUM(amount) as revenue
+FROM finance.revenue_daily
+WHERE is_test = false
+GROUP BY week
 )
-SELECT 
-  week,
-  revenue,
-  LAG(revenue, 1) OVER (ORDER BY week) as prev_week,
-  revenue - LAG(revenue, 1) OVER (ORDER BY week) as week_change,
-  ROUND((revenue - LAG(revenue, 1) OVER (ORDER BY week)) / LAG(revenue, 1) OVER (ORDER BY week) * 100, 1) as pct_change
+SELECT
+week,
+revenue,
+LAG(revenue, 1) OVER (ORDER BY week) as prev_week,
+revenue - LAG(revenue, 1) OVER (ORDER BY week) as week_change,
+ROUND((revenue - LAG(revenue, 1) OVER (ORDER BY week)) / LAG(revenue, 1) OVER (ORDER BY week) \* 100, 1) as pct_change
 FROM weekly
 ORDER BY week DESC
 LIMIT 12
@@ -444,30 +454,31 @@ LIMIT 12
 ## Cohort Analysis
 
 ### Customer cohorts by signup month
+
 \```sql
 WITH first_purchase AS (
-  SELECT 
-    customer_id,
-    DATE_TRUNC(MIN(date), MONTH) as cohort_month
-  FROM finance.revenue_daily
-  WHERE is_test = false
-  GROUP BY customer_id
+SELECT
+customer_id,
+DATE_TRUNC(MIN(date), MONTH) as cohort_month
+FROM finance.revenue_daily
+WHERE is_test = false
+GROUP BY customer_id
 ),
 monthly_revenue AS (
-  SELECT 
-    fp.cohort_month,
-    DATE_TRUNC(r.date, MONTH) as revenue_month,
-    SUM(r.amount) as revenue
-  FROM finance.revenue_daily r
-  JOIN first_purchase fp ON r.customer_id = fp.customer_id
-  WHERE r.is_test = false
-  GROUP BY cohort_month, revenue_month
+SELECT
+fp.cohort_month,
+DATE_TRUNC(r.date, MONTH) as revenue_month,
+SUM(r.amount) as revenue
+FROM finance.revenue_daily r
+JOIN first_purchase fp ON r.customer_id = fp.customer_id
+WHERE r.is_test = false
+GROUP BY cohort_month, revenue_month
 )
-SELECT 
-  cohort_month,
-  revenue_month,
-  revenue,
-  DATE_DIFF(revenue_month, cohort_month, MONTH) as months_since_signup
+SELECT
+cohort_month,
+revenue_month,
+revenue,
+DATE_DIFF(revenue_month, cohort_month, MONTH) as months_since_signup
 FROM monthly_revenue
 ORDER BY cohort_month, revenue_month
 \```
@@ -475,29 +486,30 @@ ORDER BY cohort_month, revenue_month
 ## Funnel Analysis
 
 ### Sales funnel conversion
+
 \```sql
 WITH funnel AS (
-  SELECT 
-    COUNT(*) as total_opportunities,
-    COUNT(CASE WHEN stage IN ('proposal', 'negotiation', 'closed_won') THEN 1 END) as reached_proposal,
-    COUNT(CASE WHEN stage IN ('negotiation', 'closed_won') THEN 1 END) as reached_negotiation,
-    COUNT(CASE WHEN stage = 'closed_won' THEN 1 END) as closed_won
-  FROM sales.opportunities
-  WHERE created_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 90 DAY)
-    AND is_test = false
+SELECT
+COUNT(_) as total_opportunities,
+COUNT(CASE WHEN stage IN ('proposal', 'negotiation', 'closed_won') THEN 1 END) as reached_proposal,
+COUNT(CASE WHEN stage IN ('negotiation', 'closed_won') THEN 1 END) as reached_negotiation,
+COUNT(CASE WHEN stage = 'closed_won' THEN 1 END) as closed_won
+FROM sales.opportunities
+WHERE created_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 90 DAY)
+AND is_test = false
 )
-SELECT 
-  total_opportunities,
-  reached_proposal,
-  ROUND(reached_proposal / total_opportunities * 100, 1) as proposal_rate,
-  reached_negotiation,
-  ROUND(reached_negotiation / reached_proposal * 100, 1) as negotiation_rate,
-  closed_won,
-  ROUND(closed_won / reached_negotiation * 100, 1) as close_rate,
-  ROUND(closed_won / total_opportunities * 100, 1) as overall_conversion
+SELECT
+total_opportunities,
+reached_proposal,
+ROUND(reached_proposal / total_opportunities _ 100, 1) as proposal*rate,
+reached_negotiation,
+ROUND(reached_negotiation / reached_proposal * 100, 1) as negotiation*rate,
+closed_won,
+ROUND(closed_won / reached_negotiation * 100, 1) as close_rate,
+ROUND(closed_won / total_opportunities \* 100, 1) as overall_conversion
 FROM funnel
 \```
-```
+````
 
 ## Why This Is a Complex Skill
 
@@ -512,12 +524,14 @@ FROM funnel
 ### Query: "Show revenue by region for Q4"
 
 **Files loaded**:
+
 1. SKILL.md (~300 tokens) - Navigation
 2. reference/finance.md (~800 tokens) - Finance schemas and queries
 
 **Total**: ~1100 tokens
 
 **Files NOT loaded**:
+
 - reference/sales.md (saved ~800 tokens)
 - reference/product.md (saved ~800 tokens)
 - reference/common-queries.md (saved ~700 tokens)
@@ -527,6 +541,7 @@ FROM funnel
 ### Query: "What's our sales pipeline by stage?"
 
 **Files loaded**:
+
 1. SKILL.md (~300 tokens)
 2. reference/sales.md (~800 tokens)
 
@@ -546,13 +561,16 @@ FROM funnel
 ## Metadata Analysis
 
 ### Name
+
 ```yaml
 name: bigquery-analysis
 ```
+
 ✓ Specific (not generic "data-analysis")
 ✓ 17 characters
 
 ### Description
+
 ```yaml
 description: Query and analyze company data in BigQuery across finance, sales, and product domains. Query revenue metrics, pipeline data, API usage. Use when analyzing company data, querying BigQuery, or asking about revenue, sales, or product metrics.
 ```

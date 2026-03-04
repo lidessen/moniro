@@ -2,33 +2,40 @@
 
 ```markdown
 ---
-tracking: ""                       # Tracking Issue number, e.g., "#99"
-active_issues: []                  # Active work Issues, e.g., ["#42", "#43"]
-synced: YYYY-MM-DDTHH:MM:SSZ       # Last sync timestamp
+tracking: "" # Tracking Issue number, e.g., "#99"
+active_issues: [] # Active work Issues, e.g., ["#42", "#43"]
+synced: YYYY-MM-DDTHH:MM:SSZ # Last sync timestamp
 ---
 
 # Project Context
 
 ## Active Work
+
 <!-- sync-pull updates this section automatically -->
 <!-- Format: - #N Title - status -->
 
 ## Local Context
+
 <!-- Agent-specific notes not suitable for Issues -->
+
 - Tech stack:
 - Key constraints:
 - Current focus:
 
 ## Key Decisions
+
 <!-- Summary of important decisions with dates -->
 <!-- Link to .memory/decisions/ for full ADRs -->
+
 | Date | Decision | Rationale |
-|------|----------|-----------|
+| ---- | -------- | --------- |
 
 ## Recent Sessions
+
 <!-- Last 3-5 sessions for continuity -->
+
 | Date | Summary |
-|------|---------|
+| ---- | ------- |
 ```
 
 ## Usage
@@ -43,16 +50,17 @@ context.md is the **anchor point** for memory sync:
 
 ## Sections
 
-| Section | Updated by | Purpose |
-|---------|------------|---------|
-| Active Work | sync-pull (auto) | Current Issues status |
-| Local Context | Agent (manual) | Quick reference, not in Issues |
-| Key Decisions | Agent (manual) | Decision index, links to ADRs |
-| Recent Sessions | Agent (manual) | Session continuity |
+| Section         | Updated by       | Purpose                        |
+| --------------- | ---------------- | ------------------------------ |
+| Active Work     | sync-pull (auto) | Current Issues status          |
+| Local Context   | Agent (manual)   | Quick reference, not in Issues |
+| Key Decisions   | Agent (manual)   | Decision index, links to ADRs  |
+| Recent Sessions | Agent (manual)   | Session continuity             |
 
 ## Without Remote
 
 If no `gh`/`glab` CLI available:
+
 - Leave `tracking` empty
 - Use `active_issues` as local todo list
 - Agent manually updates Active Work section

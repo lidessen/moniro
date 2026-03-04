@@ -16,6 +16,7 @@ Guide for writing documentation for AI agents (Claude, etc.) - focused on AGENTS
 ## Core Principle: Assume Claude is Smart
 
 **Claude (and similar AI agents) already knows:**
+
 - Programming language syntax and idioms
 - Common frameworks and libraries
 - Software engineering best practices
@@ -23,6 +24,7 @@ Guide for writing documentation for AI agents (Claude, etc.) - focused on AGENTS
 - How to use standard tools (git, npm, pytest, etc.)
 
 **Claude needs to know:**
+
 - **Your project's specific context** - architecture, conventions, constraints
 - **Where to find things** - navigation to key files and documentation
 - **Project-specific workflows** - non-standard processes unique to this codebase
@@ -34,12 +36,14 @@ Guide for writing documentation for AI agents (Claude, etc.) - focused on AGENTS
 ### Good vs Bad Examples
 
 **❌ Bad (Explaining Basics)**
+
 ```markdown
 # AGENTS.md
 
 ## Git Workflow
 
 Git is a version control system. To commit changes:
+
 1. Stage files with `git add`
 2. Commit with `git commit -m "message"`
 3. Push with `git push`
@@ -50,12 +54,14 @@ Make sure to write good commit messages.
 Claude already knows how to use git.
 
 **✅ Good (Project-Specific Context)**
+
 ```markdown
 # AGENTS.md
 
 ## Git Workflow
 
 This project uses conventional commits. Commit messages must match:
+
 - `feat:` for new features
 - `fix:` for bug fixes
 - `docs:` for documentation
@@ -64,7 +70,7 @@ Pre-commit hooks validate Go formatting and run tests.
 Protected branches: main, staging (require PR approval).
 ```
 
-This tells Claude what's specific to *this* project.
+This tells Claude what's specific to _this_ project.
 
 ## AGENTS.md vs CLAUDE.md
 
@@ -73,11 +79,13 @@ This tells Claude what's specific to *this* project.
 **Purpose:** General agent navigation and context
 
 **Use when:**
+
 - You want documentation useful for any AI agent
 - You're starting fresh (default choice)
 - You need project overview and navigation
 
 **Typical content:**
+
 - Project overview (1-2 paragraphs)
 - Architecture/structure summary
 - Key workflows and entry points
@@ -85,6 +93,7 @@ This tells Claude what's specific to *this* project.
 - Links to detailed documentation
 
 **Benefits:**
+
 - Generic, tool-agnostic
 - Becoming a community standard
 - Single source of truth for agents
@@ -94,17 +103,20 @@ This tells Claude what's specific to *this* project.
 **Purpose:** Claude-specific context and instructions
 
 **Use when:**
+
 - You have Claude-specific instructions that don't apply to other agents
 - You want to preserve AGENTS.md for generic content
 - You're using Claude Code features specifically (hooks, skills, etc.)
 
 **Typical content:**
+
 - Claude-specific workflows
 - Project-specific prompts or instructions
 - Context that leverages Claude's specific capabilities
 - Differences from generic AGENTS.md guidance
 
 **Benefits:**
+
 - Targeted to Claude's strengths
 - Can include Claude Code-specific instructions
 - Complements AGENTS.md (both can coexist)
@@ -127,6 +139,7 @@ Do you have Claude-specific instructions?
 **CLAUDE.md:** Claude-specific augmentation
 
 **CLAUDE.md can reference AGENTS.md:**
+
 ```markdown
 # CLAUDE.md
 
@@ -145,6 +158,7 @@ When refactoring, use the `refactor` skill from skills/refactor/
 **What makes this project unique?**
 
 Examples:
+
 - "Monorepo with 12 services, each in `services/[name]/`"
 - "Frontend uses custom React framework (not Next.js)"
 - "Database schema managed by migrations in `db/migrations/`"
@@ -153,6 +167,7 @@ Examples:
 **What would surprise someone familiar with the domain?**
 
 Examples:
+
 - "Despite being Python, we don't use virtualenv (Docker-based dev)"
 - "Auth is handled by external service, not in this codebase"
 - "Tests require running Docker Compose first"
@@ -236,33 +251,38 @@ Examples:
 ### Don't Explain Basics
 
 **❌ Don't:**
+
 - Explain what REST APIs are
 - Describe how async/await works
 - Define what a database migration is
 - Tutorial standard tools (pytest, git, Docker)
 
 **✅ Do:**
-- Explain *this project's* API conventions
-- Note *this project's* async patterns
-- Link to *this project's* migration tooling
-- Document *this project's* tool configuration
+
+- Explain _this project's_ API conventions
+- Note _this project's_ async patterns
+- Link to _this project's_ migration tooling
+- Document _this project's_ tool configuration
 
 ### Don't Duplicate Code
 
 **❌ Don't:**
+
 ```markdown
 ## API Structure
 
 The User model has these fields:
+
 - id: integer, primary key
 - email: string, unique
 - created_at: timestamp
-...
+  ...
 ```
 
 Code is the source of truth. Claude can read it.
 
 **✅ Do:**
+
 ```markdown
 ## API Structure
 
@@ -276,6 +296,7 @@ Navigation + project-specific insight.
 ### Don't Write What's Easily Discoverable
 
 **❌ Don't:**
+
 ```markdown
 ## Testing
 
@@ -286,6 +307,7 @@ Use pytest to run tests.
 Claude can find test files and knows pytest.
 
 **✅ Do:**
+
 ```markdown
 ## Testing
 
@@ -331,10 +353,12 @@ Keep it concise. Target 100-300 lines. Not a complete manual.
 **AGENTS.md = Navigation Hub**
 
 Instead of full content:
+
 ```markdown
 ## Architecture
 
 See detailed architecture docs:
+
 - [System Overview](docs/architecture/overview.md)
 - [Data Flow](docs/architecture/data-flow.md)
 - [Service Interactions](docs/architecture/services.md)
@@ -345,6 +369,7 @@ See detailed architecture docs:
 ### Format for Scannability
 
 Use:
+
 - **Bold** for emphasis
 - Lists (bullet points) for multiple items
 - Code blocks for commands/code
@@ -352,6 +377,7 @@ Use:
 - Links to deeper documentation
 
 Avoid:
+
 - Long paragraphs
 - Dense prose
 - Excessive nesting
@@ -370,6 +396,7 @@ Same principle as the skills system:
 **When loaded:** Agent reads this first for context
 
 **Content:**
+
 - What the project does
 - How it's organized
 - Where to start for common tasks
@@ -382,11 +409,13 @@ Same principle as the skills system:
 **When loaded:** Agent reads when needed for specific task
 
 **Content:**
+
 - Detailed technical information
 - Comprehensive workflows
 - Reference material
 
 **Linked from AGENTS.md:**
+
 ```markdown
 ## Architecture
 
@@ -402,11 +431,13 @@ Details: [Architecture Documentation](docs/architecture/README.md)
 **When loaded:** Agent reads when working on specific files or need precise details
 
 **Content:**
+
 - Source code
 - Tests
 - Configuration
 
 **Referenced from docs:**
+
 ```markdown
 ## Authentication
 
@@ -457,6 +488,7 @@ Multi-service platform for data processing.
 ## Codebase Structure
 
 This is a monorepo:
+
 - `services/` - Individual microservices (12 services)
 - `libs/` - Shared libraries
 - `infrastructure/` - Terraform, K8s configs
@@ -465,14 +497,17 @@ This is a monorepo:
 ## Documentation Index
 
 **Getting Started:**
+
 - [Development Setup](docs/development/setup.md)
 - [Architecture Overview](docs/architecture/overview.md)
 
 **Working with Services:**
+
 - [Service Development Guide](docs/services/development.md)
 - [Inter-Service Communication](docs/architecture/communication.md)
 
 **Operations:**
+
 - [Deployment Process](docs/operations/deployment.md)
 - [Runbooks](docs/operations/runbooks/)
 
@@ -547,16 +582,19 @@ Focuses on how work actually gets done.
 ## Critical Constraints
 
 **Compliance:**
+
 - All financial calculations use `Decimal` (never `float`)
 - Money amounts stored as integer cents (not fractional dollars)
 - All transactions must be auditable (logged immutably)
 
 **Data Handling:**
+
 - PII must be encrypted at rest (use `encrypt_pii()`)
 - Logs must not contain PII (use redaction filters)
 - Data retention: 7 years (automated via retention policies)
 
 **Testing:**
+
 - All monetary calculations require property-based tests
 - Integration tests run against test bank sandbox
 - Never use production API keys in tests
@@ -657,20 +695,21 @@ Staging: https://users-staging.internal.company.com
 Monorepo for all platform services and libraries.
 
 ## Repository Structure
-
 ```
+
 /
-├── services/          # Individual microservices (see services/README.md)
-│   ├── api-gateway/
-│   ├── auth/
-│   ├── users/
-│   └── [...]
-├── libs/              # Shared libraries
-│   ├── common/        # Common utilities
-│   ├── db/            # Database helpers
-│   └── events/        # Event system
-├── infrastructure/    # IaC and deployment
-└── docs/              # Documentation
+├── services/ # Individual microservices (see services/README.md)
+│ ├── api-gateway/
+│ ├── auth/
+│ ├── users/
+│ └── [...]
+├── libs/ # Shared libraries
+│ ├── common/ # Common utilities
+│ ├── db/ # Database helpers
+│ └── events/ # Event system
+├── infrastructure/ # IaC and deployment
+└── docs/ # Documentation
+
 ```
 
 ## Working in This Repo

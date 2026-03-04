@@ -6,8 +6,7 @@
  */
 
 import { describe, test, expect } from "bun:test";
-import { parseCron, nextCronTime, msUntilNextCron } from "../../src/daemon/cron.ts";
-import { parseDuration, resolveSchedule } from "../../src/daemon/registry.ts";
+import { parseCron, nextCronTime, msUntilNextCron, parseDuration, resolveSchedule } from "@moniro/agent";
 
 describe("parseCron", () => {
   test("parses wildcard fields", () => {
@@ -37,9 +36,7 @@ describe("parseCron", () => {
   test("parses ranges", () => {
     const fields = parseCron("0-5 9-17 * * *");
     expect([...fields.minutes].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5]);
-    expect([...fields.hours].sort((a, b) => a - b)).toEqual([
-      9, 10, 11, 12, 13, 14, 15, 16, 17,
-    ]);
+    expect([...fields.hours].sort((a, b) => a - b)).toEqual([9, 10, 11, 12, 13, 14, 15, 16, 17]);
   });
 
   test("parses lists", () => {

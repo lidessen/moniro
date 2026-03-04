@@ -19,6 +19,7 @@ Inspired by [superpowers](https://github.com/obra/superpowers) framework.
 > Before asserting work is done, fixed, or passing—**VERIFY WITH FRESH EVIDENCE**.
 
 This applies to:
+
 - Claiming a bug is fixed
 - Asserting tests pass
 - Saying implementation is complete
@@ -87,16 +88,16 @@ Every completion claim must follow this protocol:
 
 These phrases are **red flags** indicating unverified claims:
 
-| Prohibited | Why | Replace With |
-|------------|-----|--------------|
-| "should work" | Speculation | "verified working: [evidence]" |
-| "probably fixed" | Uncertainty | "confirmed fixed: [test output]" |
-| "seems to pass" | Vagueness | "passes: [exact output]" |
-| "I think it's done" | Opinion | "completed: [verification]" |
-| "looks good" | Subjective | "verified: [specific check]" |
-| "Done!" | Premature | "Verified complete: [evidence]" |
-| "Great!" | Empty validation | [specific positive observation] |
-| "Fixed!" | Unverified | "Fixed and verified: [proof]" |
+| Prohibited          | Why              | Replace With                     |
+| ------------------- | ---------------- | -------------------------------- |
+| "should work"       | Speculation      | "verified working: [evidence]"   |
+| "probably fixed"    | Uncertainty      | "confirmed fixed: [test output]" |
+| "seems to pass"     | Vagueness        | "passes: [exact output]"         |
+| "I think it's done" | Opinion          | "completed: [verification]"      |
+| "looks good"        | Subjective       | "verified: [specific check]"     |
+| "Done!"             | Premature        | "Verified complete: [evidence]"  |
+| "Great!"            | Empty validation | [specific positive observation]  |
+| "Fixed!"            | Unverified       | "Fixed and verified: [proof]"    |
 
 ### Detection Rule
 
@@ -153,16 +154,16 @@ Red Flag Detected
 
 Common excuses and their counters:
 
-| Rationalization | Counter | Action |
-|-----------------|---------|--------|
-| "I just ran it" | Memory is unreliable. Run again. | Execute fresh |
-| "It's obvious" | Obvious things fail. Verify anyway. | Verify |
-| "Too simple to check" | Simple things compound into complex failures | Check anyway |
-| "I already verified" | Verification expires. Verify again. | Re-verify |
-| "The user is waiting" | Wrong answers waste more time | Take 30 seconds to verify |
-| "It's the same as before" | Environments change. Verify. | Verify current state |
-| "Trust me" | Trust evidence, not assertions | Show evidence |
-| "Just this once" | The 'just this once' is never 'just' once | No exceptions |
+| Rationalization           | Counter                                      | Action                    |
+| ------------------------- | -------------------------------------------- | ------------------------- |
+| "I just ran it"           | Memory is unreliable. Run again.             | Execute fresh             |
+| "It's obvious"            | Obvious things fail. Verify anyway.          | Verify                    |
+| "Too simple to check"     | Simple things compound into complex failures | Check anyway              |
+| "I already verified"      | Verification expires. Verify again.          | Re-verify                 |
+| "The user is waiting"     | Wrong answers waste more time                | Take 30 seconds to verify |
+| "It's the same as before" | Environments change. Verify.                 | Verify current state      |
+| "Trust me"                | Trust evidence, not assertions               | Show evidence             |
+| "Just this once"          | The 'just this once' is never 'just' once    | No exceptions             |
 
 ### The "Just This Once" Pattern
 
@@ -223,6 +224,7 @@ Validation reports should include verification evidence:
 ## Findings
 
 ### ✅ Tests Pass
+
 - **Command**: `npm test`
 - **Executed**: 2026-01-31T12:00:00Z (fresh)
 - **Output**: "47 tests passed, 0 failed"

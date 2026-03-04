@@ -50,6 +50,7 @@ mkdir -p .memory/{notes,decisions,todos,sessions}
 ## Git Configuration
 
 **Hybrid (Recommended)** - Share valuable knowledge, keep personal context private:
+
 ```gitignore
 # Share decisions/notes/todos, keep sessions and context personal
 .memory/sessions/
@@ -57,6 +58,7 @@ mkdir -p .memory/{notes,decisions,todos,sessions}
 ```
 
 **Personal** - Nothing shared:
+
 ```gitignore
 .memory/
 ```
@@ -81,8 +83,9 @@ synced: ""
 ## Local Context
 
 ## Key Decisions
+
 | Date | Decision | Rationale |
-|------|----------|-----------|
+| ---- | -------- | --------- |
 ```
 
 This file becomes the anchor for remote sync if configured.

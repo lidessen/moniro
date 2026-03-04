@@ -1,15 +1,26 @@
-// Agent: definition, session, capabilities
-export { AgentWorker, type SendOptions, type StepInfo } from "./worker.ts";
+// Agent: re-export from @moniro/agent for moved items
 export {
+  AgentWorker,
   createModel,
   createModelAsync,
   FRONTIER_MODELS,
   SUPPORTED_PROVIDERS,
   DEFAULT_PROVIDER,
   getDefaultModel,
-} from "./models.ts";
-export type { SupportedProvider } from "./models.ts";
+  CONTEXT_SUBDIRS,
+  AgentDefinitionSchema,
+  AgentSoulSchema,
+  AgentPromptConfigSchema,
+  AgentContextConfigSchema,
+  ConversationLog,
+  ThinThread,
+  DEFAULT_THIN_THREAD_SIZE,
+  formatConversationMessages,
+} from "@moniro/agent";
 export type {
+  SendOptions,
+  StepInfo,
+  SupportedProvider,
   AgentMessage,
   AgentResponse,
   ApprovalCheck,
@@ -21,22 +32,14 @@ export type {
   ToolInfo,
   TokenUsage,
   Transcript,
-} from "./types.ts";
-
-// Top-level agent definition (AGENT-TOP-LEVEL architecture)
-export type {
   AgentDefinition,
   AgentSoul,
   AgentPromptConfig,
   AgentContextConfig,
-} from "./definition.ts";
-export {
-  AgentDefinitionSchema,
-  AgentSoulSchema,
-  AgentPromptConfigSchema,
-  AgentContextConfigSchema,
-  CONTEXT_SUBDIRS,
-} from "./definition.ts";
+  ConversationMessage,
+} from "@moniro/agent";
+
+// System-layer files that remain in agent-worker
 export { AgentHandle } from "./agent-handle.ts";
 export type { AgentHandleState } from "./agent-handle.ts";
 export { AgentRegistry } from "./agent-registry.ts";

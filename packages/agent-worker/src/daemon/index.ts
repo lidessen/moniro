@@ -11,5 +11,8 @@ export type { AgentConfig } from "../agent/config.ts";
 export type { StateStore } from "../agent/store.ts";
 export { MemoryStateStore } from "../agent/store.ts";
 
+// Workspace
+export { WorkspaceRegistry } from "./workspace-registry.ts";
+
 // Event logging
 export { DaemonEventLog } from "./event-log.ts";

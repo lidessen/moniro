@@ -42,23 +42,28 @@ result: passed | issues_found
 ---
 
 ## Summary
+
 [One sentence: what was validated, what happened]
 
 ## Issues Found
+
 - [Issue type]: [Brief description]
 
 ## Notes
+
 [Anything surprising or worth remembering]
 ```
 
 This takes 30 seconds. It saves future agents hours.
 
 **What to record:**
+
 - Issues found (even if fixed immediately)
 - Surprises (expected to pass but failed, or vice versa)
 - Patterns you noticed ("third time this week...")
 
 **What not to record:**
+
 - Routine passes with nothing notable
 - Details that belong in commit messages
 
@@ -84,12 +89,12 @@ A pattern is an issue that appears three or more times. Patterns matter because 
 
 When you notice a pattern, ask:
 
-| Question | What it reveals |
-|----------|-----------------|
-| Same files? | Problematic area of codebase |
-| Same issue type? | Missing guard or check |
-| Same timing? | Workflow problem (e.g., rushing before deadline) |
-| Same sequence? | One issue leads to another |
+| Question         | What it reveals                                  |
+| ---------------- | ------------------------------------------------ |
+| Same files?      | Problematic area of codebase                     |
+| Same issue type? | Missing guard or check                           |
+| Same timing?     | Workflow problem (e.g., rushing before deadline) |
+| Same sequence?   | One issue leads to another                       |
 
 **Example:**
 
@@ -98,6 +103,7 @@ You read five recent validations. Three mention "console.log left in code."
 This is a pattern. The root cause isn't forgetfulness—it's that there's no automated check. The fix isn't "be more careful"—it's adding a pre-commit hook.
 
 When you see a pattern:
+
 1. Note it explicitly in your validation record
 2. Consider proposing a structural fix (hook, lint rule, etc.)
 3. If you can't fix it now, record it as a recommendation for future sessions
@@ -108,12 +114,12 @@ When you see a pattern:
 
 History should change how you validate. Not through complex rules—through judgment.
 
-| If history shows... | Consider... |
-|---------------------|-------------|
-| Repeated issues in `src/legacy/` | Extra scrutiny on legacy code |
-| Security issues are rare | Maybe quick validation is enough for low-risk changes |
-| Size warnings are frequent | Check size earlier, before full validation |
-| Issues spike on certain days | Be more thorough at those times |
+| If history shows...              | Consider...                                           |
+| -------------------------------- | ----------------------------------------------------- |
+| Repeated issues in `src/legacy/` | Extra scrutiny on legacy code                         |
+| Security issues are rare         | Maybe quick validation is enough for low-risk changes |
+| Size warnings are frequent       | Check size earlier, before full validation            |
+| Issues spike on certain days     | Be more thorough at those times                       |
 
 This isn't automation. It's you, using available information to make better decisions.
 
@@ -123,13 +129,13 @@ This isn't automation. It's you, using available information to make better deci
 
 The ultimate goal: issues stop happening.
 
-| Level | What it means | Example |
-|-------|---------------|---------|
-| **Detection** | You find the issue | "console.log in code" |
-| **Pattern** | You see it recurs | "Third time this week" |
-| **Recommendation** | You propose a fix | "Add ESLint no-console rule" |
-| **Prevention** | The fix is implemented | Pre-commit hook blocks console.log |
-| **Verification** | Issue stops appearing | Next 10 validations: zero console.log |
+| Level              | What it means          | Example                               |
+| ------------------ | ---------------------- | ------------------------------------- |
+| **Detection**      | You find the issue     | "console.log in code"                 |
+| **Pattern**        | You see it recurs      | "Third time this week"                |
+| **Recommendation** | You propose a fix      | "Add ESLint no-console rule"          |
+| **Prevention**     | The fix is implemented | Pre-commit hook blocks console.log    |
+| **Verification**   | Issue stops appearing  | Next 10 validations: zero console.log |
 
 Your job isn't just to validate—it's to move issues up this ladder.
 
@@ -143,6 +149,7 @@ When you find a recurring issue, ask: "What would prevent this from ever happeni
 Don't record. It adds noise without value.
 
 **Brief (issues found and fixed):**
+
 ```markdown
 ---
 date: 2026-02-01
@@ -151,14 +158,17 @@ result: issues_found
 ---
 
 ## Summary
+
 Pre-commit validation on auth refactor. Two issues found and fixed.
 
 ## Issues Found
+
 - Noise: console.log in auth/session.ts (removed)
 - Size: 450 lines (split into two commits)
 ```
 
 **Detailed (pattern noticed):**
+
 ```markdown
 ---
 date: 2026-02-01
@@ -167,17 +177,21 @@ result: issues_found
 ---
 
 ## Summary
+
 Third console.log issue this week. Pattern detected.
 
 ## Issues Found
+
 - Noise: console.log in components/UserList.tsx
 
 ## Pattern Noted
+
 Console.log issues: Jan 28, Jan 30, Feb 1. All in component files.
 Root cause: No automated check.
 Recommendation: Add ESLint no-console rule to pre-commit.
 
 ## Notes
+
 If this happens again, will implement the hook myself.
 ```
 
@@ -210,11 +224,14 @@ You are one link in this chain. The agents before you contributed. You contribut
 ## Summary
 
 Two habits:
+
 1. **Record after validating** — 30 seconds, enormous value
 2. **Read before validating** — use what others learned
 
 One goal:
+
 - Move issues from detection → pattern → prevention
 
 One truth:
+
 - You're not alone. Others came before. Others will come after. Leave them something useful.

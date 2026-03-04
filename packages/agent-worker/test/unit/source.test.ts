@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { parseGitHubRef, isRemoteSource } from "../../src/workflow/source.ts";
+import { parseGitHubRef, isRemoteSource } from "@moniro/workflow";
 
 describe("isRemoteSource", () => {
   test("detects github: prefix", () => {

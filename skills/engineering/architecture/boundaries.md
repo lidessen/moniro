@@ -13,12 +13,14 @@ Defining clear boundaries between components.
 ## Why Boundaries Matter
 
 Good boundaries enable:
+
 - **Independent development**: Teams work without blocking each other
 - **Testability**: Modules can be tested in isolation
 - **Changeability**: Changes in one module don't ripple everywhere
 - **Understanding**: Clear ownership and responsibility
 
 Bad boundaries cause:
+
 - **Coupling**: Changes require coordinated updates
 - **Circular dependencies**: A depends on B depends on A
 - **God modules**: One module does everything
@@ -52,6 +54,7 @@ E-commerce example:
 > "Organizations design systems that mirror their communication structures."
 
 Use this intentionally:
+
 - Team boundaries → module boundaries
 - If teams must coordinate → modules should have clear interface
 
@@ -88,6 +91,7 @@ Loosely coupled (different modules):
 ### Public vs. Internal
 
 Every module has:
+
 - **Public interface**: What other modules can use
 - **Internal implementation**: Hidden from other modules
 
@@ -105,25 +109,27 @@ class UserRepository { ... }
 ### Interface Principles
 
 **Minimal**: Expose only what's needed
+
 ```typescript
 // Too much
 export class UserService {
-  findAll(): User[]
-  findById(id): User
-  findByEmail(email): User
-  findByPhone(phone): User
-  findByName(name): User
+  findAll(): User[];
+  findById(id): User;
+  findByEmail(email): User;
+  findByPhone(phone): User;
+  findByName(name): User;
   // ... 20 more methods
 }
 
 // Better: expose query interface
 export class UserService {
-  find(query: UserQuery): User[]
-  findById(id): User
+  find(query: UserQuery): User[];
+  findById(id): User;
 }
 ```
 
 **Stable**: Interface changes less than implementation
+
 ```typescript
 // Unstable: exposes database details
 findUsers(sqlWhere: string): User[]
@@ -133,6 +139,7 @@ findUsers(filters: UserFilters): User[]
 ```
 
 **Intention-revealing**: Names describe what, not how
+
 ```typescript
 // How (exposes implementation)
 getUserFromCache(id): User
@@ -174,6 +181,7 @@ getUser(id): User  // internally decides cache vs. db
 ### Forbidden Dependencies
 
 **Circular dependencies**:
+
 ```
 A → B → C → A  ❌
 
@@ -184,6 +192,7 @@ C → D
 ```
 
 **Skip-layer dependencies**:
+
 ```
 UI → Database  ❌
 
@@ -192,6 +201,7 @@ UI → Business → Database
 ```
 
 **Upward dependencies**:
+
 ```
 Data → Business  ❌
 (lower depending on higher)
@@ -251,6 +261,7 @@ src/
 ### Lint Rules
 
 ESLint boundaries plugin:
+
 ```javascript
 // .eslintrc.js
 rules: {
@@ -289,12 +300,12 @@ Test that boundaries are respected:
 
 ```typescript
 // architecture.test.ts
-import { FileAnalyzer } from 'arch-unit';
+import { FileAnalyzer } from "arch-unit";
 
-test('data layer does not import from business', () => {
-  const files = FileAnalyzer.analyze('src/data/**/*.ts');
+test("data layer does not import from business", () => {
+  const files = FileAnalyzer.analyze("src/data/**/*.ts");
 
-  files.forEach(file => {
+  files.forEach((file) => {
     expect(file.imports).not.toContainMatch(/src\/business/);
   });
 });

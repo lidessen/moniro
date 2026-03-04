@@ -14,6 +14,7 @@ Maintains project infrastructure, organization, and cleanliness - the "home mana
 Housekeeping exists because **entropy is real**.
 
 Left alone, projects accumulate:
+
 - Dead code that no one removes
 - Dependencies that no one audits
 - Documentation that no one updates
@@ -31,12 +32,13 @@ Housekeeping is cheaper than rewrites. Regular small efforts beat occasional her
 
 ### The Two Kinds of Value
 
-| Type | Focus | Housekeeping |
-|------|-------|--------------|
-| External | Users, features, business | Building the product |
-| Internal | Developers, structure, maintainability | Managing the home |
+| Type     | Focus                                  | Housekeeping         |
+| -------- | -------------------------------------- | -------------------- |
+| External | Users, features, business              | Building the product |
+| Internal | Developers, structure, maintainability | Managing the home    |
 
 Both are essential:
+
 - Features without housekeeping → unsustainable mess
 - Housekeeping without features → no product
 
@@ -47,6 +49,7 @@ Both are essential:
 > Leave the campground cleaner than you found it.
 
 Applied to code:
+
 - Touching a file? Fix the obvious issues while you're there.
 - Don't make a separate "cleanup ticket" for small things.
 - Incremental improvement beats scheduled cleanup sprints.
@@ -62,6 +65,7 @@ Each area has its own WHY. Understand the principle, then apply judgment.
 The problem isn't "we need more docs." It's "we can't find what we have" or "what we have is wrong."
 
 Focus on:
+
 - Discoverability (can you find it?)
 - Currency (is it still true?)
 - Audience (who is this for?)
@@ -73,6 +77,7 @@ See [documentation/](documentation/) for strategies.
 **WHY**: Every dependency is a liability.
 
 Each package you add:
+
 - Requires updates forever
 - Introduces security risk
 - Adds to install time
@@ -87,11 +92,13 @@ See [dependency-management.md](dependency-management.md) for patterns.
 **WHY**: Structure should make discovery easy.
 
 Good structure:
+
 - Files are where you expect them
 - New developers can navigate without asking
 - Related code is together
 
 Bad structure:
+
 - "Where should this go?" confusion
 - 50+ files in one directory
 - 5+ levels of nesting
@@ -103,11 +110,13 @@ See [directory-structure.md](directory-structure.md) for organization patterns.
 **WHY**: Dead code is worse than no code.
 
 Dead code:
+
 - Gets maintained by mistake
 - Confuses readers
 - Makes search results noisy
 
 Duplication:
+
 - Drifts over time
 - Fixes apply to one copy, not all
 - Creates false confidence
@@ -129,6 +138,7 @@ See [tech-debt.md](tech-debt.md) for tracking approaches.
 **WHY**: Infrastructure friction affects everyone, every day.
 
 Poor infrastructure:
+
 - Slow builds → slow iteration
 - Flaky CI → ignored failures
 - Outdated configs → mysterious bugs
@@ -141,11 +151,11 @@ See [infrastructure.md](infrastructure.md) for maintenance patterns.
 
 ### Regular Cadence
 
-| Frequency | Activity |
-|-----------|----------|
-| Weekly | Quick checks (warnings, unused imports) |
-| Monthly | Dependency updates, doc review |
-| Quarterly | Full audit, tech debt sprint |
+| Frequency | Activity                                |
+| --------- | --------------------------------------- |
+| Weekly    | Quick checks (warnings, unused imports) |
+| Monthly   | Dependency updates, doc review          |
+| Quarterly | Full audit, tech debt sprint            |
 
 ### Opportunistic
 
@@ -203,11 +213,11 @@ Measure impact (velocity, onboarding time). Show quick wins. Integrate into regu
 
 ## Understanding, Not Rules
 
-| Tension | Resolution |
-|---------|------------|
-| Features vs Housekeeping | Both are essential. Balance, don't choose. |
-| Perfection vs Progress | Good enough now beats perfect never. |
+| Tension                    | Resolution                                   |
+| -------------------------- | -------------------------------------------- |
+| Features vs Housekeeping   | Both are essential. Balance, don't choose.   |
+| Perfection vs Progress     | Good enough now beats perfect never.         |
 | Scheduled vs Opportunistic | Mix both. Regular cadence + clean as you go. |
-| Individual vs Team | Make it visible. Share the load. |
+| Individual vs Team         | Make it visible. Share the load.             |
 
 The goal isn't a perfectly organized codebase. It's a codebase that **stays healthy as it grows**.

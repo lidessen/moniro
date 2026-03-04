@@ -32,12 +32,14 @@ Building systems that meet performance requirements efficiently.
 ### When to Optimize
 
 **Do optimize when**:
+
 - Measured performance doesn't meet requirements
 - Users are complaining
 - Cost (infrastructure) is too high
 - Profile shows clear bottleneck
 
 **Don't optimize when**:
+
 - "It might be slow"
 - "This could be more efficient"
 - Performance is acceptable
@@ -97,6 +99,7 @@ Usually not worth it. Only after profiling shows specific hotspot.
 ### Caching
 
 **When to cache**:
+
 - Data is read more than written
 - Computing/fetching is expensive
 - Stale data is acceptable (briefly)
@@ -120,6 +123,7 @@ Write-behind:
 ```
 
 **Cache invalidation** (the hard problem):
+
 - TTL (time-based expiration)
 - Event-based invalidation
 - Version/tag invalidation
@@ -138,6 +142,7 @@ users = db.query(User).limit(20).offset(0).all()
 ```
 
 **Cursor vs offset pagination**:
+
 - Offset: Simple, but slow for large offsets
 - Cursor: Consistent, scales well, slightly more complex
 
@@ -231,15 +236,18 @@ SELECT * FROM orders;  -- includes user_name column
 ### Key Metrics
 
 **Latency**: Time to complete operation
+
 - p50: Median (typical experience)
 - p95: 95th percentile (most users)
 - p99: 99th percentile (worst typical case)
 
 **Throughput**: Operations per time unit
+
 - Requests per second (RPS)
 - Transactions per second (TPS)
 
 **Resource usage**:
+
 - CPU utilization
 - Memory usage
 - I/O wait
@@ -247,17 +255,20 @@ SELECT * FROM orders;  -- includes user_name column
 ### Profiling Tools
 
 **Application profiling**:
+
 - Python: cProfile, py-spy
 - Node.js: clinic.js, 0x
 - Go: pprof
 - Java: async-profiler, JFR
 
 **Database profiling**:
+
 - EXPLAIN ANALYZE (PostgreSQL/MySQL)
 - Query logs with timing
 - Database-specific tools
 
 **System profiling**:
+
 - top, htop (CPU/memory)
 - iostat (disk I/O)
 - netstat (network)
@@ -279,6 +290,7 @@ print(f"Average: {time/1000:.6f}s")
 ```
 
 **Benchmark rules**:
+
 - Warm up first (JIT, caches)
 - Multiple runs (statistical significance)
 - Realistic data (not toy examples)

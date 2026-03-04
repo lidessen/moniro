@@ -10,26 +10,26 @@ Source of truth is always the code in `src/workflow/`. This doc covers non-obvio
 
 The workflow MCP server exposes these tools to agents:
 
-| Tool | Parameters | Description |
-|------|-----------|-------------|
-| `channel_send` | `message: string` | Send message to channel (sender = agent identity) |
-| `channel_read` | `since?: string, limit?: number` | Read channel entries |
-| `my_inbox` | (none) | Get unread @mentions for this agent |
-| `my_inbox_ack` | `until: string` | Acknowledge messages up to message ID |
-| `my_status_set` | `task?: string, state?: 'idle'\|'running', metadata?: object` | Update your status and current task |
-| `team_members` | `includeStatus?: boolean` | List all agents (optionally with status) |
-| `team_doc_read` | `file?: string` | Read document (default: `notes.md`) |
-| `team_doc_write` | `content: string, file?: string` | Write document (ownership enforced) |
-| `team_doc_append` | `content: string, file?: string` | Append to document |
-| `team_doc_list` | (none) | List all document files |
-| `team_doc_create` | `file: string, content: string` | Create new document |
-| `document_suggest` | `suggestion: string, file?: string` | Post suggestion @owner (non-owners) |
-| `team_proposal_create` | `type, title, options[], resolution?, binding?, timeoutSeconds?` | Create proposal |
-| `team_vote` | `proposal: string, choice: string, reason?: string` | Vote on proposal |
-| `team_proposal_status` | `proposal?: string` | Check proposal status (or all active) |
-| `team_proposal_cancel` | `proposal: string` | Cancel proposal (creator only) |
-| `resource_create` | `content: string, type?: ResourceType` | Create resource for long content |
-| `resource_read` | `id: string` | Read resource by ID |
+| Tool                   | Parameters                                                       | Description                                       |
+| ---------------------- | ---------------------------------------------------------------- | ------------------------------------------------- |
+| `channel_send`         | `message: string`                                                | Send message to channel (sender = agent identity) |
+| `channel_read`         | `since?: string, limit?: number`                                 | Read channel entries                              |
+| `my_inbox`             | (none)                                                           | Get unread @mentions for this agent               |
+| `my_inbox_ack`         | `until: string`                                                  | Acknowledge messages up to message ID             |
+| `my_status_set`        | `task?: string, state?: 'idle'\|'running', metadata?: object`    | Update your status and current task               |
+| `team_members`         | `includeStatus?: boolean`                                        | List all agents (optionally with status)          |
+| `team_doc_read`        | `file?: string`                                                  | Read document (default: `notes.md`)               |
+| `team_doc_write`       | `content: string, file?: string`                                 | Write document (ownership enforced)               |
+| `team_doc_append`      | `content: string, file?: string`                                 | Append to document                                |
+| `team_doc_list`        | (none)                                                           | List all document files                           |
+| `team_doc_create`      | `file: string, content: string`                                  | Create new document                               |
+| `document_suggest`     | `suggestion: string, file?: string`                              | Post suggestion @owner (non-owners)               |
+| `team_proposal_create` | `type, title, options[], resolution?, binding?, timeoutSeconds?` | Create proposal                                   |
+| `team_vote`            | `proposal: string, choice: string, reason?: string`              | Vote on proposal                                  |
+| `team_proposal_status` | `proposal?: string`                                              | Check proposal status (or all active)             |
+| `team_proposal_cancel` | `proposal: string`                                               | Cancel proposal (creator only)                    |
+| `resource_create`      | `content: string, type?: ResourceType`                           | Create resource for long content                  |
+| `resource_read`        | `id: string`                                                     | Read resource by ID                               |
 
 Agent identity flows through `extra.sessionId` on every tool call — set by the MCP transport's `X-Agent-Id` header.
 
@@ -110,12 +110,12 @@ Process your inbox messages. Use MCP tools to collaborate.
 
 ## Proposal Types
 
-| Type | Use Case | Example |
-|------|----------|---------|
-| `election` | Role selection | Document owner |
-| `decision` | Design choices | "Use REST or GraphQL?" |
-| `approval` | Sign-off | Merge approval |
-| `assignment` | Task allocation | "Who handles auth?" |
+| Type         | Use Case        | Example                |
+| ------------ | --------------- | ---------------------- |
+| `election`   | Role selection  | Document owner         |
+| `decision`   | Design choices  | "Use REST or GraphQL?" |
+| `approval`   | Sign-off        | Merge approval         |
+| `assignment` | Task allocation | "Who handles auth?"    |
 
 Resolution: `plurality` (most votes) | `majority` (>50%) | `unanimous` (all agree)
 
@@ -125,18 +125,18 @@ Tie-breakers: `first` | `random` | `creator-decides`
 
 ## Key Source Files
 
-| File | Purpose |
-|------|---------|
-| `src/workflow/parser.ts` | YAML parsing + validation |
-| `src/workflow/runner.ts` | Workflow runtime init |
-| `src/workflow/interpolate.ts` | Variable interpolation |
-| `src/workflow/context/provider.ts` | ContextProvider interface |
-| `src/workflow/context/file-provider.ts` | File-based storage |
+| File                                      | Purpose                     |
+| ----------------------------------------- | --------------------------- |
+| `src/workflow/parser.ts`                  | YAML parsing + validation   |
+| `src/workflow/runner.ts`                  | Workflow runtime init       |
+| `src/workflow/interpolate.ts`             | Variable interpolation      |
+| `src/workflow/context/provider.ts`        | ContextProvider interface   |
+| `src/workflow/context/file-provider.ts`   | File-based storage          |
 | `src/workflow/context/memory-provider.ts` | In-memory storage (testing) |
-| `src/workflow/context/mcp-server.ts` | MCP tool handlers |
-| `src/workflow/context/http-transport.ts` | HTTP transport for MCP |
-| `src/workflow/context/proposals.ts` | Voting system |
-| `src/workflow/loop/loop.ts` | Agent polling loop |
-| `src/workflow/loop/prompt.ts` | Prompt building |
-| `src/workflow/loop/backend.ts` | Backend selection |
-| `src/workflow/loop/send.ts` | Send target parsing |
+| `src/workflow/context/mcp-server.ts`      | MCP tool handlers           |
+| `src/workflow/context/http-transport.ts`  | HTTP transport for MCP      |
+| `src/workflow/context/proposals.ts`       | Voting system               |
+| `src/workflow/loop/loop.ts`               | Agent polling loop          |
+| `src/workflow/loop/prompt.ts`             | Prompt building             |
+| `src/workflow/loop/backend.ts`            | Backend selection           |
+| `src/workflow/loop/send.ts`               | Send target parsing         |

@@ -5,6 +5,7 @@
 Every token in your skill competes with conversation history and other context. Once Claude loads SKILL.md, every word matters.
 
 ## Table of Contents
+
 - [The Challenge Test](#the-challenge-test)
 - [Good vs Bad Examples](#good-vs-bad-examples)
 - [What to Assume Claude Knows](#what-to-assume-claude-knows)
@@ -29,7 +30,8 @@ Before including any explanation, ask:
 ### Example 1: PDF Extraction
 
 **Good - Concise** (~50 tokens):
-```markdown
+
+````markdown
 ## Extract PDF text
 
 Use pdfplumber for text extraction:
@@ -38,11 +40,12 @@ Use pdfplumber for text extraction:
 import pdfplumber
 
 with pdfplumber.open("file.pdf") as pdf:
-    text = pdf.pages[0].extract_text()
+text = pdf.pages[0].extract_text()
 \```
-```
+````
 
 **Bad - Verbose** (~150 tokens):
+
 ```markdown
 ## Extract PDF text
 
@@ -54,6 +57,7 @@ First, you'll need to install it using pip. Then you can use the code below...
 ```
 
 **Why good is better**:
+
 - Assumes Claude knows what PDFs are
 - Assumes Claude knows how Python imports work
 - Assumes Claude knows how to install packages
@@ -62,6 +66,7 @@ First, you'll need to install it using pip. Then you can use the code below...
 ### Example 2: Database Queries
 
 **Good - Concise**:
+
 ```markdown
 ## Query Finance Data
 
@@ -72,6 +77,7 @@ Always filter: `WHERE is_test = false`
 ```
 
 **Bad - Verbose**:
+
 ```markdown
 ## Query Finance Data
 
@@ -87,6 +93,7 @@ adding WHERE is_test = false to your queries.
 ```
 
 **Why good is better**:
+
 - Presents facts directly without preamble
 - Lists over explains
 - Gets to the critical rule (filter test data) immediately
@@ -95,6 +102,7 @@ adding WHERE is_test = false to your queries.
 ### Example 3: Code Review Standards
 
 **Good - Concise**:
+
 ```markdown
 ## Review Checklist
 
@@ -106,6 +114,7 @@ adding WHERE is_test = false to your queries.
 ```
 
 **Bad - Verbose**:
+
 ```markdown
 ## Review Checklist
 
@@ -118,6 +127,7 @@ functions have documentation...
 ```
 
 **Why good is better**:
+
 - Assumes Claude knows what function length/complexity mean
 - Presents standards as facts, not educational content
 - Saves ~100 tokens
@@ -125,6 +135,7 @@ functions have documentation...
 ## What to Assume Claude Knows
 
 ### Technical Concepts ✓
+
 - Common file formats (PDF, JSON, CSV, etc.)
 - Programming concepts (functions, variables, loops)
 - Standard tools (git, npm, pip)
@@ -132,6 +143,7 @@ functions have documentation...
 - Industry terms (API, database, deployment)
 
 ### Your Domain ✗
+
 - Your specific table schemas
 - Your team's coding standards
 - Your custom workflows
@@ -143,14 +155,17 @@ functions have documentation...
 ### Pattern 1: Lists Over Paragraphs
 
 **Verbose**:
+
 ```markdown
 When analyzing data, you should first check the data quality, then clean any
 missing values, after that normalize the formats, and finally run validation.
 ```
 
 **Concise**:
+
 ```markdown
 ## Data Analysis Steps
+
 1. Check data quality
 2. Clean missing values
 3. Normalize formats
@@ -160,6 +175,7 @@ missing values, after that normalize the formats, and finally run validation.
 ### Pattern 2: Code Over Explanation
 
 **Verbose**:
+
 ```markdown
 To create a new document, you'll need to import the library, then create a
 document object by instantiating the Document class, then add content using
@@ -167,8 +183,10 @@ the add_paragraph method, and finally save it with the save method.
 ```
 
 **Concise**:
-```markdown
+
+````markdown
 ## Create Document
+
 \```python
 from docx import Document
 
@@ -176,11 +194,12 @@ doc = Document()
 doc.add_paragraph("Content")
 doc.save("output.docx")
 \```
-```
+````
 
 ### Pattern 3: Direct Rules
 
 **Verbose**:
+
 ```markdown
 It's important to remember that when you're working with our production
 database, you should always make sure to exclude test accounts. We identify
@@ -188,6 +207,7 @@ test accounts with the is_test field, which is set to true for test accounts.
 ```
 
 **Concise**:
+
 ```markdown
 **Production queries**: Always filter `WHERE is_test = false`
 ```
@@ -195,12 +215,14 @@ test accounts with the is_test field, which is set to true for test accounts.
 ### Pattern 4: Examples Without Preamble
 
 **Verbose**:
+
 ```markdown
 Here's an example of how you might write a good commit message following
 our conventions:
 ```
 
 **Concise**:
+
 ```markdown
 **Example commit**:
 ```
@@ -210,34 +232,41 @@ our conventions:
 Don't repeat information. Use references:
 
 **Bad - Repetitive**:
+
 ```markdown
 # API Usage
 
 ## Authentication
+
 [200 lines of authentication details]
 
 ## Endpoints
+
 [300 lines of endpoint documentation]
 
 ## Error Handling
+
 [200 lines of error handling]
 ```
 
 **Good - Progressive**:
-```markdown
+
+````markdown
 # API Usage
 
 ## Quick Start
+
 \```python
 api = API(token=TOKEN)
 result = api.get("/users")
 \```
 
 ## Details
+
 - **Authentication**: See [auth.md](auth.md)
 - **All endpoints**: See [endpoints.md](endpoints.md)
 - **Error handling**: See [errors.md](errors.md)
-```
+````
 
 ## Red Flags: Signs You're Being Too Verbose
 
@@ -268,6 +297,7 @@ Watch for these phrases that often signal unnecessary verbosity:
 ## The 50% Rule
 
 After writing your skill, try to cut it by 50%. This forces you to:
+
 - Remove obvious explanations
 - Replace paragraphs with lists
 - Replace explanations with code
@@ -284,11 +314,14 @@ After writing your skill, try to cut it by 50%. This forces you to:
 Sometimes more words are necessary:
 
 ### 1. Novel or Complex Workflows
+
 If your workflow is unusual, explain it:
+
 ```markdown
 ## Deployment Process
 
 Our deployment requires a unique sequence:
+
 1. Deploy to blue environment
 2. Run smoke tests
 3. Gradual traffic shift (10%, 50%, 100%)
@@ -299,8 +332,10 @@ This differs from standard deployments because [brief explanation of why].
 ```
 
 ### 2. Critical Rules with Context
+
 When a rule is critical and non-obvious, provide context:
-```markdown
+
+````markdown
 ## Database Queries
 
 **ALWAYS join with the `accounts` table** to filter for active customers:
@@ -312,10 +347,12 @@ WHERE a.status = 'active'
 \```
 
 **Why**: Soft-deleted customers remain in `orders` table for compliance.
-```
+````
 
 ### 3. Disambiguation
+
 When terms could be confused:
+
 ```markdown
 ## Document Fields
 

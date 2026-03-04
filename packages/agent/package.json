@@ -1,0 +1,54 @@
+{
+  "name": "@moniro/agent",
+  "version": "0.1.0",
+  "description": "Agent execution layer — worker, backends, tools, skills",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lidessen/moniro.git",
+    "directory": "packages/agent"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "scripts": {
+    "dev": "tsdown --watch",
+    "build": "tsdown",
+    "lint": "oxlint src",
+    "lint:fix": "oxlint src --fix",
+    "format": "oxfmt src",
+    "format:check": "oxfmt src --check",
+    "typecheck": "tsgo",
+    "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "ai": "^6.0.69",
+    "@ai-sdk/anthropic": "^3.0.0",
+    "@ai-sdk/deepseek": "^1.0.0",
+    "@ai-sdk/google": "^1.0.0",
+    "@ai-sdk/groq": "^1.0.0",
+    "@ai-sdk/mistral": "^1.0.0",
+    "@ai-sdk/openai": "^3.0.0",
+    "@ai-sdk/xai": "^1.0.0",
+    "execa": "^9.6.1",
+    "yaml": "^2.7.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": ">=22",
+    "@typescript/native-preview": "^7.0.0-dev.20260203.1",
+    "oxfmt": "^0.28.0",
+    "oxlint": "^1.43.0",
+    "tsdown": "^0.20.1"
+  }
+}

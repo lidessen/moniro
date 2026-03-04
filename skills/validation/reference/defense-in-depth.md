@@ -19,6 +19,7 @@ Inspired by [superpowers](https://github.com/obra/superpowers) framework.
 > "All four layers were necessary during testing—each layer caught bugs the others missed."
 
 A single validation layer is never enough because:
+
 - Each layer has blind spots
 - Different layers catch different issue types
 - Layers complement each other's weaknesses
@@ -71,6 +72,7 @@ Single Layer:        Defense-in-Depth:
 **Purpose**: Catch obviously wrong inputs early
 
 **Examples**:
+
 ```
 ├── SKILL.md frontmatter:
 │   ├── name: must be lowercase-with-hyphens
@@ -89,6 +91,7 @@ Single Layer:        Defense-in-Depth:
 ```
 
 **What it catches**:
+
 - Malformed inputs
 - Missing required data
 - Type mismatches
@@ -99,6 +102,7 @@ Single Layer:        Defense-in-Depth:
 **Purpose**: Enforce domain rules and semantics
 
 **Examples**:
+
 ```
 ├── Cohesion check:
 │   ├── Single purpose per commit
@@ -117,6 +121,7 @@ Single Layer:        Defense-in-Depth:
 ```
 
 **What it catches**:
+
 - Semantic violations
 - Business rule breaches
 - Logical inconsistencies
@@ -127,6 +132,7 @@ Single Layer:        Defense-in-Depth:
 **Purpose**: Prevent dangerous operations based on context
 
 **Examples**:
+
 ```
 ├── Production protection:
 │   ├── No force push to main
@@ -145,6 +151,7 @@ Single Layer:        Defense-in-Depth:
 ```
 
 **What it catches**:
+
 - Context-inappropriate actions
 - Missing prerequisites
 - Permission violations
@@ -155,6 +162,7 @@ Single Layer:        Defense-in-Depth:
 **Purpose**: Capture evidence for analysis and learning
 
 **Examples**:
+
 ```
 ├── State capture:
 │   ├── Before/after snapshots
@@ -173,6 +181,7 @@ Single Layer:        Defense-in-Depth:
 ```
 
 **What it catches**:
+
 - Enables root cause analysis
 - Provides learning data
 - Supports trend detection
@@ -255,17 +264,17 @@ layers:
 pipelines:
   comprehensive:
     defense_in_depth:
-      layer_1: strict    # Entry point
-      layer_2: strict    # Business logic
-      layer_3: strict    # Environment
-      layer_4: enabled   # Instrumentation
+      layer_1: strict # Entry point
+      layer_2: strict # Business logic
+      layer_3: strict # Environment
+      layer_4: enabled # Instrumentation
 
   quick:
     defense_in_depth:
       layer_1: strict
-      layer_2: minimal   # Only critical checks
-      layer_3: warn      # Warn but don't block
-      layer_4: minimal   # Basic logging only
+      layer_2: minimal # Only critical checks
+      layer_3: warn # Warn but don't block
+      layer_4: minimal # Basic logging only
 ```
 
 ### Layer Failure Handling
@@ -287,12 +296,12 @@ Different contexts warrant different strictness levels:
 
 ### Context Types
 
-| Context | Layer 1 | Layer 2 | Layer 3 | Layer 4 |
-|---------|---------|---------|---------|---------|
-| **Personal project** | Standard | Standard | Standard | Full |
-| **Team project** | Strict | Strict | Strict | Full |
-| **Production** | Strict | Strict | Maximum | Full |
-| **Experiment/POC** | Relaxed | Relaxed | Standard | Full |
+| Context              | Layer 1  | Layer 2  | Layer 3  | Layer 4 |
+| -------------------- | -------- | -------- | -------- | ------- |
+| **Personal project** | Standard | Standard | Standard | Full    |
+| **Team project**     | Strict   | Strict   | Strict   | Full    |
+| **Production**       | Strict   | Strict   | Maximum  | Full    |
+| **Experiment/POC**   | Relaxed  | Relaxed  | Standard | Full    |
 
 ### Auto-Detection Rules
 
@@ -352,12 +361,12 @@ Layer 4 Instrumentation
 ```markdown
 ## Defense-in-Depth Effectiveness (Last 30 Days)
 
-| Layer | Issues Caught | Unique Catches | Gap Coverage |
-|-------|---------------|----------------|--------------|
-| L1: Entry | 23 | 23 (100%) | N/A |
-| L2: Logic | 45 | 38 (84%) | Caught 7 L1 misses |
-| L3: Env | 12 | 8 (67%) | Caught 4 L2 misses |
-| L4: Debug | N/A | N/A | Enabled 15 root cause fixes |
+| Layer     | Issues Caught | Unique Catches | Gap Coverage                |
+| --------- | ------------- | -------------- | --------------------------- |
+| L1: Entry | 23            | 23 (100%)      | N/A                         |
+| L2: Logic | 45            | 38 (84%)       | Caught 7 L1 misses          |
+| L3: Env   | 12            | 8 (67%)        | Caught 4 L2 misses          |
+| L4: Debug | N/A           | N/A            | Enabled 15 root cause fixes |
 
 **Key Insight**: Without L3, 8 unsafe operations would have proceeded.
 ```
@@ -366,12 +375,12 @@ Layer 4 Instrumentation
 
 ## Anti-Patterns
 
-| Anti-Pattern | Why Bad | Fix |
-|--------------|---------|-----|
-| Single layer only | Gaps inevitable | Add complementary layers |
-| Skipping layers for speed | Issues slip through | Use quick pipeline, not layer skipping |
-| Same strictness everywhere | Over/under validation | Context-sensitive strictness |
-| Ignoring L4 data | Missed learning opportunity | Analyze instrumentation regularly |
+| Anti-Pattern               | Why Bad                     | Fix                                    |
+| -------------------------- | --------------------------- | -------------------------------------- |
+| Single layer only          | Gaps inevitable             | Add complementary layers               |
+| Skipping layers for speed  | Issues slip through         | Use quick pipeline, not layer skipping |
+| Same strictness everywhere | Over/under validation       | Context-sensitive strictness           |
+| Ignoring L4 data           | Missed learning opportunity | Analyze instrumentation regularly      |
 
 ---
 

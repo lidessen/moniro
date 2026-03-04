@@ -15,38 +15,46 @@ Improving code structure without changing behavior.
 ### Good Times to Refactor
 
 **Before adding features**:
+
 > "Make the change easy, then make the easy change." — Kent Beck
 
 If code structure makes the new feature awkward, refactor first.
 
 **When understanding is hard**:
+
 - You read code multiple times to understand it
 - Comments explain "what" not "why"
 - Function does multiple unrelated things
 
 **When patterns emerge**:
+
 - Third time you see similar code
 - Abstraction becomes obvious
 
 **When tests are hard to write**:
+
 - Indicates code has too many responsibilities
 - Refactor to make testable
 
 ### Bad Times to Refactor
 
 **Code that works and won't change**:
+
 - Don't improve what doesn't need improving
 - Leave stable, tested code alone
 
 **Without tests**:
+
 - No safety net for behavior preservation
 - Write tests first, then refactor
 
 **Under deadline pressure**:
+
 - Unless the refactoring unblocks the work
 - Note for later, don't do now
 
 **"While I'm here" syndrome**:
+
 - Scope creep disguised as improvement
 - Stay focused on current task
 
@@ -79,11 +87,13 @@ Gradually replace old system with new, piece by piece.
 ```
 
 **Use when**:
+
 - Large legacy system
 - Can't stop feature development
 - Need incremental progress
 
 **Process**:
+
 1. Identify boundary to replace
 2. Create new implementation behind same interface
 3. Route traffic to new implementation
@@ -115,6 +125,7 @@ Step 4: Clean up
 ```
 
 **Use when**:
+
 - Need to replace implementation
 - Can't do big bang switch
 - Want to test new implementation in parallel
@@ -128,6 +139,7 @@ Run old and new code simultaneously, verify, then remove old.
 **Contract**: Remove old code
 
 **Use when**:
+
 - API changes needed
 - Multiple consumers need migration time
 - Need to verify equivalence
@@ -137,6 +149,7 @@ Run old and new code simultaneously, verify, then remove old.
 ### Extract Function
 
 **Before**:
+
 ```python
 def process_order(order):
     # Validate order
@@ -156,6 +169,7 @@ def process_order(order):
 ```
 
 **After**:
+
 ```python
 def process_order(order):
     validate_order(order)
@@ -181,6 +195,7 @@ def process_payment(amount):
 ### Replace Conditional with Polymorphism
 
 **Before**:
+
 ```python
 def calculate_shipping(order):
     if order.shipping_type == "standard":
@@ -192,6 +207,7 @@ def calculate_shipping(order):
 ```
 
 **After**:
+
 ```python
 class ShippingStrategy:
     def calculate(self, order): pass
@@ -209,12 +225,14 @@ class OvernightShipping(ShippingStrategy):
 ### Introduce Parameter Object
 
 **Before**:
+
 ```python
 def create_report(start_date, end_date, department, format, include_charts):
     # ...
 ```
 
 **After**:
+
 ```python
 @dataclass
 class ReportConfig:
@@ -231,6 +249,7 @@ def create_report(config: ReportConfig):
 ### Replace Magic Numbers/Strings with Constants
 
 **Before**:
+
 ```python
 if user.age >= 18:
     # ...
@@ -239,6 +258,7 @@ if status == "pending_review":
 ```
 
 **After**:
+
 ```python
 LEGAL_AGE = 18
 STATUS_PENDING_REVIEW = "pending_review"
@@ -265,11 +285,13 @@ if status == STATUS_PENDING_REVIEW:
 ### Commit Discipline
 
 **Each commit should**:
+
 - Be a single, coherent change
 - Leave code in working state
 - Have clear commit message
 
 **Example commit sequence**:
+
 ```
 "Extract validate_order function"
 "Extract calculate_discount function"
@@ -280,11 +302,13 @@ if status == STATUS_PENDING_REVIEW:
 ### Testing Requirements
 
 **Before refactoring, ensure**:
+
 - Tests cover behavior you're changing
 - Tests are passing
 - Tests are trustworthy (not flaky)
 
 **If tests don't exist**:
+
 1. Write characterization tests (test current behavior, even if bugs)
 2. Then refactor
 3. Then fix bugs (separately)
@@ -294,11 +318,13 @@ if status == STATUS_PENDING_REVIEW:
 ### Large Class → Smaller Classes
 
 **Signals**:
+
 - Class has many methods
 - Methods cluster into groups
 - Some methods don't use all instance variables
 
 **Approach**:
+
 1. Identify method clusters
 2. Extract class for each cluster
 3. Original class delegates to new classes
@@ -306,11 +332,13 @@ if status == STATUS_PENDING_REVIEW:
 ### Long Method → Shorter Methods
 
 **Signals**:
+
 - Method longer than a screen
 - Multiple levels of abstraction
 - Comments separating sections
 
 **Approach**:
+
 1. Identify logical sections
 2. Extract each section to named method
 3. Method name replaces comment
@@ -318,26 +346,31 @@ if status == STATUS_PENDING_REVIEW:
 ### Feature Envy → Move Method
 
 **Signals**:
+
 - Method uses more data from another class than its own
 - Chain of getters: `order.customer.address.city`
 
 **Approach**:
+
 1. Move method to class whose data it uses most
 2. Pass minimal required data as parameters
 
 ### Primitive Obsession → Value Objects
 
 **Signals**:
+
 - Same primitives grouped together repeatedly
 - Validation logic scattered for same concept
 - Comments explaining what primitive means
 
 **Approach**:
+
 1. Create class for the concept
 2. Move validation into class
 3. Replace primitives with value object
 
 **Example**:
+
 ```python
 # Before: email as string everywhere
 def send_email(to: str, subject: str): ...

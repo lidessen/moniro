@@ -18,11 +18,13 @@ These principles apply regardless of your specific directory structure:
 ### 1. Discoverability Over Neatness
 
 **Good:**
+
 - Important docs linked from README.md or AGENTS.md
 - Clear entry points for different audiences
 - Searchable file names with keywords
 
 **Bad:**
+
 - Perfectly organized but buried 5 levels deep
 - No index or navigation
 - Generic names like "doc1.md", "notes.md"
@@ -30,6 +32,7 @@ These principles apply regardless of your specific directory structure:
 ### 2. Fit Your Project, Not a Template
 
 **Questions to ask:**
+
 - Who reads our documentation? (team only? public users? agents?)
 - How much documentation do we have? (5 files? 500?)
 - How is it maintained? (with code? separate process? generated?)
@@ -50,6 +53,7 @@ Don't create elaborate directory structures for 10 markdown files.
 ### 4. Make It Living, Not Dead
 
 Documentation is "alive" when:
+
 - ✅ Updated alongside code changes
 - ✅ Easy to find and navigate
 - ✅ Clear ownership and maintenance
@@ -57,6 +61,7 @@ Documentation is "alive" when:
 - ✅ Integrated into workflows (e.g., RFC for design decisions)
 
 Documentation is "dead" when:
+
 - ❌ Written once, never updated
 - ❌ Buried in obscure locations
 - ❌ Duplicated in multiple places
@@ -67,6 +72,7 @@ Documentation is "dead" when:
 ### 5. Separate by Maintenance, Not Just Topic
 
 Consider grouping documents by:
+
 - **Who maintains them** (team A vs team B)
 - **How they're updated** (manual vs generated)
 - **Publication pipeline** (stays in repo vs published to website)
@@ -79,67 +85,82 @@ This often matters more than topical similarity.
 ### Dimension 1: Public vs Internal
 
 **Strategy A: Separate at Top Level**
+
 ```
 docs-public/          # or just 'docs/'
 website/              # or 'documentation/'
 .internal/            # or 'team-docs/'
 ```
+
 When: Clear publication boundary, different processes
 
 **Strategy B: Mixed with Markers**
+
 ```
 docs/
 ├── api/              # Public
 ├── guides/           # Public
 └── .architecture/    # Internal (dot-prefix or other convention)
 ```
+
 When: Similar maintenance, want unified search
 
 **Strategy C: All Public (or All Internal)**
+
 ```
 docs/                 # Everything is public
 README.md
 AGENTS.md
 ```
+
 When: No internal-only docs, or private repository
 
 **Strategy D: Public in Repo, Internal Elsewhere**
+
 ```
 docs/                 # Public only
 # Internal docs in wiki/Notion/Google Docs
 ```
+
 When: Different tools for different audiences
 
 ### Dimension 2: Generated vs Manual
 
 **Strategy A: Separate Directories**
+
 ```
 docs/                 # Manual, version controlled
 api-docs/             # Generated, gitignored
 build/                # Build output
 ```
+
 When: Generated docs rebuilt frequently, don't want in git history
 
 **Strategy B: Mixed, Different Extensions**
+
 ```
 docs/
 ├── guide.md          # Manual
 └── api.html          # Generated
 ```
+
 When: Both published together, different formats
 
 **Strategy C: Source vs Output**
+
 ```
 docs/
 └── source/           # Manual markdown
 website/
 └── build/            # Generated from source
 ```
+
 When: Using doc generator like Sphinx, Docusaurus, MkDocs
 
 ### Dimension 3: Granularity
 
 **Strategy A: Flat**
+
 ```
 docs/
 ├── installation.md
@@ -148,18 +169,22 @@ docs/
 ├── architecture.md
 └── contributing.md
 ```
+
 When: <50 docs, single team, similar types
 
 **Strategy B: Grouped**
+
 ```
 docs/
 ├── user-guide/
 ├── developer-guide/
 └── architecture/
 ```
+
 When: 50-200 docs, clear groupings, multiple audiences
 
 **Strategy C: Hierarchical**
+
 ```
 docs/
 ├── guides/
@@ -172,6 +197,7 @@ docs/
     ├── decisions/
     └── diagrams/
 ```
+
 When: 200+ docs, complex project, multiple teams
 
 **Rule of thumb:** Stop at 2-3 levels deep. If you need more, reconsider your groupings.
@@ -179,13 +205,16 @@ When: 200+ docs, complex project, multiple teams
 ### Dimension 4: Code-Adjacent vs Centralized
 
 **Strategy A: Centralized**
+
 ```
 docs/                 # All documentation here
 src/                  # Code only (maybe minimal README)
 ```
+
 When: Documentation managed separately from code
 
 **Strategy B: Distributed**
+
 ```
 src/
 ├── auth/
@@ -197,9 +226,11 @@ src/
 docs/
 └── overview.md       # High-level only
 ```
+
 When: Microservices, component teams, docs maintained with code
 
 **Strategy C: Hybrid**
+
 ```
 src/
 └── auth/
@@ -210,6 +241,7 @@ docs/
 └── guides/
     └── authentication.md  # User guide
 ```
+
 When: Need both component details and cross-cutting documentation
 
 ## Common Strategy Patterns
@@ -219,17 +251,20 @@ These are common patterns, not requirements. Pick what fits your project.
 ### Pattern 1: Simple README-First
 
 **What:**
+
 - README.md (comprehensive)
 - AGENTS.md (for AI agents)
 - LICENSE
 - CONTRIBUTING.md (if open source)
 
 **When:**
+
 - Small projects (<10k lines)
 - Single team
 - Limited documentation needs
 
 **Example projects:**
+
 - CLI tools
 - Libraries
 - Small services
@@ -237,6 +272,7 @@ These are common patterns, not requirements. Pick what fits your project.
 ### Pattern 2: Audience-Based
 
 **What:**
+
 ```
 docs/                 # User-facing
 team/                 # Internal
@@ -246,17 +282,20 @@ internal/
 ```
 
 **When:**
+
 - Clear separation needed
 - Different publication processes
 - Different maintenance teams
 
 **Example projects:**
+
 - SaaS products (user docs vs runbooks)
 - APIs (public reference vs internal architecture)
 
 ### Pattern 3: Type-Based (Diátaxis)
 
 **What:**
+
 ```
 docs/
 ├── tutorials/        # Learning-oriented
@@ -266,11 +305,13 @@ docs/
 ```
 
 **When:**
+
 - Public documentation focus
 - Multiple documentation types
 - User-facing product
 
 **Example projects:**
+
 - Frameworks
 - Developer tools
 - Open source projects
@@ -278,6 +319,7 @@ docs/
 ### Pattern 4: Feature/Component-Based
 
 **What:**
+
 ```
 docs/
 ├── authentication/
@@ -286,17 +328,20 @@ docs/
 ```
 
 **When:**
+
 - Microservices architecture
 - Component teams own documentation
 - Strong code-to-docs mapping
 
 **Example projects:**
+
 - Large distributed systems
 - Multi-team products
 
 ### Pattern 5: Minimal + Wiki/External
 
 **What:**
+
 ```
 README.md
 AGENTS.md
@@ -304,11 +349,13 @@ AGENTS.md
 ```
 
 **When:**
+
 - Team prefers collaborative editing tools
 - Documentation needs rich formatting/collaboration
 - Separation of code and docs preferred
 
 **Example projects:**
+
 - Enterprises with existing doc platforms
 - Non-technical stakeholders involved
 
@@ -319,6 +366,7 @@ AGENTS.md
 **Project:** TypeScript utility library, 5k lines, 3 contributors
 
 **Choice:**
+
 ```
 README.md             # Overview, quick start, API reference
 CONTRIBUTING.md
@@ -327,6 +375,7 @@ examples/             # Code examples
 ```
 
 **Why:**
+
 - Small scope, documentation fits in README
 - Examples speak louder than prose
 - No internal/external distinction needed
@@ -340,6 +389,7 @@ examples/             # Code examples
 **Project:** REST API service, 50k lines, 10-person team
 
 **Choice:**
+
 ```
 README.md             # Quick overview
 AGENTS.md             # Agent navigation
@@ -351,6 +401,7 @@ docs/
 ```
 
 **Why:**
+
 - Internal only (no public/private split needed)
 - Operations content separate from design docs
 - RFCs track major decisions
@@ -364,6 +415,7 @@ docs/
 **Project:** Multi-service platform, 500k lines, 50 engineers
 
 **Choice:**
+
 ```
 README.md
 docs/                 # Public user documentation
@@ -382,6 +434,7 @@ services/             # Each service has its own README
 ```
 
 **Why:**
+
 - Public docs published to website from `docs/`
 - Internal wiki separate (different access, tools, maintenance)
 - Service READMEs for distributed ownership
@@ -395,6 +448,7 @@ services/             # Each service has its own README
 **Project:** Web framework, 200k lines, 100+ contributors
 
 **Choice:**
+
 ```
 README.md
 website/              # Docusaurus/MkDocs source
@@ -408,6 +462,7 @@ rfcs/                 # Design proposals
 ```
 
 **Why:**
+
 - Documentation as important as code
 - Multiple audience levels (beginner to expert)
 - Website generator needs specific structure
@@ -422,6 +477,7 @@ rfcs/                 # Design proposals
 **Project:** Client projects, varying sizes
 
 **Choice:**
+
 ```
 README.md             # Project overview
 AGENTS.md             # Agent context for this specific project
@@ -433,6 +489,7 @@ docs/
 ```
 
 **Why:**
+
 - Need to separate what client sees vs internal notes
 - Lightweight (not building long-term product)
 - Clear handoff documentation
@@ -446,17 +503,20 @@ Use this to choose your organization strategy:
 ### Step 1: Assess Current State
 
 **How much documentation do you have?**
+
 - <10 files → Flat is fine
 - 10-50 files → Consider 2-3 categories
 - 50-200 files → Hierarchical might help
 - 200+ files → Likely need structure
 
 **Who are your audiences?**
+
 - Single (e.g., just team) → No need to separate
 - Multiple (e.g., users + team) → Consider separation
 - Public + private → Definitely separate
 
 **How is it maintained?**
+
 - Manual only → Simple structure
 - Generated + manual → Separate by source
 - Multiple teams → Consider ownership-based structure
@@ -466,24 +526,29 @@ Use this to choose your organization strategy:
 Pick ONE primary dimension (you can nest others inside):
 
 **By Audience** (public/internal)
+
 - Clear publication boundary
 - Different maintenance processes
 
 **By Type** (guides/reference/explanations)
+
 - Documentation-heavy projects
 - User-facing products
 
 **By Feature/Component**
+
 - Microservices
 - Distributed ownership
 
 **By Lifecycle** (active/archive)
+
 - Long-lived projects
 - Historical decision tracking
 
 ### Step 3: Add Secondary Structure (If Needed)
 
 Only add nested structure if you have pain points:
+
 - Can't find documents → Add categorization
 - Unclear ownership → Organize by team
 - Mixed audiences → Add audience subdirectories
@@ -493,6 +558,7 @@ Only add nested structure if you have pain points:
 Document your chosen strategy:
 
 **In README.md or AGENTS.md:**
+
 ```markdown
 ## Documentation
 
@@ -503,11 +569,13 @@ Document your chosen strategy:
 ```
 
 **File naming:**
+
 - Lowercase with hyphens: `api-reference.md`
 - Descriptive: `oauth-implementation-guide.md` not `guide.md`
 - Date-prefixed for temporary: `2026-01-30-investigation.md`
 
 **Lifecycle policy:**
+
 - Where do temporary docs go?
 - How long until review?
 - Who owns cleanup?
@@ -515,12 +583,14 @@ Document your chosen strategy:
 ### Step 5: Start Simple, Evolve
 
 **Don't over-engineer upfront:**
+
 1. Start with README.md + flat `docs/`
 2. Add structure when you feel pain
 3. Refactor when navigation becomes difficult
 4. Document changes in commit messages
 
 **Red flags that you need more structure:**
+
 - Difficult to find relevant documents
 - Frequent name conflicts
 - Unclear where new docs should go

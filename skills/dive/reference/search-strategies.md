@@ -7,6 +7,7 @@ Strategic approaches for finding information in project documentation.
 ### Level 1: Project Overview
 
 Start with high-level documents:
+
 - README.md, ARCHITECTURE.md
 - docs/README.md, docs/index.md
 - CONTRIBUTING.md, DEVELOPMENT.md
@@ -16,6 +17,7 @@ Start with high-level documents:
 ### Level 2: Domain-Specific Docs
 
 Search by topic:
+
 - API docs: docs/api/, API.md, openapi.yaml, swagger.json
 - Architecture: docs/architecture/, ADR/, DESIGN.md
 - User guides: docs/guides/, docs/tutorials/
@@ -24,8 +26,9 @@ Search by topic:
 ### Level 3: Component Docs
 
 Documentation near code:
-- Component READMEs: src/**/README.md
-- Inline documentation: src/**/*.md
+
+- Component READMEs: src/\*\*/README.md
+- Inline documentation: src/\*_/_.md
 
 ## Search by Question Type
 
@@ -34,6 +37,7 @@ Documentation near code:
 **Example**: "How does feature X work?"
 
 **Search sequence**:
+
 1. User-facing docs (docs/guides/, docs/user/)
 2. API documentation (docs/api/, API.md)
 3. Component READMEs
@@ -44,8 +48,9 @@ Documentation near code:
 **Example**: "What technology is used for Y?"
 
 **Search sequence**:
+
 1. Architecture docs (ARCHITECTURE.md, docs/architecture/)
-2. Configuration files (config/, *.config.*)
+2. Configuration files (config/, _.config._)
 3. Dependency files (package.json, requirements.txt)
 4. Code imports
 
@@ -54,6 +59,7 @@ Documentation near code:
 **Example**: "What causes error X?"
 
 **Search sequence**:
+
 1. Error documentation (docs/errors/, docs/troubleshooting/)
 2. Code search for error messages
 3. Test files for error cases
@@ -64,6 +70,7 @@ Documentation near code:
 **Example**: "How do I configure X?"
 
 **Search sequence**:
+
 1. Configuration docs (docs/configuration/, CONFIG.md)
 2. .env.example files
 3. Config file comments
@@ -160,26 +167,32 @@ When initial searches fail:
 ## Document Types and Purpose
 
 ### Getting Started Docs
+
 **Files**: README.md, QUICKSTART.md, docs/getting-started.md
 **Purpose**: Initial setup, basic usage, quick overview
 
 ### API Reference
+
 **Files**: API.md, docs/api/, openapi.yaml, swagger.json
 **Purpose**: Endpoint specifications, request/response formats
 
 ### Architecture Docs
+
 **Files**: ARCHITECTURE.md, docs/architecture/, docs/adr/
 **Purpose**: System design, component relationships, decisions
 
 ### Development Guides
+
 **Files**: CONTRIBUTING.md, DEVELOPMENT.md, docs/dev/
 **Purpose**: Setup for development, coding standards, workflows
 
 ### Deployment Docs
+
 **Files**: DEPLOYMENT.md, docs/deployment/, docs/ops/
 **Purpose**: Deployment procedures, infrastructure, operations
 
 ### Configuration Docs
+
 **Files**: CONFIG.md, docs/configuration.md, .env.example
 **Purpose**: Available settings, defaults, environment setup
 
@@ -188,6 +201,7 @@ When initial searches fail:
 ### When Documentation Search Succeeds
 
 Move to code for implementation details:
+
 1. Note the documented feature/API
 2. Search code for implementation
 3. Cross-reference with tests
@@ -196,6 +210,7 @@ Move to code for implementation details:
 ### When Documentation Search Fails
 
 **Options**:
+
 1. Search code directly (see code-search-patterns.md)
 2. Check git history for removed/moved docs
 3. Look for inline comments
@@ -205,6 +220,7 @@ Move to code for implementation details:
 ### Multiple Documentation Sources
 
 **Priority order**:
+
 1. Most recently updated docs
 2. Docs closest to code (component READMEs)
 3. User-facing docs over internal notes
@@ -275,6 +291,7 @@ When documentation is insufficient:
 4. **Cite both**: Use docs for intent, code for implementation
 
 **Example**:
+
 ```
 Feature X is documented in docs/api/users.md:45 as "Creates a new user",
 but implementation details (validation rules, default values) found only

@@ -1,0 +1,76 @@
+/**
+ * Backend Selection
+ * Maps workflow config to Backend instances from backends/
+ */
+
+import type { Backend, StreamParserCallbacks, ProviderConfig } from "@moniro/agent";
+import { parseModel, createBackend, createMockBackend } from "@moniro/agent";
+
+/** Options for creating a workflow backend */
+export interface WorkflowBackendOptions {
+  model?: string;
+  timeout?: number;
+  /** Provider configuration for custom endpoints */
+  provider?: string | ProviderConfig;
+  /** Stream parser callbacks for structured event logging */
+  streamCallbacks?: StreamParserCallbacks;
+  /** Debug log for mock backend */
+  debugLog?: (msg: string) => void;
+  /** Workspace directory for CLI backend isolation (used as cwd) */
+  workspace?: string;
+}
+
+/**
+ * Get backend by explicit backend type
+ *
+ * All backends are created via the canonical createBackend() factory
+ * from backends/index.ts. Mock backend is handled specially (no model needed).
+ */
+export function getBackendByType(
+  backendType: "default" | "claude" | "cursor" | "codex" | "opencode" | "mock",
+  options?: WorkflowBackendOptions,
+): Backend {
+  if (backendType === "mock") {
+    return createMockBackend(options?.debugLog);
+  }
+
+  const backendOptions: Record<string, unknown> = {};
+  if (options?.timeout) {
+    backendOptions.timeout = options.timeout;
+  }
+  if (options?.streamCallbacks) {
+    backendOptions.streamCallbacks = options.streamCallbacks;
+  }
+  if (options?.workspace) {
+    backendOptions.workspace = options.workspace;
+  }
+
+  return createBackend({
+    type: backendType,
+    model: options?.model,
+    ...(backendType === "default" && options?.provider ? { provider: options.provider } : {}),
+    ...(Object.keys(backendOptions).length > 0 ? { options: backendOptions } : {}),
+  } as Parameters<typeof createBackend>[0]);
+}
+
+/**
+ * Get appropriate backend for a model identifier
+ *
+ * Infers backend type from model name and delegates to getBackendByType.
+ * Prefer using getBackendByType with explicit backend field in workflow configs.
+ */
+export function getBackendForModel(model: string, options?: WorkflowBackendOptions): Backend {
+  // If provider is set, model is a plain name — use SDK backend with provider config
+  if (options?.provider) {
+    return getBackendByType("default", { ...options, model });
+  }
+
+  const { provider } = parseModel(model);
+
+  // CLI backends have their own process — route explicitly
+  if (provider === "claude") return getBackendByType("claude", { ...options, model });
+  if (provider === "codex") return getBackendByType("codex", { ...options, model });
+
+  // Everything else (anthropic, openai, deepseek, google, etc.) → SDK backend
+  return getBackendByType("default", { ...options, model });
+}

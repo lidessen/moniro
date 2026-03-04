@@ -31,13 +31,13 @@ Don't mechanically scan code/docs/UI. Use **risk-driven discovery**.
 
 When exploring a project, prioritize areas with these characteristics:
 
-| Indicator | Why It's Risky | Example |
-|-----------|----------------|---------|
-| **Multi-field forms** | Validation, edge cases, state | Registration, checkout |
-| **Multi-step flows** | State carries across steps | Wizards, onboarding |
-| **Authentication boundaries** | Permissions, sessions | Login, role-based access |
-| **External integrations** | Dependencies can fail | Payment, third-party APIs |
-| **Data mutation** | Side effects matter | Create, update, delete |
+| Indicator                     | Why It's Risky                | Example                   |
+| ----------------------------- | ----------------------------- | ------------------------- |
+| **Multi-field forms**         | Validation, edge cases, state | Registration, checkout    |
+| **Multi-step flows**          | State carries across steps    | Wizards, onboarding       |
+| **Authentication boundaries** | Permissions, sessions         | Login, role-based access  |
+| **External integrations**     | Dependencies can fail         | Payment, third-party APIs |
+| **Data mutation**             | Side effects matter           | Create, update, delete    |
 
 ### Discovery Strategy
 
@@ -103,6 +103,7 @@ navigate.yaml         password-reset.yaml
 ### Why This Structure
 
 When a composition fails:
+
 1. Check which flow failed
 2. Check which foundation in that flow failed
 3. Fix the foundation → everything above it recovers
@@ -114,6 +115,7 @@ When a composition fails:
 ### Deciding the Category
 
 Ask: "Can this be broken into smaller independent tests?"
+
 - **Yes** → It's a flow or composition
 - **No** → It's a foundation
 
@@ -149,15 +151,18 @@ YAML describes **intent + constraints**. You (the agent) fill in **execution det
 ### Handling Complex Scenarios
 
 **Conditional steps** (optional: true):
+
 ```yaml
 - desc: Dismiss cookie banner
   commands:
     - agent-browser click {{role: button, name: /Accept|Close|×/}}
   optional: true
 ```
+
 You try the selector. If not found, skip and continue.
 
 **Data extraction**:
+
 ```yaml
 - desc: Capture order ID from page
   extract:
@@ -165,9 +170,11 @@ You try the selector. If not found, skip and continue.
     pattern: "Order #(\\d+)"
     save_as: order_id
 ```
+
 You find the element, extract the value, save it for later steps.
 
 **Multi-session** (compositions):
+
 ```yaml
 sessions:
   - name: alice
@@ -183,8 +190,9 @@ steps:
   - desc: Verify Bob received it
     session: bob
     expect:
-      - element_visible: {{role: paragraph, name: /Hello/}}
+      - element_visible: { { role: paragraph, name: /Hello/ } }
 ```
+
 You manage separate browser sessions and switch between them.
 
 ---
@@ -196,7 +204,7 @@ Minimal structure:
 ```yaml
 id: case-name
 title: Human-readable title
-category: foundation  # foundation | flow | composition
+category: foundation # foundation | flow | composition
 
 description: |
   What this tests and why it matters.
@@ -210,10 +218,10 @@ steps:
       - agent-browser <action> {{selector}} [args]
     expect:
       - condition: value
-    optional: false  # default
+    optional: false # default
 
 exploration:
-  status: validated  # draft | explored | validated
+  status: validated # draft | explored | validated
 ```
 
 See [FORMATS.md](FORMATS.md) for complete specification.
@@ -231,6 +239,7 @@ See [FORMATS.md](FORMATS.md) for complete specification.
 **Static routing**: `/docs` may need `/docs.html`. Note in your test case.
 
 **Rate limiting (429)**: Public sites limit unauthenticated requests. Consider:
+
 - Adding delays between steps (`agent-browser wait 2000`)
 - Using authenticated sessions when available
 - Recording on local dev instances when possible
@@ -240,21 +249,25 @@ See [FORMATS.md](FORMATS.md) for complete specification.
 ## Checklist
 
 When discovering:
+
 - [ ] Identified high-risk areas (forms, multi-step, auth, integrations)
 - [ ] Verified risks from multiple sources
 - [ ] Prioritized by user impact
 
 When recording:
+
 - [ ] Used semantic selectors, not refs
 - [ ] Re-snapshot after DOM changes
 - [ ] Added expect conditions for verification
 
 When organizing:
+
 - [ ] Categorized by complexity (foundation/flow/composition)
 - [ ] Foundations are atomic and reusable
 - [ ] Compositions reference flows, flows reference foundations
 
 When executing:
+
 - [ ] Followed intent, applied judgment for details
 - [ ] Recorded decisions for debugging
 - [ ] Closed all browser sessions

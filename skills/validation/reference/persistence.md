@@ -50,11 +50,11 @@ The `index.md` provides quick access to validation history:
 
 ## Recent (Last 7 Days)
 
-| Date | Context | Status | Critical | Important | Link |
-|------|---------|--------|----------|-----------|------|
-| 2026-01-31 | PR: feature-x | ⚠️ warning | 0 | 2 | [→](2026-01-31-pr-feature-x.md) |
-| 2026-01-31 | Commit: auth-refactor | ✅ pass | 0 | 0 | [→](2026-01-31-commit-auth-refactor.md) |
-| 2026-01-30 | Commit: bugfix | ✅ pass | 0 | 0 | [→](2026-01-30-commit-bugfix.md) |
+| Date       | Context               | Status     | Critical | Important | Link                                    |
+| ---------- | --------------------- | ---------- | -------- | --------- | --------------------------------------- |
+| 2026-01-31 | PR: feature-x         | ⚠️ warning | 0        | 2         | [→](2026-01-31-pr-feature-x.md)         |
+| 2026-01-31 | Commit: auth-refactor | ✅ pass    | 0        | 0         | [→](2026-01-31-commit-auth-refactor.md) |
+| 2026-01-30 | Commit: bugfix        | ✅ pass    | 0        | 0         | [→](2026-01-30-commit-bugfix.md)        |
 
 ## Trends
 
@@ -103,24 +103,26 @@ tags: [auth, refactor, session-abc123]
 
 ## Summary
 
-| Severity | Count |
-|----------|-------|
-| 🔴 Critical | 0 |
-| 🟡 Important | 2 |
-| 🔵 Suggestion | 3 |
-| ✅ Passed | 18 |
+| Severity      | Count |
+| ------------- | ----- |
+| 🔴 Critical   | 0     |
+| 🟡 Important  | 2     |
+| 🔵 Suggestion | 3     |
+| ✅ Passed     | 18    |
 
 ## Findings
 
 ### Important (🟡)
 
 #### 1. Size Warning
+
 - **Validator**: reviewability
 - **Message**: 562 lines changed across 3 files
 - **Suggestion**: Consider splitting into smaller commits
 - **Status**: Acknowledged (user proceeded)
 
 #### 2. Signature Change
+
 - **Validator**: impact
 - **Location**: src/auth/session.ts:45
 - **Message**: `createSession()` parameter added
@@ -136,13 +138,13 @@ tags: [auth, refactor, session-abc123]
 
 ## Validator Results
 
-| Validator | Status | Duration | Findings |
-|-----------|--------|----------|----------|
-| syntax | ✅ pass | 3s | 0 |
-| reviewability | ⚠️ warning | 12s | 1 |
-| security | ✅ pass | 18s | 0 |
-| impact | ⚠️ warning | 10s | 1 |
-| consistency | ✅ pass | 2s | 3 suggestions |
+| Validator     | Status     | Duration | Findings      |
+| ------------- | ---------- | -------- | ------------- |
+| syntax        | ✅ pass    | 3s       | 0             |
+| reviewability | ⚠️ warning | 12s      | 1             |
+| security      | ✅ pass    | 18s      | 0             |
+| impact        | ⚠️ warning | 10s      | 1             |
+| consistency   | ✅ pass    | 2s       | 3 suggestions |
 
 ## Actions Taken
 
@@ -258,16 +260,17 @@ grep "^status:" .memory/validations/2026-01-*.md | sort | uniq -c
 
 ## Issue Frequency
 
-| Issue Type | Count | Trend |
-|------------|-------|-------|
-| size | 12 | ↑ increasing |
-| noise (console.log) | 8 | ↓ decreasing |
-| doc freshness | 5 | → stable |
-| security (secrets) | 0 | ✅ none |
+| Issue Type          | Count | Trend        |
+| ------------------- | ----- | ------------ |
+| size                | 12    | ↑ increasing |
+| noise (console.log) | 8     | ↓ decreasing |
+| doc freshness       | 5     | → stable     |
+| security (secrets)  | 0     | ✅ none      |
 
 ## Recommendations
 
 Based on validation history:
+
 1. Consider smaller commits (size warnings frequent)
 2. Add pre-commit hook for console.log removal
 3. Schedule documentation review (5 stale docs)
@@ -286,9 +289,9 @@ retention:
 
   # Keep important records longer
   keep_if:
-    - status: fail      # Always keep failures
-    - context: pr       # Keep PR validations
-    - has_unresolved: true  # Keep if issues pending
+    - status: fail # Always keep failures
+    - context: pr # Keep PR validations
+    - has_unresolved: true # Keep if issues pending
 
   # Archive old records
   archive_after: 90_days

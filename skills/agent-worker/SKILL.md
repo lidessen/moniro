@@ -10,6 +10,7 @@ description: Create and manage AI agent sessions with multiple backends (SDK, Cl
 You build AI-powered workflows—from simple Q&A to complex multi-agent collaboration.
 
 **Two modes, one model**:
+
 - **Agent Mode**: Run individual agents via CLI commands
 - **Workflow Mode**: Orchestrate multiple agents via YAML
 
@@ -19,13 +20,13 @@ Both modes share the same context system: agents communicate through **channels*
 
 ## Quick Decision Guide
 
-| I Want To... | Use This |
-|-------------|----------|
-| Chat with an AI agent | Agent Mode (CLI) |
-| Test tools/prompts quickly | Agent Mode with `-b mock` |
-| Run multiple agents manually | Workflow Mode (YAML) |
-| Define structured multi-agent tasks | Workflow Mode (YAML) |
-| Automate repeatable workflows | Workflow Mode (YAML) |
+| I Want To...                        | Use This                  |
+| ----------------------------------- | ------------------------- |
+| Chat with an AI agent               | Agent Mode (CLI)          |
+| Test tools/prompts quickly          | Agent Mode with `-b mock` |
+| Run multiple agents manually        | Workflow Mode (YAML)      |
+| Define structured multi-agent tasks | Workflow Mode (YAML)      |
+| Automate repeatable workflows       | Workflow Mode (YAML)      |
 
 ---
 
@@ -88,6 +89,7 @@ agent-worker peek @review:pr-123  # Only sees pr-123 messages
 **Note**: `agent-worker new` only creates standalone agents in the global workflow. Use YAML for workflow agents.
 
 **Target syntax**:
+
 - `alice` → standalone (`alice@global:main`)
 - `alice@review` → agent in review workflow (`alice@review:main`)
 - `alice@review:pr-123` → full specification
@@ -95,6 +97,7 @@ agent-worker peek @review:pr-123  # Only sees pr-123 messages
 - `@review:pr-123` → specific workflow instance
 
 **Context isolation**:
+
 ```
 .workflow/
 ├── global/main/        # Standalone agents (default)
@@ -147,17 +150,20 @@ agent-worker new -b mock                         # Testing (no API)
 ### Examples
 
 **Quick testing without API keys:**
+
 ```bash
 agent-worker new -b mock
 agent-worker send a0 "Hello"
 ```
 
 **Scheduled monitoring agent:**
+
 ```bash
 agent-worker new monitor --wakeup 30s --prompt "Check CI status"
 ```
 
 **Multi-agent code review (using YAML workflow):**
+
 ```yaml
 # review.yaml
 agents:
@@ -218,19 +224,19 @@ agent-worker run review.yaml --tag pr-123
 
 ```yaml
 # Full workflow file structure
-name: code-review  # Optional (defaults to filename)
+name: code-review # Optional (defaults to filename)
 
 # Agent definitions
 agents:
   alice:
     backend: sdk | claude | cursor | codex | mock
-    model: anthropic/claude-sonnet-4-5  # Required for SDK backend
+    model: anthropic/claude-sonnet-4-5 # Required for SDK backend
     system_prompt: |
       You are Alice, a senior code reviewer.
     # OR
     system_prompt_file: ./prompts/alice.txt
 
-    tools: [bash, read, write]  # CLI backend tool names
+    tools: [bash, read, write] # CLI backend tool names
     max_tokens: 8000
     max_steps: 20
 
@@ -251,7 +257,7 @@ context:
 # Setup commands (run before kickoff)
 setup:
   - shell: git log --oneline -10
-    as: recent_commits  # Store output in variable
+    as: recent_commits # Store output in variable
 
   - shell: git diff main...HEAD
     as: changes
@@ -285,6 +291,7 @@ kickoff: |
 ```
 
 **Available variables**:
+
 - `${{ workflow.name }}` - Workflow name
 - `${{ workflow.tag }}` - Instance tag
 - `${{ env.VAR }}` - Environment variable
@@ -293,19 +300,23 @@ kickoff: |
 ### Coordination Patterns
 
 **Sequential handoff:**
+
 ```yaml
 kickoff: |
   @alice Start the task.
 ```
+
 Alice finishes and mentions: "@bob your turn"
 
 **Parallel execution:**
+
 ```yaml
 kickoff: |
   @alice @bob @charlie All review this code.
 ```
 
 **Document-based collaboration:**
+
 ```yaml
 agents:
   researcher:
@@ -317,12 +328,13 @@ agents:
 context:
   provider: file
   config:
-    bind: ./results/  # Persistent across runs
+    bind: ./results/ # Persistent across runs
 ```
 
 ### Workflow Examples
 
 **PR Review Workflow:**
+
 ```yaml
 # review.yaml
 agents:
@@ -351,6 +363,7 @@ PR_NUMBER=123 agent-worker run review.yaml --tag pr-123
 ```
 
 **Research & Summarize:**
+
 ```yaml
 # research.yaml
 agents:
@@ -385,6 +398,7 @@ TOPIC="AI agent frameworks" agent-worker run research.yaml
 ```
 
 **Test Generation:**
+
 ```yaml
 # test-gen.yaml
 agents:
@@ -408,6 +422,7 @@ kickoff: |
 ```
 
 **Consensus Decision:**
+
 ```yaml
 # consensus.yaml
 agents:
@@ -451,6 +466,7 @@ agent-worker send @review "Status update"
 ```
 
 **Available tools** (in agent's system prompt):
+
 - `channel_send` - Send message to channel
 - `channel_read` - Read recent messages
 - `inbox_read` - Read own @mentions
@@ -467,6 +483,7 @@ agent-worker doc append @review:pr-123 --file results.txt
 ```
 
 **Available tools** (in agent's system prompt):
+
 - `document_read` - Read current document
 - `document_write` - Overwrite document
 - `document_append` - Append to document
@@ -476,16 +493,19 @@ agent-worker doc append @review:pr-123 --file results.txt
 For collaborative decisions:
 
 **Available tools**:
+
 - `proposal_create` - Create proposal (election, decision, approval)
 - `vote` - Cast vote on proposal
 - `proposal_status` - Check results
 
 **Resolution types**:
+
 - `plurality` - Most votes wins
 - `majority` - >50% required
 - `unanimous` - All votes must agree
 
 Example usage in agent's tool calls:
+
 ```json
 {
   "name": "proposal_create",
@@ -503,10 +523,10 @@ Example usage in agent's tool calls:
 
 Agents can wake up periodically when idle:
 
-| Mode | Format | Behavior |
-|------|--------|----------|
-| **Interval** | `60000`, `30s`, `5m`, `2h` | Fires after idle. Resets on activity. |
-| **Cron** | `0 */2 * * *` | Fixed schedule. NOT reset by activity. |
+| Mode         | Format                     | Behavior                               |
+| ------------ | -------------------------- | -------------------------------------- |
+| **Interval** | `60000`, `30s`, `5m`, `2h` | Fires after idle. Resets on activity.  |
+| **Cron**     | `0 */2 * * *`              | Fixed schedule. NOT reset by activity. |
 
 ```bash
 # At creation
@@ -542,21 +562,21 @@ agent-worker new alice --skill ./skills --tool ./tools.ts
 // my-tools.ts
 export default [
   {
-    name: 'search_docs',
-    description: 'Search documentation',
+    name: "search_docs",
+    description: "Search documentation",
     parameters: {
-      type: 'object',
+      type: "object",
       properties: {
-        query: { type: 'string', description: 'Search query' }
+        query: { type: "string", description: "Search query" },
       },
-      required: ['query']
+      required: ["query"],
     },
-    needsApproval: false,  // Optional: require approval before execution
+    needsApproval: false, // Optional: require approval before execution
     execute: async (args) => {
-      return { results: ['doc1', 'doc2'] }
-    }
-  }
-]
+      return { results: ["doc1", "doc2"] };
+    },
+  },
+];
 ```
 
 ### Mocking Tools (Testing)
@@ -600,6 +620,7 @@ agent-worker new -m deepseek:deepseek-chat
 ```
 
 Check available providers:
+
 ```bash
 agent-worker providers
 ```
@@ -611,58 +632,60 @@ agent-worker providers
 For TypeScript/JavaScript integration:
 
 ```typescript
-import { AgentSession } from 'agent-worker'
+import { AgentSession } from "agent-worker";
 
 const session = new AgentSession({
-  model: 'anthropic/claude-sonnet-4-5',
-  system: 'You are a helpful assistant.',
-  tools: [/* your tools */]
-})
+  model: "anthropic/claude-sonnet-4-5",
+  system: "You are a helpful assistant.",
+  tools: [
+    /* your tools */
+  ],
+});
 
 // Send message
-const response = await session.send('Hello')
-console.log(response.content)
-console.log(response.toolCalls)
-console.log(response.usage)
+const response = await session.send("Hello");
+console.log(response.content);
+console.log(response.toolCalls);
+console.log(response.usage);
 
 // Stream response
-for await (const chunk of session.sendStream('Tell me a story')) {
-  process.stdout.write(chunk)
+for await (const chunk of session.sendStream("Tell me a story")) {
+  process.stdout.write(chunk);
 }
 
 // State management
-const state = session.getState()
+const state = session.getState();
 // Later: restore from state
 ```
 
 ### With Skills
 
 ```typescript
-import { AgentSession, SkillsProvider, createSkillsTool } from 'agent-worker'
+import { AgentSession, SkillsProvider, createSkillsTool } from "agent-worker";
 
-const skillsProvider = new SkillsProvider()
-await skillsProvider.scanDirectory('.agents/skills')
+const skillsProvider = new SkillsProvider();
+await skillsProvider.scanDirectory(".agents/skills");
 
 const session = new AgentSession({
-  model: 'anthropic/claude-sonnet-4-5',
-  system: 'You are a helpful assistant.',
-  tools: [createSkillsTool(skillsProvider)]
-})
+  model: "anthropic/claude-sonnet-4-5",
+  system: "You are a helpful assistant.",
+  tools: [createSkillsTool(skillsProvider)],
+});
 ```
 
 ---
 
 ## Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| "No active agent" | Run `agent-worker new` first |
-| "Agent not found" | Check `agent-worker ls` |
-| "Tool management not supported" | Use SDK backend (default) |
-| "Provider not loaded" | Check API key: `agent-worker providers` |
-| Agent not responding | Check status: `agent-worker status <target>` |
-| No response in peek | Agent still processing. Wait and retry. |
-| Workflow file errors | Validate YAML syntax |
+| Issue                           | Solution                                     |
+| ------------------------------- | -------------------------------------------- |
+| "No active agent"               | Run `agent-worker new` first                 |
+| "Agent not found"               | Check `agent-worker ls`                      |
+| "Tool management not supported" | Use SDK backend (default)                    |
+| "Provider not loaded"           | Check API key: `agent-worker providers`      |
+| Agent not responding            | Check status: `agent-worker status <target>` |
+| No response in peek             | Agent still processing. Wait and retry.      |
+| Workflow file errors            | Validate YAML syntax                         |
 
 ---
 
@@ -751,10 +774,12 @@ agent-worker backends                Check available backends
 ## Remember
 
 **Two modes, same model**:
+
 - **Agent Mode**: Manual CLI control, perfect for exploration
 - **Workflow Mode**: Declarative YAML, perfect for automation
 
 Both use:
+
 - **workflow:tag** for namespacing and isolation
 - **Channels** for @mention-based communication
 - **Documents** for shared state

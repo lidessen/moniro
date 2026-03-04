@@ -79,10 +79,11 @@ fail_fast: true
 validators:
   - syntax
   - reviewability:
-      checks: [noise]  # Skip cohesion/size for quick
+      checks: [noise] # Skip cohesion/size for quick
 ```
 
 **Characteristics**:
+
 - Must feel instant (<10s)
 - Only catch obvious issues
 - No deep analysis
@@ -107,6 +108,7 @@ validators:
 ```
 
 **Characteristics**:
+
 - Thorough but reasonable time
 - Catches most issues
 - Default for most situations
@@ -135,6 +137,7 @@ validators:
 ```
 
 **Characteristics**:
+
 - Most thorough analysis
 - May take several minutes
 - Use for significant changes
@@ -206,17 +209,17 @@ If validator exceeds timeout:
 # Override built-in pipelines
 pipelines:
   quick:
-    timeout: 5s  # Faster for this project
+    timeout: 5s # Faster for this project
     validators:
       - syntax
 
   standard:
-    timeout: 120s  # More time needed
+    timeout: 120s # More time needed
     validators:
       - syntax
       - reviewability
       - security
-      - domain-rules  # Custom validator
+      - domain-rules # Custom validator
 
   # Define new pipeline
   release:
@@ -228,7 +231,7 @@ pipelines:
       - impact
       - consistency
       - architecture
-      - performance-check  # Custom
+      - performance-check # Custom
 
 # Custom validators
 custom_validators:
@@ -251,7 +254,7 @@ options:
     - "**/*.generated.*"
 
   # Severity thresholds
-  fail_on: critical  # 'critical', 'important', or 'any'
+  fail_on: critical # 'critical', 'important', or 'any'
 
   # Auto-persist results
   persist_results: true
@@ -356,7 +359,7 @@ pipeline_result:
   finished: 2026-01-31T10:30:45Z
   duration: 45s
 
-  overall_status: warning  # pass, warning, fail
+  overall_status: warning # pass, warning, fail
 
   summary:
     critical: 0

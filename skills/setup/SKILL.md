@@ -14,6 +14,7 @@ Bootstrap the agent working system for a new project.
 Without this system, every agent starts from zero. Mistakes you make, successors will repeat. What you learn, successors must relearn.
 
 With this system:
+
 - Experience accumulates, patterns emerge
 - Successors stand on your shoulders
 - Each agent goes further than the last
@@ -29,16 +30,19 @@ This isn't optional "best practice"—it's the infrastructure that enables agent
 Base it on [lidessen/moniro/CLAUDE.md](https://github.com/lidessen/moniro/blob/main/CLAUDE.md).
 
 **Keep these sections as-is** (core working method):
+
 - Opening block (`FIRST`/`ALWAYS`/`LAST`)
 - `Who You Are` (entire section)
 - `Methodology` (entire section)
 - `Remember` (closing section)
 
 **Replace these sections** (project-specific):
+
 - `Vision` → describe this project's purpose
 - `Structure` → describe this project's directory layout
 
 **Remove or adapt these sections** (optional):
+
 - `Skill Collaboration` → keep if using skills, remove if not
 - `Skill Core Methods` → keep if using skills, remove if not
 - `Contributing` → adapt to this project's contribution guidelines
@@ -51,11 +55,11 @@ Base it on [lidessen/moniro/CLAUDE.md](https://github.com/lidessen/moniro/blob/m
 mkdir -p .memory/{notes,decisions,todos}
 ```
 
-| Directory | Purpose |
-|-----------|---------|
-| notes/ | Learnings, reflections, discoveries |
+| Directory  | Purpose                                 |
+| ---------- | --------------------------------------- |
+| notes/     | Learnings, reflections, discoveries     |
 | decisions/ | Important decisions and their rationale |
-| todos/ | Tasks that span sessions |
+| todos/     | Tasks that span sessions                |
 
 ---
 

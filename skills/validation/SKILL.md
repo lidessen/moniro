@@ -37,6 +37,7 @@ Validation is a **learning loop**, not a checkpoint. Each validation teaches som
 There is no perfect validation pipeline. The ability to **adapt and create workflows** matters more than following a fixed process.
 
 Ask:
+
 - What's the smallest unit I can verify?
 - What evidence would convince me this works?
 - How do I know when to stop validating?
@@ -87,13 +88,13 @@ But the real skill is knowing when to:
 
 These exist because they're commonly useful, not because they're mandatory:
 
-| Validator | What it answers | When useful |
-|-----------|-----------------|-------------|
-| **reviewability** | "Is this easy to review?" | Before asking for review |
-| **impact** | "What might break?" | Changing shared code |
-| **consistency** | "Does this match the rest?" | Touching documentation |
-| **security** | "Is this safe?" | Handling user input |
-| **architecture** | "Does this fit the design?" | Structural changes |
+| Validator         | What it answers             | When useful              |
+| ----------------- | --------------------------- | ------------------------ |
+| **reviewability** | "Is this easy to review?"   | Before asking for review |
+| **impact**        | "What might break?"         | Changing shared code     |
+| **consistency**   | "Does this match the rest?" | Touching documentation   |
+| **security**      | "Is this safe?"             | Handling user input      |
+| **architecture**  | "Does this fit the design?" | Structural changes       |
 
 See [reference/validators.md](reference/validators.md) for details on each.
 
@@ -101,12 +102,12 @@ See [reference/validators.md](reference/validators.md) for details on each.
 
 Validation triggers on context, but **you decide the depth**:
 
-| Signal | Default Response | But consider... |
-|--------|------------------|-----------------|
-| Code changed | quick scan | Is it a critical path? Go deeper. |
-| Before commit | standard checks | Trivial fix? Maybe quick is enough. |
-| Before PR | comprehensive | Already well-tested? Adapt. |
-| Explicit "validate" | standard | What are you actually worried about? |
+| Signal              | Default Response | But consider...                      |
+| ------------------- | ---------------- | ------------------------------------ |
+| Code changed        | quick scan       | Is it a critical path? Go deeper.    |
+| Before commit       | standard checks  | Trivial fix? Maybe quick is enough.  |
+| Before PR           | comprehensive    | Already well-tested? Adapt.          |
+| Explicit "validate" | standard         | What are you actually worried about? |
 
 The defaults are sensible starting points. Override them when you understand why.
 
@@ -163,11 +164,11 @@ Load these **as needed**, not upfront:
 
 Instead of memorizing anti-patterns, understand the underlying tensions:
 
-| Tension | Resolution |
-|---------|------------|
-| Speed vs Thoroughness | Match depth to risk. Trivial change? Quick check. Critical path? Go deep. |
-| Confidence vs Evidence | Confidence without evidence is wishful thinking. Always prefer fresh verification. |
-| Flexibility vs Consistency | Adapt workflows to context, but record decisions so patterns can emerge. |
-| Automation vs Judgment | Automate the tedious, but judgment for "is this right?" remains yours. |
+| Tension                    | Resolution                                                                         |
+| -------------------------- | ---------------------------------------------------------------------------------- |
+| Speed vs Thoroughness      | Match depth to risk. Trivial change? Quick check. Critical path? Go deep.          |
+| Confidence vs Evidence     | Confidence without evidence is wishful thinking. Always prefer fresh verification. |
+| Flexibility vs Consistency | Adapt workflows to context, but record decisions so patterns can emerge.           |
+| Automation vs Judgment     | Automate the tedious, but judgment for "is this right?" remains yours.             |
 
 The goal isn't to follow a checklist. It's to **know when you know** something works.

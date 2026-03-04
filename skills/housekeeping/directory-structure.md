@@ -17,12 +17,14 @@ Strategies for organizing project directories - detecting structural problems, c
 ### 1. Structure Serves Purpose
 
 **Good structure** makes it easy to:
+
 - Find files quickly
 - Understand project at a glance
 - Know where new files belong
 - Navigate codebase
 
 **Bad structure** creates:
+
 - "Where does this go?" confusion
 - Scattered related files
 - Deep nesting that obscures relationships
@@ -33,6 +35,7 @@ Strategies for organizing project directories - detecting structural problems, c
 ### 2. Optimize for Discovery
 
 **Question**: How do people find things?
+
 - By feature? (user-auth, payments, notifications)
 - By layer? (controllers, models, views)
 - By type? (components, utils, services)
@@ -40,6 +43,7 @@ Strategies for organizing project directories - detecting structural problems, c
 **Your structure should match** how your team thinks about the code.
 
 **Examples**:
+
 - **Microservices**: Organize by service (each self-contained)
 - **Layered app**: Organize by layer (all controllers together)
 - **Feature-based**: Organize by feature (all user-auth code together)
@@ -49,11 +53,13 @@ Strategies for organizing project directories - detecting structural problems, c
 ### 3. Shallow is Better Than Deep
 
 **Bad** (7 levels deep):
+
 ```
 src/app/features/user/authentication/services/providers/oauth/google.ts
 ```
 
 **Good** (3 levels):
+
 ```
 src/auth/google-oauth.ts
 ```
@@ -65,6 +71,7 @@ src/auth/google-oauth.ts
 ### 4. Consistency Over Perfection
 
 **Better** to have a consistent (even if imperfect) structure than:
+
 - Mix of patterns (some by feature, some by layer)
 - Inconsistent naming (camelCase vs snake_case)
 - Different conventions per directory
@@ -76,16 +83,19 @@ src/auth/google-oauth.ts
 ### Smell 1: Too Deep (>5 levels)
 
 **Symptom**:
+
 ```
 src/app/modules/features/user/components/forms/inputs/text/TextField.tsx
 ```
 
 **Problem**:
+
 - Hard to navigate
 - Long import paths
 - Obscures actual structure
 
 **Refactor**:
+
 ```
 src/user/TextField.tsx
 # or
@@ -95,6 +105,7 @@ src/components/TextField.tsx
 ### Smell 2: Too Flat (<2 levels)
 
 **Symptom**:
+
 ```
 src/
   UserController.ts
@@ -109,11 +120,13 @@ src/
 ```
 
 **Problem**:
+
 - Hard to scan
 - No clear organization
 - Related files scattered
 
 **Refactor** (by layer):
+
 ```
 src/
   controllers/
@@ -129,6 +142,7 @@ src/
 ```
 
 **Or refactor** (by feature):
+
 ```
 src/
   user/
@@ -144,6 +158,7 @@ src/
 ### Smell 3: Inconsistent Naming
 
 **Symptom**:
+
 ```
 src/
   user-auth/
@@ -153,11 +168,13 @@ src/
 ```
 
 **Problem**:
+
 - No clear convention
 - Hard to predict names
 - Looks unprofessional
 
 **Refactor**:
+
 ```
 src/
   user-auth/
@@ -171,6 +188,7 @@ Pick one: `kebab-case`, `snake_case`, or `camelCase`. Stick to it.
 ### Smell 4: "Utils" or "Helpers" Dumping Ground
 
 **Symptom**:
+
 ```
 src/utils/
   formatDate.ts
@@ -182,11 +200,13 @@ src/utils/
 ```
 
 **Problem**:
+
 - Becomes catch-all for anything
 - Unrelated code grouped together
 - Name doesn't convey purpose
 
 **Refactor** (by domain):
+
 ```
 src/
   formatting/
@@ -204,6 +224,7 @@ src/
 ```
 
 **Or** integrate into feature directories:
+
 ```
 src/
   orders/
@@ -217,6 +238,7 @@ src/
 ### Smell 5: Single-File Directories
 
 **Symptom**:
+
 ```
 src/
   auth/
@@ -228,10 +250,12 @@ src/
 ```
 
 **Problem**:
+
 - Unnecessary nesting
 - No benefit to directory structure
 
 **Refactor**:
+
 ```
 src/
   auth.ts
@@ -244,6 +268,7 @@ src/
 ### Smell 6: Mixed Abstractions
 
 **Symptom**:
+
 ```
 src/
   controllers/     # By layer
@@ -253,6 +278,7 @@ src/
 ```
 
 **Problem**:
+
 - No clear organizing principle
 - Confusion about where new files go
 
@@ -263,6 +289,7 @@ src/
 ### Web API/Backend Service
 
 **Pattern 1: Layered Architecture**
+
 ```
 src/
   controllers/     # HTTP endpoints
@@ -277,6 +304,7 @@ src/
 **When to use**: Traditional MVC-style applications
 
 **Pattern 2: Feature-Based**
+
 ```
 src/
   auth/
@@ -301,6 +329,7 @@ src/
 ### Frontend (React/Vue/etc.)
 
 **Pattern 1: By Type**
+
 ```
 src/
   components/      # React components
@@ -316,6 +345,7 @@ src/
 **When to use**: Small to medium apps
 
 **Pattern 2: By Feature**
+
 ```
 src/
   features/
@@ -341,6 +371,7 @@ src/
 ### Library/Package
 
 **Pattern: Simple and Flat**
+
 ```
 src/
   index.ts         # Main entry point
@@ -357,6 +388,7 @@ tests/             # Tests
 ### CLI Tool
 
 **Pattern: Command-Based**
+
 ```
 src/
   commands/        # CLI commands
@@ -373,6 +405,7 @@ src/
 ### Monorepo
 
 **Pattern: Package-Based**
+
 ```
 packages/
   api/             # Backend API
@@ -400,6 +433,7 @@ tools/             # Build tools
 **Pattern**: Move files gradually, don't block development
 
 **Steps**:
+
 1. **Document target structure** - Write down desired structure
 2. **Identify clusters** - Group of related files to move together
 3. **Move one cluster** - Move files, update imports
@@ -408,6 +442,7 @@ tools/             # Build tools
 6. **Repeat** - Move next cluster
 
 **Example**:
+
 ```bash
 # Week 1: Move user-related files
 git mv src/UserController.ts src/users/UserController.ts
@@ -419,11 +454,13 @@ git mv src/UserService.ts src/users/UserService.ts
 ```
 
 **Pros**:
+
 - Low risk
 - Doesn't block other work
 - Easy to revert
 
 **Cons**:
+
 - Takes longer
 - Mixed structure during transition
 
@@ -432,6 +469,7 @@ git mv src/UserService.ts src/users/UserService.ts
 **Pattern**: Reorganize everything at once
 
 **Steps**:
+
 1. **Plan thoroughly** - Map out all moves
 2. **Create branch** - Dedicated restructure branch
 3. **Move all files** - Complete reorganization
@@ -441,6 +479,7 @@ git mv src/UserService.ts src/users/UserService.ts
 7. **Merge** - When fully working
 
 **Example**:
+
 ```bash
 git checkout -b refactor/directory-structure
 # Move all files to new structure
@@ -456,11 +495,13 @@ git commit -m "refactor: reorganize directory structure
 ```
 
 **Pros**:
+
 - Clean result
 - Done quickly
 - Clear before/after
 
 **Cons**:
+
 - High risk
 - Blocks other development
 - Merge conflicts likely
@@ -472,6 +513,7 @@ git commit -m "refactor: reorganize directory structure
 **Pattern**: Build new structure alongside old, migrate over time
 
 **Steps**:
+
 1. **Create new directories** - New structure exists alongside old
 2. **New files use new structure** - All new code goes in new place
 3. **Migrate old files opportunistically** - When touching a file, move it
@@ -479,6 +521,7 @@ git commit -m "refactor: reorganize directory structure
 5. **Final cleanup** - Remove empty old directories
 
 **Example**:
+
 ```
 src/
   legacy/          # Old structure (to be removed)
@@ -491,11 +534,13 @@ src/
 ```
 
 **Pros**:
+
 - Doesn't block development
 - Clear progress (old directories empty out)
 - Low risk
 
 **Cons**:
+
 - Mixed structure for a while
 - Requires discipline
 
@@ -508,6 +553,7 @@ src/
 **Solution**: Git automatically tracks renames if file content mostly unchanged
 
 **Process**:
+
 ```bash
 # Move file (Git tracks this)
 git mv src/old/file.ts src/new/file.ts
@@ -522,6 +568,7 @@ git commit -m "refactor: update imports for file.ts"
 ```
 
 **To see history across renames**:
+
 ```bash
 git log --follow src/new/file.ts
 ```
@@ -529,20 +576,24 @@ git log --follow src/new/file.ts
 ### Updating Imports Automatically
 
 **TypeScript/JavaScript**:
+
 - **VS Code**: Rename/move files in IDE, imports update automatically
 - **Manual**: Use find-and-replace carefully
 
 **Python**:
+
 - Use IDE refactoring (PyCharm, VS Code)
 - Or manual: `rg "from old.path import" -l | xargs sed -i 's/old\.path/new.path/g'`
 
 **Go**:
+
 - Update imports to new package path
 - Run `go mod tidy`
 
 ### Testing After Reorganization
 
 **Essential tests**:
+
 ```bash
 # 1. Compilation/linting
 npm run build    # or tsc, cargo build, etc.
@@ -568,12 +619,14 @@ npm run type-check
 ### When to Split a Directory
 
 **Indicators**:
+
 - **Too many files** (>20-30 in one directory)
 - **Multiple concerns** (mixed responsibilities)
 - **Team boundaries** (different teams work on different parts)
 - **Growing complexity** (subdirectories would clarify)
 
 **Example**:
+
 ```
 Before:
 src/components/  (50+ components)
@@ -589,11 +642,13 @@ src/components/
 ### When to Merge Directories
 
 **Indicators**:
+
 - **Single-file directories** (unnecessary nesting)
 - **Rarely changing** (overorganized)
 - **Always used together** (artificial separation)
 
 **Example**:
+
 ```
 Before:
 src/
@@ -611,6 +666,7 @@ src/user/
 ### Decision Framework
 
 **Ask**:
+
 1. Does this make finding files easier or harder?
 2. Will new developers understand the structure?
 3. Does this match how the team thinks about the code?
@@ -624,6 +680,7 @@ src/user/
 ### Directory Names
 
 **Recommendations**:
+
 - **Lowercase** with hyphens: `user-auth`, `order-processing`
 - **Plural for collections**: `components/`, `services/`, `tests/`
 - **Singular for single purpose**: `config/`, `lib/`, `util/`
@@ -632,6 +689,7 @@ src/user/
 **Examples by language/ecosystem**:
 
 **JavaScript/TypeScript**:
+
 ```
 src/
   components/      (plural, kebab-case)
@@ -640,6 +698,7 @@ src/
 ```
 
 **Python**:
+
 ```
 src/
   user_service/    (snake_case)
@@ -648,6 +707,7 @@ src/
 ```
 
 **Go**:
+
 ```
 internal/
   userservice/     (lowercase, no separator)
@@ -655,6 +715,7 @@ internal/
 ```
 
 **Rust**:
+
 ```
 src/
   user_service/    (snake_case)
@@ -664,16 +725,19 @@ src/
 ### Avoid These Names
 
 **Too vague**:
+
 - `common/` - common to what?
 - `shared/` - shared by whom?
 - `misc/` - miscellaneous what?
 - `stuff/` - really?
 
 **Better**:
+
 - `user-common/` or `shared/user-models.ts` (specific)
 - Split into specific categories
 
 **Exception**: `shared/` OK if well-organized inside:
+
 ```
 shared/
   types/
@@ -693,6 +757,7 @@ shared/
 8. **Document decisions** - Explain structure in README or AGENTS.md
 
 **Red flags**:
+
 - More than 5 levels deep
 - Flat directory with >30 files
 - Inconsistent naming conventions

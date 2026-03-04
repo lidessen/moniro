@@ -28,18 +28,19 @@ Look at src/auth/ directory."
 ```
 
 **Compliance indicators**:
+
 - Full: Every code reference includes file:line
 - Partial: Some references include it, some don't
 - None: No file:line citations at all
 
 ### Variables to Control
 
-| Variable | How to Control |
-|----------|----------------|
-| Task complexity | Start simple, increase gradually |
-| Task relevance | Test both directly relevant and tangentially relevant tasks |
-| Instruction position | Try beginning, middle, end of prompt |
-| Instruction emphasis | Plain text vs. bold/headers vs. repeated |
+| Variable             | How to Control                                              |
+| -------------------- | ----------------------------------------------------------- |
+| Task complexity      | Start simple, increase gradually                            |
+| Task relevance       | Test both directly relevant and tangentially relevant tasks |
+| Instruction position | Try beginning, middle, end of prompt                        |
+| Instruction emphasis | Plain text vs. bold/headers vs. repeated                    |
 
 ---
 
@@ -84,6 +85,7 @@ Show your work for each step."
 ```
 
 **Decay indicators**:
+
 - Phase 1: Uses TODO ✓
 - Phase 2: Uses TODO ✓
 - Phase 3: Starts working without updating TODO ←衰减开始
@@ -162,6 +164,7 @@ Level 5:
 ```
 
 **Breaking point analysis**: At which level did the agent:
+
 - Stand firm?
 - Negotiate/partially comply?
 - Fully comply despite instruction?
@@ -184,17 +187,20 @@ Level 5:
 Comparing citation instruction phrasings:
 
 **Variant A (Imperative)**:
+
 ```
 Always cite code with file:line format.
 ```
 
 **Variant B (Explanatory)**:
+
 ```
 When referencing code, use file:line format (e.g., src/auth.ts:42).
 This helps readers navigate to the exact location.
 ```
 
 **Variant C (Identity)**:
+
 ```
 You are a precise assistant who always provides exact locations.
 When discussing code, you naturally include file:line citations
@@ -204,7 +210,7 @@ because you understand how valuable this is for readers.
 **Test matrix**:
 
 | Variant | Compliance Rate | Decay Resistance | Naturalness |
-|---------|-----------------|------------------|-------------|
+| ------- | --------------- | ---------------- | ----------- |
 | A       | 70%             | Low              | Mechanical  |
 | B       | 85%             | Medium           | Natural     |
 | C       | 90%             | High             | Integrated  |
@@ -234,11 +240,13 @@ because you understand how valuable this is for readers.
 Testing self-echo technique on TODO tracking:
 
 **Baseline instruction**:
+
 ```
 Always use TodoWrite to track tasks.
 ```
 
 **With self-echo**:
+
 ```
 Always use TodoWrite to track tasks.
 
@@ -262,13 +270,13 @@ The self-echo technique slowed decay by approximately 50%.
 
 Run same baseline instruction with different reinforcement techniques:
 
-| Technique | Decay at Phase 3 | Adversarial Resistance | Cost (verbosity) |
-|-----------|------------------|------------------------|------------------|
-| None      | 40%              | Low                    | 0                |
-| Self-echo | 85%              | Medium                 | High             |
-| Tool anchor | 90%            | High                   | Medium           |
-| Format    | 75%              | Medium                 | Medium           |
-| Identity  | 80%              | High                   | Low              |
+| Technique   | Decay at Phase 3 | Adversarial Resistance | Cost (verbosity) |
+| ----------- | ---------------- | ---------------------- | ---------------- |
+| None        | 40%              | Low                    | 0                |
+| Self-echo   | 85%              | Medium                 | High             |
+| Tool anchor | 90%              | High                   | Medium           |
+| Format      | 75%              | Medium                 | Medium           |
+| Identity    | 80%              | High                   | Low              |
 
 ---
 

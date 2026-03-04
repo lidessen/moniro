@@ -91,11 +91,11 @@ This means you can build a team with one agent on Claude CLI and another on the 
 └──────────────┘   └──────────────────┘   └─────────────────┘
 ```
 
-| Layer | Purpose | Persistence | Access Pattern |
-|-------|---------|-------------|----------------|
-| **Inbox** | Unread @mentions for this agent | Transient (read state tracking) | Pull: agent checks when waking |
-| **Channel** | Append-only communication log | Permanent | Read: full history, any agent |
-| **Document** | Structured workspace | Editable | Read/write: owner or all |
+| Layer        | Purpose                         | Persistence                     | Access Pattern                 |
+| ------------ | ------------------------------- | ------------------------------- | ------------------------------ |
+| **Inbox**    | Unread @mentions for this agent | Transient (read state tracking) | Pull: agent checks when waking |
+| **Channel**  | Append-only communication log   | Permanent                       | Read: full history, any agent  |
+| **Document** | Structured workspace            | Editable                        | Read/write: owner or all       |
 
 **Why three, not one?**
 
@@ -135,7 +135,7 @@ Familiar pattern from team chat. Natural language, no special syntax beyond `@na
 
 ## Layer 5: Loop — Lifecycle Orchestration
 
-**Problem with Layers 1-4**: We have execution (worker), communication (backend), shared state (context), and routing (@mentions). But who decides *when* to run an agent, *what* to do on failure, and *how* to manage the agent's lifecycle?
+**Problem with Layers 1-4**: We have execution (worker), communication (backend), shared state (context), and routing (@mentions). But who decides _when_ to run an agent, _what_ to do on failure, and _how_ to manage the agent's lifecycle?
 
 **Solution**: `AgentLoop` (`src/workflow/loop/loop.ts`) — the lifecycle manager for a single agent within a workflow.
 
@@ -159,6 +159,7 @@ RUNNING:
 **Critical design choice: ack only on success.** The inbox acknowledgment happens only after a successful run. This gives exactly-once processing semantics — if the agent crashes mid-run, the message will be redelivered on the next poll.
 
 **Schedule/Wakeup**: Loops support two wakeup patterns beyond @mention:
+
 - **Interval** (e.g., `30s`, `5m`): Idle-based, resets on activity. Good for periodic checks.
 - **Cron** (e.g., `0 9 * * 1-5`): Fixed schedule, ignores activity. Good for daily standups.
 
@@ -192,6 +193,7 @@ kickoff: |
 ```
 
 **The factory layer** (`src/workflow/factory.ts`) provides two composable primitives:
+
 - `createMinimalRuntime()` — shared infrastructure (context provider + MCP server + event log)
 - `createWiredLoop()` — per-agent setup (backend + workspace + loop)
 
@@ -215,18 +217,18 @@ Both the workflow runner (CLI) and the daemon use these same primitives, ensurin
 proposal_create → [PROPOSAL] in channel → agents vote → quorum → [RESOLVED]
 ```
 
-| Type | Use Case |
-|------|----------|
-| `election` | Document owner, coordinator role |
-| `decision` | Design choices, approach selection |
-| `approval` | Merge sign-off, release gates |
-| `assignment` | Task allocation |
+| Type         | Use Case                           |
+| ------------ | ---------------------------------- |
+| `election`   | Document owner, coordinator role   |
+| `decision`   | Design choices, approach selection |
+| `approval`   | Merge sign-off, release gates      |
+| `assignment` | Task allocation                    |
 
-| Resolution | Rule |
-|------------|------|
+| Resolution  | Rule            |
+| ----------- | --------------- |
 | `plurality` | Most votes wins |
-| `majority` | >50% required |
-| `unanimous` | All must agree |
+| `majority`  | >50% required   |
+| `unanimous` | All must agree  |
 
 **Why formalize decisions?** Without it, agents can disagree endlessly or silently override each other. Proposals create a convergence mechanism — a way to force a decision with clear rules.
 
@@ -295,7 +297,7 @@ AI Tool ─ MCP ─────► Daemon
 
 > **Status**: Proposed. See [AGENT-TOP-LEVEL.md](./AGENT-TOP-LEVEL.md) for full design.
 
-**Problem with the current architecture**: Agents are defined *inside* workflows. There's no persistent identity — if alice participates in both `review` and `deploy`, she's defined twice with no shared state. Agents have no memory, no soul, no continuity across workflows.
+**Problem with the current architecture**: Agents are defined _inside_ workflows. There's no persistent identity — if alice participates in both `review` and `deploy`, she's defined twice with no shared state. Agents have no memory, no soul, no continuity across workflows.
 
 **Proposed solution**: Elevate agents to top-level entities with their own persistent context.
 
@@ -314,25 +316,25 @@ Project
 
 Three orthogonal concepts replace the current conflated model:
 
-| Concept | What It Is | Persistence |
-|---------|-----------|-------------|
-| **Agent** | Identity + own context (prompt, soul, memory, notes, todo) | Persistent across workflows |
-| **Workspace** | Collaboration space (channel, documents) | Per-workflow instance |
-| **Workflow** | Orchestration definition | Definition persistent, instances ephemeral |
+| Concept       | What It Is                                                 | Persistence                                |
+| ------------- | ---------------------------------------------------------- | ------------------------------------------ |
+| **Agent**     | Identity + own context (prompt, soul, memory, notes, todo) | Persistent across workflows                |
+| **Workspace** | Collaboration space (channel, documents)                   | Per-workflow instance                      |
+| **Workflow**  | Orchestration definition                                   | Definition persistent, instances ephemeral |
 
-**Soul**: Captures *who the agent is* beyond the system prompt — role, expertise, style, principles. The system prompt says "what to do now"; the soul says "who you are always."
+**Soul**: Captures _who the agent is_ beyond the system prompt — role, expertise, style, principles. The system prompt says "what to do now"; the soul says "who you are always."
 
 **Key mechanism: `ref`**. Workflows reference global agents with optional overrides:
 
 ```yaml
 agents:
-  alice: { ref: alice }                    # Use as-is
+  alice: { ref: alice } # Use as-is
   bob:
     ref: bob
     prompt:
-      append: Focus on security.           # Workflow-specific addition
+      append: Focus on security. # Workflow-specific addition
   helper:
-    model: anthropic/claude-haiku-4-5      # Workflow-local, no persistence
+    model: anthropic/claude-haiku-4-5 # Workflow-local, no persistence
     prompt:
       system: Quick lookup helper.
 ```
@@ -391,14 +393,14 @@ Current soul doesn't mention this
 
 The Guard is not purely an LLM agent. Most operations are deterministic:
 
-| Operation | Implementation |
-|-----------|---------------|
-| Memory search | Deterministic (SQLite FTS5 + vec) |
-| Memory write validation | LLM (is this worth remembering?) |
+| Operation                  | Implementation                      |
+| -------------------------- | ----------------------------------- |
+| Memory search              | Deterministic (SQLite FTS5 + vec)   |
+| Memory write validation    | LLM (is this worth remembering?)    |
 | Context assembly selection | LLM (what's relevant to this task?) |
-| Cross-agent summarization | LLM (summarize for requester) |
-| Permission checks | Deterministic |
-| Audit logging | Deterministic |
+| Cross-agent summarization  | LLM (summarize for requester)       |
+| Permission checks          | Deterministic                       |
+| Audit logging              | Deterministic                       |
 
 ### Storage: Files + SQLite
 
@@ -446,45 +448,45 @@ The key insight is that we never made the agents smarter. We made the environmen
 
 These principles emerged from building the layers, not the other way around:
 
-| Principle | Expressed In |
-|-----------|-------------|
-| **Backends are dumb pipes** | Backend only knows `send()`. Loop owns orchestration. |
-| **Context answers cognitive questions** | Inbox (what's for me), Channel (what happened), Document (what we're building). |
-| **Ack on success only** | Inbox acknowledgment gives exactly-once semantics with retry. |
-| **No distinction between 1 and N agents** | Single agent = 1-agent workflow under `@global`. |
-| **Files are truth, databases are indexes** | Markdown/YAML authoritative; SQLite is acceleration. |
-| **Agents don't access each other directly** | Cross-agent communication via channel; cross-agent memory via Guard ask protocol. |
-| **Mediate, don't block** | Guard curates context, doesn't gatekeep it. |
-| **Identity is behavioral, not aspirational** | Soul describes what agent does, not what it "should be." |
+| Principle                                    | Expressed In                                                                      |
+| -------------------------------------------- | --------------------------------------------------------------------------------- |
+| **Backends are dumb pipes**                  | Backend only knows `send()`. Loop owns orchestration.                             |
+| **Context answers cognitive questions**      | Inbox (what's for me), Channel (what happened), Document (what we're building).   |
+| **Ack on success only**                      | Inbox acknowledgment gives exactly-once semantics with retry.                     |
+| **No distinction between 1 and N agents**    | Single agent = 1-agent workflow under `@global`.                                  |
+| **Files are truth, databases are indexes**   | Markdown/YAML authoritative; SQLite is acceleration.                              |
+| **Agents don't access each other directly**  | Cross-agent communication via channel; cross-agent memory via Guard ask protocol. |
+| **Mediate, don't block**                     | Guard curates context, doesn't gatekeep it.                                       |
+| **Identity is behavioral, not aspirational** | Soul describes what agent does, not what it "should be."                          |
 
 ---
 
 ## Evolution History
 
-| Version | Key Change |
-|---------|-----------|
-| v0.1.0 | CLI backend support (Claude, Codex, Cursor) |
-| v0.2.0 | Skill imports from Git |
-| v0.3.0 | Async messaging, `peek` command |
-| v0.4.0 | Multi-agent workflows, shared context, proposals, @mention coordination |
-| v0.5.0-v0.10.0 | CLI refinements, smart send, streaming, display improvements |
-| v0.11.0 | Daemon rewrite: Unix sockets → HTTP server |
-| v0.12.0 | Daemon-managed workflows (run/start inside daemon process) |
-| v0.13.0 | OpenCode backend, provider config system |
-| v0.14.0 | Schedule/wakeup, sendDirect(), interface-daemon-worker three-layer unification |
-| *next* | *Agent as Top-Level Entity (proposed)* |
-| *future* | *Guard Agent (proposed)* |
+| Version        | Key Change                                                                     |
+| -------------- | ------------------------------------------------------------------------------ |
+| v0.1.0         | CLI backend support (Claude, Codex, Cursor)                                    |
+| v0.2.0         | Skill imports from Git                                                         |
+| v0.3.0         | Async messaging, `peek` command                                                |
+| v0.4.0         | Multi-agent workflows, shared context, proposals, @mention coordination        |
+| v0.5.0-v0.10.0 | CLI refinements, smart send, streaming, display improvements                   |
+| v0.11.0        | Daemon rewrite: Unix sockets → HTTP server                                     |
+| v0.12.0        | Daemon-managed workflows (run/start inside daemon process)                     |
+| v0.13.0        | OpenCode backend, provider config system                                       |
+| v0.14.0        | Schedule/wakeup, sendDirect(), interface-daemon-worker three-layer unification |
+| _next_         | _Agent as Top-Level Entity (proposed)_                                         |
+| _future_       | _Guard Agent (proposed)_                                                       |
 
 ---
 
 ## Reading Guide
 
-| If you want to understand... | Read |
-|------------------------------|------|
-| Module structure and dependencies | [ARCHITECTURE.md](../../ARCHITECTURE.md) |
-| This design overview (you are here) | [OVERVIEW.md](./OVERVIEW.md) |
-| Workflow context model and coordination | [workflow/DESIGN.md](../workflow/DESIGN.md) |
-| MCP tools and loop details | [workflow/REFERENCE.md](../workflow/REFERENCE.md) |
-| Agent-as-entity proposal | [AGENT-TOP-LEVEL.md](./AGENT-TOP-LEVEL.md) |
-| Guard agent proposal | [GUARD-AGENT.md](./GUARD-AGENT.md) |
-| Backend comparison | [backends.md](../backends.md) |
+| If you want to understand...            | Read                                              |
+| --------------------------------------- | ------------------------------------------------- |
+| Module structure and dependencies       | [ARCHITECTURE.md](../../ARCHITECTURE.md)          |
+| This design overview (you are here)     | [OVERVIEW.md](./OVERVIEW.md)                      |
+| Workflow context model and coordination | [workflow/DESIGN.md](../workflow/DESIGN.md)       |
+| MCP tools and loop details              | [workflow/REFERENCE.md](../workflow/REFERENCE.md) |
+| Agent-as-entity proposal                | [AGENT-TOP-LEVEL.md](./AGENT-TOP-LEVEL.md)        |
+| Guard agent proposal                    | [GUARD-AGENT.md](./GUARD-AGENT.md)                |
+| Backend comparison                      | [backends.md](../backends.md)                     |

@@ -42,6 +42,7 @@ When someone asks you to help choose between options:
 ### 1. Clarify the Problem
 
 Ask:
+
 - What exactly are we trying to achieve?
 - What happens if we do nothing?
 - Who are the users? What do they need?
@@ -51,6 +52,7 @@ Don't assume you understand the problem. Often the person asking hasn't fully ar
 ### 2. Identify Constraints
 
 Every decision happens in a context:
+
 - **Time**: How urgent is this?
 - **Team**: What does the team already know?
 - **Existing tech**: What's already in place?
@@ -103,15 +105,18 @@ When designing or evaluating architecture:
 ### Common Traps
 
 **Over-engineering**: Building for scale you don't have.
+
 - A startup doesn't need microservices.
 - A side project doesn't need Kubernetes.
 - YAGNI: You Aren't Gonna Need It.
 
 **Under-engineering**: No structure at all.
+
 - When everything talks to everything, changes become terrifying.
 - Some boundaries are worth the upfront cost.
 
 **Copying without understanding**: Using patterns because "that's how X does it."
+
 - Netflix's architecture solves Netflix's problems.
 - Your problems are different.
 
@@ -157,6 +162,7 @@ Premature abstraction is worse than duplication. Wait until you see the pattern 
 ### Fail Fast
 
 Detect errors early and surface them clearly:
+
 - Validate inputs at the boundary
 - Throw exceptions instead of returning null
 - Make invalid states unrepresentable
@@ -169,18 +175,18 @@ The worst bugs are the ones that silently corrupt data and only surface weeks la
 
 This document teaches you how to think. The reference files provide specific knowledge for specific situations.
 
-| Situation | Reference |
-|-----------|-----------|
-| Choosing between technologies | [technical-decisions.md](technical-decisions.md) |
-| Designing system structure | [architecture/patterns.md](architecture/patterns.md) |
-| Defining module boundaries | [architecture/boundaries.md](architecture/boundaries.md) |
-| Planning data flow | [architecture/data-flow.md](architecture/data-flow.md) |
-| Writing quality code | [implementation/best-practices.md](implementation/best-practices.md) |
-| Applying design patterns | [implementation/patterns.md](implementation/patterns.md) |
-| Restructuring existing code | [refactoring.md](refactoring.md) |
-| Designing APIs | [api-design.md](api-design.md) |
-| Improving performance | [performance.md](performance.md) |
-| Building CI/CD pipelines | [cicd-architecture.md](cicd-architecture.md) |
+| Situation                     | Reference                                                            |
+| ----------------------------- | -------------------------------------------------------------------- |
+| Choosing between technologies | [technical-decisions.md](technical-decisions.md)                     |
+| Designing system structure    | [architecture/patterns.md](architecture/patterns.md)                 |
+| Defining module boundaries    | [architecture/boundaries.md](architecture/boundaries.md)             |
+| Planning data flow            | [architecture/data-flow.md](architecture/data-flow.md)               |
+| Writing quality code          | [implementation/best-practices.md](implementation/best-practices.md) |
+| Applying design patterns      | [implementation/patterns.md](implementation/patterns.md)             |
+| Restructuring existing code   | [refactoring.md](refactoring.md)                                     |
+| Designing APIs                | [api-design.md](api-design.md)                                       |
+| Improving performance         | [performance.md](performance.md)                                     |
+| Building CI/CD pipelines      | [cicd-architecture.md](cicd-architecture.md)                         |
 
 Don't read them all. Read the one you need, when you need it.
 
@@ -189,14 +195,17 @@ Don't read them all. Read the one you need, when you need it.
 ## What Engineering Is Not
 
 **Engineering is not housekeeping.**
+
 - Engineering: "How should we structure authentication?"
 - Housekeeping: "Let's remove these unused imports."
 
 **Engineering is not validation.**
+
 - Engineering: "Should we use Jest or Vitest?"
 - Validation: "Do the tests pass?"
 
 **Engineering is not implementation.**
+
 - Engineering: "Here's the architecture for this feature."
 - Implementation: Actually writing the code.
 

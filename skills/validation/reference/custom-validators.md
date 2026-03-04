@@ -17,13 +17,13 @@ custom_validators:
 
 ```yaml
 custom_validators:
-  - name: string           # Required: unique identifier
-    description: string    # Optional: what it checks
-    command: string        # Required: command to run
-    severity: string       # Required: critical | important | suggestion
-    timeout: string        # Optional: max execution time (default: 30s)
-    when: string           # Optional: condition to run
-    env: object            # Optional: environment variables
+  - name: string # Required: unique identifier
+    description: string # Optional: what it checks
+    command: string # Required: command to run
+    severity: string # Required: critical | important | suggestion
+    timeout: string # Optional: max execution time (default: 30s)
+    when: string # Optional: condition to run
+    env: object # Optional: environment variables
 ```
 
 ## Output Format
@@ -47,22 +47,22 @@ Validators must output JSON to stdout:
 
 ### Status Values
 
-| Status | Meaning |
-|--------|---------|
-| `pass` | No issues found |
+| Status    | Meaning                   |
+| --------- | ------------------------- |
+| `pass`    | No issues found           |
 | `warning` | Non-critical issues found |
-| `fail` | Critical issues found |
+| `fail`    | Critical issues found     |
 
 ### Finding Fields
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `type` | Yes | Issue category |
-| `severity` | Yes | critical / important / suggestion |
-| `message` | Yes | Human-readable description |
-| `location` | No | file:line reference |
-| `suggestion` | No | How to resolve |
-| `affected` | No | List of affected files/locations |
+| Field        | Required | Description                       |
+| ------------ | -------- | --------------------------------- |
+| `type`       | Yes      | Issue category                    |
+| `severity`   | Yes      | critical / important / suggestion |
+| `message`    | Yes      | Human-readable description        |
+| `location`   | No       | file:line reference               |
+| `suggestion` | No       | How to resolve                    |
+| `affected`   | No       | List of affected files/locations  |
 
 ## Examples
 
@@ -95,32 +95,34 @@ fi
 #!/usr/bin/env node
 // scripts/check-imports.js
 
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs");
+const path = require("path");
 
 const findings = [];
 
 // Check for circular imports
 function checkFile(filePath) {
-  const content = fs.readFileSync(filePath, 'utf8');
+  const content = fs.readFileSync(filePath, "utf8");
   // ... analysis logic ...
   if (hasIssue) {
     findings.push({
-      type: 'circular_import',
-      severity: 'important',
+      type: "circular_import",
+      severity: "important",
       message: `Circular import detected`,
       location: `${filePath}:${lineNumber}`,
-      suggestion: 'Break the cycle by extracting shared code'
+      suggestion: "Break the cycle by extracting shared code",
     });
   }
 }
 
 // ... scan files ...
 
-console.log(JSON.stringify({
-  status: findings.length > 0 ? 'warning' : 'pass',
-  findings
-}));
+console.log(
+  JSON.stringify({
+    status: findings.length > 0 ? "warning" : "pass",
+    findings,
+  }),
+);
 ```
 
 ### Python Validator
@@ -165,12 +167,12 @@ custom_validators:
   - name: python-checks
     command: ./scripts/check-python.sh
     severity: important
-    when: "glob('**/*.py')"  # Only if Python files exist
+    when: "glob('**/*.py')" # Only if Python files exist
 
   - name: api-contracts
     command: npm run validate:contracts
     severity: critical
-    when: "changed('src/api/**')"  # Only if API files changed
+    when: "changed('src/api/**')" # Only if API files changed
 
   - name: migration-check
     command: ./scripts/check-migrations.sh
@@ -180,12 +182,12 @@ custom_validators:
 
 ### When Conditions
 
-| Condition | Description |
-|-----------|-------------|
-| `glob('pattern')` | True if matching files exist |
-| `changed('pattern')` | True if matching files changed |
-| `env('VAR')` | True if environment variable set |
-| `pipeline('name')` | True if running in named pipeline |
+| Condition            | Description                       |
+| -------------------- | --------------------------------- |
+| `glob('pattern')`    | True if matching files exist      |
+| `changed('pattern')` | True if matching files changed    |
+| `env('VAR')`         | True if environment variable set  |
+| `pipeline('name')`   | True if running in named pipeline |
 
 ## Environment Variables
 
@@ -203,12 +205,12 @@ custom_validators:
 
 Available built-in variables:
 
-| Variable | Description |
-|----------|-------------|
-| `VALIDATION_PIPELINE` | Current pipeline name |
-| `VALIDATION_CONTEXT` | What triggered validation |
-| `VALIDATION_FILES` | Space-separated changed files |
-| `VALIDATION_BASE` | Base branch/commit for comparison |
+| Variable              | Description                       |
+| --------------------- | --------------------------------- |
+| `VALIDATION_PIPELINE` | Current pipeline name             |
+| `VALIDATION_CONTEXT`  | What triggered validation         |
+| `VALIDATION_FILES`    | Space-separated changed files     |
+| `VALIDATION_BASE`     | Base branch/commit for comparison |
 
 ## Adding to Pipelines
 
@@ -220,7 +222,7 @@ pipelines:
     validators:
       - syntax
       - reviewability
-      - my-custom-validator  # Custom validator
+      - my-custom-validator # Custom validator
       - security
 
   release:
@@ -228,9 +230,9 @@ pipelines:
       - syntax
       - reviewability
       - security
-      - api-contracts      # Custom
-      - migration-check    # Custom
-      - performance-check  # Custom
+      - api-contracts # Custom
+      - migration-check # Custom
+      - performance-check # Custom
 ```
 
 ## Best Practices

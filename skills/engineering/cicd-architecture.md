@@ -31,6 +31,7 @@ Order stages by speed and failure likelihood:
 Same inputs → same outputs.
 
 **Ensure**:
+
 - Pinned dependency versions
 - Immutable build artifacts
 - Deterministic build process
@@ -76,18 +77,21 @@ Easy to see what's happening and why.
 ### Stage Details
 
 **Build**:
+
 - Compile source code
 - Bundle assets
 - Generate artifacts
 - Goal: Verify code builds
 
 **Test**:
+
 - Unit tests (isolated, fast)
 - Integration tests (components together)
 - E2E tests (full system, slow)
 - Goal: Verify correctness
 
 **Static Analysis**:
+
 - Linting (code style)
 - Type checking
 - Security scanning (SAST)
@@ -95,12 +99,14 @@ Easy to see what's happening and why.
 - Goal: Catch issues without running
 
 **Package**:
+
 - Create deployable artifact
 - Container image, zip, binary
 - Tag with version/commit
 - Goal: Immutable deployment unit
 
 **Deploy**:
+
 - Push to environment
 - Run migrations
 - Smoke test
@@ -214,12 +220,14 @@ Development → Staging → Production
 Keep environments as similar as possible:
 
 **Same**:
+
 - OS and runtime versions
 - Service configuration
 - Infrastructure topology
 - Deployment process
 
 **Different**:
+
 - Scale (fewer instances in staging)
 - Data (anonymized in non-prod)
 - External services (sandboxed)
@@ -227,6 +235,7 @@ Keep environments as similar as possible:
 ### Configuration Management
 
 **Environment variables**:
+
 ```bash
 # Different per environment
 DATABASE_URL=postgres://...
@@ -235,6 +244,7 @@ LOG_LEVEL=debug|info|error
 ```
 
 **Config hierarchy**:
+
 ```
 defaults.yaml      ← Base configuration
 ├─ development.yaml  ← Dev overrides
@@ -245,11 +255,13 @@ defaults.yaml      ← Base configuration
 ### Secrets Management
 
 **Never**:
+
 - Commit secrets to repository
 - Log secrets
 - Pass secrets in URLs
 
 **Use**:
+
 - Secret managers (AWS Secrets Manager, HashiCorp Vault)
 - CI/CD secret variables
 - Encrypted config files

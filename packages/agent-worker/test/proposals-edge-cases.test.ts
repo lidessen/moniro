@@ -14,12 +14,12 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { tmpdir } from "node:os";
 import { mkdtempSync, rmSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { FileStorage } from "../src/workflow/context/storage.js";
 import {
+  FileStorage,
   createProposalManager,
   PROPOSAL_DEFAULTS,
-  type ProposalManager,
-} from "../src/workflow/context/proposals.js";
+} from "@moniro/workflow";
+import type { ProposalManager } from "@moniro/workflow";
 
 describe("ProposalManager edge cases", () => {
   let manager: ProposalManager;
