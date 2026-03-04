@@ -58,11 +58,18 @@ export type {
   AgentLoop,
   AgentLoopConfig,
   AgentState,
+  AgentInstruction,
+  InstructionPriority,
+  InstructionSource,
+  InstructionProgress,
   AgentRunContext,
   AgentRunResult,
   WorkflowIdleState,
 } from "./loop/types.ts";
 export { LOOP_DEFAULTS } from "./loop/types.ts";
+
+// ── Priority Queue ─────────────────────────────────────────────
+export { InstructionQueue, generateInstructionId, classifyInboxPriority } from "./loop/priority-queue.ts";
 
 // ── Prompt ──────────────────────────────────────────────────────
 export {

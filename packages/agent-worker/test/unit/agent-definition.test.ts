@@ -509,6 +509,64 @@ describe("AgentHandle", () => {
     const todos = await handle.readTodos();
     expect(todos).toEqual([]);
   });
+
+  // ── Instruction Routing ────────────────────────────────────────
+
+  test("send() throws when no loop attached", () => {
+    expect(() =>
+      handle.send({
+        id: "test-1",
+        message: "hello",
+        source: "mention",
+        priority: "immediate",
+        queuedAt: new Date().toISOString(),
+      }),
+    ).toThrow("has no loop");
+  });
+
+  test("send() delegates to loop.enqueue()", () => {
+    const enqueued: any[] = [];
+    // Attach a mock loop with enqueue
+    handle.loop = {
+      enqueue: (instr: any) => enqueued.push(instr),
+    } as any;
+
+    const instr = {
+      id: "test-2",
+      message: "urgent task",
+      source: "dm" as const,
+      priority: "immediate" as const,
+      queuedAt: new Date().toISOString(),
+    };
+    handle.send(instr);
+    expect(enqueued).toHaveLength(1);
+    expect(enqueued[0]).toBe(instr);
+  });
+
+  test("sendMessage() creates instruction with defaults", () => {
+    const enqueued: any[] = [];
+    handle.loop = {
+      enqueue: (instr: any) => enqueued.push(instr),
+    } as any;
+
+    handle.sendMessage("do this");
+    expect(enqueued).toHaveLength(1);
+    expect(enqueued[0].message).toBe("do this");
+    expect(enqueued[0].priority).toBe("immediate");
+    expect(enqueued[0].source).toBe("mention");
+    expect(enqueued[0].id).toMatch(/^instr_/);
+  });
+
+  test("sendMessage() respects custom priority and source", () => {
+    const enqueued: any[] = [];
+    handle.loop = {
+      enqueue: (instr: any) => enqueued.push(instr),
+    } as any;
+
+    handle.sendMessage("bg task", { priority: "background", source: "schedule" });
+    expect(enqueued[0].priority).toBe("background");
+    expect(enqueued[0].source).toBe("schedule");
+  });
 });
 
 // ── AgentRegistry ─────────────────────────────────────────────────

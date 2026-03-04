@@ -15,7 +15,8 @@ import { join, basename } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import type { AgentDefinition, Logger } from "@moniro/agent";
 import { CONTEXT_SUBDIRS, ConversationLog, ThinThread, DEFAULT_THIN_THREAD_SIZE } from "@moniro/agent";
-import type { AgentLoop } from "@moniro/workflow";
+import type { AgentLoop, AgentInstruction } from "@moniro/workflow";
+import { generateInstructionId } from "@moniro/workflow";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -100,6 +101,41 @@ export class AgentHandle {
         : new ThinThread(maxMessages);
     }
     return this._thinThread;
+  }
+
+  // ── Instruction Routing ─────────────────────────────────────────
+
+  /**
+   * Send a typed instruction to this agent's loop.
+   *
+   * Convenience method that creates an AgentInstruction and enqueues it.
+   * The loop must exist (call ensureAgentLoop first for standalone agents).
+   *
+   * @throws if no loop is attached
+   */
+  send(instruction: AgentInstruction): void {
+    if (!this.loop) {
+      throw new Error(`Agent "${this.name}" has no loop — call ensureAgentLoop first`);
+    }
+    this.loop.enqueue(instruction);
+  }
+
+  /**
+   * Send a simple message with auto-classified priority.
+   *
+   * Shorthand for creating an AgentInstruction from a raw message string.
+   */
+  sendMessage(
+    message: string,
+    options: { priority?: AgentInstruction["priority"]; source?: AgentInstruction["source"] } = {},
+  ): void {
+    this.send({
+      id: generateInstructionId(),
+      message,
+      source: options.source ?? "mention",
+      priority: options.priority ?? "immediate",
+      queuedAt: new Date().toISOString(),
+    });
   }
 
   // ── Context Directory ───────────────────────────────────────────
