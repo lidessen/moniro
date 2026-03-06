@@ -47,6 +47,7 @@ import {
   createBridgeAdapters,
   createEventLogger,
   createSilentLogger,
+  generateInstructionId,
 } from "@moniro/workspace";
 import type {
   AgentLoop,
@@ -239,33 +240,38 @@ async function ensureDefaultWorkspace(s: DaemonState): Promise<Workspace> {
 
   s.defaultWorkspace = workspace;
 
-  // Subscribe to inbound bridge messages to wake mentioned agents
+  // Subscribe to inbound bridge messages to route to agent loops
   if (workspace.bridge) {
     workspace.bridge.subscribe({}, (msg) => {
       // Only process messages from external sources (contain ":")
       if (!msg.from.includes(":")) return;
 
-      // Wake agents mentioned in the message
+      // Targeted messages (@mention or DM): wake the agent so it checks inbox
+      // (inbox already filters for mentions and DMs)
+      const targeted = new Set<string>();
       for (const target of msg.mentions) {
+        targeted.add(target);
         const handle = s.agents.get(target);
-        if (handle?.loop) {
-          handle.loop.wake();
-        }
+        if (handle?.loop) handle.loop.wake();
       }
-
-      // If the message has a DM target, wake that agent too
-      if (msg.to && !msg.mentions.includes(msg.to)) {
+      if (msg.to && !targeted.has(msg.to)) {
+        targeted.add(msg.to);
         const handle = s.agents.get(msg.to);
-        if (handle?.loop) {
-          handle.loop.wake();
-        }
+        if (handle?.loop) handle.loop.wake();
       }
 
-      // If no specific target, wake all agents (broadcast from external)
-      if (msg.mentions.length === 0 && !msg.to) {
+      // Broadcast (no mentions, no DM): enqueue as instruction to all agents
+      // so external messages reach agents without requiring @mention syntax
+      if (targeted.size === 0) {
         for (const handle of s.agents.list()) {
           if (handle.loop) {
-            handle.loop.wake();
+            handle.loop.enqueue({
+              id: generateInstructionId(),
+              message: `[${msg.from}]: ${msg.content}`,
+              source: "channel",
+              priority: "normal",
+              queuedAt: new Date().toISOString(),
+            });
           }
         }
       }
@@ -915,7 +921,7 @@ export async function startDaemon(
     token,
   });
 
-  const agents = new AgentRegistry(process.cwd(), log);
+  const agents = new AgentRegistry(CONFIG_DIR, log);
   agents.loadFromDisk();
 
   state = {
@@ -932,6 +938,13 @@ export async function startDaemon(
   log.info(`Daemon started: pid=${process.pid}`);
   log.info(`Listening: http://${host}:${actualPort}`);
   log.info(`MCP: http://${host}:${actualPort}/mcp`);
+
+  // Eagerly create default workspace if bridges are configured
+  // (so external platforms like Telegram start polling immediately)
+  const daemonConfig = loadDaemonConfig(CONFIG_DIR);
+  if (daemonConfig.bridges && daemonConfig.bridges.length > 0) {
+    await ensureDefaultWorkspace(state);
+  }
 
   // Auto-start persisted agents (create loops and start serving)
   const persistedAgents = agents.list().filter((h) => !h.ephemeral);
