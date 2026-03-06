@@ -31,7 +31,7 @@ agent-worker ────────┘  ← System: 持久化 daemon 服务
 | Phase 3c | done | Conversation Model | `ConversationLog`, `ThinThread` |
 | Phase 4 | done | Three-Package Split | `@moniro/agent`, `@moniro/workflow`, `agent-worker` |
 | **Phase 5** | **PR #110** | **Priority Queue + Cooperative Preemption** | `InstructionQueue`, `PreemptionError` |
-| **Phase 6a** | **next** | **Personal Agent Prompt** | soulSection + memorySection + todoSection 注入 prompt |
+| **Phase 6a** | **done** | **Personal Agent Prompt** | soulSection + memorySection + todoSection 注入 prompt |
 | **Phase 6b** | next | **Personal Context Tools + Auto-Memory** | 动态 MCP tools + recall + auto-memory |
 | **Phase 6c** | future | **Guard Agent（看守者）** | 智能上下文选择, 隐私控制, 记忆调解 |
 | **Phase 6d** | future | **Channel Bridge（外部集成）** | ChannelBridge + ChannelAdapter + Telegram |
