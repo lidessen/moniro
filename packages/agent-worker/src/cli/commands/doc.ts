@@ -90,7 +90,7 @@ Examples:
 
 async function resolveDir(targetInput: string): Promise<string> {
   const { getDefaultContextDir } = await import("@moniro/workspace");
-  const { parseTarget } = await import("../target.ts");
+  const { parseTarget } = await import("@/cli/target.ts");
 
   // Parse target identifier (should be @workflow:tag format)
   const target = parseTarget(targetInput);

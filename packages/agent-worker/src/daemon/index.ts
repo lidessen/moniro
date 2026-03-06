@@ -7,9 +7,9 @@ export type { DaemonState, WorkflowHandle } from "./daemon.ts";
 export { startHttpServer, type ServerHandle } from "./serve.ts";
 
 // Agent architecture types
-export type { AgentConfig } from "../agent/config.ts";
-export type { StateStore } from "../agent/store.ts";
-export { MemoryStateStore } from "../agent/store.ts";
+export type { AgentConfig } from "@/agent/config.ts";
+export type { StateStore } from "@/agent/store.ts";
+export { MemoryStateStore } from "@/agent/store.ts";
 
 // Workspace
 export { WorkspaceRegistry } from "./workspace-registry.ts";

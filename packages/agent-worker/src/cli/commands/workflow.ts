@@ -1,6 +1,6 @@
 import type { Command } from "commander";
-import { DEFAULT_TAG } from "../target.ts";
-import { startWorkflow, stopWorkflow } from "../client.ts";
+import { DEFAULT_TAG } from "@/cli/target.ts";
+import { startWorkflow, stopWorkflow } from "@/cli/client.ts";
 
 export function registerWorkflowCommands(program: Command) {
   // Run workflow
@@ -223,7 +223,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename.
       const agents = (res.agents ?? []) as string[];
 
       if (options.json) {
-        const { outputJson } = await import("../output.ts");
+        const { outputJson } = await import("@/cli/output.ts");
         outputJson({ name: workflowName, tag, agents });
         return;
       }

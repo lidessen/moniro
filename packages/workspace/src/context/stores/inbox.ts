@@ -3,9 +3,9 @@
  * Filtered view of channel with per-agent cursors (seen/ack).
  */
 
-import type { InboxMessage, InboxState } from "../types.ts";
-import { calculatePriority } from "../types.ts";
-import type { StorageBackend } from "../storage.ts";
+import type { InboxMessage, InboxState } from "@/context/types.ts";
+import { calculatePriority } from "@/context/types.ts";
+import type { StorageBackend } from "@/context/storage.ts";
 import type { ChannelStore } from "./channel.ts";
 
 const INBOX_STATE_KEY = "_state/inbox.json";

@@ -8,11 +8,11 @@
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { ContextProvider } from "../provider.ts";
-import { EventLog } from "../event-log.ts";
-import type { Message } from "../types.ts";
-import type { ProposalManager } from "../proposals.ts";
-import type { FeedbackEntry } from "../../tools/feedback.ts";
+import type { ContextProvider } from "@/context/provider.ts";
+import { EventLog } from "@/context/event-log.ts";
+import type { Message } from "@/context/types.ts";
+import type { ProposalManager } from "@/context/proposals.ts";
+import type { FeedbackEntry } from "@/tools/feedback.ts";
 import type { SkillsProvider } from "@moniro/agent-loop";
 import type { MCPToolContext } from "./types.ts";
 import { getAgentId, createLogTool } from "./helpers.ts";
@@ -24,7 +24,7 @@ import { registerProposalTools } from "./proposal.ts";
 import { registerFeedbackTool } from "./feedback.ts";
 import { registerSkillsTools } from "./skills.ts";
 import { registerPersonalContextTools } from "./personal.ts";
-import type { AgentHandleRef } from "../../types.ts";
+import type { AgentHandleRef } from "@/types.ts";
 
 // ── Options ──────────────────────────────────────────────────────
 

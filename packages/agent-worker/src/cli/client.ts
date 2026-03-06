@@ -8,7 +8,7 @@
  *   ALL  /mcp
  */
 
-import { isDaemonRunning } from "../daemon/index.ts";
+import { isDaemonRunning } from "@/daemon/index.ts";
 
 // ── Types ──────────────────────────────────────────────────────────
 

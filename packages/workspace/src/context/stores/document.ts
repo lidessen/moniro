@@ -3,8 +3,8 @@
  * Raw text documents for team collaboration.
  */
 
-import type { StorageBackend } from "../storage.ts";
-import { CONTEXT_DEFAULTS } from "../types.ts";
+import type { StorageBackend } from "@/context/storage.ts";
+import { CONTEXT_DEFAULTS } from "@/context/types.ts";
 
 const DOCUMENT_PREFIX = "documents/";
 
