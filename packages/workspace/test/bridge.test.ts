@@ -277,12 +277,12 @@ describe("Targeted delivery via to field", () => {
   });
 });
 
-// ==================== createBridgeAdapters ====================
+// ==================== createChannelAdapters ====================
 
-describe("createBridgeAdapters", () => {
+describe("createChannelAdapters", () => {
   test("creates telegram adapter from config", () => {
-    const { createBridgeAdapters } = require("../src/context/adapters/index.ts");
-    const adapters = createBridgeAdapters([
+    const { createChannelAdapters } = require("../src/context/adapters/index.ts");
+    const adapters = createChannelAdapters([
       { adapter: "telegram", bot_token: "test-token", chat_id: "123" },
     ]);
     expect(adapters).toHaveLength(1);
@@ -290,16 +290,16 @@ describe("createBridgeAdapters", () => {
   });
 
   test("skips unknown adapter types", () => {
-    const { createBridgeAdapters } = require("../src/context/adapters/index.ts");
-    const adapters = createBridgeAdapters([
+    const { createChannelAdapters } = require("../src/context/adapters/index.ts");
+    const adapters = createChannelAdapters([
       { adapter: "unknown_platform" },
     ]);
     expect(adapters).toHaveLength(0);
   });
 
   test("skips telegram adapter with missing token", () => {
-    const { createBridgeAdapters } = require("../src/context/adapters/index.ts");
-    const adapters = createBridgeAdapters([
+    const { createChannelAdapters } = require("../src/context/adapters/index.ts");
+    const adapters = createChannelAdapters([
       { adapter: "telegram", chat_id: "123" },
     ]);
     expect(adapters).toHaveLength(0);

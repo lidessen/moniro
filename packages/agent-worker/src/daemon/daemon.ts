@@ -12,7 +12,7 @@
  *   Workflows (workflows)  — running workflow instances (each with own workspace)
  *
  * Key principle: agents own their loops (stored on AgentHandle). One shared
- * default workspace provides infrastructure (context, MCP, bridges) for all
+ * default workspace provides infrastructure (context, MCP, channels) for all
  * standalone agents. Workflows get their own isolated workspaces.
  * Bridge config comes from ~/.agent-worker/config.yml.
  *
@@ -44,7 +44,7 @@ import {
   createContextMCPServer,
   createMinimalRuntime,
   createWiredLoop,
-  createBridgeAdapters,
+  createChannelAdapters,
   createEventLogger,
   createSilentLogger,
   generateInstructionId,
@@ -143,7 +143,7 @@ async function gracefulShutdown(): Promise<void> {
     }
     state.workflows.clear();
 
-    // Shutdown default workspace (MCP server, context provider, bridges)
+    // Shutdown default workspace (MCP server, context provider, channels)
     if (state.defaultWorkspace) {
       try {
         await state.defaultWorkspace.shutdown();
@@ -228,22 +228,22 @@ function findLoop(s: DaemonState, agentName: string): AgentLoop | null {
 
 /**
  * Ensure the default workspace exists.
- * Creates it lazily on first call (starts MCP server, bridges, etc.).
+ * Creates it lazily on first call (starts MCP server, channels, etc.).
  */
 async function ensureDefaultWorkspace(s: DaemonState): Promise<Workspace> {
   if (s.defaultWorkspace) return s.defaultWorkspace;
 
   const agentNames = s.agents.list().map((h) => h.name);
 
-  // Create bridge adapters from pre-loaded config
-  const bridgeAdapters = s.config?.bridges ? createBridgeAdapters(s.config.bridges) : undefined;
+  // Create channel adapters from pre-loaded config
+  const channelAdapters = s.config?.channels ? createChannelAdapters(s.config.channels) : undefined;
 
   const workspace = await createMinimalRuntime({
     workflowName: "global",
     tag: "main",
     agentNames: agentNames.length > 0 ? agentNames : ["user"],
     resolveHandle: (name) => s.agents.get(name) ?? undefined,
-    bridgeAdapters: bridgeAdapters && bridgeAdapters.length > 0 ? bridgeAdapters : undefined,
+    channelAdapters: channelAdapters && channelAdapters.length > 0 ? channelAdapters : undefined,
     onMention: (_from, target) => {
       // Wake the target agent's loop when @mentioned
       const handle = s.agents.get(target);
@@ -293,8 +293,8 @@ async function ensureDefaultWorkspace(s: DaemonState): Promise<Workspace> {
     });
   }
 
-  if (bridgeAdapters && bridgeAdapters.length > 0) {
-    log.info(`Bridges: ${bridgeAdapters.map((a) => a.platform).join(", ")}`);
+  if (channelAdapters && channelAdapters.length > 0) {
+    log.info(`Channels: ${channelAdapters.map((a) => a.platform).join(", ")}`);
   }
 
   return workspace;
@@ -938,7 +938,7 @@ export async function startDaemon(
 
   const agents = new AgentRegistry(CONFIG_DIR, log);
 
-  // Load config.yml (workflow format — agents + bridges)
+  // Load config.yml (workflow format — agents + channels)
   const bootConfig = await loadDaemonConfig(CONFIG_DIR);
   if (bootConfig) {
     const agentNames = Object.keys(bootConfig.agents);
@@ -967,9 +967,9 @@ export async function startDaemon(
   log.info(`Listening: http://${host}:${actualPort}`);
   log.info(`MCP: http://${host}:${actualPort}/mcp`);
 
-  // Eagerly create default workspace if bridges are configured
+  // Eagerly create default workspace if channels are configured
   // (so external platforms like Telegram start polling immediately)
-  if (bootConfig?.bridges && bootConfig.bridges.length > 0) {
+  if (bootConfig?.channels && bootConfig.channels.length > 0) {
     await ensureDefaultWorkspace(state);
   }
 

@@ -209,14 +209,14 @@ Adapter 在 agent 或 workspace 层面配置：
 ```yaml
 # workspace 级别：整个 workspace 的 channel 接入 Telegram
 workspace:
-  bridges:
+  channels:
     - adapter: telegram
       bot_token: ${{ env.TELEGRAM_BOT_TOKEN }}
       chat_id: ${{ env.TELEGRAM_CHAT_ID }}
 
 # 或 agent 级别：agent 的 DM 接入 Telegram
-# .agents/alice.yaml
-bridges:
+# config.yml
+channels:
   - adapter: telegram
     bot_token: ${{ env.TELEGRAM_BOT_TOKEN }}
     chat_id: ${{ env.TELEGRAM_CHAT_ID }}
@@ -289,7 +289,7 @@ TelegramAdapter 发送到 Telegram chat
 ### Phase 3: 首个 Adapter（Telegram）
 - TelegramAdapter 实现
 - Mention 解析扩展（支持 `platform:name`）
-- 配置加载（`bridges` 字段）
+- 配置加载（`channels` 字段）
 
 ### Phase 4: HTTP Webhook（按需）
 - SSE endpoint for cross-process subscription

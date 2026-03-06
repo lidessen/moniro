@@ -58,10 +58,10 @@ export interface WorkflowFile {
   setup?: SetupTask[];
 
   /**
-   * Channel bridge configuration — connect external platforms to the workspace channel.
+   * External channel configuration — connect platforms to the workspace.
    * Each entry creates an adapter for one external platform.
    */
-  bridges?: BridgeConfig[];
+  channels?: ChannelConfig[];
 
   /**
    * Kickoff message - initiates workflow via @mention
@@ -70,10 +70,10 @@ export interface WorkflowFile {
   kickoff?: string;
 }
 
-// ==================== Bridge Config ====================
+// ==================== Channel Config ====================
 
-/** Bridge adapter configuration in workflow YAML */
-export interface BridgeConfig {
+/** External channel configuration in workflow YAML */
+export interface ChannelConfig {
   /** Adapter type (e.g., "telegram") */
   adapter: string;
   /** Telegram bot token (supports ${{ env.VAR }} interpolation) */
@@ -209,8 +209,8 @@ export interface ParsedWorkflow {
   /** Setup tasks */
   setup: SetupTask[];
 
-  /** Channel bridge configuration */
-  bridges?: BridgeConfig[];
+  /** External channel configuration */
+  channels?: ChannelConfig[];
 
   /** Kickoff message (with variables interpolated) */
   kickoff?: string;

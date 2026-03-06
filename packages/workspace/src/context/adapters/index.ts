@@ -2,14 +2,14 @@
  * Channel Adapters — external platform integrations.
  */
 
-import type { BridgeConfig } from "../../types.ts";
+import type { ChannelConfig } from "../../types.ts";
 import type { ChannelAdapter } from "../bridge.ts";
 import { TelegramAdapter } from "./telegram.ts";
 
 export { TelegramAdapter, type TelegramAdapterConfig } from "./telegram.ts";
 
 /**
- * Resolve env var interpolation in bridge config values.
+ * Resolve env var interpolation in channel config values.
  * Supports both `${{ env.VAR }}` (workflow YAML) and `$VAR` (simple) syntax.
  */
 function resolveEnvValue(value: string | undefined): string | undefined {
@@ -23,19 +23,19 @@ function resolveEnvValue(value: string | undefined): string | undefined {
 }
 
 /**
- * Create channel adapters from bridge configuration.
+ * Create channel adapters from channel configuration.
  *
- * Each BridgeConfig entry maps to one ChannelAdapter instance.
+ * Each ChannelConfig entry maps to one ChannelAdapter instance.
  * Unknown adapter types are silently skipped.
  */
-export function createBridgeAdapters(bridges: BridgeConfig[]): ChannelAdapter[] {
+export function createChannelAdapters(channels: ChannelConfig[]): ChannelAdapter[] {
   const adapters: ChannelAdapter[] = [];
 
-  for (const bridge of bridges) {
-    switch (bridge.adapter) {
+  for (const channel of channels) {
+    switch (channel.adapter) {
       case "telegram": {
-        const botToken = resolveEnvValue(bridge.bot_token);
-        const chatId = resolveEnvValue(bridge.chat_id);
+        const botToken = resolveEnvValue(channel.bot_token);
+        const chatId = resolveEnvValue(channel.chat_id);
         if (!botToken || !chatId) break;
         adapters.push(new TelegramAdapter({ botToken, chatId }));
         break;

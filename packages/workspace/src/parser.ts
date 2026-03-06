@@ -105,7 +105,7 @@ export async function parseWorkflowFile(
     context,
     params: raw.params,
     setup: raw.setup || [],
-    bridges: raw.bridges,
+    channels: raw.channels,
     kickoff: raw.kickoff,
   };
 }

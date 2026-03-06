@@ -31,7 +31,7 @@ import { runWithHttp, type HttpMCPServer } from "./context/http-transport.ts";
 import type { ContextProvider, ContextProviderImpl } from "./context/provider.ts";
 import { ChannelBridge } from "./context/bridge.ts";
 import type { DefaultChannelStore } from "./context/stores/channel.ts";
-import { createBridgeAdapters } from "./context/adapters/index.ts";
+import { createChannelAdapters } from "./context/adapters/index.ts";
 import { checkWorkflowIdle, type AgentLoop } from "./loop/index.ts";
 import { createWiredLoop } from "./factory.ts";
 import type { Backend } from "@moniro/agent-loop";
@@ -292,10 +292,10 @@ export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> 
     ? interpolate(workflow.kickoff, context, (msg) => logger.warn(msg))
     : undefined;
 
-  // Create channel bridge if workflow has bridges configured
+  // Create channel bridge if workflow has channels configured
   let bridge: ChannelBridge | undefined;
-  if (workflow.bridges && workflow.bridges.length > 0) {
-    const adapters = createBridgeAdapters(workflow.bridges);
+  if (workflow.channels && workflow.channels.length > 0) {
+    const adapters = createChannelAdapters(workflow.channels);
     if (adapters.length > 0) {
       const channelStore = (contextProvider as ContextProviderImpl).channel as DefaultChannelStore;
       bridge = new ChannelBridge(channelStore);
