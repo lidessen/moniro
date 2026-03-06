@@ -14,9 +14,8 @@ import {
   type AgentRunResult,
 } from "@moniro/workspace";
 
-// Import PreemptionError directly from sdk-runner
-// (it's not re-exported from index since it's an internal throw-to-exit mechanism)
-import { PreemptionError } from "../../node_modules/@moniro/workspace/src/loop/sdk-runner.ts";
+// PreemptionError is an internal throw-to-exit mechanism, not re-exported from index
+import { PreemptionError } from "../../src/loop/sdk-runner.ts";
 
 // ==================== PreemptionError ====================
 
