@@ -6,11 +6,16 @@ import type { ContextConfig } from "./context/types.ts";
 import type { ProviderConfig, ScheduleConfig, AgentDefinition } from "@moniro/agent";
 
 /**
- * Minimal handle interface — the workflow layer only needs the definition.
+ * Minimal handle interface — the workflow layer only needs the definition
+ * plus optional personal context readers for prompt injection (Phase 6a).
  * The System layer (agent-worker) provides concrete AgentHandle instances.
  */
 export interface AgentHandleRef {
   readonly definition: AgentDefinition;
+  /** Read all memory entries (key-value from memory/*.yaml). Absent for inline agents. */
+  readMemory?(): Promise<Record<string, unknown>>;
+  /** Read active todo items (from todo/index.md). Absent for inline agents. */
+  readTodos?(): Promise<string[]>;
 }
 
 // Re-export context types for convenience
