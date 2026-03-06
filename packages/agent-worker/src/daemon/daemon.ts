@@ -48,11 +48,9 @@ import {
   createWiredLoop,
   createEventLogger,
   createSilentLogger,
-  TelegramAdapter,
 } from "@moniro/workspace";
 import type {
   AgentLoop,
-  ChannelAdapter,
   ContextProvider,
   ParsedWorkflow,
   ResolvedWorkflowAgent,
@@ -233,25 +231,12 @@ async function ensureAgentLoop(s: DaemonState, agentName: string): Promise<Agent
   const agentDef = defToResolvedAgent(handle.definition);
   const wsKey = agentWorkspaceKey(agentName);
 
-  // Build bridge adapters from agent's channels config
-  const bridgeAdapters: ChannelAdapter[] = [];
-  const telegramConfig = handle.definition.channels?.telegram;
-  if (telegramConfig) {
-    // Resolve env var references (e.g., "$BOT_TOKEN" → process.env.BOT_TOKEN)
-    const botToken = telegramConfig.bot_token.startsWith("$")
-      ? process.env[telegramConfig.bot_token.slice(1)] ?? telegramConfig.bot_token
-      : telegramConfig.bot_token;
-    bridgeAdapters.push(new TelegramAdapter({ botToken, chatId: telegramConfig.chat_id }));
-    log.info(`Telegram bridge configured for agent "${agentName}"`);
-  }
-
   // Create workspace (context + MCP server)
   const workspace = await createMinimalRuntime({
     workflowName: "global",
     tag: "main",
     agentNames: [agentName],
     resolveHandle: (name) => (name === agentName ? handle : s.agents.get(name) ?? undefined),
-    bridgeAdapters: bridgeAdapters.length > 0 ? bridgeAdapters : undefined,
   });
 
   // Create wired loop (backend + workspace dir).
@@ -404,7 +389,6 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
       tag,
       schedule,
       ephemeral,
-      channels,
     } = body as {
       name: string;
       model: string;
@@ -415,7 +399,6 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
       tag?: string;
       schedule?: { wakeup: string | number; prompt?: string };
       ephemeral?: boolean;
-      channels?: AgentDefinition["channels"];
     };
 
     if (!name || !model || !system) {
@@ -433,7 +416,6 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
       provider,
       prompt: { system },
       schedule,
-      channels,
     };
 
     // Persist to .agents/<name>.yaml by default; ephemeral on request

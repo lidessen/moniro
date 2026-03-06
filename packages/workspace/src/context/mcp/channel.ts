@@ -23,7 +23,8 @@ export function registerChannelTools(
 
   server.tool(
     "channel_send",
-    `Send a message to the shared channel. Use @agent to mention/notify. Use "to" for private DMs. ` +
+    `Send a message to the shared channel. Use @agent to mention/notify. ` +
+      `Use "to" for DMs to agents or to target a specific bridge (e.g., "telegram"). ` +
       `Long messages (> ${CHANNEL_MSG_LIMIT} chars) are automatically converted to resources.`,
     {
       message: z
@@ -34,7 +35,9 @@ export function registerChannelTools(
       to: z
         .string()
         .optional()
-        .describe("Send as DM to a specific agent (private, only you and recipient see it)"),
+        .describe(
+          "Recipient: agent name for DM (private), or bridge platform name (e.g., 'telegram') to send via that channel only",
+        ),
     },
     async ({ message, to }, extra) => {
       const from = getAgentId(extra) || "anonymous";

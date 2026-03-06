@@ -119,7 +119,6 @@ export function createAgent(body: {
   tag?: string;
   schedule?: { wakeup: string | number; prompt?: string };
   ephemeral?: boolean;
-  channels?: { telegram?: { bot_token: string; chat_id: string | number } };
 }): Promise<ApiResponse> {
   return request("POST", "/agents", body);
 }

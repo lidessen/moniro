@@ -28,7 +28,10 @@ import { createFileContextProvider, FileContextProvider } from "./context/file-p
 import { createMemoryContextProvider } from "./context/memory-provider.ts";
 import { createContextMCPServer } from "./context/mcp/server.ts";
 import { runWithHttp, type HttpMCPServer } from "./context/http-transport.ts";
-import type { ContextProvider } from "./context/provider.ts";
+import type { ContextProvider, ContextProviderImpl } from "./context/provider.ts";
+import { ChannelBridge } from "./context/bridge.ts";
+import type { DefaultChannelStore } from "./context/stores/channel.ts";
+import { createBridgeAdapters } from "./context/adapters/index.ts";
 import { checkWorkflowIdle, type AgentLoop } from "./loop/index.ts";
 import { createWiredLoop } from "./factory.ts";
 import type { Backend } from "@moniro/agent-loop";
@@ -289,6 +292,20 @@ export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> 
     ? interpolate(workflow.kickoff, context, (msg) => logger.warn(msg))
     : undefined;
 
+  // Create channel bridge if workflow has bridges configured
+  let bridge: ChannelBridge | undefined;
+  if (workflow.bridges && workflow.bridges.length > 0) {
+    const adapters = createBridgeAdapters(workflow.bridges);
+    if (adapters.length > 0) {
+      const channelStore = (contextProvider as ContextProviderImpl).channel as DefaultChannelStore;
+      bridge = new ChannelBridge(channelStore);
+      for (const adapter of adapters) {
+        await bridge.addAdapter(adapter);
+      }
+      logger.info(`Bridges: ${adapters.map((a) => a.platform).join(", ")}`);
+    }
+  }
+
   // Build runtime
   const runtime: WorkflowRuntime = {
     name: workflow.name,
@@ -316,6 +333,8 @@ export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> 
 
     async shutdown() {
       logger.debug("Shutting down...");
+      // Shut down bridge adapters first
+      if (bridge) await bridge.shutdown();
       if (isPersistent) {
         // Persistent (bind) mode: only release lock, preserve all state for resume
         if (contextProvider instanceof FileContextProvider) {
