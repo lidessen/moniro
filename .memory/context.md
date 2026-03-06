@@ -32,7 +32,7 @@ agent-worker ────────┘  ← System: 持久化 daemon 服务
 | Phase 4 | done | Three-Package Split | `@moniro/agent`, `@moniro/workflow`, `agent-worker` |
 | **Phase 5** | **PR #110** | **Priority Queue + Cooperative Preemption** | `InstructionQueue`, `PreemptionError` |
 | **Phase 6a** | **done** | **Personal Agent Prompt** | soulSection + memorySection + todoSection 注入 prompt |
-| **Phase 6b** | next | **Personal Context Tools + Auto-Memory** | 动态 MCP tools + recall + auto-memory |
+| **Phase 6b** | **done** | **Personal Context Tools** | 动态 MCP tools (memory/notes/todos read+write) |
 | **Phase 6c** | future | **Guard Agent（看守者）** | 智能上下文选择, 隐私控制, 记忆调解 |
 | **Phase 6d** | future | **Channel Bridge（外部集成）** | ChannelBridge + ChannelAdapter + Telegram |
 | Phase 7 | deprioritized | CLI + Project Config | `moniro.yaml`, improved CLI |
