@@ -90,6 +90,8 @@ export interface DaemonState {
   agents: AgentRegistry;
   /** Default workspace — shared by all standalone agents */
   defaultWorkspace: Workspace | null;
+  /** Parsed config from config.yml (workflow format) */
+  config: ParsedWorkflow | null;
   /** Running workflows — keyed by "name:tag" */
   workflows: Map<string, WorkflowHandle>;
   /** State store — conversation persistence (pluggable) */
@@ -192,6 +194,20 @@ function defToResolvedAgent(def: AgentDefinition): ResolvedWorkflowAgent {
   };
 }
 
+/** Convert a ResolvedWorkflowAgent (from workflow parser) to AgentDefinition (for registry) */
+function resolvedToAgentDef(name: string, agent: ResolvedWorkflowAgent): AgentDefinition {
+  return {
+    name,
+    model: agent.model ?? "auto",
+    backend: agent.backend === "default" ? "sdk" : (agent.backend as AgentDefinition["backend"]),
+    provider: agent.provider,
+    prompt: { system: agent.resolvedSystemPrompt ?? "" },
+    schedule: agent.schedule,
+    max_tokens: agent.max_tokens,
+    max_steps: agent.max_steps,
+  };
+}
+
 /**
  * Find an agent's loop.
  * First checks the agent handle (standalone agents own their loop),
@@ -218,10 +234,9 @@ async function ensureDefaultWorkspace(s: DaemonState): Promise<Workspace> {
   if (s.defaultWorkspace) return s.defaultWorkspace;
 
   const agentNames = s.agents.list().map((h) => h.name);
-  const daemonConfig = loadDaemonConfig(CONFIG_DIR);
 
-  // Create bridge adapters from config.yml
-  const bridgeAdapters = daemonConfig.bridges ? createBridgeAdapters(daemonConfig.bridges) : undefined;
+  // Create bridge adapters from pre-loaded config
+  const bridgeAdapters = s.config?.bridges ? createBridgeAdapters(s.config.bridges) : undefined;
 
   const workspace = await createMinimalRuntime({
     workflowName: "global",
@@ -922,11 +937,24 @@ export async function startDaemon(
   });
 
   const agents = new AgentRegistry(CONFIG_DIR, log);
-  agents.loadFromDisk();
+
+  // Load config.yml (workflow format — agents + bridges)
+  const bootConfig = await loadDaemonConfig(CONFIG_DIR);
+  if (bootConfig) {
+    const agentNames = Object.keys(bootConfig.agents);
+    for (const name of agentNames) {
+      const def = resolvedToAgentDef(name, bootConfig.agents[name]!);
+      agents.registerDefinition(def);
+    }
+    if (agentNames.length > 0) {
+      log.info(`Loaded ${agentNames.length} agent(s) from config.yml: ${agentNames.join(", ")}`);
+    }
+  }
 
   state = {
     agents,
     defaultWorkspace: null,
+    config: bootConfig,
     workflows: new Map(),
     store,
     server,
@@ -941,16 +969,15 @@ export async function startDaemon(
 
   // Eagerly create default workspace if bridges are configured
   // (so external platforms like Telegram start polling immediately)
-  const daemonConfig = loadDaemonConfig(CONFIG_DIR);
-  if (daemonConfig.bridges && daemonConfig.bridges.length > 0) {
+  if (bootConfig?.bridges && bootConfig.bridges.length > 0) {
     await ensureDefaultWorkspace(state);
   }
 
-  // Auto-start persisted agents (create loops and start serving)
-  const persistedAgents = agents.list().filter((h) => !h.ephemeral);
-  if (persistedAgents.length > 0) {
-    log.info(`Auto-starting ${persistedAgents.length} persisted agent(s)...`);
-    for (const handle of persistedAgents) {
+  // Auto-start agents from config (create loops and start serving)
+  const configAgents = agents.list().filter((h) => !h.ephemeral);
+  if (configAgents.length > 0) {
+    log.info(`Auto-starting ${configAgents.length} agent(s)...`);
+    for (const handle of configAgents) {
       try {
         const loop = await ensureAgentLoop(state, handle.name);
         await loop.start();

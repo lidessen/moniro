@@ -25,6 +25,7 @@ function createTestState(overrides?: Partial<DaemonState>): DaemonState {
   return {
     agents: new AgentRegistry(process.cwd()),
     defaultWorkspace: null,
+    config: null,
     workflows: new Map(),
     store: new MemoryStateStore(),
     port: 5099,

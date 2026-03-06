@@ -209,6 +209,9 @@ export interface ParsedWorkflow {
   /** Setup tasks */
   setup: SetupTask[];
 
+  /** Channel bridge configuration */
+  bridges?: BridgeConfig[];
+
   /** Kickoff message (with variables interpolated) */
   kickoff?: string;
 }
