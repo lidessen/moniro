@@ -16,7 +16,7 @@ export {
   ThinThread,
   DEFAULT_THIN_THREAD_SIZE,
   formatConversationMessages,
-} from "@moniro/agent";
+} from "@moniro/agent-loop";
 export type {
   SendOptions,
   StepInfo,
@@ -37,7 +37,7 @@ export type {
   AgentPromptConfig,
   AgentContextConfig,
   ConversationMessage,
-} from "@moniro/agent";
+} from "@moniro/agent-loop";
 
 // System-layer files that remain in agent-worker
 export { AgentHandle } from "./agent-handle.ts";

@@ -3,8 +3,8 @@
  * Maps workflow config to Backend instances from backends/
  */
 
-import type { Backend, StreamParserCallbacks, ProviderConfig } from "@moniro/agent";
-import { parseModel, createBackend, createMockBackend } from "@moniro/agent";
+import type { Backend, StreamParserCallbacks, ProviderConfig } from "@moniro/agent-loop";
+import { parseModel, createBackend, createMockBackend } from "@moniro/agent-loop";
 
 /** Options for creating a workflow backend */
 export interface WorkflowBackendOptions {

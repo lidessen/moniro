@@ -10,7 +10,7 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { SkillsProvider } from "@moniro/agent";
+import type { SkillsProvider } from "@moniro/agent-loop";
 
 export function registerSkillsTools(server: McpServer, provider: SkillsProvider): void {
   server.tool(

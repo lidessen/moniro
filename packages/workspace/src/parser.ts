@@ -17,7 +17,7 @@ import type {
   ParamDefinition,
 } from "./types.ts";
 import { isRefAgentEntry } from "./types.ts";
-import type { ScheduleConfig } from "@moniro/agent";
+import type { ScheduleConfig } from "@moniro/agent-loop";
 import type { AgentHandleRef } from "./types.ts";
 
 /**

@@ -2,7 +2,7 @@ import { Command, Option } from "commander";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawn } from "node:child_process";
-import { getDefaultModel, normalizeBackendType } from "@moniro/agent";
+import { getDefaultModel, normalizeBackendType } from "@moniro/agent-loop";
 import {
   createAgent,
   listAgents,
@@ -15,7 +15,7 @@ import {
 } from "../client.ts";
 import { isDaemonRunning, DEFAULT_PORT } from "@/daemon/index.ts";
 import { outputJson } from "../output.ts";
-import type { AgentDefinition } from "@moniro/agent";
+import type { AgentDefinition } from "@moniro/agent-loop";
 import { AgentRegistry } from "@/agent/agent-registry.ts";
 
 // ── Helpers ────────────────────────────────────────────────────────

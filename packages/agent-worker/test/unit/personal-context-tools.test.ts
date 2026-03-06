@@ -10,10 +10,10 @@
  */
 
 import { describe, test, expect, beforeEach } from "bun:test";
-import { createContextMCPServer, type ContextMCPServer } from "@moniro/workflow";
-import { MemoryContextProvider } from "@moniro/workflow";
-import type { AgentHandleRef } from "@moniro/workflow";
-import type { AgentDefinition } from "@moniro/agent";
+import { createContextMCPServer, type ContextMCPServer } from "@moniro/workspace";
+import { MemoryContextProvider } from "@moniro/workspace";
+import type { AgentHandleRef } from "@moniro/workspace";
+import type { AgentDefinition } from "@moniro/agent-loop";
 
 // ── Mock AgentHandleRef ──────────────────────────────────────────
 
@@ -293,7 +293,7 @@ describe("Personal Context MCP Tools", () => {
 
   describe("prompt instructions", () => {
     test("includes personal context tools in prompt when context available", async () => {
-      const { buildAgentPrompt } = await import("@moniro/workflow");
+      const { buildAgentPrompt } = await import("@moniro/workspace");
       const ctx = {
         name: "alice",
         agent: { model: "test" },
@@ -314,7 +314,7 @@ describe("Personal Context MCP Tools", () => {
     });
 
     test("excludes personal context tools in prompt when no context", async () => {
-      const { buildAgentPrompt } = await import("@moniro/workflow");
+      const { buildAgentPrompt } = await import("@moniro/workspace");
       const ctx = {
         name: "alice",
         agent: { model: "test" },

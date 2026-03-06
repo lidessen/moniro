@@ -38,7 +38,7 @@ export interface PersonalContextProvider {
  */
 export interface PersonalContext {
   /** Agent soul — persistent identity traits */
-  soul?: import("@moniro/agent").AgentSoul;
+  soul?: import("@moniro/agent-loop").AgentSoul;
   /** Memory entries (key-value from memory/*.yaml) */
   memory?: Record<string, unknown>;
   /** Active todo items (from todo/index.md) */

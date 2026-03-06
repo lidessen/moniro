@@ -38,9 +38,9 @@
     "prepublishOnly": "bun run build"
   },
   "dependencies": {
-    "@moniro/agent": "workspace:*",
+    "@moniro/agent-loop": "workspace:*",
     "@moniro/agent-worker": "workspace:*",
-    "@moniro/workflow": "workspace:*",
+    "@moniro/workspace": "workspace:*",
     "@hono/node-server": "^1.19.9",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "commander": "^14.0.3",

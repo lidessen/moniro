@@ -4,10 +4,10 @@
  * Persistent daemon service. Long-running agents with identity, conversation
  * history, scheduled wakeups, priority queues.
  *
- * Depends on @moniro/agent (Worker) and @moniro/workflow (Orchestration).
+ * Depends on @moniro/agent-loop (Worker) and @moniro/workspace (Orchestration).
  *
- * For agent execution, import from @moniro/agent.
- * For workflow orchestration, import from @moniro/workflow.
+ * For agent execution, import from @moniro/agent-loop.
+ * For workspace orchestration, import from @moniro/workspace.
  */
 
 // ── Daemon ──────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ export {
   parseImportSpec,
   buildGitUrl,
   getSpecDisplayName,
-} from "@moniro/agent";
+} from "@moniro/agent-loop";
 export type {
   AgentWorkerConfig,
   SendOptions,
@@ -109,7 +109,7 @@ export type {
   ToolInfo,
   TokenUsage,
   Transcript,
-} from "@moniro/agent";
+} from "@moniro/agent-loop";
 
 // ── Re-exports from @moniro/agent-worker (personal agent layer) ──
 export {
@@ -138,9 +138,9 @@ export type {
 export {
   createFeedbackTool,
   FEEDBACK_PROMPT,
-} from "@moniro/workflow";
+} from "@moniro/workspace";
 export type {
   FeedbackEntry,
   FeedbackToolOptions,
   FeedbackToolResult,
-} from "@moniro/workflow";
+} from "@moniro/workspace";

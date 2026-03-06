@@ -13,7 +13,7 @@ import { EventLog } from "../event-log.ts";
 import type { Message } from "../types.ts";
 import type { ProposalManager } from "../proposals.ts";
 import type { FeedbackEntry } from "../../tools/feedback.ts";
-import type { SkillsProvider } from "@moniro/agent";
+import type { SkillsProvider } from "@moniro/agent-loop";
 import type { MCPToolContext } from "./types.ts";
 import { getAgentId, createLogTool } from "./helpers.ts";
 import { registerChannelTools } from "./channel.ts";

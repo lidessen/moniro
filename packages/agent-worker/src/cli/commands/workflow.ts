@@ -34,7 +34,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename.
     )
     .action(async (file, options) => {
       const { parseWorkflowFile, parseWorkflowParams, formatParamHelp, runWorkflowWithLoops } =
-        await import("@moniro/workflow");
+        await import("@moniro/workspace");
 
       const tag = options.tag || DEFAULT_TAG;
 
@@ -70,8 +70,8 @@ Note: Workflow name is inferred from YAML 'name' field or filename.
 
         // Stop all loops (which will abort backends)
         if (loops) {
-          const { shutdownLoops } = await import("@moniro/workflow");
-          const { createSilentLogger } = await import("@moniro/workflow");
+          const { shutdownLoops } = await import("@moniro/workspace");
+          const { createSilentLogger } = await import("@moniro/workspace");
           await shutdownLoops(loops, createSilentLogger());
         }
 
@@ -128,7 +128,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename.
             );
           } else if (!options.debug) {
             // Pretty display mode - show summary
-            const { showWorkflowSummary } = await import("@moniro/workflow");
+            const { showWorkflowSummary } = await import("@moniro/workspace");
             showWorkflowSummary({
               duration: result.duration,
               document: finalDoc,
@@ -182,7 +182,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename.
     )
     .action(async (file, options) => {
       const { parseWorkflowFile, parseWorkflowParams, formatParamHelp } =
-        await import("@moniro/workflow");
+        await import("@moniro/workspace");
       const { ensureDaemon } = await import("./agent.ts");
 
       const tag = options.tag || DEFAULT_TAG;

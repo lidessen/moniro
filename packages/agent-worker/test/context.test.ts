@@ -10,8 +10,8 @@ import {
   FileContextProvider,
   createFileContextProvider,
   createContextMCPServer,
-} from "@moniro/workflow";
-import type { Message } from "@moniro/workflow";
+} from "@moniro/workspace";
+import type { Message } from "@moniro/workspace";
 
 // ==================== extractMentions Tests ====================
 

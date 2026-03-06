@@ -18,7 +18,7 @@ import {
   codexAdapter,
   extractClaudeResult,
   extractCodexResult,
-} from "@moniro/agent";
+} from "@moniro/agent-loop";
 
 const MOCK_CLI_PATH = join(import.meta.dir, "mock-cli.ts");
 

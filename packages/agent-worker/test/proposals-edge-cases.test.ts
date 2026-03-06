@@ -18,8 +18,8 @@ import {
   FileStorage,
   createProposalManager,
   PROPOSAL_DEFAULTS,
-} from "@moniro/workflow";
-import type { ProposalManager } from "@moniro/workflow";
+} from "@moniro/workspace";
+import type { ProposalManager } from "@moniro/workspace";
 
 describe("ProposalManager edge cases", () => {
   let manager: ProposalManager;

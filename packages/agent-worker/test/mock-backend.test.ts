@@ -14,8 +14,8 @@ import {
   createContextMCPServer,
   runWithHttp,
   runMockAgent,
-} from "@moniro/workflow";
-import type { AgentRunContext } from "@moniro/workflow";
+} from "@moniro/workspace";
+import type { AgentRunContext } from "@moniro/workspace";
 
 // ==================== Parser Validation ====================
 

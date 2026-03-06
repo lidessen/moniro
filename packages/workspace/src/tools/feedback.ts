@@ -20,7 +20,7 @@
  * ```
  */
 
-import { createTool } from "@moniro/agent";
+import { createTool } from "@moniro/agent-loop";
 
 // ── Types ──────────────────────────────────────────────────────────
 

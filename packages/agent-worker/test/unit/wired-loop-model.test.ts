@@ -12,8 +12,8 @@ import {
   type RuntimeContext,
   createMemoryContextProvider,
   EventLog,
-} from "@moniro/workflow";
-import type { ResolvedWorkflowAgent } from "@moniro/workflow";
+} from "@moniro/workspace";
+import type { ResolvedWorkflowAgent } from "@moniro/workspace";
 
 /** Minimal runtime context for testing (no HTTP server needed) */
 function createTestRuntime(): RuntimeContext {

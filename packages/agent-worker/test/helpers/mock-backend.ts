@@ -5,8 +5,8 @@
  * Consolidates patterns from workflow-mock-backend.test.ts and workflow-simulation.test.ts.
  */
 
-import type { Backend, BackendResponse } from "@moniro/agent";
-import type { ContextProvider } from "@moniro/workflow";
+import type { Backend, BackendResponse } from "@moniro/agent-loop";
+import type { ContextProvider } from "@moniro/workspace";
 
 type BehaviorFn = (
   prompt: string,

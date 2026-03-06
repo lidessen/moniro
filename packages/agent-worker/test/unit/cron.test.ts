@@ -6,7 +6,7 @@
  */
 
 import { describe, test, expect } from "bun:test";
-import { parseCron, nextCronTime, msUntilNextCron, parseDuration, resolveSchedule } from "@moniro/agent";
+import { parseCron, nextCronTime, msUntilNextCron, parseDuration, resolveSchedule } from "@moniro/agent-loop";
 
 describe("parseCron", () => {
   test("parses wildcard fields", () => {

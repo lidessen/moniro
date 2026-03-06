@@ -27,7 +27,7 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
-import type { AgentDefinition, BackendType } from "@moniro/agent";
+import type { AgentDefinition, BackendType } from "@moniro/agent-loop";
 import { AgentRegistry } from "../agent/agent-registry.ts";
 import type { StateStore } from "../agent/store.ts";
 import { MemoryStateStore } from "../agent/store.ts";
@@ -48,7 +48,7 @@ import {
   createWiredLoop,
   createEventLogger,
   createSilentLogger,
-} from "@moniro/workflow";
+} from "@moniro/workspace";
 import type {
   AgentLoop,
   ContextProvider,
@@ -56,7 +56,7 @@ import type {
   ResolvedWorkflowAgent,
   Workspace,
   Logger,
-} from "@moniro/workflow";
+} from "@moniro/workspace";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import type { Context } from "hono";
 import { DaemonEventLog } from "./event-log.ts";
@@ -714,7 +714,7 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
     }
 
     try {
-      const { runWorkflowWithLoops } = await import("@moniro/workflow");
+      const { runWorkflowWithLoops } = await import("@moniro/workspace");
 
       const result = await runWorkflowWithLoops({
         workflow,

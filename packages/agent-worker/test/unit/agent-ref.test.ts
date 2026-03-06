@@ -15,10 +15,10 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 
-import { isRefAgentEntry, validateWorkflow, parseWorkflowFile } from "@moniro/workflow";
-import type { AgentEntry } from "@moniro/workflow";
+import { isRefAgentEntry, validateWorkflow, parseWorkflowFile } from "@moniro/workspace";
+import type { AgentEntry } from "@moniro/workspace";
 import { AgentRegistry } from "@/agent/agent-registry.ts";
-import type { AgentDefinition } from "@moniro/agent";
+import type { AgentDefinition } from "@moniro/agent-loop";
 
 function tmpDir(): string {
   const dir = join(tmpdir(), `agent-ref-test-${randomUUID().slice(0, 8)}`);

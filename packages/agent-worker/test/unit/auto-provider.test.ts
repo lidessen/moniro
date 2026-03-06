@@ -5,7 +5,7 @@ mock.restore();
 
 // Dynamic import after mock.restore() to get unmocked module
 const { discoverProvider, resolveAutoModel, resolveModelFallback, isAutoProvider } =
-  await import("@moniro/agent");
+  await import("@moniro/agent-loop");
 
 /** Create a clean env with only the specified keys set */
 function env(keys: Record<string, string>): Record<string, string | undefined> {

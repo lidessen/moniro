@@ -17,7 +17,7 @@ Examples:
     )
     .action(async (targetInput: string) => {
       const dir = await resolveDir(targetInput);
-      const { createFileContextProvider } = await import("@moniro/workflow");
+      const { createFileContextProvider } = await import("@moniro/workspace");
       const provider = createFileContextProvider(dir, []);
       const content = await provider.readDocument();
       console.log(content || "(empty document)");
@@ -49,7 +49,7 @@ Examples:
       }
 
       const dir = await resolveDir(targetInput);
-      const { createFileContextProvider } = await import("@moniro/workflow");
+      const { createFileContextProvider } = await import("@moniro/workspace");
       const provider = createFileContextProvider(dir, []);
       await provider.writeDocument(content);
       console.log("Document written");
@@ -81,7 +81,7 @@ Examples:
       }
 
       const dir = await resolveDir(targetInput);
-      const { createFileContextProvider } = await import("@moniro/workflow");
+      const { createFileContextProvider } = await import("@moniro/workspace");
       const provider = createFileContextProvider(dir, []);
       await provider.appendDocument(content);
       console.log("Content appended");
@@ -89,7 +89,7 @@ Examples:
 }
 
 async function resolveDir(targetInput: string): Promise<string> {
-  const { getDefaultContextDir } = await import("@moniro/workflow");
+  const { getDefaultContextDir } = await import("@moniro/workspace");
   const { parseTarget } = await import("../target.ts");
 
   // Parse target identifier (should be @workflow:tag format)

@@ -12,11 +12,11 @@ import {
   type AgentInstruction,
   type InstructionProgress,
   type AgentRunResult,
-} from "@moniro/workflow";
+} from "@moniro/workspace";
 
 // Import PreemptionError directly from sdk-runner
 // (it's not re-exported from index since it's an internal throw-to-exit mechanism)
-import { PreemptionError } from "../../node_modules/@moniro/workflow/src/loop/sdk-runner.ts";
+import { PreemptionError } from "../../node_modules/@moniro/workspace/src/loop/sdk-runner.ts";
 
 // ==================== PreemptionError ====================
 

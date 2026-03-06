@@ -5,7 +5,7 @@
  * Separates identity/configuration from execution and conversation state.
  */
 
-import type { BackendType, ProviderConfig, ScheduleConfig } from "@moniro/agent";
+import type { BackendType, ProviderConfig, ScheduleConfig } from "@moniro/agent-loop";
 
 export interface AgentConfig {
   /** Agent name (unique within daemon) */

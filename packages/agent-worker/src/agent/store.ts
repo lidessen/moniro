@@ -11,7 +11,7 @@
  *   RedisStateStore   — future: distributed state
  */
 
-import type { SessionState } from "@moniro/agent";
+import type { SessionState } from "@moniro/agent-loop";
 
 // ── Interface ──────────────────────────────────────────────────────
 

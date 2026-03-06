@@ -15,8 +15,8 @@ import {
   memorySection,
   todoSection,
   buildAgentPrompt,
-} from "@moniro/workflow";
-import type { AgentRunContext, PersonalContext } from "@moniro/workflow";
+} from "@moniro/workspace";
+import type { AgentRunContext, PersonalContext } from "@moniro/workspace";
 
 // ── Test Helpers ──────────────────────────────────────────────────
 

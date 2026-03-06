@@ -15,7 +15,7 @@ import {
   padToWidth,
   getWidth,
   LAYOUT_PRESETS,
-} from "@moniro/workflow";
+} from "@moniro/workspace";
 
 describe("Layout System", () => {
   describe("calculateLayout", () => {

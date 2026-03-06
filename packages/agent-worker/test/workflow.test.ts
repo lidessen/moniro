@@ -12,7 +12,7 @@ import {
   evaluateCondition,
   createContext,
   type VariableContext,
-} from "@moniro/workflow";
+} from "@moniro/workspace";
 
 describe("interpolate", () => {
   test("interpolates simple variable", () => {
@@ -288,7 +288,7 @@ import {
   parseWorkflowFile,
   parseWorkflowParams,
   formatParamHelp,
-} from "@moniro/workflow";
+} from "@moniro/workspace";
 
 describe("validateWorkflow", () => {
   test("validates minimal valid workflow", () => {
@@ -890,8 +890,8 @@ context:
 
 // ==================== Runner Tests ====================
 
-import { runWorkflow } from "@moniro/workflow";
-import type { ParsedWorkflow } from "@moniro/workflow";
+import { runWorkflow } from "@moniro/workspace";
+import type { ParsedWorkflow } from "@moniro/workspace";
 
 describe("runWorkflow", () => {
   let testDir: string;
