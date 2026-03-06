@@ -231,6 +231,81 @@ describe("ChannelBridge", () => {
   });
 });
 
+// ==================== Targeted Delivery ====================
+
+describe("Targeted delivery via to field", () => {
+  let store: DefaultChannelStore;
+  let bridge: ChannelBridge;
+
+  beforeEach(() => {
+    store = createTestStore();
+    bridge = new ChannelBridge(store);
+  });
+
+  test("broadcast: subscriber without to filter receives all messages", async () => {
+    const received: Message[] = [];
+    bridge.subscribe({ kinds: ["message"] }, (msg) => received.push(msg));
+
+    await store.append("alice", "broadcast");
+    await store.append("alice", "to bob", { to: "bob" });
+    await store.append("alice", "to telegram", { to: "telegram" });
+
+    expect(received).toHaveLength(3);
+  });
+
+  test("adapter-style subscriber can filter by to matching platform", async () => {
+    const telegramReceived: Message[] = [];
+    const platform = "telegram";
+
+    // Simulate adapter subscription: only receive broadcasts or targeted messages
+    bridge.subscribe(
+      { kinds: ["message"], excludeFrom: ["telegram:*"] },
+      (msg) => {
+        if (!msg.to || msg.to === platform) {
+          telegramReceived.push(msg);
+        }
+      },
+    );
+
+    await store.append("alice", "broadcast"); // received (no to)
+    await store.append("alice", "DM to bob", { to: "bob" }); // skipped (to=bob)
+    await store.append("alice", "to telegram", { to: "telegram" }); // received (to=telegram)
+
+    expect(telegramReceived).toHaveLength(2);
+    expect(telegramReceived[0].content).toBe("broadcast");
+    expect(telegramReceived[1].content).toBe("to telegram");
+  });
+});
+
+// ==================== createBridgeAdapters ====================
+
+describe("createBridgeAdapters", () => {
+  test("creates telegram adapter from config", () => {
+    const { createBridgeAdapters } = require("../src/context/adapters/index.ts");
+    const adapters = createBridgeAdapters([
+      { adapter: "telegram", bot_token: "test-token", chat_id: "123" },
+    ]);
+    expect(adapters).toHaveLength(1);
+    expect(adapters[0].platform).toBe("telegram");
+  });
+
+  test("skips unknown adapter types", () => {
+    const { createBridgeAdapters } = require("../src/context/adapters/index.ts");
+    const adapters = createBridgeAdapters([
+      { adapter: "unknown_platform" },
+    ]);
+    expect(adapters).toHaveLength(0);
+  });
+
+  test("skips telegram adapter with missing token", () => {
+    const { createBridgeAdapters } = require("../src/context/adapters/index.ts");
+    const adapters = createBridgeAdapters([
+      { adapter: "telegram", chat_id: "123" },
+    ]);
+    expect(adapters).toHaveLength(0);
+  });
+});
+
 // ==================== Extended Mention Pattern ====================
 
 describe("extractMentions (extended)", () => {

@@ -156,7 +156,6 @@ export function serializeAgent(def: AgentDefinition): string {
   if (def.max_tokens) obj.max_tokens = def.max_tokens;
   if (def.max_steps) obj.max_steps = def.max_steps;
   if (def.schedule) obj.schedule = def.schedule;
-  if (def.channels) obj.channels = def.channels;
 
   return stringifyYaml(obj, { lineWidth: 120 });
 }

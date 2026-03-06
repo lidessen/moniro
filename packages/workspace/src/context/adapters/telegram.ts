@@ -41,9 +41,14 @@ export class TelegramAdapter implements ChannelAdapter {
 
     // Outbound: channel → Telegram
     // Exclude messages from Telegram itself (anti-loop via excludeFrom wildcard)
+    // Only send if: broadcast (no `to`) or targeted to this platform (`to: "telegram"`)
     this.unsubscribe = bridge.subscribe(
       { kinds: ["message"], excludeFrom: ["telegram:*"] },
-      (msg) => this.sendToTelegram(msg),
+      (msg) => {
+        if (!msg.to || msg.to === this.platform) {
+          this.sendToTelegram(msg);
+        }
+      },
     );
 
     // Inbound: Telegram → channel

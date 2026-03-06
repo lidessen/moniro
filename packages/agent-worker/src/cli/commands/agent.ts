@@ -87,8 +87,6 @@ export function registerAgentCommands(program: Command) {
     .option("--tag <tag>", "Workflow instance tag (default: main)")
     .option("--wakeup <interval|cron>", "Periodic wakeup schedule (e.g., 30s, 5m, 0 9 * * 1-5)")
     .option("--wakeup-prompt <text>", "Custom prompt for wakeup events")
-    .option("--telegram-token <token>", "Telegram bot token (or $ENV_VAR)")
-    .option("--telegram-chat <id>", "Telegram chat ID to bridge")
     .option("--ephemeral", "Don't persist to .agents/ (lost on daemon restart)")
     .option("--port <port>", `Daemon port if starting new daemon (default: ${DEFAULT_PORT})`)
     .option("--host <host>", "Daemon host (default: 127.0.0.1)")
@@ -140,20 +138,6 @@ Examples:
         }
       }
 
-      // Build channels config from CLI options
-      let channels: { telegram?: { bot_token: string; chat_id: string | number } } | undefined;
-      if (options.telegramToken && options.telegramChat) {
-        channels = {
-          telegram: {
-            bot_token: options.telegramToken,
-            chat_id: options.telegramChat,
-          },
-        };
-      } else if (options.telegramToken || options.telegramChat) {
-        console.error("Error: --telegram-token and --telegram-chat must be used together.");
-        process.exit(1);
-      }
-
       // Ensure daemon is running
       await ensureDaemon(options.port ? parseInt(options.port, 10) : undefined, options.host);
 
@@ -168,7 +152,6 @@ Examples:
         tag: options.tag,
         schedule,
         ephemeral: options.ephemeral || undefined,
-        channels,
       });
 
       if (res.error) {

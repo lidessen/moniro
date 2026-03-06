@@ -60,22 +60,6 @@ export interface AgentContextConfig {
   thin_thread?: number;
 }
 
-// ── Channel Config ─────────────────────────────────────────────────
-
-/** Telegram channel bridge configuration */
-export interface TelegramChannelConfig {
-  /** Telegram Bot API token (or env var reference like $BOT_TOKEN) */
-  bot_token: string;
-  /** Telegram chat ID to bridge */
-  chat_id: string | number;
-}
-
-/** Channel bridge configuration — connects external platforms to agent workspace */
-export interface AgentChannelsConfig {
-  /** Telegram bridge */
-  telegram?: TelegramChannelConfig;
-}
-
 // ── Agent Definition ──────────────────────────────────────────────
 
 /**
@@ -83,6 +67,9 @@ export interface AgentChannelsConfig {
  *
  * This is the single source of truth for "who this agent is".
  * Workflows reference agents by name; the definition travels with the agent.
+ *
+ * Note: Channel/bridge configuration belongs to the workspace layer,
+ * not the agent identity. See WorkflowFile.bridges or daemon workspace config.
  */
 export interface AgentDefinition {
   /** Agent name (unique within project, matches filename) */
@@ -105,8 +92,6 @@ export interface AgentDefinition {
   max_steps?: number;
   /** Periodic wakeup schedule */
   schedule?: ScheduleConfig;
-  /** Channel bridge configuration (Telegram, etc.) */
-  channels?: AgentChannelsConfig;
 }
 
 // ── Context Subdirectories ────────────────────────────────────────
@@ -151,15 +136,6 @@ const ScheduleConfigSchema = z.object({
   prompt: z.string().optional(),
 });
 
-const TelegramChannelConfigSchema = z.object({
-  bot_token: z.string().min(1),
-  chat_id: z.union([z.string(), z.number()]),
-});
-
-const AgentChannelsConfigSchema = z.object({
-  telegram: TelegramChannelConfigSchema.optional(),
-});
-
 export const AgentDefinitionSchema = z.object({
   name: z.string().min(1),
   model: z.string().min(1),
@@ -171,5 +147,4 @@ export const AgentDefinitionSchema = z.object({
   max_tokens: z.number().int().positive().optional(),
   max_steps: z.number().int().positive().optional(),
   schedule: ScheduleConfigSchema.optional(),
-  channels: AgentChannelsConfigSchema.optional(),
 });
