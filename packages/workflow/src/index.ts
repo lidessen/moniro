@@ -209,6 +209,17 @@ export {
 } from "./layout.ts";
 export type { LayoutConfig, LayoutOptions, TimeFormat, GroupingState } from "./layout.ts";
 
+// ── Personal Context (re-exported from @moniro/agent-worker) ────
+export type { PersonalContextProvider, PersonalContext } from "@moniro/agent-worker";
+export {
+  createPersonalContextTools,
+  soulSection as personalSoulSection,
+  memorySection as personalMemorySection,
+  todoSection as personalTodoSection,
+  DEFAULT_PERSONAL_SECTIONS,
+  assemblePersonalPrompt,
+} from "@moniro/agent-worker";
+
 // ── Tools ───────────────────────────────────────────────────────
 export {
   createBashTool,

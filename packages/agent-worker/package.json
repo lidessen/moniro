@@ -39,6 +39,7 @@
   },
   "dependencies": {
     "@moniro/agent": "workspace:*",
+    "@moniro/agent-worker": "workspace:*",
     "@moniro/workflow": "workspace:*",
     "@hono/node-server": "^1.19.9",
     "@modelcontextprotocol/sdk": "^1.26.0",

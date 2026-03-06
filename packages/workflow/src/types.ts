@@ -4,26 +4,17 @@
 
 import type { ContextConfig } from "./context/types.ts";
 import type { ProviderConfig, ScheduleConfig, AgentDefinition } from "@moniro/agent";
+import type { PersonalContextProvider } from "@moniro/agent-worker";
 
 /**
  * Minimal handle interface — the workflow layer only needs the definition
  * plus optional personal context operations for prompt injection and MCP tools.
- * The System layer (agent-worker) provides concrete AgentHandle instances.
+ *
+ * Personal context methods come from PersonalContextProvider (@moniro/agent-worker).
+ * This interface adds the definition field needed by the workflow layer.
  */
-export interface AgentHandleRef {
+export interface AgentHandleRef extends PersonalContextProvider {
   readonly definition: AgentDefinition;
-  /** Read all memory entries (key-value from memory/*.yaml). Absent for inline agents. */
-  readMemory?(): Promise<Record<string, unknown>>;
-  /** Write a memory entry (creates/overwrites memory/<key>.yaml). */
-  writeMemory?(key: string, value: unknown): Promise<void>;
-  /** Read agent's notes, most recent first. */
-  readNotes?(limit?: number): Promise<string[]>;
-  /** Append a note (creates notes/<date>-<slug>.md). Returns filename. */
-  appendNote?(content: string, slug?: string): Promise<string>;
-  /** Read active todo items (from todo/index.md). Absent for inline agents. */
-  readTodos?(): Promise<string[]>;
-  /** Write the full todo list (replaces todo/index.md). */
-  writeTodos?(todos: string[]): Promise<void>;
 }
 
 // Re-export context types for convenience

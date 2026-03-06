@@ -1,0 +1,31 @@
+/**
+ * @moniro/agent-worker — Personal agent layer.
+ *
+ * Makes an execution loop into a "person" with identity, memory, and tools.
+ * Does not depend on workspace/collaboration — personal agents run independently.
+ *
+ * Depends on @moniro/agent (Agent Loop) for execution primitives.
+ */
+
+// ── Personal Context ────────────────────────────────────────────
+export type { PersonalContextProvider, PersonalContext } from "./context/types.ts";
+export { createPersonalContextTools } from "./context/tools.ts";
+
+// ── Prompt Assembly ─────────────────────────────────────────────
+export type { PersonalPromptContext, PersonalPromptSection } from "./prompt/types.ts";
+export {
+  soulSection,
+  memorySection,
+  todoSection,
+  DEFAULT_PERSONAL_SECTIONS,
+  assemblePersonalPrompt,
+} from "./prompt/sections.ts";
+
+// ── Bash Tools ──────────────────────────────────────────────────
+export {
+  createBashTool,
+  createBashTools,
+  createBashToolsFromDirectory,
+  createBashToolsFromFiles,
+} from "./tools/bash.ts";
+export type { BashToolsOptions, BashToolkit, CreateBashToolOptions } from "./tools/bash.ts";
