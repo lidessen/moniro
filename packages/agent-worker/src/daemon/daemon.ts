@@ -8,12 +8,13 @@
  *
  * Data ownership:
  *   AgentRegistry (agents) — what agents exist + their handles (loop, state)
- *   WorkspaceRegistry      — active workspaces (shared infrastructure)
- *   Workflows (workflows)  — running workflow instances
+ *   defaultWorkspace       — shared workspace for all standalone agents
+ *   Workflows (workflows)  — running workflow instances (each with own workspace)
  *
- * Key principle: agents own their loops (stored on AgentHandle). Workspaces
- * provide shared infrastructure (context, MCP, event log). Standalone agents
- * get a workspace created lazily on first /run or /serve.
+ * Key principle: agents own their loops (stored on AgentHandle). One shared
+ * default workspace provides infrastructure (context, MCP, bridges) for all
+ * standalone agents. Workflows get their own isolated workspaces.
+ * Bridge config comes from ~/.agent-worker/config.yml.
  *
  * HTTP endpoints:
  *   GET  /health, POST /shutdown
@@ -26,7 +27,6 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { randomUUID } from "node:crypto";
-import { mkdirSync } from "node:fs";
 import type { AgentDefinition, BackendType } from "@moniro/agent-loop";
 import { AgentRegistry } from "@/agent/agent-registry.ts";
 import type { StateStore } from "@/agent/store.ts";
@@ -38,14 +38,13 @@ import {
   removeDaemonInfo,
   isDaemonRunning,
 } from "./registry.ts";
-import { WorkspaceRegistry } from "./workspace-registry.ts";
+import { loadDaemonConfig } from "./config.ts";
 import { startHttpServer, type ServerHandle } from "./serve.ts";
 import {
   createContextMCPServer,
-  createFileContextProvider,
-  getDefaultContextDir,
   createMinimalRuntime,
   createWiredLoop,
+  createBridgeAdapters,
   createEventLogger,
   createSilentLogger,
 } from "@moniro/workspace";
@@ -88,8 +87,8 @@ export interface WorkflowHandle {
 export interface DaemonState {
   /** Agent registry — manages agent handles (definition + loop + state) */
   agents: AgentRegistry;
-  /** Workspace registry — active workspaces (shared infrastructure) */
-  workspaces: WorkspaceRegistry;
+  /** Default workspace — shared by all standalone agents */
+  defaultWorkspace: Workspace | null;
   /** Running workflows — keyed by "name:tag" */
   workflows: Map<string, WorkflowHandle>;
   /** State store — conversation persistence (pluggable) */
@@ -141,8 +140,14 @@ async function gracefulShutdown(): Promise<void> {
     }
     state.workflows.clear();
 
-    // Shutdown all workspaces (MCP servers, context providers)
-    await state.workspaces.shutdownAll();
+    // Shutdown default workspace (MCP server, context provider, bridges)
+    if (state.defaultWorkspace) {
+      try {
+        await state.defaultWorkspace.shutdown();
+      } catch {
+        /* best-effort */
+      }
+    }
 
     if (state.server) {
       await state.server.close();
@@ -204,17 +209,39 @@ function findLoop(s: DaemonState, agentName: string): AgentLoop | null {
   return null;
 }
 
-/** Build a workspace key for standalone agents */
-function agentWorkspaceKey(agentName: string): string {
-  return `agent:${agentName}`;
+/**
+ * Ensure the default workspace exists.
+ * Creates it lazily on first call (starts MCP server, bridges, etc.).
+ */
+async function ensureDefaultWorkspace(s: DaemonState): Promise<Workspace> {
+  if (s.defaultWorkspace) return s.defaultWorkspace;
+
+  const agentNames = s.agents.list().map((h) => h.name);
+  const daemonConfig = loadDaemonConfig(CONFIG_DIR);
+
+  // Create bridge adapters from config.yml
+  const bridgeAdapters = daemonConfig.bridges ? createBridgeAdapters(daemonConfig.bridges) : undefined;
+
+  const workspace = await createMinimalRuntime({
+    workflowName: "global",
+    tag: "main",
+    agentNames: agentNames.length > 0 ? agentNames : ["user"],
+    resolveHandle: (name) => s.agents.get(name) ?? undefined,
+    bridgeAdapters: bridgeAdapters && bridgeAdapters.length > 0 ? bridgeAdapters : undefined,
+  });
+
+  s.defaultWorkspace = workspace;
+
+  if (bridgeAdapters && bridgeAdapters.length > 0) {
+    log.info(`Bridges: ${bridgeAdapters.map((a) => a.platform).join(", ")}`);
+  }
+
+  return workspace;
 }
 
 /**
- * Ensure a standalone agent has a loop + workspace.
- * Creates the infrastructure lazily on first call (starts MCP server, etc.).
- *
- * The loop is stored on the AgentHandle.
- * The workspace is stored in the WorkspaceRegistry.
+ * Ensure a standalone agent has a loop.
+ * Uses the shared default workspace.
  *
  * This is the bridge between POST /agents (stores definition only) and
  * POST /run or /serve (needs a loop to execute).
@@ -229,37 +256,20 @@ async function ensureAgentLoop(s: DaemonState, agentName: string): Promise<Agent
   if (!handle) throw new Error(`Agent not found: ${agentName}`);
 
   const agentDef = defToResolvedAgent(handle.definition);
-  const wsKey = agentWorkspaceKey(agentName);
 
-  // Create workspace (context + MCP server)
-  const workspace = await createMinimalRuntime({
-    workflowName: "global",
-    tag: "main",
-    agentNames: [agentName],
-    resolveHandle: (name) => (name === agentName ? handle : s.agents.get(name) ?? undefined),
+  // Use the shared default workspace
+  const workspace = await ensureDefaultWorkspace(s);
+
+  const { loop } = createWiredLoop({
+    name: agentName,
+    agent: agentDef,
+    runtime: workspace,
+    conversationLog: handle.conversationLog ?? undefined,
+    thinThread: handle.thinThread,
   });
-
-  // Create wired loop (backend + workspace dir).
-  // If this fails, clean up the workspace we just created.
-  let loop: AgentLoop;
-  try {
-    ({ loop } = createWiredLoop({
-      name: agentName,
-      agent: agentDef,
-      runtime: workspace,
-      conversationLog: handle.conversationLog ?? undefined,
-      thinThread: handle.thinThread,
-    }));
-  } catch (err) {
-    await workspace.shutdown();
-    throw err;
-  }
 
   // Store loop on the agent handle (agent owns its loop)
   handle.loop = loop;
-
-  // Store workspace in registry
-  s.workspaces.set(wsKey, workspace);
 
   return loop;
 }
@@ -465,7 +475,7 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
       return c.json({ error: "Agent not found" }, 404);
     }
 
-    // Clean up agent-owned loop
+    // Clean up agent-owned loop (workspace is shared, not cleaned up per-agent)
     if (handle.loop) {
       try {
         await handle.loop.stop();
@@ -473,18 +483,6 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
         /* best-effort */
       }
       handle.loop = null;
-    }
-
-    // Clean up agent's workspace
-    const wsKey = agentWorkspaceKey(name);
-    const ws = s.workspaces.get(wsKey);
-    if (ws) {
-      try {
-        await ws.shutdown();
-      } catch {
-        /* best-effort */
-      }
-      s.workspaces.delete(wsKey);
     }
 
     // Remove from registry
@@ -646,20 +644,10 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
       const url = new URL(req.url);
       const agentName = url.searchParams.get("agent") || "user";
 
-      // Look up agent's workspace context provider when available
+      // Use shared default workspace for context
       const handle = s.agents.get(agentName);
-      const wsKey = agentWorkspaceKey(agentName);
-      const existingWs = s.workspaces.get(wsKey);
-
-      const allNames = [...new Set([agentName, "user"])];
-
-      const provider: ContextProvider =
-        existingWs?.contextProvider ??
-        (() => {
-          const contextDir = getDefaultContextDir("global", "main");
-          mkdirSync(contextDir, { recursive: true });
-          return createFileContextProvider(contextDir, allNames);
-        })();
+      const workspace = await ensureDefaultWorkspace(s);
+      const provider: ContextProvider = workspace.contextProvider;
 
       const transport = new WebStandardStreamableHTTPServerTransport({
         sessionIdGenerator: () => `${agentName}-${randomUUID().slice(0, 8)}`,
@@ -672,6 +660,7 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
         enableJsonResponse: true,
       });
 
+      const allNames = [...new Set([agentName, ...s.agents.list().map((h) => h.name), "user"])];
       const mcpServer = createContextMCPServer({
         provider,
         validAgents: allNames,
@@ -891,7 +880,7 @@ export async function startDaemon(
 
   state = {
     agents,
-    workspaces: new WorkspaceRegistry(),
+    defaultWorkspace: null,
     workflows: new Map(),
     store,
     server,
