@@ -17,6 +17,8 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
 import type { ContextProvider } from "./context/provider.ts";
+import { ChannelBridge, type ChannelAdapter } from "./context/bridge.ts";
+import type { DefaultChannelStore } from "./context/stores/channel.ts";
 import {
   createFileContextProvider,
   FileContextProvider,
@@ -65,6 +67,8 @@ export interface Workspace {
   mcpToolNames: Set<string>;
   /** Project directory (cwd when runtime was created) */
   projectDir: string;
+  /** Channel bridge (if bridges are configured) */
+  bridge?: ChannelBridge;
   /** Feedback accessor (when enabled) */
   getFeedback?: () => FeedbackEntry[];
   /** Shutdown runtime resources (MCP server, file locks) */
@@ -100,6 +104,8 @@ export interface MinimalRuntimeConfig {
   debugLog?: (msg: string) => void;
   /** Resolve agent handle by name for personal context tools */
   resolveHandle?: (agentName: string) => import("./types.ts").AgentHandleRef | undefined;
+  /** Channel adapters to attach via bridge (e.g., Telegram) */
+  bridgeAdapters?: ChannelAdapter[];
 }
 
 /**
@@ -165,7 +171,22 @@ export async function createMinimalRuntime(config: MinimalRuntimeConfig): Promis
     port: 0,
   });
 
+  // Create channel bridge if adapters are configured
+  let bridge: ChannelBridge | undefined;
+  if (config.bridgeAdapters && config.bridgeAdapters.length > 0) {
+    // ContextProviderImpl exposes .channel — extract the DefaultChannelStore
+    const provider = contextProvider as import("./context/provider.ts").ContextProviderImpl;
+    const channelStore = provider.channel as DefaultChannelStore;
+    bridge = new ChannelBridge(channelStore);
+    for (const adapter of config.bridgeAdapters) {
+      await bridge.addAdapter(adapter);
+    }
+  }
+
   const shutdown = async () => {
+    // Shut down bridge adapters first
+    if (bridge) await bridge.shutdown();
+
     if (persistent) {
       // Persistent mode: only release lock, preserve state
       if (contextProvider instanceof FileContextProvider) {
@@ -187,6 +208,7 @@ export async function createMinimalRuntime(config: MinimalRuntimeConfig): Promis
     mcpUrl: httpMcpServer.url,
     mcpToolNames,
     projectDir,
+    bridge,
     getFeedback: mcpGetFeedback,
     shutdown,
   };

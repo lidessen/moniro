@@ -1,8 +1,10 @@
 /**
  * Channel Store
  * Append-only JSONL message log with incremental sync and visibility filtering.
+ * Emits "message" events on append for real-time subscribers (ChannelBridge).
  */
 
+import { EventEmitter } from "node:events";
 import { nanoid } from "nanoid";
 import type { Message } from "@/context/types.ts";
 import { extractMentions } from "@/context/types.ts";
@@ -33,6 +35,7 @@ export class DefaultChannelStore implements ChannelStore {
   private entries: Message[] = [];
   private offset = 0;
   private syncPromise: Promise<Message[]> | null = null;
+  private emitter = new EventEmitter();
 
   constructor(
     private storage: StorageBackend,
@@ -74,7 +77,20 @@ export class DefaultChannelStore implements ChannelStore {
     const line = JSON.stringify(msg) + "\n";
     await this.storage.append(CHANNEL_KEY, line);
 
+    // Notify subscribers (ChannelBridge uses this for real-time push)
+    this.emitter.emit("message", msg);
+
     return msg;
+  }
+
+  /** Subscribe to new messages. */
+  on(event: "message", handler: (msg: Message) => void): void {
+    this.emitter.on(event, handler);
+  }
+
+  /** Unsubscribe from messages. */
+  off(event: "message", handler: (msg: Message) => void): void {
+    this.emitter.off(event, handler);
   }
 
   async read(options?: ReadOptions): Promise<Message[]> {
