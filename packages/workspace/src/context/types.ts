@@ -217,11 +217,19 @@ export const CONTEXT_DEFAULTS = {
   document: "notes.md",
 } as const;
 
-/** Mention pattern for extracting @mentions */
-export const MENTION_PATTERN = /@([a-zA-Z][a-zA-Z0-9_-]*)/g;
+/**
+ * Mention pattern for extracting @mentions.
+ *
+ * Supports two forms:
+ * - @alice                       → internal agent
+ * - @"telegram:TIANYANG Zhou"   → external identity (quoted, allows spaces and colons)
+ * - @telegram:simple_name       → external identity (no spaces, no quotes needed)
+ */
+export const MENTION_PATTERN = /@(?:"([^"]+)"|([a-zA-Z][a-zA-Z0-9_:-]*))/g;
 
 /**
- * Extract @mentions from a message
+ * Extract @mentions from a message.
+ * Returns internal agent names that match validAgents, plus any external identities (containing ':').
  */
 export function extractMentions(content: string, validAgents: string[]): string[] {
   const mentions: string[] = [];
@@ -231,9 +239,14 @@ export function extractMentions(content: string, validAgents: string[]): string[
   MENTION_PATTERN.lastIndex = 0;
 
   while ((match = MENTION_PATTERN.exec(content)) !== null) {
-    const agent = match[1];
-    if (agent && validAgents.includes(agent) && !mentions.includes(agent)) {
-      mentions.push(agent);
+    // Group 1: quoted mention, Group 2: unquoted mention
+    const name = match[1] ?? match[2];
+    if (!name || mentions.includes(name)) continue;
+
+    // Internal agent: must be in validAgents
+    // External identity (contains ':'): always included
+    if (name.includes(":") || validAgents.includes(name)) {
+      mentions.push(name);
     }
   }
 

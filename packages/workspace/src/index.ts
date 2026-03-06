@@ -45,6 +45,7 @@ export type {
   ValidationResult,
   ValidationError,
   AgentHandleRef,
+  BridgeConfig,
 } from "./types.ts";
 export { isRefAgentEntry } from "./types.ts";
 
@@ -106,6 +107,10 @@ export { runSdkAgent } from "./loop/sdk-runner.ts";
 
 // ── MCP Config ──────────────────────────────────────────────────
 export { generateWorkflowMCPConfig } from "./loop/mcp-config.ts";
+
+// ── Channel Bridge ──────────────────────────────────────────────
+export { ChannelBridge, type MessageFilter, type BridgeSendOptions, type ChannelAdapter } from "./context/bridge.ts";
+export { TelegramAdapter, type TelegramAdapterConfig } from "./context/adapters/index.ts";
 
 // ── Context (Shared) ────────────────────────────────────────────
 export type { ContextProvider } from "./context/provider.ts";

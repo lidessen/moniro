@@ -58,10 +58,28 @@ export interface WorkflowFile {
   setup?: SetupTask[];
 
   /**
+   * Channel bridge configuration — connect external platforms to the workspace channel.
+   * Each entry creates an adapter for one external platform.
+   */
+  bridges?: BridgeConfig[];
+
+  /**
    * Kickoff message - initiates workflow via @mention
    * Optional: if omitted, agents start but wait for external trigger
    */
   kickoff?: string;
+}
+
+// ==================== Bridge Config ====================
+
+/** Bridge adapter configuration in workflow YAML */
+export interface BridgeConfig {
+  /** Adapter type (e.g., "telegram") */
+  adapter: string;
+  /** Telegram bot token (supports ${{ env.VAR }} interpolation) */
+  bot_token?: string;
+  /** Telegram chat ID (supports ${{ env.VAR }} interpolation) */
+  chat_id?: string;
 }
 
 // ==================== Agent Entry (Workflow YAML) ════════════════════
