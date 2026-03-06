@@ -228,9 +228,49 @@ async function ensureDefaultWorkspace(s: DaemonState): Promise<Workspace> {
     agentNames: agentNames.length > 0 ? agentNames : ["user"],
     resolveHandle: (name) => s.agents.get(name) ?? undefined,
     bridgeAdapters: bridgeAdapters && bridgeAdapters.length > 0 ? bridgeAdapters : undefined,
+    onMention: (_from, target) => {
+      // Wake the target agent's loop when @mentioned
+      const handle = s.agents.get(target);
+      if (handle?.loop) {
+        handle.loop.wake();
+      }
+    },
   });
 
   s.defaultWorkspace = workspace;
+
+  // Subscribe to inbound bridge messages to wake mentioned agents
+  if (workspace.bridge) {
+    workspace.bridge.subscribe({}, (msg) => {
+      // Only process messages from external sources (contain ":")
+      if (!msg.from.includes(":")) return;
+
+      // Wake agents mentioned in the message
+      for (const target of msg.mentions) {
+        const handle = s.agents.get(target);
+        if (handle?.loop) {
+          handle.loop.wake();
+        }
+      }
+
+      // If the message has a DM target, wake that agent too
+      if (msg.to && !msg.mentions.includes(msg.to)) {
+        const handle = s.agents.get(msg.to);
+        if (handle?.loop) {
+          handle.loop.wake();
+        }
+      }
+
+      // If no specific target, wake all agents (broadcast from external)
+      if (msg.mentions.length === 0 && !msg.to) {
+        for (const handle of s.agents.list()) {
+          if (handle.loop) {
+            handle.loop.wake();
+          }
+        }
+      }
+    });
+  }
 
   if (bridgeAdapters && bridgeAdapters.length > 0) {
     log.info(`Bridges: ${bridgeAdapters.map((a) => a.platform).join(", ")}`);
@@ -892,6 +932,22 @@ export async function startDaemon(
   log.info(`Daemon started: pid=${process.pid}`);
   log.info(`Listening: http://${host}:${actualPort}`);
   log.info(`MCP: http://${host}:${actualPort}/mcp`);
+
+  // Auto-start persisted agents (create loops and start serving)
+  const persistedAgents = agents.list().filter((h) => !h.ephemeral);
+  if (persistedAgents.length > 0) {
+    log.info(`Auto-starting ${persistedAgents.length} persisted agent(s)...`);
+    for (const handle of persistedAgents) {
+      try {
+        const loop = await ensureAgentLoop(state, handle.name);
+        await loop.start();
+        log.info(`Agent started: ${handle.name}`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log.info(`Failed to start agent ${handle.name}: ${msg}`);
+      }
+    }
+  }
 
   process.on("SIGINT", () => {
     log.info("Shutting down...");
