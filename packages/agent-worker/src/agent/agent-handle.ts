@@ -14,6 +14,7 @@ import { mkdirSync, existsSync } from "node:fs";
 import { join, basename } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import type { AgentDefinition, Logger } from "@moniro/agent";
+import type { PersonalContextProvider } from "@moniro/agent-worker";
 import {
   CONTEXT_SUBDIRS,
   ConversationLog,
@@ -29,7 +30,7 @@ export type AgentHandleState = "idle" | "running" | "stopped" | "error";
 
 // ── AgentHandle ───────────────────────────────────────────────────
 
-export class AgentHandle {
+export class AgentHandle implements PersonalContextProvider {
   /** Agent definition (from YAML or API) */
   readonly definition: AgentDefinition;
 

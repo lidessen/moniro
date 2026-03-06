@@ -7,7 +7,6 @@
  * This lets personal agents use their context without a workspace MCP server.
  */
 
-import { z } from "zod";
 import { createTool } from "@moniro/agent";
 import type { PersonalContextProvider } from "./types.ts";
 
