@@ -209,8 +209,8 @@ describe("Daemon API", () => {
 
       // Verify agent was stored in registry
       expect(testState.agents.has("bob")).toBe(true);
-      // And it's ephemeral
-      expect(testState.agents.get("bob")!.ephemeral).toBe(true);
+      // Default: persistent (not ephemeral)
+      expect(testState.agents.get("bob")!.ephemeral).toBe(false);
     });
 
     test("rejects missing required fields", async () => {
