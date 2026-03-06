@@ -32,7 +32,7 @@
 | 四包重构设计 | 2026-03-06 | ADR + PACKAGE-SPLIT 更新 |
 | Phase 6-restructure: 四包重构 | 2026-03-06 | 1085 tests, 见下方详情 |
 | Phase 6d: Channel Bridge + Telegram | 2026-03-06 | ChannelBridge + TelegramAdapter + mention 扩展, 1108 tests |
-| Phase 6e: Daemon Persistence + Telegram Wiring | 2026-03-06 | loadFromDisk, persist by default, Telegram in daemon, 1108 tests |
+| Phase 6e: Daemon Persistence + Bridge Abstraction | 2026-03-06 | loadFromDisk, persist by default, bridge config→workspace, channel_send targeting, 1113 tests |
 
 ### Phase 6-restructure 完成详情
 
