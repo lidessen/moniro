@@ -6,7 +6,8 @@
 import type { ResolvedWorkflowAgent } from "../types.ts";
 import type { ContextProvider } from "../context/provider.ts";
 import type { Message, InboxMessage } from "../context/types.ts";
-import type { Backend, ConversationMessage, ConversationLog, ThinThread, AgentSoul } from "@moniro/agent";
+import type { Backend, ConversationMessage, ConversationLog, ThinThread } from "@moniro/agent";
+import type { PersonalContext } from "@moniro/agent-worker";
 
 // ==================== Agent Loop ====================
 
@@ -149,15 +150,8 @@ export interface AgentRunContext {
   personalContext?: PersonalContext;
 }
 
-/** Pre-read personal context from agent's persistent context directory */
-export interface PersonalContext {
-  /** Agent soul — persistent identity traits */
-  soul?: AgentSoul;
-  /** Memory entries (key-value from memory/*.yaml) */
-  memory?: Record<string, unknown>;
-  /** Active todo items (from todo/index.md) */
-  todos?: string[];
-}
+// PersonalContext is now defined in @moniro/agent-worker and re-exported here
+export type { PersonalContext } from "@moniro/agent-worker";
 
 /** Result of an agent run */
 export interface AgentRunResult {

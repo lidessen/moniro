@@ -11,6 +11,11 @@
 import type { Message, InboxMessage } from "../context/types.ts";
 import type { AgentRunContext } from "./types.ts";
 import { formatConversationMessages } from "@moniro/agent";
+import {
+  soulSection as personalSoulSection,
+  memorySection as personalMemorySection,
+  todoSection as personalTodoSection,
+} from "@moniro/agent-worker";
 
 // ── Section Type ──────────────────────────────────────────────────
 
@@ -64,49 +69,20 @@ export function formatConversation(
 }
 
 // ── Personal Context Sections ─────────────────────────────────────
+// Delegated to @moniro/agent-worker. These wrappers adapt the workflow's
+// AgentRunContext to the personal prompt context interface.
 
 /** Soul — persistent identity (who you are always) */
-export const soulSection: PromptSection = (ctx) => {
-  const soul = ctx.personalContext?.soul;
-  if (!soul) return null;
-
-  const lines: string[] = ["## Identity"];
-  if (soul.role) lines.push(`**Role**: ${soul.role}`);
-  if (soul.expertise?.length) lines.push(`**Expertise**: ${soul.expertise.join(", ")}`);
-  if (soul.style) lines.push(`**Style**: ${soul.style}`);
-  if (soul.principles?.length) {
-    lines.push("**Principles**:");
-    for (const p of soul.principles) {
-      lines.push(`- ${p}`);
-    }
-  }
-  return lines.length > 1 ? lines.join("\n") : null;
-};
+export const soulSection: PromptSection = (ctx) =>
+  personalSoulSection({ name: ctx.name, personalContext: ctx.personalContext });
 
 /** Memory — persistent knowledge (what you know) */
-export const memorySection: PromptSection = (ctx) => {
-  const memory = ctx.personalContext?.memory;
-  if (!memory || Object.keys(memory).length === 0) return null;
-
-  const lines: string[] = ["## Memory"];
-  for (const [key, value] of Object.entries(memory)) {
-    if (typeof value === "string") {
-      lines.push(`- **${key}**: ${value}`);
-    } else {
-      lines.push(`- **${key}**: ${JSON.stringify(value)}`);
-    }
-  }
-  return lines.join("\n");
-};
+export const memorySection: PromptSection = (ctx) =>
+  personalMemorySection({ name: ctx.name, personalContext: ctx.personalContext });
 
 /** Todos — active tasks (what you need to do) */
-export const todoSection: PromptSection = (ctx) => {
-  const todos = ctx.personalContext?.todos;
-  if (!todos || todos.length === 0) return null;
-
-  const lines = ["## Active Tasks", ...todos.map((t) => `- [ ] ${t}`)];
-  return lines.join("\n");
-};
+export const todoSection: PromptSection = (ctx) =>
+  personalTodoSection({ name: ctx.name, personalContext: ctx.personalContext });
 
 // ── Built-in Sections ─────────────────────────────────────────────
 

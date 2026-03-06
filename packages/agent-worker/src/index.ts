@@ -111,19 +111,35 @@ export type {
   Transcript,
 } from "@moniro/agent";
 
-// ── Backwards-compat re-exports from @moniro/workflow ────────────
+// ── Re-exports from @moniro/agent-worker (personal agent layer) ──
 export {
+  createPersonalContextTools,
+  soulSection as personalSoulSection,
+  memorySection as personalMemorySection,
+  todoSection as personalTodoSection,
+  DEFAULT_PERSONAL_SECTIONS,
+  assemblePersonalPrompt,
   createBashTool,
   createBashTools,
   createBashToolsFromDirectory,
   createBashToolsFromFiles,
+} from "@moniro/agent-worker";
+export type {
+  PersonalContextProvider,
+  PersonalContext,
+  PersonalPromptContext,
+  PersonalPromptSection,
+  BashToolkit,
+  BashToolsOptions,
+  CreateBashToolOptions,
+} from "@moniro/agent-worker";
+
+// ── Backwards-compat re-exports from @moniro/workflow ────────────
+export {
   createFeedbackTool,
   FEEDBACK_PROMPT,
 } from "@moniro/workflow";
 export type {
-  BashToolkit,
-  BashToolsOptions,
-  CreateBashToolOptions,
   FeedbackEntry,
   FeedbackToolOptions,
   FeedbackToolResult,
