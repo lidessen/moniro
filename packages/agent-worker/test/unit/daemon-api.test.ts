@@ -15,7 +15,6 @@
 import { describe, test, expect, beforeEach } from "bun:test";
 import { createDaemonApp, type DaemonState, type WorkflowHandle } from "../../src/daemon/daemon.ts";
 import { AgentRegistry } from "../../src/agent/agent-registry.ts";
-import { WorkspaceRegistry } from "../../src/daemon/workspace-registry.ts";
 import { MemoryStateStore } from "../../src/agent/store.ts";
 import type { AgentDefinition } from "@moniro/agent-loop";
 import type { AgentLoop, AgentRunResult, ContextProvider, Workspace } from "@moniro/workspace";
@@ -25,7 +24,7 @@ import type { AgentLoop, AgentRunResult, ContextProvider, Workspace } from "@mon
 function createTestState(overrides?: Partial<DaemonState>): DaemonState {
   return {
     agents: new AgentRegistry(process.cwd()),
-    workspaces: new WorkspaceRegistry(),
+    defaultWorkspace: null,
     workflows: new Map(),
     store: new MemoryStateStore(),
     port: 5099,
@@ -293,19 +292,18 @@ describe("Daemon API", () => {
       expect(testState.agents.has("alice")).toBe(false);
     });
 
-    test("shuts down workspace on removal", async () => {
-      registerTestAgent(testState, "alice");
-      let shutdownCalled = false;
-      const ws = createMockWorkspace();
-      ws.shutdown = async () => {
-        shutdownCalled = true;
+    test("stops loop on removal", async () => {
+      const loop = createMockLoop();
+      let stopCalled = false;
+      loop.stop = async () => {
+        stopCalled = true;
       };
-      testState.workspaces.set("agent:alice", ws);
+      registerTestAgentWithLoop(testState, "alice", loop);
 
       await app.request("/agents/alice", { method: "DELETE" });
 
-      expect(shutdownCalled).toBe(true);
-      expect(testState.workspaces.has("agent:alice")).toBe(false);
+      expect(stopCalled).toBe(true);
+      expect(testState.agents.has("alice")).toBe(false);
     });
 
     test("stops agent loop on removal", async () => {
@@ -653,9 +651,9 @@ describe("Daemon API", () => {
     test("registered agent has no loop initially", async () => {
       registerTestAgent(testState, "alice");
 
-      // No workspace or loop exists yet
+      // No loop exists yet
       expect(testState.agents.get("alice")!.loop).toBeNull();
-      expect(testState.workspaces.size).toBe(0);
+      expect(testState.defaultWorkspace).toBeNull();
 
       // GET /agents shows the agent but with no state (loop not created)
       const res = await app.request("/agents");
@@ -717,18 +715,18 @@ describe("Daemon API", () => {
       expect((await json(resB)).content).toBe("from-deploy");
     });
 
-    test("delete agent cleans up workspace", async () => {
+    test("delete agent stops loop but keeps shared workspace", async () => {
       registerTestAgent(testState, "alice");
-      let shutdownCalled = false;
-      const ws = createMockWorkspace();
-      ws.shutdown = async () => {
-        shutdownCalled = true;
-      };
-      testState.workspaces.set("agent:alice", ws);
-
-      // Also wire a loop
       const loop = createMockLoop();
+      let stopCalled = false;
+      loop.stop = async () => {
+        stopCalled = true;
+      };
       testState.agents.get("alice")!.loop = loop;
+
+      // Set a shared workspace (should NOT be cleaned up on agent delete)
+      const ws = createMockWorkspace();
+      testState.defaultWorkspace = ws;
 
       // Delete the agent
       const res = await app.request("/agents/alice", { method: "DELETE" });
@@ -738,10 +736,10 @@ describe("Daemon API", () => {
 
       // Agent removed from registry
       expect(testState.agents.has("alice")).toBe(false);
-      // Workspace removed
-      expect(testState.workspaces.has("agent:alice")).toBe(false);
-      // Shutdown was called
-      expect(shutdownCalled).toBe(true);
+      // Loop stopped
+      expect(stopCalled).toBe(true);
+      // Shared workspace NOT cleaned up
+      expect(testState.defaultWorkspace).toBe(ws);
     });
 
     test("delete agent without workspace succeeds", async () => {
