@@ -28,9 +28,9 @@ import { streamSSE } from "hono/streaming";
 import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import type { AgentDefinition, BackendType } from "@moniro/agent-loop";
-import { AgentRegistry } from "../agent/agent-registry.ts";
-import type { StateStore } from "../agent/store.ts";
-import { MemoryStateStore } from "../agent/store.ts";
+import { AgentRegistry } from "@/agent/agent-registry.ts";
+import type { StateStore } from "@/agent/store.ts";
+import { MemoryStateStore } from "@/agent/store.ts";
 import {
   CONFIG_DIR,
   DEFAULT_PORT,

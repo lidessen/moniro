@@ -8,7 +8,7 @@
  * will be added without touching existing ones.
  */
 
-import type { Message, InboxMessage } from "../context/types.ts";
+import type { Message, InboxMessage } from "@/context/types.ts";
 import type { AgentRunContext } from "./types.ts";
 import { formatConversationMessages } from "@moniro/agent-loop";
 import {

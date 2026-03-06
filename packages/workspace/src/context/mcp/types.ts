@@ -5,9 +5,9 @@
  * containing the dependencies needed to implement tools.
  */
 
-import type { ContextProvider } from "../provider.ts";
-import type { EventLog } from "../event-log.ts";
-import type { Message } from "../types.ts";
+import type { ContextProvider } from "@/context/provider.ts";
+import type { EventLog } from "@/context/event-log.ts";
+import type { Message } from "@/context/types.ts";
 
 /**
  * Shared dependencies for all MCP tool categories.

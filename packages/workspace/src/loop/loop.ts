@@ -7,8 +7,8 @@
  * Backends are pure communication adapters — they only know how to send().
  */
 
-import type { ContextProvider } from "../context/provider.ts";
-import type { ProposalManager } from "../context/proposals.ts";
+import type { ContextProvider } from "@/context/provider.ts";
+import type { ProposalManager } from "@/context/proposals.ts";
 import type {
   AgentLoop,
   AgentLoopConfig,
@@ -29,7 +29,7 @@ import { buildAgentPrompt } from "./prompt.ts";
 import { generateWorkflowMCPConfig } from "./mcp-config.ts";
 import { resolveSchedule, msUntilNextCron } from "@moniro/agent-loop";
 import type { ScheduleConfig, ConversationMessage } from "@moniro/agent-loop";
-import type { InboxMessage } from "../context/types.ts";
+import type { InboxMessage } from "@/context/types.ts";
 
 /** Check if loop should continue running */
 function shouldContinue(state: AgentState): boolean {
@@ -721,7 +721,7 @@ export async function buildWorkflowIdleState(
  * Returns undefined for inline agents (no handle) or agents without context.
  */
 async function readPersonalContext(
-  handle: import("../types.ts").AgentHandleRef | undefined,
+  handle: import("@/types.ts").AgentHandleRef | undefined,
 ): Promise<PersonalContext | undefined> {
   if (!handle) return undefined;
 

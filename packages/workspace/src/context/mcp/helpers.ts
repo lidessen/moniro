@@ -6,8 +6,8 @@
  * - createLogTool: creates a logTool function bound to an EventLog
  */
 
-import type { EventLog } from "../event-log.ts";
-import type { InboxMessage } from "../types.ts";
+import type { EventLog } from "@/context/event-log.ts";
+import type { InboxMessage } from "@/context/types.ts";
 
 /**
  * Extract agent ID from MCP extra context.

@@ -1,9 +1,9 @@
 import type { Command } from "commander";
 import { mkdirSync } from "node:fs";
-import { outputJson } from "../output.ts";
-import { listAgents, isDaemonActive } from "../client.ts";
+import { outputJson } from "@/cli/output.ts";
+import { listAgents, isDaemonActive } from "@/cli/client.ts";
 import { createFileContextProvider, getDefaultContextDir } from "@moniro/workspace";
-import { DEFAULT_WORKFLOW, parseTarget } from "../target.ts";
+import { DEFAULT_WORKFLOW, parseTarget } from "@/cli/target.ts";
 
 /**
  * Get agent names for a workflow from the daemon.

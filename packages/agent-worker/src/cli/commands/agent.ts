@@ -12,9 +12,9 @@ import {
   run,
   serve,
   isDaemonActive,
-} from "../client.ts";
+} from "@/cli/client.ts";
 import { isDaemonRunning, DEFAULT_PORT } from "@/daemon/index.ts";
-import { outputJson } from "../output.ts";
+import { outputJson } from "@/cli/output.ts";
 import type { AgentDefinition } from "@moniro/agent-loop";
 import { AgentRegistry } from "@/agent/agent-registry.ts";
 
@@ -262,12 +262,12 @@ Examples:
       }
 
       // Parse target to determine if it's a workflow or agent
-      const { parseTarget } = await import("../target.ts");
+      const { parseTarget } = await import("@/cli/target.ts");
       const target = parseTarget(name);
 
       let res: Awaited<ReturnType<typeof deleteAgent>>;
       if (target.agent === undefined) {
-        const { stopWorkflow: stopWf } = await import("../client.ts");
+        const { stopWorkflow: stopWf } = await import("@/cli/client.ts");
         res = await stopWf(target.workflow, target.tag);
       } else {
         res = await deleteAgent(target.agent);
