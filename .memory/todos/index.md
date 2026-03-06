@@ -33,6 +33,7 @@
 | Phase 6-restructure: 四包重构 | 2026-03-06 | 1085 tests, 见下方详情 |
 | Phase 6d: Channel Bridge + Telegram | 2026-03-06 | ChannelBridge + TelegramAdapter + mention 扩展, 1108 tests |
 | Phase 6e: Daemon Persistence + Bridge Abstraction | 2026-03-06 | loadFromDisk, persist by default, bridge config→workspace, channel_send targeting, 1113 tests |
+| Phase 6f: Agent Wake-up + Auto-start | 2026-03-06 | onMention→wake, bridge inbound→wake, auto-start persisted agents, removed dead WorkspaceRegistry, 1112 tests |
 
 ### Phase 6-restructure 完成详情
 
