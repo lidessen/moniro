@@ -51,7 +51,8 @@ packages/
 | Phase 6b | done | Personal Context Tools | 动态 MCP tools (memory/notes/todos read+write) |
 | **Phase 6-restructure** | **done** | **四包重构** | 依赖反转 + 个人 agent 下沉 + 包重命名 + @/ alias |
 | Phase 6c | future | Guard Agent（看守者） | Workspace 层的智能上下文管理，可选 |
-| Phase 6d | future | Channel Bridge（外部集成） | ChannelBridge + ChannelAdapter + Telegram |
+| Phase 6d | **done** | Channel Bridge + Telegram | ChannelBridge + TelegramAdapter + mention 扩展, 1108 tests |
+| Phase 6d+ | future | Channel Bridge HTTP Webhook | SSE/HTTP endpoint for cross-process adapters |
 | Phase 7 | deprioritized | CLI + Project Config | `moniro.yaml`, improved CLI |
 
 ## 已知风险 & 开放问题

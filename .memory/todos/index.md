@@ -7,7 +7,7 @@
 | 优先级 | 任务 | 状态 | 备注 |
 |--------|------|------|------|
 | medium | Phase 6c: Guard Agent | todo | Workspace 层可选优化，不阻塞个人 agent |
-| medium | Phase 6d: Channel Bridge | todo | 可独立推进 |
+| medium | Phase 6d: Channel Bridge — HTTP Webhook | todo | 跨进程场景，按需 |
 | low | `send` CLI target 解析 | todo | Phase 3b 遗留 |
 | low | CLI + Project Config（moniro.yaml） | todo | 降级 |
 
@@ -31,6 +31,7 @@
 | Phase 6b: Personal Context Tools | 2026-03-05 | 6 个 my_* MCP tools |
 | 四包重构设计 | 2026-03-06 | ADR + PACKAGE-SPLIT 更新 |
 | Phase 6-restructure: 四包重构 | 2026-03-06 | 1085 tests, 见下方详情 |
+| Phase 6d: Channel Bridge + Telegram | 2026-03-06 | ChannelBridge + TelegramAdapter + mention 扩展, 1108 tests |
 
 ### Phase 6-restructure 完成详情
 
