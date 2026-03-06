@@ -292,20 +292,6 @@ describe("Daemon API", () => {
       expect(testState.agents.has("alice")).toBe(false);
     });
 
-    test("stops loop on removal", async () => {
-      const loop = createMockLoop();
-      let stopCalled = false;
-      loop.stop = async () => {
-        stopCalled = true;
-      };
-      registerTestAgentWithLoop(testState, "alice", loop);
-
-      await app.request("/agents/alice", { method: "DELETE" });
-
-      expect(stopCalled).toBe(true);
-      expect(testState.agents.has("alice")).toBe(false);
-    });
-
     test("stops agent loop on removal", async () => {
       const loop = createMockLoop();
       let stopCalled = false;
