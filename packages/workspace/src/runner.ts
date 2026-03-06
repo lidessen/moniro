@@ -31,7 +31,7 @@ import { runWithHttp, type HttpMCPServer } from "./context/http-transport.ts";
 import type { ContextProvider } from "./context/provider.ts";
 import { checkWorkflowIdle, type AgentLoop } from "./loop/index.ts";
 import { createWiredLoop } from "./factory.ts";
-import type { Backend } from "@moniro/agent";
+import type { Backend } from "@moniro/agent-loop";
 import { EventLog } from "./context/event-log.ts";
 import { startChannelWatcher } from "./display.ts";
 import { createChannelLogger, createSilentLogger, type Logger } from "./logger.ts";

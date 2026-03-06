@@ -11,8 +11,8 @@ import {
   createProposalManager,
   formatProposal,
   formatProposalList,
-} from "@moniro/workflow";
-import type { ProposalManager, Proposal } from "@moniro/workflow";
+} from "@moniro/workspace";
+import type { ProposalManager, Proposal } from "@moniro/workspace";
 
 describe("ProposalManager", () => {
   let manager: ProposalManager;

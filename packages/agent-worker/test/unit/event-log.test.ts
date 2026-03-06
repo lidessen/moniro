@@ -20,8 +20,8 @@ import {
   createEventLogger,
   createConsoleSink,
   createSilentLogger,
-} from "@moniro/workflow";
-import type { EventSink, Message, EventKind } from "@moniro/workflow";
+} from "@moniro/workspace";
+import type { EventSink, Message, EventKind } from "@moniro/workspace";
 import { DaemonEventLog } from "@/daemon/event-log.ts";
 
 // ── Helpers ───────────────────────────────────────────────────────

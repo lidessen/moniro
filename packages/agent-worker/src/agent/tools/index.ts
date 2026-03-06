@@ -9,7 +9,7 @@
  */
 
 // Tool creation utility + Skills (from @moniro/agent)
-export { createTool, createSkillsTool } from "@moniro/agent";
+export { createTool, createSkillsTool } from "@moniro/agent-loop";
 
 // Bash tools (bash, readFile, writeFile)
 export {
@@ -17,9 +17,9 @@ export {
   createBashToolsFromDirectory,
   createBashToolsFromFiles,
   createBashTool,
-} from "@moniro/workflow";
-export type { BashToolsOptions, BashToolkit, CreateBashToolOptions } from "@moniro/workflow";
+} from "@moniro/workspace";
+export type { BashToolsOptions, BashToolkit, CreateBashToolOptions } from "@moniro/workspace";
 
 // Feedback tool
-export { createFeedbackTool, FEEDBACK_PROMPT } from "@moniro/workflow";
-export type { FeedbackEntry, FeedbackToolOptions, FeedbackToolResult } from "@moniro/workflow";
+export { createFeedbackTool, FEEDBACK_PROMPT } from "@moniro/workspace";
+export type { FeedbackEntry, FeedbackToolOptions, FeedbackToolResult } from "@moniro/workspace";

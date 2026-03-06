@@ -8,7 +8,7 @@
  * Keyed by "workflow:tag" (e.g., "review:pr-123", "global:main").
  */
 
-import type { Workspace } from "@moniro/workflow";
+import type { Workspace } from "@moniro/workspace";
 
 export class WorkspaceRegistry {
   private workspaces = new Map<string, Workspace>();

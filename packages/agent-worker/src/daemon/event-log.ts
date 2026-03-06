@@ -12,7 +12,7 @@ import { appendFileSync, mkdirSync, existsSync } from "node:fs";
 import { readFile, open } from "node:fs/promises";
 import { join } from "node:path";
 import { nanoid } from "nanoid";
-import type { Message, EventKind, EventSink } from "@moniro/workflow";
+import type { Message, EventKind, EventSink } from "@moniro/workspace";
 
 const EVENTS_FILE = "events.jsonl";
 

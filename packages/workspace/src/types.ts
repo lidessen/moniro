@@ -3,7 +3,7 @@
  */
 
 import type { ContextConfig } from "./context/types.ts";
-import type { ProviderConfig, ScheduleConfig, AgentDefinition } from "@moniro/agent";
+import type { ProviderConfig, ScheduleConfig, AgentDefinition } from "@moniro/agent-loop";
 import type { PersonalContextProvider } from "@moniro/agent-worker";
 
 /**
@@ -21,7 +21,7 @@ export interface AgentHandleRef extends PersonalContextProvider {
 export type { ContextConfig, FileContextConfig, MemoryContextConfig } from "./context/types.ts";
 
 // Re-export ProviderConfig (canonical source: @moniro/agent)
-export type { ProviderConfig } from "@moniro/agent";
+export type { ProviderConfig } from "@moniro/agent-loop";
 
 // ==================== Workflow File ====================
 

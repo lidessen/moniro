@@ -17,7 +17,7 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { BackendType, ScheduleConfig } from "@moniro/agent";
+import type { BackendType, ScheduleConfig } from "@moniro/agent-loop";
 
 export const CONFIG_DIR = join(homedir(), ".agent-worker");
 export const SESSIONS_DIR = join(CONFIG_DIR, "sessions");
@@ -81,7 +81,7 @@ export {
   type ResolvedSchedule,
   parseDuration,
   resolveSchedule,
-} from "@moniro/agent";
+} from "@moniro/agent-loop";
 
 export interface SessionInfo {
   id: string;

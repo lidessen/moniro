@@ -29,7 +29,7 @@ import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir, homedir } from "node:os";
-import { ClaudeCodeBackend, CodexBackend, CursorBackend, OpenCodeBackend, SdkBackend } from "@moniro/agent";
+import { ClaudeCodeBackend, CodexBackend, CursorBackend, OpenCodeBackend, SdkBackend } from "@moniro/agent-loop";
 
 // Generous timeout for real API calls (2 minutes)
 const E2E_TIMEOUT = 120_000;

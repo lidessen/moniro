@@ -1,5 +1,5 @@
 /**
- * @moniro/workflow — Workflow orchestration layer.
+ * @moniro/workspace — Workspace orchestration layer.
  *
  * One-shot multi-agent orchestration: parse YAML, run agents with shared
  * context, collect results. No daemon needed.
@@ -170,8 +170,8 @@ export { EventLog } from "./context/event-log.ts";
 export { createChannelLogger, createEventLogger, createConsoleSink } from "./logger.ts";
 export type { ChannelLoggerConfig } from "./logger.ts";
 // Re-export Logger types from @moniro/agent for convenience
-export { createSilentLogger, formatArg } from "@moniro/agent";
-export type { Logger, LogLevel } from "@moniro/agent";
+export { createSilentLogger, formatArg } from "@moniro/agent-loop";
+export type { Logger, LogLevel } from "@moniro/agent-loop";
 
 // ── Display ─────────────────────────────────────────────────────
 export { startChannelWatcher, createDisplayContext, formatChannelEntry } from "./display.ts";

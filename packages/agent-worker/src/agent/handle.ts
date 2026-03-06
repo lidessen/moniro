@@ -6,8 +6,8 @@
  * State management is the worker's internal concern.
  */
 
-import type { AgentResponse, SessionState, SendOptions } from "@moniro/agent";
-import { AgentWorker, createBackend } from "@moniro/agent";
+import type { AgentResponse, SessionState, SendOptions } from "@moniro/agent-loop";
+import { AgentWorker, createBackend } from "@moniro/agent-loop";
 import type { AgentConfig } from "./config.ts";
 
 // ── Interface ──────────────────────────────────────────────────────

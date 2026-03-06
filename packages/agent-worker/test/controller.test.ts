@@ -20,15 +20,15 @@ import {
   sendToWorkflowChannel,
   formatUserSender,
   createMemoryContextProvider,
-} from "@moniro/workflow";
+} from "@moniro/workspace";
 import type {
   WorkflowIdleState,
   InboxMessage,
   Message,
   ResolvedWorkflowAgent,
-} from "@moniro/workflow";
-import type { Backend } from "@moniro/agent";
-import { parseModel, resolveModelAlias } from "@moniro/agent";
+} from "@moniro/workspace";
+import type { Backend } from "@moniro/agent-loop";
+import { parseModel, resolveModelAlias } from "@moniro/agent-loop";
 
 // ==================== Model Parsing Tests ====================
 
@@ -861,20 +861,20 @@ describe("formatUserSender", () => {
 
 describe("getBackendByType mock", () => {
   test('returns mock backend with name "mock"', async () => {
-    const { getBackendByType } = await import("@moniro/workflow");
+    const { getBackendByType } = await import("@moniro/workspace");
     const backend = getBackendByType("mock");
     expect(backend.type).toBe("mock");
   });
 
   test("passes debugLog to mock backend", async () => {
-    const { getBackendByType } = await import("@moniro/workflow");
+    const { getBackendByType } = await import("@moniro/workspace");
     const logs: string[] = [];
     const backend = getBackendByType("mock", { debugLog: (msg) => logs.push(msg) });
     expect(backend.type).toBe("mock");
   });
 
   test("throws for unknown backend type", async () => {
-    const { getBackendByType } = await import("@moniro/workflow");
+    const { getBackendByType } = await import("@moniro/workspace");
     expect(() => getBackendByType("nonexistent" as any)).toThrow("Unknown backend type");
   });
 });

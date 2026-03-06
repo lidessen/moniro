@@ -1,5 +1,5 @@
 import type { Command } from "commander";
-import { FRONTIER_MODELS, getDefaultModel } from "@moniro/agent";
+import { FRONTIER_MODELS, getDefaultModel } from "@moniro/agent-loop";
 
 // Provider API key configuration
 const PROVIDER_API_KEYS: Record<string, { envVar: string; description: string }> = {
@@ -56,7 +56,7 @@ export function registerInfoCommands(program: Command) {
     .command("backends")
     .description("Check available backends (SDK, CLI tools)")
     .action(async () => {
-      const { listBackends } = await import("@moniro/agent");
+      const { listBackends } = await import("@moniro/agent-loop");
       const backends = await listBackends();
 
       console.log("Backend Status:\n");

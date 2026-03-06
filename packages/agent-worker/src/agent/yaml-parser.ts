@@ -13,7 +13,7 @@
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
-import { AgentDefinitionSchema, type AgentDefinition } from "@moniro/agent";
+import { AgentDefinitionSchema, type AgentDefinition } from "@moniro/agent-loop";
 
 // ── Constants ─────────────────────────────────────────────────────
 

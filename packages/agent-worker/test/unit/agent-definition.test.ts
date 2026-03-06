@@ -14,8 +14,8 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 
-import { AgentDefinitionSchema, CONTEXT_SUBDIRS } from "@moniro/agent";
-import type { AgentDefinition } from "@moniro/agent";
+import { AgentDefinitionSchema, CONTEXT_SUBDIRS } from "@moniro/agent-loop";
+import type { AgentDefinition } from "@moniro/agent-loop";
 import {
   parseAgentFile,
   parseAgentObject,

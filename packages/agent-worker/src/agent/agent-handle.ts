@@ -13,16 +13,16 @@ import { mkdir, readFile, writeFile, readdir } from "node:fs/promises";
 import { mkdirSync, existsSync } from "node:fs";
 import { join, basename } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
-import type { AgentDefinition, Logger } from "@moniro/agent";
+import type { AgentDefinition, Logger } from "@moniro/agent-loop";
 import type { PersonalContextProvider } from "@moniro/agent-worker";
 import {
   CONTEXT_SUBDIRS,
   ConversationLog,
   ThinThread,
   DEFAULT_THIN_THREAD_SIZE,
-} from "@moniro/agent";
-import type { AgentLoop, AgentInstruction } from "@moniro/workflow";
-import { generateInstructionId } from "@moniro/workflow";
+} from "@moniro/agent-loop";
+import type { AgentLoop, AgentInstruction } from "@moniro/workspace";
+import { generateInstructionId } from "@moniro/workspace";
 
 // ── Types ─────────────────────────────────────────────────────────
 

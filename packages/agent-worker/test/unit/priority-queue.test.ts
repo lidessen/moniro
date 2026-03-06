@@ -11,7 +11,7 @@ import {
   classifyInboxPriority,
   type AgentInstruction,
   type InstructionPriority,
-} from "@moniro/workflow";
+} from "@moniro/workspace";
 
 function makeInstruction(
   priority: InstructionPriority,

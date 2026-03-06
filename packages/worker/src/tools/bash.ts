@@ -8,7 +8,7 @@
  */
 
 import { createBashTool, type CreateBashToolOptions, type BashToolkit } from "bash-tool";
-import { createTool } from "@moniro/agent";
+import { createTool } from "@moniro/agent-loop";
 
 export type { CreateBashToolOptions, BashToolkit };
 export { createBashTool };

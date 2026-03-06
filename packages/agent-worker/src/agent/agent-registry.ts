@@ -14,7 +14,7 @@
 import { mkdirSync, writeFileSync, unlinkSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { AgentHandle } from "./agent-handle.ts";
-import type { AgentDefinition, Logger } from "@moniro/agent";
+import type { AgentDefinition, Logger } from "@moniro/agent-loop";
 import { discoverAgents, serializeAgent, AGENTS_DIR } from "./yaml-parser.ts";
 
 // ── AgentRegistry ─────────────────────────────────────────────────

@@ -5,7 +5,7 @@
  * A personal agent can build its prompt using only these types.
  */
 
-import type { AgentSoul } from "@moniro/agent";
+import type { AgentSoul } from "@moniro/agent-loop";
 import type { PersonalContext } from "../context/types.ts";
 
 /**

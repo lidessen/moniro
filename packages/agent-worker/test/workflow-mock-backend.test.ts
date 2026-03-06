@@ -14,13 +14,13 @@ import {
   createMemoryContextProvider,
   createAgentLoop,
   checkWorkflowIdle,
-} from "@moniro/workflow";
+} from "@moniro/workspace";
 import type {
   AgentLoop,
   ResolvedWorkflowAgent,
   ContextProvider,
-} from "@moniro/workflow";
-import type { Backend } from "@moniro/agent";
+} from "@moniro/workspace";
+import type { Backend } from "@moniro/agent-loop";
 
 // ==================== Helpers ====================
 

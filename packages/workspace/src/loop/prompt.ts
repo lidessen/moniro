@@ -10,7 +10,7 @@
 
 import type { Message, InboxMessage } from "../context/types.ts";
 import type { AgentRunContext } from "./types.ts";
-import { formatConversationMessages } from "@moniro/agent";
+import { formatConversationMessages } from "@moniro/agent-loop";
 import {
   soulSection as personalSoulSection,
   memorySection as personalMemorySection,
@@ -62,7 +62,7 @@ export function formatChannel(entries: Message[]): string {
  * Delegates to the shared formatter in conversation.ts.
  */
 export function formatConversation(
-  messages: import("@moniro/agent").ConversationMessage[],
+  messages: import("@moniro/agent-loop").ConversationMessage[],
 ): string {
   if (messages.length === 0) return "(no conversation history)";
   return formatConversationMessages(messages);

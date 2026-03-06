@@ -1,11 +1,11 @@
 {
-  "name": "@moniro/workflow",
+  "name": "@moniro/workspace",
   "version": "0.1.0",
   "description": "Workflow orchestration layer — multi-agent coordination, shared context, MCP",
   "repository": {
     "type": "git",
     "url": "https://github.com/lidessen/moniro.git",
-    "directory": "packages/workflow"
+    "directory": "packages/workspace"
   },
   "files": [
     "dist"
@@ -31,7 +31,7 @@
     "prepublishOnly": "bun run build"
   },
   "dependencies": {
-    "@moniro/agent": "workspace:*",
+    "@moniro/agent-loop": "workspace:*",
     "@moniro/agent-worker": "workspace:*",
     "@clack/prompts": "^1.0.0",
     "@hono/node-server": "^1.19.9",
