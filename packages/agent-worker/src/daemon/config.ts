@@ -1,42 +1,43 @@
 /**
  * Daemon Config — Parse ~/.agent-worker/config.yml
  *
- * The daemon config defines workspace-level settings shared by all
- * standalone agents: bridges, context options, etc.
+ * The daemon config IS a workflow YAML file. It defines agents (identity +
+ * model + prompt) and bridges (external channels) in the standard workflow
+ * format.
  *
- * Agent identity (name, model, prompt, soul) is NOT here — that's in
- * .agents/*.yaml (AgentDefinition).
+ * Example config.yml:
+ *   agents:
+ *     alice:
+ *       model: anthropic/claude-sonnet-4-5
+ *       system_prompt: "You are a helpful assistant."
+ *       wakeup: "0 9 * * *"
+ *   bridges:
+ *     - adapter: telegram
+ *       bot_token: ${TELEGRAM_BOT_TOKEN}
+ *       chat_id: ${TELEGRAM_CHAT_ID}
  */
 
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { parse as parseYaml } from "yaml";
-import type { BridgeConfig } from "@moniro/workspace";
-
-// ── Types ──────────────────────────────────────────────────────────
-
-/** Daemon workspace configuration from config.yml */
-export interface DaemonConfig {
-  /** Channel bridge configuration */
-  bridges?: BridgeConfig[];
-}
-
-// ── Parsing ─────────────────────────────────────────────────────────
+import type { ParsedWorkflow } from "@moniro/workspace";
 
 /**
  * Load daemon config from ~/.agent-worker/config.yml.
- * Returns empty config if file doesn't exist or is invalid.
+ * Returns null if file doesn't exist or parsing fails.
+ *
+ * Uses the standard workflow parser — same format as workflow YAML files.
  */
-export function loadDaemonConfig(configDir: string): DaemonConfig {
+export async function loadDaemonConfig(configDir: string): Promise<ParsedWorkflow | null> {
   const configPath = join(configDir, "config.yml");
-  if (!existsSync(configPath)) return {};
+  if (!existsSync(configPath)) return null;
 
   try {
-    const raw = readFileSync(configPath, "utf-8");
-    const data = parseYaml(raw);
-    if (!data || typeof data !== "object") return {};
-    return data as DaemonConfig;
+    const { parseWorkflowFile } = await import("@moniro/workspace");
+    return await parseWorkflowFile(configPath, {
+      workflow: "global",
+      tag: "main",
+    });
   } catch {
-    return {};
+    return null;
   }
 }
