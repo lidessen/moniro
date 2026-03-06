@@ -123,6 +123,10 @@ export {
   createBashTools,
   createBashToolsFromDirectory,
   createBashToolsFromFiles,
+  ConversationLog,
+  ThinThread,
+  DEFAULT_THIN_THREAD_SIZE,
+  formatConversationMessages,
 } from "@moniro/agent-worker";
 export type {
   PersonalContextProvider,
@@ -132,6 +136,7 @@ export type {
   BashToolkit,
   BashToolsOptions,
   CreateBashToolOptions,
+  ConversationMessage,
 } from "@moniro/agent-worker";
 
 // ── Backwards-compat re-exports from @moniro/workflow ────────────

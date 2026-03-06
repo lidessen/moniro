@@ -5,7 +5,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/lidessen/moniro.git",
-    "directory": "packages/agent-loop"
+    "directory": "packages/agent"
   },
   "files": [
     "dist"

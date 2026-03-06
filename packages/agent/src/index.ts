@@ -114,11 +114,3 @@ export {
   AgentDefinitionSchema,
 } from "./definition.ts";
 
-// ── Conversation (Personal Context) ─────────────────────────────
-export type { ConversationMessage } from "./conversation.ts";
-export {
-  ConversationLog,
-  ThinThread,
-  DEFAULT_THIN_THREAD_SIZE,
-  formatConversationMessages,
-} from "./conversation.ts";

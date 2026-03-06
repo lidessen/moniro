@@ -28,7 +28,8 @@ import {
 import { buildAgentPrompt } from "./prompt.ts";
 import { generateWorkflowMCPConfig } from "./mcp-config.ts";
 import { resolveSchedule, msUntilNextCron } from "@moniro/agent-loop";
-import type { ScheduleConfig, ConversationMessage } from "@moniro/agent-loop";
+import type { ScheduleConfig } from "@moniro/agent-loop";
+import type { ConversationMessage } from "@moniro/agent-worker";
 import type { InboxMessage } from "@/context/types.ts";
 
 /** Check if loop should continue running */

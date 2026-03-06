@@ -27,10 +27,10 @@ PACKAGE-SPLIT.md defined three packages, but the layer boundaries don't match th
 
 ```
 packages/
-├── agent-loop/      → @moniro/agent-loop      (内部，不发布)
-├── agent-worker/    → @moniro/agent-worker     (内部，不发布)
+├── agent/           → @moniro/agent-loop      (内部，不发布)
+├── worker/          → @moniro/agent-worker     (内部，不发布)
 ├── workspace/       → @moniro/workspace        (内部，不发布)
-└── moniro/          → agent-worker             (umbrella，发布，CLI + re-exports)
+└── agent-worker/    → agent-worker             (umbrella，发布，CLI + re-exports)
 ```
 
 ### 层级关系
@@ -198,8 +198,9 @@ tsdown 各包独立构建，跟现有模式一致。
 5. **umbrella 纯入口**：CLI + re-exports，不含业务逻辑
 6. **跟 semajsx 同模式**：内部 `@scope/*` + 发布 umbrella
 
-## Open Questions
+## Resolved Questions
 
-1. **conversation.ts 归属** — `ConversationLog`/`ThinThread` 目前在 agent-loop，但对话持久化更像身份层的职责。搬到 @moniro/agent-worker？
-2. **umbrella 包名** — 目录叫 `packages/moniro/` 还是保持 `packages/agent-worker/`（但那跟内部包 `@moniro/agent-worker` 目录名冲突）？
-3. **workspace CLI** — workspace 功能通过 umbrella CLI 子命令暴露（`agent-worker run/workspace`），还是独立 CLI？
+1. **conversation.ts 归属** — ✅ 已移至 `@moniro/agent-worker`（packages/worker/src/conversation.ts）。对话持久化属于身份层。
+2. **umbrella 包名** — ✅ 目录 `packages/agent-worker/`，包名 `agent-worker`。内部包 `@moniro/agent-worker` 目录为 `packages/worker/`。
+3. **workspace CLI** — ✅ 通过 umbrella CLI 子命令暴露，后续按需规划独立 CLI。
+4. **agent-loop 目录名** — ✅ `packages/agent/`，包名保持 `@moniro/agent-loop`。

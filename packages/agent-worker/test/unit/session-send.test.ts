@@ -345,7 +345,7 @@ describe("AgentWorker.send() via SDK (mock model)", () => {
 
   test("basic SDK send with mock model", async () => {
     // Mock the models module before importing session
-    mock.module("../../../agent-loop/src/models.ts", () => ({
+    mock.module("../../../agent/src/models.ts", () => ({
       createModelAsync: async () => mockModel,
       createModel: () => mockModel,
       createModelWithProvider: async () => mockModel,
@@ -360,7 +360,7 @@ describe("AgentWorker.send() via SDK (mock model)", () => {
     }));
 
     // Fresh import after mocking (source import required for mock.module to work)
-    const { AgentWorker } = await import("../../../agent-loop/src/worker.ts");
+    const { AgentWorker } = await import("../../../agent/src/worker.ts");
 
     const session = new AgentWorker({
       model: "anthropic/mock-model",
@@ -387,7 +387,7 @@ describe("AgentWorker.send() via SDK (mock model)", () => {
       "The weather in Tokyo is sunny.",
     );
 
-    mock.module("../../../agent-loop/src/models.ts", () => ({
+    mock.module("../../../agent/src/models.ts", () => ({
       createModelAsync: async () => model,
       createModel: () => model,
       FRONTIER_MODELS: { anthropic: ["mock-model"] },
@@ -396,7 +396,7 @@ describe("AgentWorker.send() via SDK (mock model)", () => {
       getDefaultModel: () => "anthropic/mock-model",
     }));
 
-    const { AgentWorker } = await import("../../../agent-loop/src/worker.ts");
+    const { AgentWorker } = await import("../../../agent/src/worker.ts");
 
     const weatherTool = tool<{ location: string }, { temperature: number; location: string }>({
       description: "Get weather",
@@ -427,7 +427,7 @@ describe("AgentWorker.send() via SDK (mock model)", () => {
   test("SDK send multi-turn accumulates context", async () => {
     const model = sequenceModel(["First response", "Second response"]);
 
-    mock.module("../../../agent-loop/src/models.ts", () => ({
+    mock.module("../../../agent/src/models.ts", () => ({
       createModelAsync: async () => model,
       createModel: () => model,
       FRONTIER_MODELS: { anthropic: ["mock-model"] },
@@ -436,7 +436,7 @@ describe("AgentWorker.send() via SDK (mock model)", () => {
       getDefaultModel: () => "anthropic/mock-model",
     }));
 
-    const { AgentWorker } = await import("../../../agent-loop/src/worker.ts");
+    const { AgentWorker } = await import("../../../agent/src/worker.ts");
 
     const session = new AgentWorker({
       model: "anthropic/mock-model",
@@ -456,7 +456,7 @@ describe("AgentWorker.send() via SDK (mock model)", () => {
   test("SDK send with onStepFinish callback", async () => {
     const model = textModel("Done", 100, 50);
 
-    mock.module("../../../agent-loop/src/models.ts", () => ({
+    mock.module("../../../agent/src/models.ts", () => ({
       createModelAsync: async () => model,
       createModel: () => model,
       FRONTIER_MODELS: { anthropic: ["mock-model"] },
@@ -465,7 +465,7 @@ describe("AgentWorker.send() via SDK (mock model)", () => {
       getDefaultModel: () => "anthropic/mock-model",
     }));
 
-    const { AgentWorker } = await import("../../../agent-loop/src/worker.ts");
+    const { AgentWorker } = await import("../../../agent/src/worker.ts");
 
     const session = new AgentWorker({
       model: "anthropic/mock-model",
@@ -486,7 +486,7 @@ describe("AgentWorker.send() via SDK (mock model)", () => {
   test("addTool and mockTool affect subsequent send calls", async () => {
     const model = toolCallModel("calculator", { expression: "2+2" }, "The answer is 4.");
 
-    mock.module("../../../agent-loop/src/models.ts", () => ({
+    mock.module("../../../agent/src/models.ts", () => ({
       createModelAsync: async () => model,
       createModel: () => model,
       FRONTIER_MODELS: { anthropic: ["mock-model"] },
@@ -495,7 +495,7 @@ describe("AgentWorker.send() via SDK (mock model)", () => {
       getDefaultModel: () => "anthropic/mock-model",
     }));
 
-    const { AgentWorker } = await import("../../../agent-loop/src/worker.ts");
+    const { AgentWorker } = await import("../../../agent/src/worker.ts");
 
     const calcTool = tool<{ expression: string }, { result: number }>({
       description: "Calculate expression",

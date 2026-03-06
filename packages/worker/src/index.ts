@@ -29,3 +29,12 @@ export {
   createBashToolsFromFiles,
 } from "./tools/bash.ts";
 export type { BashToolsOptions, BashToolkit, CreateBashToolOptions } from "./tools/bash.ts";
+
+// ── Conversation (Personal Context) ────────────────────────────
+export type { ConversationMessage } from "./conversation.ts";
+export {
+  ConversationLog,
+  ThinThread,
+  DEFAULT_THIN_THREAD_SIZE,
+  formatConversationMessages,
+} from "./conversation.ts";

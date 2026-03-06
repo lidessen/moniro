@@ -15,8 +15,9 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 
-import { ConversationLog, ThinThread, DEFAULT_THIN_THREAD_SIZE } from "@moniro/agent-loop";
-import type { ConversationMessage, AgentDefinition } from "@moniro/agent-loop";
+import { ConversationLog, ThinThread, DEFAULT_THIN_THREAD_SIZE } from "@moniro/agent-worker";
+import type { ConversationMessage } from "@moniro/agent-worker";
+import type { AgentDefinition } from "@moniro/agent-loop";
 import { AgentHandle } from "@/agent/agent-handle.ts";
 import { thinThreadSection, formatConversation } from "@moniro/workspace";
 import type { AgentRunContext } from "@moniro/workspace";
