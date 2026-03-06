@@ -65,6 +65,7 @@ export type {
   InstructionProgress,
   AgentRunContext,
   AgentRunResult,
+  PersonalContext,
   WorkflowIdleState,
 } from "./loop/types.ts";
 export { LOOP_DEFAULTS } from "./loop/types.ts";
@@ -82,6 +83,9 @@ export {
   formatConversation,
   formatInbox,
   formatChannel,
+  soulSection,
+  memorySection,
+  todoSection,
   thinThreadSection,
   type PromptSection,
   DEFAULT_SECTIONS,

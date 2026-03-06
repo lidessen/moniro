@@ -63,6 +63,51 @@ export function formatConversation(
   return formatConversationMessages(messages);
 }
 
+// ── Personal Context Sections ─────────────────────────────────────
+
+/** Soul — persistent identity (who you are always) */
+export const soulSection: PromptSection = (ctx) => {
+  const soul = ctx.personalContext?.soul;
+  if (!soul) return null;
+
+  const lines: string[] = ["## Identity"];
+  if (soul.role) lines.push(`**Role**: ${soul.role}`);
+  if (soul.expertise?.length) lines.push(`**Expertise**: ${soul.expertise.join(", ")}`);
+  if (soul.style) lines.push(`**Style**: ${soul.style}`);
+  if (soul.principles?.length) {
+    lines.push("**Principles**:");
+    for (const p of soul.principles) {
+      lines.push(`- ${p}`);
+    }
+  }
+  return lines.length > 1 ? lines.join("\n") : null;
+};
+
+/** Memory — persistent knowledge (what you know) */
+export const memorySection: PromptSection = (ctx) => {
+  const memory = ctx.personalContext?.memory;
+  if (!memory || Object.keys(memory).length === 0) return null;
+
+  const lines: string[] = ["## Memory"];
+  for (const [key, value] of Object.entries(memory)) {
+    if (typeof value === "string") {
+      lines.push(`- **${key}**: ${value}`);
+    } else {
+      lines.push(`- **${key}**: ${JSON.stringify(value)}`);
+    }
+  }
+  return lines.join("\n");
+};
+
+/** Todos — active tasks (what you need to do) */
+export const todoSection: PromptSection = (ctx) => {
+  const todos = ctx.personalContext?.todos;
+  if (!todos || todos.length === 0) return null;
+
+  const lines = ["## Active Tasks", ...todos.map((t) => `- [ ] ${t}`)];
+  return lines.join("\n");
+};
+
 // ── Built-in Sections ─────────────────────────────────────────────
 
 /** Project context (what codebase to work on) */
@@ -194,11 +239,16 @@ export const exitSection: PromptSection = () => {
 // ── Default Section List ──────────────────────────────────────────
 
 /**
- * Default prompt sections — produces the same output as the original
- * monolithic buildAgentPrompt. New sections (soul, memory, todo) can
- * be inserted at specific positions without touching these.
+ * Default prompt sections.
+ *
+ * Personal context (soul, memory, todo) comes first — establishes identity
+ * before operational context. These sections return null for inline agents
+ * that have no personal context.
  */
 export const DEFAULT_SECTIONS: PromptSection[] = [
+  soulSection,
+  memorySection,
+  todoSection,
   projectSection,
   inboxSection,
   thinThreadSection,

@@ -16,6 +16,7 @@ import type {
   AgentInstruction,
   AgentRunContext,
   AgentRunResult,
+  PersonalContext,
   WorkflowIdleState,
 } from "./types.ts";
 import { LOOP_DEFAULTS } from "./types.ts";
@@ -179,6 +180,9 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
       await contextProvider.markInboxSeen(name, latestId);
     }
 
+    // Read personal context once (stable across retries)
+    const personalContext = await readPersonalContext(agent.handle);
+
     // Run agent with retry
     let attempt = 0;
     let lastResult: AgentRunResult | null = null;
@@ -213,6 +217,8 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
         shouldYield: () => queue.hasHigherPriority(instruction.priority),
         // Resume from previous progress if this instruction was preempted before
         resumeProgress: instruction.progress,
+        // Personal context for ref agents (soul, memory, todos)
+        personalContext,
       };
 
       // Orchestrate: build prompt → configure workspace → send
@@ -509,6 +515,9 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
           await contextProvider.markInboxSeen(name, latestId);
         }
 
+        // Read personal context for ref agents
+        const personalContext = await readPersonalContext(agent.handle);
+
         // Build run context (same as poll loop, plus thin thread)
         const runContext: AgentRunContext = {
           name,
@@ -527,6 +536,7 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
           eventLog,
           feedback,
           thinThread: thinThread?.getMessages(),
+          personalContext,
         };
 
         infoLog(`Direct send (${message.length} chars)`);
@@ -702,4 +712,27 @@ export async function buildWorkflowIdleState(
     noUnreadMessages,
     noActiveProposals,
   };
+}
+
+// ── Personal Context ──────────────────────────────────────────────
+
+/**
+ * Read personal context from an agent handle (if available).
+ * Returns undefined for inline agents (no handle) or agents without context.
+ */
+async function readPersonalContext(
+  handle: import("../types.ts").AgentHandleRef | undefined,
+): Promise<PersonalContext | undefined> {
+  if (!handle) return undefined;
+
+  const soul = handle.definition.soul;
+  const [memory, todos] = await Promise.all([
+    handle.readMemory?.() ?? Promise.resolve(undefined),
+    handle.readTodos?.() ?? Promise.resolve(undefined),
+  ]);
+
+  // Only return if there's something to inject
+  if (!soul && !memory && !todos) return undefined;
+
+  return { soul, memory, todos };
 }
