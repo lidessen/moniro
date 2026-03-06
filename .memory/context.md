@@ -18,7 +18,7 @@ agent-worker (umbrella) ──── re-exports all ──┘
 
 ```
 packages/
-├── agent-loop/      → @moniro/agent-loop      纯执行循环
+├── agent/           → @moniro/agent-loop      纯执行循环
 ├── worker/          → @moniro/agent-worker     个人 agent（身份, 记忆, tools）
 ├── workspace/       → @moniro/workspace        协作空间（channel, MCP server）
 └── agent-worker/    → agent-worker             umbrella（CLI + daemon + re-exports）
@@ -56,8 +56,7 @@ packages/
 
 ## 已知风险 & 开放问题
 
-- `conversation.ts` 归属 — `ConversationLog`/`ThinThread` 在 agent-loop，可能应在 agent-worker
-- workspace CLI — 通过 umbrella 子命令还是独立 CLI
+（已全部解决，见 PACKAGE-SPLIT.md Resolved Questions）
 
 ## 关键文件
 

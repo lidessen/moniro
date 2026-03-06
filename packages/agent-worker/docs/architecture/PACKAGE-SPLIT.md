@@ -22,10 +22,10 @@ Four packages: three internal (`@moniro/*`, not published) + one umbrella (publi
 
 ```
 packages/
-├── agent-loop/      → @moniro/agent-loop      (内部)
-├── agent-worker/    → @moniro/agent-worker     (内部)
+├── agent/           → @moniro/agent-loop      (内部)
+├── worker/          → @moniro/agent-worker     (内部)
 ├── workspace/       → @moniro/workspace        (内部)
-└── moniro/          → agent-worker             (umbrella, 发布)
+└── agent-worker/    → agent-worker             (umbrella, 发布)
 ```
 
 Dependency chain (strict one-way):
@@ -405,8 +405,9 @@ agent-worker connect alice wss://...  # 个人 agent 接入 workspace
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-1. **conversation.ts 归属** — `ConversationLog`/`ThinThread` 目前在 agent-loop，但对话持久化更像身份层的职责。搬到 `@moniro/agent-worker`？
-2. **umbrella 目录名** — `packages/moniro/` 还是保持路径但改 name？需要避免跟 `@moniro/agent-worker` 目录名冲突
-3. **workspace CLI** — workspace 功能通过 umbrella CLI 子命令暴露，还是独立 CLI？
+1. **conversation.ts 归属** — ✅ 已移至 `@moniro/agent-worker`（packages/worker/src/conversation.ts）。对话持久化属于身份层。
+2. **umbrella 目录名** — ✅ `packages/agent-worker/`，包名 `agent-worker`。内部包 `@moniro/agent-worker` 目录为 `packages/worker/`。
+3. **workspace CLI** — ✅ 通过 umbrella CLI 子命令暴露，后续按需规划独立 CLI。
+4. **agent-loop 目录名** — ✅ `packages/agent/`，包名保持 `@moniro/agent-loop`。
