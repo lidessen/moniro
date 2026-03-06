@@ -1,21 +1,18 @@
 # Todos
 
-跨会话的任务追踪。当前阶段：**Phase 5+ — 后续功能**。
+跨会话的任务追踪。当前阶段：**Personal Agent 优先**。
 
 ## 活跃任务
 
 | 优先级 | 任务 | 状态 | 备注 |
 |--------|------|------|------|
-| high | Phase 5 PR 合并 (#110) | in-progress | Priority Queue + Cooperative Preemption |
-| medium | `send` CLI target 解析（DM / @workspace / agent@workspace） | todo | Phase 3b 遗留，见 ADR |
-
-## 未来任务（Phase 6+）
-
-| 优先级 | 任务 | 阶段 | 备注 |
-|--------|------|------|------|
-| medium | Personal context tools 实现（memory/notes/todos） | Phase 6 | 在 Agent 层，pluggable storage |
-| medium | Agent context in prompt（recall tools, auto-memory） | Phase 6 | |
-| low | CLI + Project Config（moniro.yaml） | Phase 7 | |
+| **highest** | Phase 5 PR 合并 (#110) | in-progress | 合并后立即进入 Phase 6a |
+| **highest** | Phase 6a: Soul + Context Prompt 注入 | todo | soul/memory/todo → system prompt |
+| **high** | Phase 6b: Personal Context MCP Tools | todo | memory/note/todo 读写工具 |
+| **high** | Phase 6c: Auto-Memory + Recall | todo | 自动记忆提取 + 历史搜索 |
+| medium | Phase 6d: Guard Agent（看守者） | todo | 智能上下文组装，设计已完成 |
+| low | `send` CLI target 解析 | todo | Phase 3b 遗留，降低优先级 |
+| low | CLI + Project Config（moniro.yaml） | todo | 降级，个人 Agent 完成后再做 |
 
 ## 已完成
 
