@@ -7,10 +7,9 @@
 | 优先级 | 任务 | 状态 | 备注 |
 |--------|------|------|------|
 | **highest** | Phase 5 PR 合并 (#110) | in-progress | 合并后立即进入 Phase 6a |
-| **highest** | Phase 6a: Soul + Context Prompt 注入 | todo | soul/memory/todo → system prompt |
-| **high** | Phase 6b: Personal Context MCP Tools | todo | memory/note/todo 读写工具 |
-| **high** | Phase 6c: Auto-Memory + Recall | todo | 自动记忆提取 + 历史搜索 |
-| medium | Phase 6d: Guard Agent（看守者） | todo | 智能上下文组装，设计已完成 |
+| **highest** | Phase 6a: Personal Agent Prompt | todo | soulSection + memorySection + todoSection → prompt.ts |
+| **high** | Phase 6b: Context Tools + Auto-Memory | todo | 动态 MCP tools + recall + 自动记忆提取 |
+| medium | Phase 6c: Guard Agent（看守者） | todo | 智能上下文组装，设计已完成 |
 | low | `send` CLI target 解析 | todo | Phase 3b 遗留，降低优先级 |
 | low | CLI + Project Config（moniro.yaml） | todo | 降级，个人 Agent 完成后再做 |
 
