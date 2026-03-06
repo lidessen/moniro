@@ -18,3 +18,4 @@ export {
 } from "./server.ts";
 export type { MCPToolContext, ChannelToolOptions } from "./types.ts";
 export { getAgentId, formatInbox, formatToolParams, createLogTool } from "./helpers.ts";
+export { registerPersonalContextTools, type HandleResolver } from "./personal.ts";

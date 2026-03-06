@@ -240,6 +240,7 @@ export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> 
       onMention,
       feedback: feedbackEnabled,
       debugLog,
+      resolveHandle: (name) => workflow.agents[name]?.handle,
     });
     mcpGetFeedback = mcp.getFeedback;
     mcpToolNames = mcp.mcpToolNames;

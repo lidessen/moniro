@@ -236,6 +236,7 @@ async function ensureAgentLoop(s: DaemonState, agentName: string): Promise<Agent
     workflowName: "global",
     tag: "main",
     agentNames: [agentName],
+    resolveHandle: (name) => (name === agentName ? handle : s.agents.get(name) ?? undefined),
   });
 
   // Create wired loop (backend + workspace dir).
@@ -665,6 +666,7 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
         validAgents: allNames,
         name: `${handle?.definition.name ?? agentName}-context`,
         version: "1.0.0",
+        resolveHandle: (name) => s.agents.get(name) ?? undefined,
       }).server;
 
       await mcpServer.connect(transport);

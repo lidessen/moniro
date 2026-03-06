@@ -97,6 +97,8 @@ export interface MinimalRuntimeConfig {
   feedback?: boolean;
   /** Debug log function */
   debugLog?: (msg: string) => void;
+  /** Resolve agent handle by name for personal context tools */
+  resolveHandle?: (agentName: string) => import("./types.ts").AgentHandleRef | undefined;
 }
 
 /**
@@ -110,7 +112,7 @@ export interface MinimalRuntimeConfig {
  * the same context infrastructure that workflow agents get.
  */
 export async function createMinimalRuntime(config: MinimalRuntimeConfig): Promise<Workspace> {
-  const { workflowName, tag, agentNames, onMention, feedback: feedbackEnabled, debugLog } = config;
+  const { workflowName, tag, agentNames, onMention, feedback: feedbackEnabled, debugLog, resolveHandle } = config;
 
   // Resolve context provider
   let contextProvider: ContextProvider;
@@ -150,6 +152,7 @@ export async function createMinimalRuntime(config: MinimalRuntimeConfig): Promis
       onMention,
       feedback: feedbackEnabled,
       debugLog,
+      resolveHandle,
     });
     mcpGetFeedback = mcp.getFeedback;
     mcpToolNames = mcp.mcpToolNames;
