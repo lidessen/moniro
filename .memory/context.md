@@ -34,6 +34,7 @@ agent-worker ────────┘  ← System: 持久化 daemon 服务
 | **Phase 6a** | **next** | **Personal Agent Prompt** | soulSection + memorySection + todoSection 注入 prompt |
 | **Phase 6b** | next | **Personal Context Tools + Auto-Memory** | 动态 MCP tools + recall + auto-memory |
 | **Phase 6c** | future | **Guard Agent（看守者）** | 智能上下文选择, 隐私控制, 记忆调解 |
+| **Phase 6d** | future | **Channel Bridge（外部集成）** | ChannelBridge + ChannelAdapter + Telegram |
 | Phase 7 | deprioritized | CLI + Project Config | `moniro.yaml`, improved CLI |
 
 ## Phase 6: Personal Agent 路线图
@@ -94,6 +95,17 @@ prompt:
 - 取代 Phase 6a 的简单全量注入，改为智能选择
 - **依赖**：Phase 6a-6b 完成后再考虑
 
+### Phase 6d: Channel Bridge（外部集成）
+**目标**：将 Telegram 等外部沟通渠道接入 channel，实现双向消息流通。
+
+- 设计文档：`CHANNEL-BRIDGE.md`
+- **ChannelBridge**：在 ChannelStore 之上加 subscribe/send API，EventEmitter 驱动
+- **ChannelAdapter**：每个外部平台一个 adapter（格式转换 + 身份标识 + 连接管理）
+- **身份**：内部 agent 用原名，外部用 `platform:display_name`（如 `telegram:TIANYANG Zhou`），只是防撞标识，不引入用户系统
+- **防回环**：send 时带 `source` 字段，Bridge 不把消息推回同源 adapter
+- **渐进式**：Phase 1 EventEmitter → Phase 2 Bridge API → Phase 3 首个 Adapter → Phase 4 HTTP webhook
+- **依赖**：Channel 基础设施已就绪，可独立于 Phase 6a-6c 推进
+
 ## Phase 5 要点（待合并）
 
 - 三 lane 优先级队列：`immediate > normal > background`
@@ -114,6 +126,7 @@ prompt:
 |------|------|
 | `packages/agent-worker/docs/architecture/PACKAGE-SPLIT.md` | 三包拆分设计 |
 | `packages/agent-worker/docs/architecture/AGENT-TOP-LEVEL.md` | Agent 顶层实体设计 |
+| `packages/agent-worker/docs/architecture/CHANNEL-BRIDGE.md` | Channel 外部集成设计 |
 | `packages/workflow/src/loop/priority-queue.ts` | 优先级队列实现 |
 | `packages/workflow/src/loop/sdk-runner.ts` | SDK runner + PreemptionError |
 | `.memory/decisions/` | ADR 记录 |
