@@ -52,7 +52,7 @@ packages/
 | **Phase 6-restructure** | **done** | **四包重构** | 依赖反转 + 个人 agent 下沉 + 包重命名 + @/ alias |
 | Phase 6c | future | Guard Agent（看守者） | Workspace 层的智能上下文管理，可选 |
 | Phase 6d | **done** | Channel Bridge + Telegram | ChannelBridge + TelegramAdapter + mention 扩展, 1108 tests |
-| Phase 6e | **done** | Daemon Persistence + Telegram Wiring | loadFromDisk at startup, persist by default, Telegram bridge in daemon |
+| Phase 6e | **done** | Daemon Persistence + Bridge Abstraction | loadFromDisk, persist by default, bridge config→workspace, channel_send targeting, 1113 tests |
 | Phase 6d+ | future | Channel Bridge HTTP Webhook | SSE/HTTP endpoint for cross-process adapters |
 | Phase 7 | deprioritized | CLI + Project Config | `moniro.yaml`, improved CLI |
 
