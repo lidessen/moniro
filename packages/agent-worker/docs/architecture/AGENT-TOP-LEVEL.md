@@ -101,10 +101,29 @@ model: anthropic/claude-sonnet-4-5
 backend: sdk # sdk | claude | cursor | codex | mock
 
 prompt:
-  system: |
-    You are Alice, a senior code reviewer.
-    You value clarity, correctness, and simplicity.
-  # OR load from file (mutually exclusive with system):
+  sections:
+    # 命名源 — 使用 ${{ prompts.* }} 引用系统预定义的 prompt 源
+    - tag: identity
+      from: ${{ prompts.soul }}        # 从 agent.soul 生成身份描述
+    - tag: memory
+      from: ${{ prompts.memory }}      # 从 .agents/<name>/memory/ 注入记忆
+    - tag: tasks
+      from: ${{ prompts.todo }}        # 从 .agents/<name>/todo/ 注入活跃任务
+
+    # 路径 — 包含 / 或 . 的值按文件路径解析（相对于 agent YAML）
+    - tag: guidelines
+      from: ./prompts/review-rules.md
+
+    # 内联 — 直接写内容
+    - tag: constraints
+      content: |
+        You value clarity, correctness, and simplicity.
+        When done reviewing, summarize findings concisely.
+
+  # 简写：单个 system prompt（不使用 sections 时）
+  # system: |
+  #   You are Alice, a senior code reviewer.
+  # 或加载文件：
   # system_file: ./prompts/alice.md
 
 soul: # Persistent identity traits (injected into prompt context)
@@ -700,29 +719,48 @@ Agent Entry in Workflow YAML
 When a loop runs an agent, the prompt is assembled from multiple sources:
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                  Prompt Assembly                         │
-│                                                          │
-│  System prompt (always loaded):                         │
-│    1. Base system prompt (from agent definition)        │
-│    2. Soul injection (role, expertise, principles)      │
-│    3. Agent memory (relevant entries from memory/)      │
-│    4. Active todos (from agent's todo/)                 │
-│    5. Workflow-specific append (from workflow entry)     │
-│                                                          │
-│  Messages (thin thread):                                │
-│    6. Last N messages in this context                   │
-│    7. Current instruction                               │
-│                                                          │
-│  Tools available:                                       │
-│    8. history_search / history_read (recall on demand)  │
-│    9. memory_write (persist learnings)                  │
-│   10. Workspace tools (channel_send/read, inbox, etc.)  │
-│                                                          │
-│  Result: Bounded prompt with identity + continuity      │
-│          + on-demand access to full history              │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                     Prompt Assembly                           │
+│                                                               │
+│  System prompt sections (按 sections 顺序组装):              │
+│                                                               │
+│    from: ${{ prompts.soul }}    → 从 agent.soul 生成身份描述  │
+│    from: ${{ prompts.memory }}  → 从 memory/ 注入相关记忆     │
+│    from: ${{ prompts.todo }}    → 从 todo/ 注入活跃任务       │
+│    from: ./file.md              → 加载文件内容                │
+│    content: (inline)            → 内联文本                    │
+│    + workflow-specific append                                 │
+│                                                               │
+│  Variable resolution:                                        │
+│    ${{ prompts.* }}  → 命名 prompt 源（系统预定义）          │
+│    ${{ env.* }}      → 环境变量                              │
+│    ${{ params.* }}   → Workflow 参数                          │
+│    路径（含 / 或 .）  → 文件加载（相对于 agent YAML）          │
+│                                                               │
+│  Messages (thin thread):                                     │
+│    Last N messages in this context                           │
+│    Current instruction                                       │
+│                                                               │
+│  Tools available:                                            │
+│    history_search / history_read (recall on demand)          │
+│    memory_write (persist learnings)                          │
+│    Workspace tools (channel_send/read, inbox, etc.)          │
+│                                                               │
+│  Result: Bounded prompt with identity + continuity           │
+│          + on-demand access to full history                   │
+└──────────────────────────────────────────────────────────────┘
 ```
+
+**Sections 解析规则**：
+
+| `from` 值 | 解析方式 | 示例 |
+|-----------|---------|------|
+| `${{ prompts.* }}` | 命名 prompt 源，系统预定义 | `${{ prompts.soul }}` |
+| `${{ env.* }}` | 环境变量 | `${{ env.GUIDELINES }}` |
+| `${{ params.* }}` | Workflow 参数 | `${{ params.focus }}` |
+| 含 `/` 或 `.` | 文件路径（相对于 agent YAML） | `./prompts/rules.md` |
+
+不使用 `sections` 时，`system` / `system_file` 作为简写仍可用。
 
 ---
 

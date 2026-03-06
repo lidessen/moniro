@@ -43,22 +43,40 @@ agent-worker ────────┘  ← System: 持久化 daemon 服务
 ### Phase 6a: Personal Agent Prompt（最高优先级）
 **目标**：让 agent 在对话中"知道自己是谁"——有身份、有记忆、有任务。
 
-**注入点**：`packages/workflow/src/loop/prompt.ts` 的 `DEFAULT_SECTIONS`
+**设计**：通过 `prompt.sections` 声明式组装 system prompt，使用 `${{ prompts.* }}` 引用系统预定义的 prompt 源。
 
-新增 PromptSection：
-- `soulSection` — 从 `agent.soul` 注入 role/expertise/style/principles
-- `memorySection` — 从 `.agents/<name>/memory/` 读取关键条目（bounded）
-- `todoSection` — 从 `.agents/<name>/todo/` 注入活跃任务
+```yaml
+# .agents/alice.yaml
+prompt:
+  sections:
+    - tag: identity
+      from: ${{ prompts.soul }}        # 从 agent.soul 生成身份描述
+    - tag: memory
+      from: ${{ prompts.memory }}      # 从 .agents/<name>/memory/ 注入记忆
+    - tag: tasks
+      from: ${{ prompts.todo }}        # 从 .agents/<name>/todo/ 注入活跃任务
+    - tag: guidelines
+      from: ./prompts/review-rules.md  # 路径 → 文件加载
+    - tag: constraints
+      content: |                       # 内联文本
+        Focus on correctness and clarity.
+```
+
+**解析规则**：`${{ }}` → 变量插值（与 workflow 一致），含 `/` 或 `.` → 文件路径，`content` → 内联。
+
+**注入点**：`packages/workflow/src/loop/prompt.ts` 的 `DEFAULT_SECTIONS`
 
 **已有基础**：
 - `AgentSoul` 类型已定义（`definition.ts:25-36`），只差注入
 - `AgentHandle` 的 context dir 已有 memory/notes/todo 子目录
 - `PromptSection` 模式已成熟，新增 section 即可
+- `${{ }}` 插值引擎已有（`packages/workflow/src/interpolate.ts`），扩展 `prompts.*` 命名空间
 - `ThinThread` 对话历史已有（但 `processInstruction()` 缺少传递，需修复）
 
-**关键设计决策**：
-- soul 注入到 system prompt 还是 user prompt？（倾向 system prompt，更稳定）
-- memory 注入策略：全量 vs 按相关性选取（初版全量 bounded，后续 Guard 优化）
+**关键设计决策（已定）**：
+- soul 注入到 system prompt（更稳定）
+- 变量语法统一用 `${{ }}`，命名空间 `prompts.*` 表示预定义 prompt 源
+- memory 注入策略：全量 bounded（初版），后续 Guard 优化
 - AgentRunContext 需要扩展，携带 soul/memory/todo 数据
 
 ### Phase 6b: Personal Context Tools + Auto-Memory
