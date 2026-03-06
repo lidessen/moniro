@@ -1,34 +1,15 @@
 # Todos
 
-跨会话的任务追踪。当前阶段：**四包重构 + Personal Agent**。
+跨会话的任务追踪。当前阶段：**四包结构已完成，进入功能开发**。
 
 ## 活跃任务
 
 | 优先级 | 任务 | 状态 | 备注 |
 |--------|------|------|------|
-| **highest** | Phase 5 PR 合并 (#110) | in-progress | 合并后开始重构 |
-| **highest** | Phase 6-restructure: 四包重构 | todo | 见下方分解 |
 | medium | Phase 6c: Guard Agent | todo | Workspace 层可选优化，不阻塞个人 agent |
 | medium | Phase 6d: Channel Bridge | todo | 可独立推进 |
 | low | `send` CLI target 解析 | todo | Phase 3b 遗留 |
 | low | CLI + Project Config（moniro.yaml） | todo | 降级 |
-
-### Phase 6-restructure 分解
-
-依赖顺序，每步保持 green build：
-
-| 步骤 | 内容 | 状态 | 备注 |
-|------|------|------|------|
-| 1 | 创建 `@moniro/agent-worker` 包（临时目录 `packages/agent-worker-core/`） | todo | 提取 PersonalContextProvider + FileContextProvider + PromptAssembler |
-| 2 | 搬迁个人 prompt sections（soul/memory/todo）到 @moniro/agent-worker | todo | 从 workflow/loop/prompt.ts 搬 |
-| 3 | 搬迁 personal context tools 到 @moniro/agent-worker（变本地 tools） | todo | 从 workflow/context/mcp/personal.ts 搬 |
-| 4 | 搬迁 bash tools 到 @moniro/agent-worker | todo | 从 workflow/tools/bash.ts 搬 |
-| 5 | 搬迁 daemon + agent handle/registry 到 @moniro/agent-worker | todo | 从现 agent-worker 搬 |
-| 6 | 清理 workspace 层：移除 personal context 代码 | todo | AgentHandleRef, PersonalContext, personal MCP tools |
-| 7 | 反转依赖：workspace → agent-worker（不再反向） | todo | workspace 的 package.json 改依赖 |
-| 8 | 包重命名：agent → agent-loop, workflow → workspace | todo | 更新所有引用 |
-| 9 | 创建 umbrella 包 `packages/moniro/`（CLI + re-exports） | todo | `agent-worker` 发布名 |
-| 10 | 全量测试 + CI 更新 | todo | 确保 build 顺序正确 |
 
 ## 已完成
 
@@ -49,6 +30,18 @@
 | Phase 6a: Personal Agent Prompt | 2026-03-05 | soulSection + memorySection + todoSection |
 | Phase 6b: Personal Context Tools | 2026-03-05 | 6 个 my_* MCP tools |
 | 四包重构设计 | 2026-03-06 | ADR + PACKAGE-SPLIT 更新 |
+| Phase 6-restructure: 四包重构 | 2026-03-06 | 1085 tests, 见下方详情 |
+
+### Phase 6-restructure 完成详情
+
+| 步骤 | 内容 | 状态 | 备注 |
+|------|------|------|------|
+| 1-4 | 创建 `@moniro/agent-worker` 包 (packages/worker/) | done | PersonalContextProvider, prompt sections, context tools, bash tools |
+| 5 | AgentHandle implements PersonalContextProvider | done | daemon 留在 umbrella |
+| 6-7 | 清理 workspace + 依赖方向 | done | workspace → agent-worker → agent-loop |
+| 8 | 包重命名 | done | agent→agent-loop, workflow→workspace |
+| — | @ path alias | done | 包内 @/ 引用，包间用包名 |
+| 10 | 全量测试 | done | 1085 pass, 0 fail |
 
 ## 使用约定
 
