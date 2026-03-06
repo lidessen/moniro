@@ -9,15 +9,19 @@
 ## 架构概览
 
 ```
-@moniro/agent        ← Worker: 用完即丢的 agent 执行
-    ▲       ▲          worker + backends + tool infra + skills + personal context
-    │       │
-@moniro/workflow     │  ← Workflow: 一次性跑工作流
-    ▲       │          loop + shared context + MCP + bash/feedback
-    │       │
-agent-worker ────────┘  ← System: 持久化 daemon 服务
-                         daemon + AgentHandle + CLI + conversation
+@moniro/workspace          ← 协作空间：channel, inbox, shared docs, guard
+    ▲                        agents join via MCP
+    │
+agent-worker ────────┐     ← 个人 agent：身份, 记忆, personal tools, prompt 组装
+    │                │       scheduling, daemon, CLI
+    ▼                │
+@moniro/agent ───────┘     ← 纯执行循环：backends, tool loop, MCP/skills 协议
 ```
+
+各层职责：
+- **Agent Loop** (`@moniro/agent`): 执行一次对话 loop。无状态，不知道"我是谁"。MCP/Skills 协议支持在此层。
+- **Agent Worker** (`agent-worker`): 让执行器变成"人"。身份 + 记忆 + 个人 tools + prompt 组装 + MCP/Skills 管理。
+- **Workspace** (`@moniro/workspace`，原 workflow): 创造协作空间。Agent 通过 MCP client 加入。
 
 ## 阶段总览
 
@@ -33,78 +37,47 @@ agent-worker ────────┘  ← System: 持久化 daemon 服务
 | **Phase 5** | **PR #110** | **Priority Queue + Cooperative Preemption** | `InstructionQueue`, `PreemptionError` |
 | **Phase 6a** | **done** | **Personal Agent Prompt** | soulSection + memorySection + todoSection 注入 prompt |
 | **Phase 6b** | **done** | **Personal Context Tools** | 动态 MCP tools (memory/notes/todos read+write) |
-| **Phase 6c** | future | **Guard Agent（看守者）** | 智能上下文选择, 隐私控制, 记忆调解 |
+| **Phase 6-restructure** | **active** | **三层重构** | 个人 agent 下沉到 Agent Worker 层，Workspace 独立 |
+| **Phase 6c** | future | **Guard Agent（看守者）** | Workspace 层的智能上下文管理，可选 |
 | **Phase 6d** | future | **Channel Bridge（外部集成）** | ChannelBridge + ChannelAdapter + Telegram |
 | Phase 7 | deprioritized | CLI + Project Config | `moniro.yaml`, improved CLI |
 
-## Phase 6: Personal Agent 路线图
+## Phase 6: 三层重构 + Personal Agent
 
-> **核心思路**：独立 agent 已具备个人 agent 的基础设施（AgentHandle、context dir、soul schema、ThinThread）。主要工作是 **prompt 注入**，tools 可动态挂载，不需要独立阶段。
+> **核心转变**：个人 agent 不应依赖 workflow 层才能"知道自己是谁"。三层重新定义为 Agent Loop（纯执行）→ Agent Worker（个人 agent）→ Workspace（协作空间）。详见 ADR `2026-03-06-three-layer-restructuring.md`。
 
-### Phase 6a: Personal Agent Prompt（最高优先级）
-**目标**：让 agent 在对话中"知道自己是谁"——有身份、有记忆、有任务。
+### Phase 6a/6b: 已完成（需搬迁）
+- soul/memory/todo prompt injection 和 personal context MCP tools 已实现
+- 当前在 workflow 层，需搬迁到 agent-worker 层
+- 代码大部分是搬家而非重写
 
-**设计**：通过 `prompt.sections` 声明式组装 system prompt，使用 `${{ prompts.* }}` 引用系统预定义的 prompt 源。
+### Phase 6-restructure: 三层重构（当前焦点）
 
-```yaml
-# .agents/alice.yaml
-prompt:
-  sections:
-    - tag: identity
-      from: ${{ prompts.soul }}        # 从 agent.soul 生成身份描述
-    - tag: memory
-      from: ${{ prompts.memory }}      # 从 .agents/<name>/memory/ 注入记忆
-    - tag: tasks
-      from: ${{ prompts.todo }}        # 从 .agents/<name>/todo/ 注入活跃任务
-    - tag: guidelines
-      from: ./prompts/review-rules.md  # 路径 → 文件加载
-    - tag: constraints
-      content: |                       # 内联文本
-        Focus on correctness and clarity.
-```
+**目标**：重新定义层边界，让个人 agent 可以独立运行。
 
-**解析规则**：`${{ }}` → 变量插值（与 workflow 一致），含 `/` 或 `.` → 文件路径，`content` → 内联。
+**要搬的**：
+- `workflow/loop/prompt.ts` 的 soulSection/memorySection/todoSection → agent-worker/prompt/
+- `workflow/context/mcp/personal.ts` 的 6 个 tools → agent-worker/context/tools.ts（变本地 tools）
+- `workflow/types.ts` 的 AgentHandleRef → agent-worker 的 ContextProvider 接口
 
-**注入点**：`packages/workflow/src/loop/prompt.ts` 的 `DEFAULT_SECTIONS`
+**要新建的**：
+- `ContextProvider` 接口 — 文件默认实现，支持多 storage provider
+- `PromptAssembler` — 可组合 sections，对调用者开放自定义
+- MCP client 管理 — Agent Worker 连接 workspace 和外部 MCP server
 
-**已有基础**：
-- `AgentSoul` 类型已定义（`definition.ts:25-36`），只差注入
-- `AgentHandle` 的 context dir 已有 memory/notes/todo 子目录
-- `PromptSection` 模式已成熟，新增 section 即可
-- `${{ }}` 插值引擎已有（`packages/workflow/src/interpolate.ts`），扩展 `prompts.*` 命名空间
-- `ThinThread` 对话历史已有（但 `processInstruction()` 缺少传递，需修复）
+**要清理的**：
+- workspace 层移除 personal context 相关代码
+- workspace prompt.ts 只保留协作 sections
+- workspace MCP server 只暴露 shared context tools
 
-**关键设计决策（已定）**：
-- soul 注入到 system prompt（更稳定）
-- 变量语法统一用 `${{ }}`，命名空间 `prompts.*` 表示预定义 prompt 源
-- memory 注入策略：全量 bounded（初版），后续 Guard 优化
-- AgentRunContext 需要扩展，携带 soul/memory/todo 数据
-
-### Phase 6b: Personal Context Tools + Auto-Memory
-**目标**：让 agent 运行时可以读写记忆 + 自动学习。
-
-- `memory_read/write`, `note_read/write`, `todo_read/write` — 动态注册为 MCP tools
-- `history_search/read` — 搜索/读取历史对话
-- 自动记忆提取：指令完成后 LLM 判断是否有值得记住的内容
-- **tools 动态挂载**：基于 AgentHandle 是否有 context dir 决定是否注册
-
-### Phase 6c: Guard Agent（看守者）
-**目标**：智能上下文组装，防止信息过载，维护隐私边界。
-
-- 设计文档已完成：`GUARD-AGENT.md`（791 行）
-- 取代 Phase 6a 的简单全量注入，改为智能选择
-- **依赖**：Phase 6a-6b 完成后再考虑
+### Phase 6c: Guard Agent（Workspace 层，可选）
+- 设计文档已有：`GUARD-AGENT.md`
+- 重新定位：不是个人 agent 的依赖，是 workspace 的上下文优化
+- 管理多 agent 协作场景的上下文预算
 
 ### Phase 6d: Channel Bridge（外部集成）
-**目标**：将 Telegram 等外部沟通渠道接入 channel，实现双向消息流通。
-
 - 设计文档：`CHANNEL-BRIDGE.md`
-- **ChannelBridge**：在 ChannelStore 之上加 subscribe/send API，EventEmitter 驱动
-- **ChannelAdapter**：每个外部平台一个 adapter（格式转换 + 身份标识 + 连接管理）
-- **身份**：内部 agent 用原名，外部用 `platform:display_name`（如 `telegram:TIANYANG Zhou`），只是防撞标识，不引入用户系统
-- **防回环**：send 时带 `source` 字段，Bridge 不把消息推回同源 adapter
-- **渐进式**：Phase 1 EventEmitter → Phase 2 Bridge API → Phase 3 首个 Adapter → Phase 4 HTTP webhook
-- **依赖**：Channel 基础设施已就绪，可独立于 Phase 6a-6c 推进
+- 可独立于重构推进
 
 ## Phase 5 要点（待合并）
 
@@ -118,13 +91,15 @@ prompt:
 ## 已知风险 & 开放问题
 
 - `send` CLI target 解析（DM / @workspace / agent@workspace）— Phase 3b 遗留，降低优先级
-- Personal context schema 是否过于 opinionated（当前判断：作为默认实现 ship，storage 接口允许替代）
+- Personal context schema 是否过于 opinionated（当前判断：作为默认实现 ship，ContextProvider 接口允许替代）
+- 包名是否改：`@moniro/agent` vs `@moniro/agent-loop`，`@moniro/workflow` → `@moniro/workspace`
+- Agent Worker 同时承担"个人 agent"和"系统服务"两个职责，是否需要进一步拆分
 
 ## 关键文件
 
 | 文件 | 用途 |
 |------|------|
-| `packages/agent-worker/docs/architecture/PACKAGE-SPLIT.md` | 三包拆分设计 |
+| `packages/agent-worker/docs/architecture/PACKAGE-SPLIT.md` | 三包拆分设计（2026-03-06 更新层边界） |
 | `packages/agent-worker/docs/architecture/AGENT-TOP-LEVEL.md` | Agent 顶层实体设计 |
 | `packages/agent-worker/docs/architecture/CHANNEL-BRIDGE.md` | Channel 外部集成设计 |
 | `packages/workflow/src/loop/priority-queue.ts` | 优先级队列实现 |

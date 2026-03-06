@@ -1,7 +1,8 @@
 # Architecture: Three-Package Split
 
 **Date**: 2026-03-02
-**Status**: Proposed
+**Status**: Accepted
+**Amended**: 2026-03-06 — Layer boundaries redefined (see ADR `2026-03-06-three-layer-restructuring.md`)
 **Depends on**: AGENT-TOP-LEVEL phases 0–3c (all done)
 
 ---
@@ -21,41 +22,56 @@ A user who wants (1) must install the entire daemon, CLI, and workflow engine. T
 Split into three packages with strict downward-only dependencies:
 
 ```
-@moniro/agent          ← Zero project-internal deps. Pure execution.
-    ▲       ▲
-    │       │
-@moniro/workflow       │  ← Orchestration + shared context
-    ▲       │
-    │       │
-agent-worker ──────────┘  ← Persistent service (daemon + CLI)
+@moniro/workspace        ← 协作空间（channel, inbox, shared docs, guard）
+    ▲
+    │
+agent-worker ────────┐   ← 个人 agent（身份, 记忆, 调度, daemon, CLI）
+    │                │
+    ▼                │
+@moniro/agent ───────┘   ← 纯执行循环（backends, tool loop, MCP/skills 协议）
 ```
 
-Each package maps to one use case. Each can be used independently. System layer may depend on both lower layers directly.
+Each layer has a clear cognitive role:
+
+| Layer | Concept | Role |
+|-------|---------|------|
+| **Agent Loop** (`@moniro/agent`) | 执行一次对话循环 | backends, tool loop, MCP/skills 协议支持, model mgmt |
+| **Agent Worker** (`agent-worker`) | 让执行器变成"人" | 身份, 记忆, personal tools, prompt 组装, scheduling, daemon, CLI |
+| **Workspace** (`@moniro/workspace`) | 让"人"们协作 | channels, inbox, shared docs, guard, MCP server |
+
+### Dependency Rule
+
+- Agent Loop: zero project-internal deps
+- Agent Worker: depends on Agent Loop
+- Workspace: depends on Agent Loop (for execution); Agent Worker provides agents to workspace via MCP
 
 ---
 
-## Package 1: `@moniro/agent` — Worker Layer
+## Package 1: `@moniro/agent` — Agent Loop
 
-**Use case**: Fire-and-forget agent execution. Give it a prompt, tools, and a message; get a response.
+**Use case**: Execute a single conversation loop. Give it a system prompt, tools, and a message; get a response. No identity, no memory, no scheduling.
 
 ### What it provides
 
 - **AgentWorker** — Stateful ToolLoop: conversation history, model config, tool registry, `send()` / `sendStream()`
 - **Backend abstraction** — Unified interface over AI SDK, Claude CLI, Codex CLI, Cursor CLI, mock
 - **Model creation** — Provider registry, model maps, `createModelAsync()`
-- **Tool infrastructure** — Tool creation helpers, registration interface
-- **Skills** — SkillsProvider, git-based importer, import spec parsing
-- **Personal context toolkit** (optional) — Pluggable storage interface + tool factory for memory/notes/todos
+- **Tool infrastructure** — Tool creation helpers, registration interface, approval flow
+- **MCP protocol support** — Basic MCP client capabilities (tool discovery, tool invocation)
+- **Skills protocol support** — SkillsProvider, skill loading, register skill as tool
 
 ### File mapping
 
 From current `src/`:
 
 ```
-@moniro/agent
+@moniro/agent (Agent Loop)
 ├── worker.ts                  ← src/agent/worker.ts
 ├── models.ts                  ← src/agent/models.ts
 ├── types.ts                   ← src/agent/types.ts
+├── definition.ts              ← src/agent/definition.ts (AgentDefinition, AgentSoul types)
+├── schedule.ts                ← src/agent/schedule.ts (types + parsing only)
+├── cron.ts                    ← src/agent/cron.ts (types + parsing only)
 │
 ├── backends/                  ← src/backends/ (entire directory)
 │   ├── types.ts
@@ -65,23 +81,19 @@ From current `src/`:
 │   ├── claude-code.ts
 │   ├── codex.ts
 │   ├── cursor.ts
+│   ├── opencode.ts
 │   ├── mock.ts
 │   ├── idle-timeout.ts
+│   ├── cli-helpers.ts
 │   └── stream-json.ts
 │
 ├── tools/
 │   └── create-tool.ts         ← src/agent/tools/create-tool.ts
 │
-├── skills/                    ← src/agent/skills/ (entire directory)
-│   ├── provider.ts
-│   ├── importer.ts
-│   └── import-spec.ts
-│
-└── context/                   ← NEW: personal context toolkit
-    ├── types.ts               ← PersonalContextStorage interface
-    ├── memory-storage.ts      ← In-memory (ephemeral, default)
-    ├── file-storage.ts        ← File-based (generic, not bound to AgentHandle)
-    └── tools.ts               ← createPersonalContextTools(storage, options)
+└── skills/                    ← src/agent/skills/ (entire directory)
+    ├── provider.ts
+    ├── importer.ts
+    └── import-spec.ts
 ```
 
 ### Dependencies
@@ -93,162 +105,78 @@ External only: `ai`, `@ai-sdk/*`, `execa`, `zod`
 ```typescript
 import { AgentWorker } from '@moniro/agent'
 
-// ① Pure fire-and-forget
+// Pure fire-and-forget — no identity, no memory
 const agent = new AgentWorker({
   model: 'claude-sonnet-4-20250514',
   system: 'You are a code reviewer.',
   tools: myTools,
 })
 const { content } = await agent.send('Review this diff')
-
-// ② With session-scoped personal context (in-memory, lost on GC)
-import { createPersonalContextTools, MemoryStorage } from '@moniro/agent/context'
-
-const agent = new AgentWorker({
-  model: 'claude-sonnet-4-20250514',
-  system: 'You are a researcher.',
-  tools: {
-    ...createPersonalContextTools(new MemoryStorage()),
-    ...otherTools,
-  },
-})
-
-// ③ With file-backed personal context (persists to disk)
-import { FileStorage } from '@moniro/agent/context'
-
-const agent = new AgentWorker({
-  model: 'claude-sonnet-4-20250514',
-  system: 'You are Alice.',
-  tools: {
-    ...createPersonalContextTools(new FileStorage('/agents/alice/context'), {
-      memory: true,
-      notes: true,
-      todos: false,
-    }),
-    bash,
-  },
-})
 ```
 
 ### What it does NOT include
 
-- Workflow parsing/running
-- Shared context (channel, inbox, documents, proposals)
-- AgentLoop (lifecycle management)
-- MCP context server
-- Daemon, CLI, persistence wiring
-- Specific tool implementations (bash, feedback)
+- Personal context (memory, notes, todos) — that's Agent Worker
+- Prompt assembly from soul/memory — that's Agent Worker
+- MCP connection management — that's Agent Worker
+- Skills configuration and trigger logic — that's Agent Worker
+- Shared context (channel, inbox) — that's Workspace
+- Daemon, CLI, scheduling — that's Agent Worker
 
 ---
 
-## Package 2: `@moniro/workflow` — Workflow Layer
+## Package 2: `agent-worker` — Agent Worker
 
-**Use case**: One-shot multi-agent orchestration. Parse a workflow YAML, run agents with shared context, collect results. No daemon needed.
-
-### What it provides
-
-- **Workflow parser** — YAML → typed config
-- **Factory** — `createMinimalRuntime()`, `createWiredLoop()`
-- **Runner** — `runWorkflow()`, `runWorkflowWithLoops()`
-- **AgentLoop** — Lifecycle: poll → run → ack → retry, state machine
-- **Shared context** — ContextProvider (channel, inbox, documents, resources, proposals)
-- **MCP context server** — Expose shared context as MCP tools
-- **Specific tools** — bash, feedback (environment capabilities for agents in workflows)
-- **Display** — Channel watcher, pretty printing
-- **Logger** — Logger interface + channelLogger implementation
-
-### File mapping
-
-From current `src/`:
-
-```
-@moniro/workflow
-├── factory.ts                 ← src/workflow/factory.ts
-├── runner.ts                  ← src/workflow/runner.ts
-├── parser.ts                  ← src/workflow/parser.ts
-├── interpolate.ts             ← src/workflow/interpolate.ts
-├── types.ts                   ← src/workflow/types.ts
-├── layout.ts                  ← src/workflow/layout.ts
-├── display.ts                 ← src/workflow/display.ts
-├── display-pretty.ts          ← src/workflow/display-pretty.ts
-├── logger.ts                  ← src/workflow/logger.ts
-│
-├── loop/                      ← src/workflow/loop/ (entire directory)
-│   ├── loop.ts
-│   ├── prompt.ts
-│   ├── send.ts
-│   ├── sdk-runner.ts
-│   ├── mock-runner.ts
-│   ├── backend.ts
-│   ├── mcp-config.ts
-│   └── types.ts
-│
-├── context/                   ← src/workflow/context/ (entire directory)
-│   ├── provider.ts
-│   ├── types.ts
-│   ├── storage.ts
-│   ├── file-provider.ts
-│   ├── memory-provider.ts
-│   ├── mcp/
-│   ├── http-transport.ts
-│   ├── proposals.ts
-│   ├── event-log.ts
-│   └── stores/
-│
-└── tools/                     ← src/agent/tools/ (minus create-tool.ts)
-    ├── bash.ts
-    ├── feedback.ts
-    └── skills.ts              ← skill tool wrapper (uses @moniro/agent/skills)
-```
-
-### Dependencies
-
-- `@moniro/agent` (worker, backends, skills, tool infra)
-- `@modelcontextprotocol/sdk`, `hono`, `@hono/node-server`
-- `yaml`, `bash-tool`, `just-bash`
-
-### API
-
-```typescript
-import { runWorkflowWithLoops, parseWorkflowFile } from '@moniro/workflow'
-
-const workflow = await parseWorkflowFile('review.yaml')
-const result = await runWorkflowWithLoops({ workflow, mode: 'run' })
-// result.success, result.duration, result.feedback
-```
-
-### What it does NOT include
-
-- Daemon (HTTP server, process lifecycle)
-- AgentHandle (persistent agent identity)
-- AgentRegistry (YAML agent discovery)
-- ConversationLog, ThinThread (conversation persistence)
-- CLI
-- Priority queue, preemption
-
----
-
-## Package 3: `agent-worker` — System Layer
-
-**Use case**: Persistent daemon service. Long-running agents with identity, memory, conversation history, scheduled wakeups, priority queues.
+**Use case**: Personal agent. Makes an execution loop into a "person" with identity, memory, tools, and scheduling. Also provides daemon service and CLI.
 
 ### What it provides
 
-- **Daemon** — HTTP server, process lifecycle, signal handling
-- **AgentHandle** — Persistent agent wrapper (contextDir, memory, notes, todos, conversation)
+**Personal Agent:**
+- **ContextProvider interface** — Pluggable storage abstraction for memory/notes/todos
+- **FileContextProvider** — Default file-based implementation (extracted from AgentHandle)
+- **Personal context tools** — `my_memory_read/write`, `my_notes_read/write`, `my_todos_read/write` as local tools
+- **PromptAssembler** — Composable prompt sections (soul, memory, todo), open to caller customization
+- **AgentHandle** — Agent definition + ContextProvider + state management
 - **AgentRegistry** — Agent discovery from `.agents/*.yaml` + ephemeral registration
-- **WorkspaceRegistry** — Active workspace management
 - **ConversationLog** — JSONL append-only conversation persistence
 - **ThinThread** — Bounded in-memory conversation buffer with restore
-- **Priority Queue** — Three-lane instruction queue with cooperative preemption (future)
+
+**MCP & Skills Management:**
+- **MCP client management** — Which MCP servers to connect, lifecycle, reconnection
+- **Skills management** — Which skills to install, trigger conditions, personal skill config
+
+**System:**
+- **Daemon** — HTTP server, process lifecycle, signal handling
+- **WorkspaceRegistry** — Active workspace management
+- **Priority Queue** — Three-lane instruction queue with cooperative preemption
 - **CLI** — Client commands (new, list, send, run, etc.)
+- **Scheduling** — Cron execution, scheduled wakeups
 
 ### File mapping
 
-From current `src/`:
-
 ```
-agent-worker (System)
+agent-worker
+├── context/                   ← NEW: personal context system
+│   ├── types.ts               ← ContextProvider interface
+│   ├── file-provider.ts       ← FileContextProvider (from AgentHandle)
+│   ├── memory-provider.ts     ← In-memory (ephemeral)
+│   └── tools.ts               ← createPersonalContextTools(provider)
+│
+├── prompt/                    ← MOVED from workflow/loop/prompt.ts
+│   ├── assembler.ts           ← PromptAssembler (composable sections)
+│   ├── sections.ts            ← soulSection, memorySection, todoSection
+│   └── types.ts               ← PromptSection, PromptContext
+│
+├── agent/                     ← src/agent/ (persistence)
+│   ├── agent-handle.ts        ← Refactored: delegates to ContextProvider
+│   ├── agent-registry.ts
+│   ├── conversation.ts
+│   ├── definition.ts
+│   ├── yaml-parser.ts
+│   ├── config.ts
+│   ├── handle.ts
+│   └── store.ts
+│
 ├── daemon/                    ← src/daemon/ (entire directory)
 │   ├── daemon.ts
 │   ├── serve.ts
@@ -257,16 +185,6 @@ agent-worker (System)
 │   ├── workspace-registry.ts
 │   ├── event-log.ts
 │   └── cron.ts
-│
-├── agent/                     ← src/agent/ (persistence subset)
-│   ├── agent-handle.ts
-│   ├── agent-registry.ts
-│   ├── conversation.ts
-│   ├── definition.ts
-│   ├── yaml-parser.ts
-│   ├── config.ts
-│   ├── handle.ts
-│   └── store.ts
 │
 └── cli/                       ← src/cli/ (entire directory)
     ├── client.ts
@@ -278,11 +196,37 @@ agent-worker (System)
 
 ### Dependencies
 
-- `@moniro/agent` (worker, backends, personal context)
-- `@moniro/workflow` (loop, shared context, factory, runner)
+- `@moniro/agent` (worker, backends, tool infra, skills protocol)
 - `commander`, `chalk`, `@clack/prompts`, `picocolors`, `nanoid`, `string-width`, `wrap-ansi`
 
 ### API
+
+```typescript
+import { AgentHandle, FileContextProvider, PromptAssembler } from 'agent-worker'
+import { DEFAULT_PERSONAL_SECTIONS } from 'agent-worker/prompt'
+
+// Create a personal agent
+const context = new FileContextProvider('.agents/alice')
+const assembler = new PromptAssembler({
+  sections: [...DEFAULT_PERSONAL_SECTIONS, customSection],
+})
+
+const handle = new AgentHandle(definition, context)
+const systemPrompt = await assembler.build({
+  definition: handle.definition,
+  context,
+})
+
+// AgentWorker (from @moniro/agent) executes the loop
+const worker = new AgentWorker({
+  model: definition.model,
+  system: systemPrompt,
+  tools: {
+    ...createPersonalContextTools(context),
+    ...otherTools,
+  },
+})
+```
 
 ```bash
 # CLI
@@ -290,27 +234,126 @@ agent-worker start                    # Start daemon
 agent-worker new alice --model sonnet # Create persistent agent
 agent-worker send alice "hello"       # Send message (DM)
 agent-worker run review.yaml          # Run workflow
-
-# Programmatic
-import { Daemon } from 'agent-worker'
-const daemon = new Daemon()
-await daemon.start()
 ```
+
+### What it does NOT include
+
+- Multi-agent collaboration — that's Workspace
+- Shared context (channel, inbox, documents) — that's Workspace
+- Guard Agent — that's Workspace (optional)
+
+---
+
+## Package 3: `@moniro/workspace` — Workspace (原 `@moniro/workflow`)
+
+**Use case**: Multi-agent collaboration space. Provides shared context, coordination tools, and optional intelligent context management. Agents join via MCP.
+
+### What it provides
+
+- **Workflow parser** — YAML → typed config
+- **Factory** — `createMinimalRuntime()`, `createWiredLoop()`
+- **Runner** — `runWorkflow()`, `runWorkflowWithLoops()`
+- **AgentLoop** — Lifecycle: poll → run → ack → retry, state machine
+- **Shared context** — ContextProvider (channel, inbox, documents, resources, proposals)
+- **MCP context server** — Expose shared context as MCP tools for agents to connect
+- **Collaboration prompt sections** — channelContextSection, teamRulesSection (additive to agent's own sections)
+- **Guard Agent** (optional) — Intelligent context budget management across agents
+- **Specific tools** — bash, feedback (environment capabilities for agents in workflows)
+- **Display** — Channel watcher, pretty printing
+- **Logger** — Logger interface + channelLogger implementation
+
+### File mapping
+
+```
+@moniro/workspace (原 @moniro/workflow)
+├── factory.ts
+├── runner.ts
+├── parser.ts
+├── interpolate.ts
+├── types.ts                   ← AgentHandleRef 移除，改用 agent-worker 的 ContextProvider
+├── layout.ts
+├── display.ts
+├── display-pretty.ts
+├── logger.ts
+│
+├── loop/
+│   ├── loop.ts                ← readPersonalContext 移除，agent 自带 prompt
+│   ├── prompt.ts              ← 只保留协作 sections（channel, team rules）
+│   ├── send.ts
+│   ├── sdk-runner.ts
+│   ├── mock-runner.ts
+│   ├── backend.ts
+│   ├── mcp-config.ts
+│   └── types.ts               ← PersonalContext 移除
+│
+├── context/
+│   ├── provider.ts            ← 只有 shared context
+│   ├── types.ts
+│   ├── storage.ts
+│   ├── file-provider.ts
+│   ├── memory-provider.ts
+│   ├── mcp/
+│   │   ├── server.ts          ← 移除 personal tools 注册
+│   │   └── ...                ← 只保留 shared context tools
+│   ├── http-transport.ts
+│   ├── proposals.ts
+│   ├── event-log.ts
+│   └── stores/
+│
+└── tools/
+    ├── bash.ts
+    ├── feedback.ts
+    └── skills.ts
+```
+
+### Dependencies
+
+- `@moniro/agent` (worker, backends, skills, tool infra)
+- `@modelcontextprotocol/sdk`, `hono`, `@hono/node-server`
+- `yaml`, `bash-tool`, `just-bash`
+
+### How agents join a workspace
+
+```typescript
+// Workspace exposes MCP server
+const workspace = await createWorkspace('review.yaml')
+const mcpServer = workspace.getMCPServer()  // channel_read, channel_write, inbox_read, ...
+
+// Agent Worker connects via MCP client
+const agent = createPersonalAgent('alice')
+agent.connectMCP(mcpServer.endpoint)  // Now alice has collaboration tools
+```
+
+### Prompt composition
+
+Workspace doesn't replace the agent's prompt — it **adds** collaboration sections:
+
+```typescript
+const workspaceSections = [
+  ...agent.promptAssembler.sections,  // agent's personal sections (soul, memory, todo)
+  channelContextSection,               // workspace adds collaboration context
+  teamRulesSection,                    // workspace adds team rules
+]
+```
+
+### What it does NOT include
+
+- Agent identity / personal context — that's Agent Worker
+- Daemon, CLI — that's Agent Worker
+- Backend execution — that's Agent Loop
 
 ---
 
 ## Context Split: Personal vs Shared
 
-A key architectural boundary:
-
 | Context type | Belongs to | Layer | Storage |
 |---|---|---|---|
-| **Personal** (memory, notes, todos) | Agent | Agent layer (toolkit) + System layer (wiring) | Pluggable: MemoryStorage (ephemeral) or FileStorage (persistent) |
-| **Shared** (channel, inbox, documents, resources, proposals) | Workflow/Workspace | Workflow layer | ContextProvider (FileProvider / MemoryProvider) |
+| **Personal** (memory, notes, todos, soul) | Agent | Agent Worker | ContextProvider (FileContextProvider / RedisContextProvider / ...) |
+| **Shared** (channel, inbox, documents, resources, proposals) | Workspace | Workspace | ContextProvider (FileProvider / MemoryProvider) |
 
-**Personal context** is an optional Agent-layer capability. The Agent layer provides the storage interface and tool factory. The System layer wires it to persistent paths (`.agents/<name>/context/`). Standalone agents can use in-memory storage.
+**Personal context** lives entirely in Agent Worker. The agent knows who it is, remembers things, and tracks tasks — with or without a workspace.
 
-**Shared context** lives entirely in the Workflow layer. It's the collaboration substrate between agents in a workspace.
+**Shared context** lives entirely in the Workspace layer. It's the collaboration substrate between agents.
 
 These two never overlap. An agent's personal memory is invisible to other agents. A workspace's channel is visible to all agents in that workspace.
 
@@ -322,42 +365,44 @@ Four steps. Each step produces a green build + passing tests.
 
 ### Step 1: Barrel exports (boundary validation)
 
-Create three barrel files within the existing `packages/agent-worker/`:
+Create three barrel files within the existing codebase:
 
 ```typescript
-// src/agent-lib/index.ts  → future @moniro/agent public API
-// src/workflow-lib/index.ts → future @moniro/workflow public API
-// src/system-lib/index.ts  → future agent-worker public API
+// packages/agent/src/index.ts     → @moniro/agent public API (already done)
+// packages/workflow/src/index.ts   → @moniro/workspace public API (already done, needs cleanup)
+// packages/agent-worker/src/index.ts → agent-worker public API (already done)
 ```
 
-Validate: every consumer can import from the barrel. No deep imports needed. No circular dependencies across barrels.
+Validate: no circular dependencies across barrels.
 
-### Step 2: Extract `@moniro/agent`
+### Step 2: Move personal context to Agent Worker
 
-- Create `packages/agent/` with its own `package.json`, `tsconfig.json`, `tsdown.config.ts`
-- Move worker + models + types + backends + tools/create-tool + skills
-- Create personal context toolkit (new code: types, MemoryStorage, FileStorage, tools)
-- Update imports in `packages/agent-worker/` to use `@moniro/agent`
+- Create `context/` and `prompt/` directories in `packages/agent-worker/src/`
+- Extract `ContextProvider` interface + `FileContextProvider` from `AgentHandle`
+- Move `soulSection`, `memorySection`, `todoSection` from `workflow/loop/prompt.ts`
+- Move personal MCP tools from `workflow/context/mcp/personal.ts` → local tools in agent-worker
+- Refactor `AgentHandle` to delegate to `ContextProvider`
 - Run tests
 
-### Step 3: Extract `@moniro/workflow`
+### Step 3: Clean up Workspace layer
 
-- Create `packages/workflow/` with its own package config
-- Move workflow/ + tools/bash + tools/feedback + tools/skills
-- Update imports in `packages/agent-worker/` to use `@moniro/workflow`
+- Remove `AgentHandleRef` from workflow types
+- Remove `readPersonalContext()` from workflow loop
+- Remove personal tools registration from MCP server
+- Keep only collaboration prompt sections in `prompt.ts`
 - Run tests
 
-### Step 4: Clean up `agent-worker`
+### Step 4: Rename + final cleanup
 
-- Only daemon/ + persistent agent/ + cli/ remain
-- Update `package.json` dependencies (remove what moved to lower packages)
+- Consider renaming `@moniro/workflow` → `@moniro/workspace`
+- Update all references
 - Run full test suite + E2E
 
 ---
 
 ## Open Questions
 
-1. **Test splitting** — How to split the existing 1014 tests across three packages? Some tests (daemon integration) span all layers.
-2. **tsdown config** — One build per package or monorepo-level build? Current setup uses single tsdown.
-3. **Personal context schema** — Memory is YAML key-value, notes are dated markdown, todos are checkbox lists. Is this too opinionated for the Agent layer? (Current answer: ship it as default, storage interface allows alternatives.)
-4. **Skills tool in Workflow** — `tools/skills.ts` wraps `SkillsProvider` (Agent layer). Should it stay in Workflow or move to Agent as a built-in tool? (Current answer: Workflow, because skill invocation in a workflow context may need workspace awareness.)
+1. **Package naming** — `@moniro/agent` (keep) vs `@moniro/agent-loop` (more precise)? `@moniro/workflow` → `@moniro/workspace` (when)?
+2. **Agent Worker scope** — It's both "personal agent" and "system service (daemon + CLI)". Further split needed later?
+3. **MCP client in Agent Worker** — Need new infrastructure for Agent Worker's MCP client connections to workspace and external MCP servers
+4. **Test splitting** — How to split existing tests across packages? Some tests span layers.
