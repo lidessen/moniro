@@ -23,6 +23,8 @@ import { registerTeamTools } from "./team.ts";
 import { registerProposalTools } from "./proposal.ts";
 import { registerFeedbackTool } from "./feedback.ts";
 import { registerSkillsTools } from "./skills.ts";
+import { registerPersonalContextTools } from "./personal.ts";
+import type { AgentHandleRef } from "../../types.ts";
 
 // ── Options ──────────────────────────────────────────────────────
 
@@ -45,6 +47,8 @@ export interface ContextMCPServerOptions {
   skills?: SkillsProvider;
   /** Debug log function for tool calls (optional) */
   debugLog?: (message: string) => void;
+  /** Resolve agent handle by name for personal context tools (optional) */
+  resolveHandle?: (agentName: string) => AgentHandleRef | undefined;
 }
 
 // ── Factory ──────────────────────────────────────────────────────
@@ -60,6 +64,7 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
     feedback: feedbackEnabled,
     skills,
     debugLog,
+    resolveHandle,
   } = options;
 
   const server = new McpServer({ name, version });
@@ -124,6 +129,16 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
     mcpToolNames.add("skills_list");
     mcpToolNames.add("skills_view");
     mcpToolNames.add("skills_read");
+  }
+
+  if (resolveHandle) {
+    registerPersonalContextTools(server, ctx, resolveHandle);
+    mcpToolNames.add("my_memory_read");
+    mcpToolNames.add("my_memory_write");
+    mcpToolNames.add("my_notes_read");
+    mcpToolNames.add("my_notes_write");
+    mcpToolNames.add("my_todos_read");
+    mcpToolNames.add("my_todos_write");
   }
 
   return {
