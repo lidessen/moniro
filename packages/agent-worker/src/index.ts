@@ -24,9 +24,6 @@ export {
 } from "./daemon/registry.ts";
 export type { DaemonInfo } from "./daemon/registry.ts";
 
-// ── Workspace Registry ──────────────────────────────────────────
-export { WorkspaceRegistry } from "./daemon/workspace-registry.ts";
-
 // ── Event Log (Daemon) ──────────────────────────────────────────
 export { DaemonEventLog } from "./daemon/event-log.ts";
 
