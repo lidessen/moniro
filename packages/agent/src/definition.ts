@@ -68,8 +68,8 @@ export interface AgentContextConfig {
  * This is the single source of truth for "who this agent is".
  * Workflows reference agents by name; the definition travels with the agent.
  *
- * Note: Channel/bridge configuration belongs to the workspace layer,
- * not the agent identity. See WorkflowFile.bridges or daemon workspace config.
+ * Note: Channel configuration belongs to the workspace layer,
+ * not the agent identity. See WorkflowFile.channels or daemon workspace config.
  */
 export interface AgentDefinition {
   /** Agent name (unique within project, matches filename) */

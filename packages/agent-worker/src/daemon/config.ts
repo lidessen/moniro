@@ -2,7 +2,7 @@
  * Daemon Config — Parse ~/.agent-worker/config.yml
  *
  * The daemon config IS a workflow YAML file. It defines agents (identity +
- * model + prompt) and bridges (external channels) in the standard workflow
+ * model + prompt) and channels (external platforms) in the standard workflow
  * format.
  *
  * Example config.yml:
@@ -11,7 +11,7 @@
  *       model: anthropic/claude-sonnet-4-5
  *       system_prompt: "You are a helpful assistant."
  *       wakeup: "0 9 * * *"
- *   bridges:
+ *   channels:
  *     - adapter: telegram
  *       bot_token: ${TELEGRAM_BOT_TOKEN}
  *       chat_id: ${TELEGRAM_CHAT_ID}

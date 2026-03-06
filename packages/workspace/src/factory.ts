@@ -67,7 +67,7 @@ export interface Workspace {
   mcpToolNames: Set<string>;
   /** Project directory (cwd when runtime was created) */
   projectDir: string;
-  /** Channel bridge (if bridges are configured) */
+  /** Channel bridge (if channels are configured) */
   bridge?: ChannelBridge;
   /** Feedback accessor (when enabled) */
   getFeedback?: () => FeedbackEntry[];
@@ -105,7 +105,7 @@ export interface MinimalRuntimeConfig {
   /** Resolve agent handle by name for personal context tools */
   resolveHandle?: (agentName: string) => import("./types.ts").AgentHandleRef | undefined;
   /** Channel adapters to attach via bridge (e.g., Telegram) */
-  bridgeAdapters?: ChannelAdapter[];
+  channelAdapters?: ChannelAdapter[];
 }
 
 /**
@@ -173,12 +173,12 @@ export async function createMinimalRuntime(config: MinimalRuntimeConfig): Promis
 
   // Create channel bridge if adapters are configured
   let bridge: ChannelBridge | undefined;
-  if (config.bridgeAdapters && config.bridgeAdapters.length > 0) {
+  if (config.channelAdapters && config.channelAdapters.length > 0) {
     // ContextProviderImpl exposes .channel — extract the DefaultChannelStore
     const provider = contextProvider as import("./context/provider.ts").ContextProviderImpl;
     const channelStore = provider.channel as DefaultChannelStore;
     bridge = new ChannelBridge(channelStore);
-    for (const adapter of config.bridgeAdapters) {
+    for (const adapter of config.channelAdapters) {
       await bridge.addAdapter(adapter);
     }
   }
