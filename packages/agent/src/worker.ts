@@ -28,6 +28,8 @@ export interface AgentWorkerConfig extends SessionConfig {
   provider?: string | ProviderConfig;
   /** Optional logger for worker events (maxSteps warnings, errors) */
   log?: Logger;
+  /** @internal Model factory for testing — bypasses createModelAsync */
+  _modelFactory?: () => Promise<any> | any;
 }
 
 /**
@@ -81,6 +83,8 @@ export class AgentWorker {
   private backend: Backend | null;
   // Provider config for custom endpoints (SDK only)
   private provider: string | ProviderConfig | undefined;
+  // Model factory for testing (bypasses createModelAsync)
+  private _modelFactory?: () => Promise<any> | any;
 
   // Optional logger for worker events
   private log?: Logger;
@@ -126,6 +130,7 @@ export class AgentWorker {
     this.maxSteps = config.maxSteps ?? 200; // Default: 200 steps (effectively no limit for most tasks)
     this.backend = config.backend ?? null;
     this.provider = config.provider;
+    this._modelFactory = config._modelFactory;
     this.log = config.log;
   }
 
@@ -186,9 +191,11 @@ export class AgentWorker {
    */
   private async getAgent(autoApprove: boolean): Promise<ToolLoopAgent> {
     if (!this.cachedAgent || this.toolsChanged || !autoApprove) {
-      const model = this.provider
-        ? await createModelWithProvider(this.model, this.provider)
-        : await createModelAsync(this.model);
+      const model = this._modelFactory
+        ? await this._modelFactory()
+        : this.provider
+          ? await createModelWithProvider(this.model, this.provider)
+          : await createModelAsync(this.model);
       this.cachedAgent = new ToolLoopAgent({
         model,
         instructions: this.system,
