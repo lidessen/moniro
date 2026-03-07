@@ -43,7 +43,7 @@ function getDaemonConnection(): { url: string; token?: string } | null {
 function requireDaemon(): { url: string; token?: string } {
   const conn = getDaemonConnection();
   if (!conn) {
-    throw new Error("No daemon running. Start one with: agent-worker daemon");
+    throw new Error("No daemon running. Start one with: agent-worker up");
   }
   return conn;
 }
@@ -115,8 +115,6 @@ export function createAgent(body: {
   system: string;
   backend?: string;
   provider?: string | { name: string; base_url?: string; api_key?: string };
-  workflow?: string;
-  tag?: string;
   schedule?: { wakeup: string | number; prompt?: string };
   ephemeral?: boolean;
 }): Promise<ApiResponse> {
@@ -230,9 +228,12 @@ export function listWorkflows(): Promise<ApiResponse> {
   return request("GET", "/workflows");
 }
 
-/** DELETE /workflows/:name/:tag — stop a workflow */
-export function stopWorkflow(name: string, tag: string = "main"): Promise<ApiResponse> {
-  return request("DELETE", `/workflows/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`);
+/** DELETE /workflows/:name[/:tag] — stop a workspace */
+export function stopWorkflow(name: string, tag?: string): Promise<ApiResponse> {
+  const path = tag
+    ? `/workflows/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`
+    : `/workflows/${encodeURIComponent(name)}`;
+  return request("DELETE", path);
 }
 
 /** Check if daemon is running */

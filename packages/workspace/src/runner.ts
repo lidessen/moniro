@@ -49,7 +49,7 @@ export interface RunConfig {
   workflow: ParsedWorkflow;
   /** Workflow name (defaults to "global") */
   workflowName?: string;
-  /** Workflow tag (defaults to "main") */
+  /** Workspace instance tag (optional) */
   tag?: string;
   /** Agent startup function */
   startAgent: (agentName: string, config: ResolvedWorkflowAgent, mcpUrl: string) => Promise<void>;
@@ -134,7 +134,7 @@ export interface WorkflowRuntime {
 export function createWorkflowProvider(
   workflow: ParsedWorkflow,
   _workflowName: string,
-  tag: string,
+  tag: string | undefined,
 ): { contextProvider: ContextProvider; contextDir: string; persistent: boolean } {
   const agentNames = Object.keys(workflow.agents);
 
@@ -149,7 +149,7 @@ export function createWorkflowProvider(
   if (resolvedContext.provider === "memory") {
     return {
       contextProvider: createMemoryContextProvider(agentNames),
-      contextDir: join(tmpdir(), `agent-worker-${workflow.name}-${tag}`),
+      contextDir: join(tmpdir(), `agent-worker-${workflow.name}${tag ? `-${tag}` : ""}`),
       persistent: false,
     };
   }
@@ -195,9 +195,9 @@ export async function initWorkflow(config: RunConfig): Promise<WorkflowRuntime> 
     params: paramValues,
   } = config;
 
-  // Extract workflow name and tag
+  // Extract workspace name and tag
   const workflowName = workflowNameParam ?? "global";
-  const tag = tagParam ?? "main";
+  const tag = tagParam;
 
   // Use provided logger, or create a silent one
   const logger = config.logger ?? createSilentLogger();
@@ -458,7 +458,7 @@ export interface LoopRunConfig {
   workflow: ParsedWorkflow;
   /** Workflow name (defaults to "global") */
   workflowName?: string;
-  /** Workflow tag (defaults to "main") */
+  /** Workspace instance tag (optional) */
   tag?: string;
   /** Workflow file path (for display) */
   workflowPath?: string;
@@ -529,9 +529,9 @@ export async function runWorkflowWithLoops(config: LoopRunConfig): Promise<LoopR
   } = config;
   const startTime = Date.now();
 
-  // Extract workflow name and tag
+  // Extract workspace name and tag
   const workflowName = workflowNameParam ?? "global";
-  const tag = tagParam ?? "main";
+  const tag = tagParam;
 
   try {
     // 1. Create context provider first (so channel logger can use it)

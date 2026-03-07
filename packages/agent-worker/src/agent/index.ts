@@ -45,10 +45,3 @@ export type { ConversationMessage } from "@moniro/agent-worker";
 export { AgentHandle } from "./agent-handle.ts";
 export type { AgentHandleState } from "./agent-handle.ts";
 export { AgentRegistry } from "./agent-registry.ts";
-export {
-  parseAgentFile,
-  parseAgentObject,
-  discoverAgents,
-  serializeAgent,
-  AGENTS_DIR,
-} from "./yaml-parser.ts";

@@ -60,7 +60,7 @@ async function runCli(
 // Helper to stop daemon
 async function stopDaemon() {
   try {
-    await runCli(["stop", "--all"], { timeout: 3000 });
+    await runCli(["down"], { timeout: 3000 });
   } catch {
     // Ignore — daemon may not be running
   }
@@ -99,11 +99,11 @@ describe("CLI Integration", () => {
       expect(result.stdout).toContain("<message>");
     });
 
-    test("shows help for daemon command", async () => {
-      const result = await runCli(["daemon", "--help"]);
+    test("shows help for up command", async () => {
+      const result = await runCli(["up", "--help"]);
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain("--port");
-      expect(result.stdout).toContain("--host");
+      expect(result.stdout).toContain("--foreground");
     });
 
     test("shows help for run command", async () => {
@@ -119,11 +119,16 @@ describe("CLI Integration", () => {
       expect(result.stdout).toContain("<message>");
     });
 
-    test("shows help for serve command", async () => {
-      const result = await runCli(["serve", "--help"]);
+    test("shows help for rm command", async () => {
+      const result = await runCli(["rm", "--help"]);
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain("<agent>");
-      expect(result.stdout).toContain("<message>");
+      expect(result.stdout).toContain("<name>");
+    });
+
+    test("shows help for onboard command", async () => {
+      const result = await runCli(["onboard", "--help"]);
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain("config.yml");
     });
   });
 

@@ -84,10 +84,10 @@ export interface Workspace {
  * It does NOT create loops or backends — those are per-agent concerns.
  */
 export interface MinimalRuntimeConfig {
-  /** Workflow name (e.g., "review", "global") */
+  /** Workspace name (e.g., "review", "global") */
   workflowName: string;
-  /** Workflow tag (e.g., "main", "pr-123") */
-  tag: string;
+  /** Workspace instance tag (optional, e.g., "pr-123") */
+  tag?: string;
   /** Agent names in this workflow */
   agentNames: string[];
   /** Pre-created context provider (skip creation if provided) */

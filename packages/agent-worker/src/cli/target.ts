@@ -1,111 +1,110 @@
 /**
  * Target identifier utilities
  *
- * Format: agent@workflow:tag (inspired by Docker image:tag)
- * - agent: agent name (optional for @workflow references)
- * - workflow: workflow name (optional, defaults to 'global')
- * - tag: workflow instance tag (optional, defaults to 'main')
+ * Format: agent@workspace:tag
+ * - agent: agent name (optional for @workspace references)
+ * - workspace: workspace name (optional, defaults to 'global')
+ * - tag: workspace instance tag (optional, nullable)
  *
  * Examples:
- * - "alice"              → { agent: "alice", workflow: "global", tag: "main", display: "alice" }
- * - "alice@review"       → { agent: "alice", workflow: "review", tag: "main", display: "alice@review" }
- * - "alice@review:pr-123"→ { agent: "alice", workflow: "review", tag: "pr-123", display: "alice@review:pr-123" }
- * - "@review"            → { agent: undefined, workflow: "review", tag: "main", display: "@review" }
- * - "@review:pr-123"     → { agent: undefined, workflow: "review", tag: "pr-123", display: "@review:pr-123" }
+ * - "alice"              → { agent: "alice", workspace: "global", display: "alice" }
+ * - "alice@review"       → { agent: "alice", workspace: "review", display: "alice@review" }
+ * - "alice@review:pr-123"→ { agent: "alice", workspace: "review", tag: "pr-123", display: "alice@review:pr-123" }
+ * - "@review"            → { agent: undefined, workspace: "review", display: "@review" }
+ * - "@review:pr-123"     → { agent: undefined, workspace: "review", tag: "pr-123", display: "@review:pr-123" }
  *
  * Display rules:
  * - Omit @global (standalone agents): "alice" not "alice@global"
- * - Omit :main (default tag): "alice@review" not "alice@review:main"
+ * - Omit :tag when no tag: "@review" not "@review:"
  */
 
-export const DEFAULT_WORKFLOW = "global";
-export const DEFAULT_TAG = "main";
+export const DEFAULT_WORKSPACE = "global";
 
 export interface TargetIdentifier {
-  /** Agent name (undefined for workflow-level targets like @review) */
+  /** Agent name (undefined for workspace-level targets like @review) */
   agent?: string;
-  /** Workflow name */
-  workflow: string;
-  /** Workflow instance tag */
-  tag: string;
-  /** Full identifier: agent@workflow:tag or @workflow:tag */
+  /** Workspace name */
+  workspace: string;
+  /** Workspace instance tag (undefined = no tag) */
+  tag?: string;
+  /** Full identifier: agent@workspace:tag or @workspace:tag */
   full: string;
-  /** Display format (omits @global and :main per display rules) */
+  /** Display format (omits @global and empty tag per display rules) */
   display: string;
 }
 
 /**
  * Parse target identifier from string
- * Supports: "agent", "agent@workflow", "agent@workflow:tag", "@workflow", "@workflow:tag"
+ * Supports: "agent", "agent@workspace", "agent@workspace:tag", "@workspace", "@workspace:tag"
  */
 export function parseTarget(input: string): TargetIdentifier {
-  // Handle workflow-only targets (starts with @)
+  // Handle workspace-only targets (starts with @)
   if (input.startsWith("@")) {
-    const workflowPart = input.slice(1); // Remove leading @
-    const colonIndex = workflowPart.indexOf(":");
+    const workspacePart = input.slice(1); // Remove leading @
+    const colonIndex = workspacePart.indexOf(":");
 
     if (colonIndex === -1) {
-      // @workflow (no tag)
-      const workflow = workflowPart || DEFAULT_WORKFLOW;
+      // @workspace (no tag)
+      const workspace = workspacePart || DEFAULT_WORKSPACE;
       return {
         agent: undefined,
-        workflow,
-        tag: DEFAULT_TAG,
-        full: `@${workflow}:${DEFAULT_TAG}`,
-        display: workflow === DEFAULT_WORKFLOW ? `@${workflow}` : `@${workflow}`,
+        workspace,
+        tag: undefined,
+        full: `@${workspace}`,
+        display: `@${workspace}`,
       };
     } else {
-      // @workflow:tag
-      const workflow = workflowPart.slice(0, colonIndex) || DEFAULT_WORKFLOW;
-      const tag = workflowPart.slice(colonIndex + 1) || DEFAULT_TAG;
+      // @workspace:tag
+      const workspace = workspacePart.slice(0, colonIndex) || DEFAULT_WORKSPACE;
+      const tag = workspacePart.slice(colonIndex + 1) || undefined;
       return {
         agent: undefined,
-        workflow,
+        workspace,
         tag,
-        full: `@${workflow}:${tag}`,
-        display: buildDisplay(undefined, workflow, tag),
+        full: tag ? `@${workspace}:${tag}` : `@${workspace}`,
+        display: buildDisplay(undefined, workspace, tag),
       };
     }
   }
 
-  // Handle agent targets (with or without @workflow:tag)
+  // Handle agent targets (with or without @workspace:tag)
   const atIndex = input.indexOf("@");
 
   if (atIndex === -1) {
-    // Just agent name, no workflow specified
+    // Just agent name, no workspace specified
     return {
       agent: input,
-      workflow: DEFAULT_WORKFLOW,
-      tag: DEFAULT_TAG,
-      full: `${input}@${DEFAULT_WORKFLOW}:${DEFAULT_TAG}`,
-      display: input, // Omit @global:main
+      workspace: DEFAULT_WORKSPACE,
+      tag: undefined,
+      full: `${input}@${DEFAULT_WORKSPACE}`,
+      display: input, // Omit @global
     };
   }
 
   const agent = input.slice(0, atIndex);
-  const workflowPart = input.slice(atIndex + 1);
-  const colonIndex = workflowPart.indexOf(":");
+  const workspacePart = input.slice(atIndex + 1);
+  const colonIndex = workspacePart.indexOf(":");
 
   if (colonIndex === -1) {
-    // agent@workflow (no tag)
-    const workflow = workflowPart || DEFAULT_WORKFLOW;
+    // agent@workspace (no tag)
+    const workspace = workspacePart || DEFAULT_WORKSPACE;
     return {
       agent,
-      workflow,
-      tag: DEFAULT_TAG,
-      full: `${agent}@${workflow}:${DEFAULT_TAG}`,
-      display: buildDisplay(agent, workflow, DEFAULT_TAG),
+      workspace,
+      tag: undefined,
+      full: `${agent}@${workspace}`,
+      display: buildDisplay(agent, workspace, undefined),
     };
   } else {
-    // agent@workflow:tag (full specification)
-    const workflow = workflowPart.slice(0, colonIndex) || DEFAULT_WORKFLOW;
-    const tag = workflowPart.slice(colonIndex + 1) || DEFAULT_TAG;
+    // agent@workspace:tag (full specification)
+    const workspace = workspacePart.slice(0, colonIndex) || DEFAULT_WORKSPACE;
+    const tag = workspacePart.slice(colonIndex + 1) || undefined;
     return {
       agent,
-      workflow,
+      workspace,
       tag,
-      full: `${agent}@${workflow}:${tag}`,
-      display: buildDisplay(agent, workflow, tag),
+      full: tag ? `${agent}@${workspace}:${tag}` : `${agent}@${workspace}`,
+      display: buildDisplay(agent, workspace, tag),
     };
   }
 }
@@ -113,52 +112,50 @@ export function parseTarget(input: string): TargetIdentifier {
 /**
  * Build display string following display rules:
  * - Omit @global for standalone agents
- * - Omit :main for default tag
+ * - Omit :tag when no tag
  */
-function buildDisplay(agent: string | undefined, workflow: string, tag: string): string {
-  const isGlobal = workflow === DEFAULT_WORKFLOW;
-  const isMainTag = tag === DEFAULT_TAG;
+function buildDisplay(agent: string | undefined, workspace: string, tag: string | undefined): string {
+  const isGlobal = workspace === DEFAULT_WORKSPACE;
 
   if (agent === undefined) {
-    // Workflow-only target: @workflow or @workflow:tag
-    if (isMainTag) {
-      return `@${workflow}`;
+    // Workspace-only target: @workspace or @workspace:tag
+    if (tag) {
+      return `@${workspace}:${tag}`;
     }
-    return `@${workflow}:${tag}`;
+    return `@${workspace}`;
   }
 
   // Agent target
-  if (isGlobal && isMainTag) {
+  if (isGlobal && !tag) {
     // Standalone agent: just show agent name
     return agent;
   }
 
-  if (isGlobal && !isMainTag) {
-    // agent@global:non-main → show agent@global:tag
-    return `${agent}@${workflow}:${tag}`;
+  if (isGlobal && tag) {
+    // agent@global:tag → show agent@global:tag
+    return `${agent}@${workspace}:${tag}`;
   }
 
-  if (!isGlobal && isMainTag) {
-    // agent@non-global:main → show agent@workflow
-    return `${agent}@${workflow}`;
+  if (!isGlobal && !tag) {
+    // agent@non-global → show agent@workspace
+    return `${agent}@${workspace}`;
   }
 
   // Full specification needed
-  return `${agent}@${workflow}:${tag}`;
+  return `${agent}@${workspace}:${tag}`;
 }
 
 /**
  * Build full target identifier from parts
  */
-export function buildTarget(agent: string | undefined, workflow?: string, tag?: string): string {
-  const wf = workflow || DEFAULT_WORKFLOW;
-  const t = tag || DEFAULT_TAG;
+export function buildTarget(agent: string | undefined, workspace?: string, tag?: string): string {
+  const ws = workspace || DEFAULT_WORKSPACE;
 
   if (agent === undefined) {
-    return `@${wf}:${t}`;
+    return tag ? `@${ws}:${tag}` : `@${ws}`;
   }
 
-  return `${agent}@${wf}:${t}`;
+  return tag ? `${agent}@${ws}:${tag}` : `${agent}@${ws}`;
 }
 
 /**
@@ -166,26 +163,17 @@ export function buildTarget(agent: string | undefined, workflow?: string, tag?: 
  */
 export function buildTargetDisplay(
   agent: string | undefined,
-  workflow?: string,
+  workspace?: string,
   tag?: string,
 ): string {
-  const wf = workflow || DEFAULT_WORKFLOW;
-  const t = tag || DEFAULT_TAG;
-  return buildDisplay(agent, wf, t);
+  const ws = workspace || DEFAULT_WORKSPACE;
+  return buildDisplay(agent, ws, tag);
 }
 
 /**
- * Check if workflow/tag name is valid
+ * Check if workspace/tag name is valid
  * Must be alphanumeric, hyphen, underscore, or dot
  */
 export function isValidName(name: string): boolean {
   return /^[a-zA-Z0-9._-]+$/.test(name);
-}
-
-/**
- * Get context directory for a workflow:tag
- * Maps to .workflow/<workflow>/<tag>/
- */
-export function getWorkflowContextDir(baseDir: string, workflow: string, tag: string): string {
-  return `${baseDir}/.workflow/${workflow}/${tag}`;
 }

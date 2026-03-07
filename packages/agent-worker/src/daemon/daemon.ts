@@ -67,8 +67,8 @@ import { DaemonEventLog } from "./event-log.ts";
 export interface WorkflowHandle {
   /** Workflow name (from YAML name field or filename) */
   name: string;
-  /** Workflow instance tag */
-  tag: string;
+  /** Workspace instance tag (optional) */
+  tag?: string;
   /** Key for lookup: "name:tag" */
   key: string;
   /** Agent names in this workflow */
@@ -240,7 +240,7 @@ async function ensureDefaultWorkspace(s: DaemonState): Promise<Workspace> {
 
   const workspace = await createMinimalRuntime({
     workflowName: "global",
-    tag: "main",
+    tag: undefined,
     agentNames: agentNames.length > 0 ? agentNames : ["user"],
     resolveHandle: (name) => s.agents.get(name) ?? undefined,
     channelAdapters: channelAdapters && channelAdapters.length > 0 ? channelAdapters : undefined,
@@ -384,12 +384,16 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
       agents: wf.agents,
     }));
 
+    // Config agents (non-ephemeral) — used by `rm` to reject removal
+    const configAgentNames = s.agents.list().filter((h) => !h.ephemeral).map((h) => h.name);
+
     return c.json({
       status: "ok",
       pid: process.pid,
       port: s.port,
       uptime: Date.now() - new Date(s.startedAt).getTime(),
       agents: agentNames,
+      configAgents: configAgentNames,
       workflows: workflowList,
     });
   });
@@ -407,17 +411,17 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
     const s = getState();
     if (!s) return c.json({ error: "Not ready" }, 503);
 
-    // Standalone agents (from registry)
+    // Standalone agents (from registry) — belong to global workspace
     const standaloneAgents = s.agents.list().map((handle) => {
       const def = handle.definition;
       return {
         name: def.name,
         model: def.model,
         backend: def.backend ?? "default",
-        workflow: undefined as string | undefined,
+        workflow: "global",
         tag: undefined as string | undefined,
-        createdAt: handle.ephemeral ? undefined : undefined,
-        source: "standalone" as const,
+        createdAt: undefined as string | undefined,
+        source: (handle.ephemeral ? "ephemeral" : "config") as string,
         state: handle.loop?.state,
       };
     });
@@ -489,17 +493,8 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
       schedule,
     };
 
-    // Persist to .agents/<name>.yaml by default; ephemeral on request
-    if (ephemeral) {
-      s.agents.registerEphemeral(def);
-    } else {
-      try {
-        s.agents.create(def);
-      } catch {
-        // File already exists on disk but not in registry — register from def
-        s.agents.registerDefinition(def);
-      }
-    }
+    // All API-created agents are ephemeral (config agents come from config.yml)
+    s.agents.registerEphemeral(def);
 
     return c.json({ name, model, backend, workflow, tag, schedule }, 201);
   });
@@ -534,6 +529,14 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
     const handle = s.agents.get(name);
     if (!handle) {
       return c.json({ error: "Agent not found" }, 404);
+    }
+
+    // Config agents cannot be deleted via API — edit config.yml instead
+    if (!handle.ephemeral) {
+      return c.json(
+        { error: `"${name}" is defined in config.yml — edit config to remove` },
+        403,
+      );
     }
 
     // Clean up agent-owned loop (workspace is shared, not cleaned up per-agent)
@@ -751,7 +754,7 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
     if (!body || typeof body !== "object") return c.json({ error: "Invalid JSON body" }, 400);
     const {
       workflow,
-      tag = "main",
+      tag,
       feedback,
       pollInterval,
       params,
@@ -768,7 +771,7 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
     }
 
     const workflowName = workflow.name || "global";
-    const key = `${workflowName}:${tag}`;
+    const key = tag ? `${workflowName}:${tag}` : workflowName;
 
     if (s.workflows.has(key)) {
       return c.json({ error: `Workflow already running: ${key}` }, 409);
@@ -863,11 +866,11 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
   // ── DELETE /workflows/:name/:tag ──────────────────────────────
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async function deleteWorkflow(c: Context<any, any, any>, name: string, tag: string) {
+  async function deleteWorkflow(c: Context<any, any, any>, name: string, tag: string | undefined) {
     const s = getState();
     if (!s) return c.json({ error: "Not ready" }, 503);
 
-    const key = `${name}:${tag}`;
+    const key = tag ? `${name}:${tag}` : name;
     const handle = s.workflows.get(key);
     if (!handle) {
       return c.json({ error: `Workflow not found: ${key}` }, 404);
@@ -887,8 +890,8 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
     deleteWorkflow(c, c.req.param("name"), c.req.param("tag")),
   );
 
-  // Convenience: DELETE /workflows/:name (defaults tag to "main")
-  app.delete("/workflows/:name", (c) => deleteWorkflow(c, c.req.param("name"), "main"));
+  // Convenience: DELETE /workflows/:name (no tag)
+  app.delete("/workflows/:name", (c) => deleteWorkflow(c, c.req.param("name"), undefined));
 
   return app;
 }

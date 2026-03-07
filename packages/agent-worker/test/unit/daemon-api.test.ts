@@ -185,7 +185,7 @@ describe("Daemon API", () => {
       const agents = data.agents as Array<Record<string, unknown>>;
       expect(agents).toHaveLength(1);
       expect(agents[0]!.name).toBe("alice");
-      expect(agents[0]!.source).toBe("standalone");
+      expect(agents[0]!.source).toBe("ephemeral");
     });
   });
 
@@ -209,8 +209,8 @@ describe("Daemon API", () => {
 
       // Verify agent was stored in registry
       expect(testState.agents.has("bob")).toBe(true);
-      // Default: persistent (not ephemeral)
-      expect(testState.agents.get("bob")!.ephemeral).toBe(false);
+      // All API-created agents are ephemeral
+      expect(testState.agents.get("bob")!.ephemeral).toBe(true);
     });
 
     test("rejects missing required fields", async () => {
@@ -310,6 +310,26 @@ describe("Daemon API", () => {
     test("returns 404 for unknown agent", async () => {
       const res = await app.request("/agents/nobody", { method: "DELETE" });
       expect(res.status).toBe(404);
+    });
+
+    test("rejects deletion of config agent", async () => {
+      // registerDefinition creates a non-ephemeral (config) agent
+      testState.agents.registerDefinition({
+        name: "persistent",
+        model: "test/model",
+        prompt: { system: "Config agent" },
+      });
+
+      const res = await app.request("/agents/persistent", { method: "DELETE" });
+      expect(res.status).toBe(403);
+      const data = await json(res);
+      expect(data.error).toContain("config.yml");
+
+      // Agent should still exist
+      expect(testState.agents.has("persistent")).toBe(true);
+
+      // Cleanup
+      testState.agents.delete("persistent");
     });
   });
 
@@ -421,11 +441,11 @@ describe("Daemon API", () => {
       expect(res.status).toBe(404);
     });
 
-    test("convenience route defaults tag to main", async () => {
+    test("convenience route (no tag)", async () => {
       const res = await app.request("/workflows/unknown", { method: "DELETE" });
       expect(res.status).toBe(404);
       const data = await json(res);
-      expect(data.error).toContain("unknown:main");
+      expect(data.error).toContain("unknown");
     });
 
     test("stops and removes workflow", async () => {
@@ -776,7 +796,7 @@ describe("Daemon API", () => {
       // Sources should be different
       const alice = agents.find((a) => a.name === "alice");
       const reviewer = agents.find((a) => a.name === "reviewer");
-      expect(alice!.source).toBe("standalone");
+      expect(alice!.source).toBe("ephemeral");
       expect(reviewer!.source).toBe("workflow");
     });
   });

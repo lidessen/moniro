@@ -4,8 +4,8 @@
  * Syntax: ${{ variable }}
  * - ${{ name }} - task output variable
  * - ${{ env.VAR }} - environment variable
- * - ${{ workflow.name }} - workflow name
- * - ${{ workflow.tag }} - workflow instance tag
+ * - ${{ workspace.name }} - workspace name
+ * - ${{ workspace.tag }} - workspace instance tag
  * - ${{ params.name }} - workflow parameter value
  * - ${{ source.dir }} - source directory (repo root for remote, workflow dir for local)
  */
@@ -75,9 +75,9 @@ function resolveExpression(expression: string, context: VariableContext): string
     return context.params?.[paramName];
   }
 
-  // Handle workflow.name, workflow.tag
-  if (expression.startsWith("workflow.")) {
-    const field = expression.slice(9);
+  // Handle workspace.name, workspace.tag
+  if (expression.startsWith("workspace.")) {
+    const field = expression.slice(10);
     if (field === "name") return context.workflow?.name;
     if (field === "tag") return context.workflow?.tag;
     return undefined;

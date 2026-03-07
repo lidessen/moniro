@@ -2,17 +2,17 @@ import type { Command } from "commander";
 import { readFileSync } from "node:fs";
 
 export function registerDocCommands(program: Command) {
-  const docCmd = program.command("doc").description("Read/write workflow documents");
+  const docCmd = program.command("doc").description("Read/write workspace documents");
 
   docCmd
     .command("read <target>")
-    .description("Read the workflow document")
+    .description("Read the workspace document")
     .addHelpText(
       "after",
       `
 Examples:
-  $ agent-worker doc read @review            # Read @review:main document
-  $ agent-worker doc read @review:pr-123     # Read specific workflow:tag document
+  $ agent-worker doc read @review            # Read @review document
+  $ agent-worker doc read @review:pr-123     # Read specific workspace:tag document
     `,
     )
     .action(async (targetInput: string) => {
@@ -25,7 +25,7 @@ Examples:
 
   docCmd
     .command("write <target>")
-    .description("Write content to the workflow document")
+    .description("Write content to the workspace document")
     .option("--content <text>", "Content to write")
     .option("--file <path>", "Read content from file")
     .addHelpText(
@@ -57,7 +57,7 @@ Examples:
 
   docCmd
     .command("append <target>")
-    .description("Append content to the workflow document")
+    .description("Append content to the workspace document")
     .option("--content <text>", "Content to append (use $'...' for newlines in bash)")
     .option("--file <path>", "Read content from file")
     .addHelpText(
@@ -92,8 +92,8 @@ async function resolveDir(targetInput: string): Promise<string> {
   const { getDefaultContextDir } = await import("@moniro/workspace");
   const { parseTarget } = await import("@/cli/target.ts");
 
-  // Parse target identifier (should be @workflow:tag format)
+  // Parse target identifier (should be @workspace:tag format)
   const target = parseTarget(targetInput);
 
-  return getDefaultContextDir(target.workflow, target.tag);
+  return getDefaultContextDir(target.workspace, target.tag);
 }

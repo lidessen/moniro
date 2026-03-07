@@ -1,6 +1,5 @@
 import { Command, Option } from "commander";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { getDefaultModel, normalizeBackendType } from "@moniro/agent-loop";
 import {
@@ -15,8 +14,6 @@ import {
 } from "@/cli/client.ts";
 import { isDaemonRunning, DEFAULT_PORT } from "@/daemon/index.ts";
 import { outputJson } from "@/cli/output.ts";
-import type { AgentDefinition } from "@moniro/agent-loop";
-import { AgentRegistry } from "@/agent/agent-registry.ts";
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -28,7 +25,7 @@ export async function ensureDaemon(port?: number, host?: string): Promise<void> 
 
   // Spawn daemon process
   const scriptPath = process.argv[1] ?? "";
-  const args = [scriptPath, "daemon"];
+  const args = [scriptPath, "up", "-f"];
   if (port) args.push("--port", String(port));
   if (host) args.push("--host", host);
 
@@ -53,25 +50,67 @@ export async function ensureDaemon(port?: number, host?: string): Promise<void> 
 // ── Commands ───────────────────────────────────────────────────────
 
 export function registerAgentCommands(program: Command) {
-  // ── daemon ─────────────────────────────────────────────────────
-  // Start daemon in foreground (mainly for development/debugging)
+  // ── up ──────────────────────────────────────────────────────────
   program
-    .command("daemon")
-    .description("Start daemon in foreground")
+    .command("up")
+    .description("Start daemon, load config.yml agents")
+    .option("-f, --foreground", "Run in foreground (for debugging)")
     .option("--port <port>", `HTTP port (default: ${DEFAULT_PORT})`)
     .option("--host <host>", "Host to bind to (default: 127.0.0.1)")
+    .addHelpText(
+      "after",
+      `
+Examples:
+  $ agent-worker up              # Start daemon in background
+  $ agent-worker up -f           # Start daemon in foreground
+  $ agent-worker up --port 5100  # Custom port
+      `,
+    )
     .action(async (options) => {
-      const { startDaemon } = await import("@/daemon/daemon.ts");
-      await startDaemon({
-        port: options.port ? parseInt(options.port, 10) : undefined,
-        host: options.host,
-      });
+      if (options.foreground) {
+        // Foreground mode — run daemon directly
+        const { startDaemon } = await import("@/daemon/daemon.ts");
+        await startDaemon({
+          port: options.port ? parseInt(options.port, 10) : undefined,
+          host: options.host,
+        });
+      } else {
+        // Background mode — spawn and wait
+        if (isDaemonRunning()) {
+          console.log("Daemon already running");
+          return;
+        }
+        await ensureDaemon(
+          options.port ? parseInt(options.port, 10) : undefined,
+          options.host,
+        );
+        console.log("Daemon started");
+      }
+    });
+
+  // ── down ────────────────────────────────────────────────────────
+  program
+    .command("down")
+    .description("Stop daemon (all agents and workspaces)")
+    .action(async () => {
+      if (!isDaemonActive()) {
+        console.log("No daemon running");
+        return;
+      }
+
+      const res = await shutdown();
+      if (res.success) {
+        console.log("Daemon stopped");
+      } else {
+        console.error("Error:", res.error);
+        process.exit(1);
+      }
     });
 
   // ── new ────────────────────────────────────────────────────────
   program
     .command("new <name>")
-    .description("Create a new agent")
+    .description("Create a new ephemeral agent")
     .option("-m, --model <model>", `Model identifier (default: ${getDefaultModel()})`)
     .addOption(
       new Option("-b, --backend <type>", "Backend type")
@@ -83,11 +122,8 @@ export function registerAgentCommands(program: Command) {
     .option("--api-key <ref>", "API key env var (e.g., $MINIMAX_API_KEY)")
     .option("-s, --system <prompt>", "System prompt", "You are a helpful assistant.")
     .option("-f, --system-file <file>", "Read system prompt from file")
-    .option("--workflow <name>", "Workflow name (default: global)")
-    .option("--tag <tag>", "Workflow instance tag (default: main)")
     .option("--wakeup <interval|cron>", "Periodic wakeup schedule (e.g., 30s, 5m, 0 9 * * 1-5)")
     .option("--wakeup-prompt <text>", "Custom prompt for wakeup events")
-    .option("--ephemeral", "Don't persist to .agents/ (lost on daemon restart)")
     .option("--port <port>", `Daemon port if starting new daemon (default: ${DEFAULT_PORT})`)
     .option("--host <host>", "Daemon host (default: 127.0.0.1)")
     .option("--json", "Output as JSON")
@@ -97,7 +133,6 @@ export function registerAgentCommands(program: Command) {
 Examples:
   $ agent-worker new alice -m anthropic/claude-sonnet-4-5
   $ agent-worker new bot -b mock
-  $ agent-worker new reviewer --workflow review --tag pr-123
   $ agent-worker new monitor --wakeup 30s --system "Check status"
   $ agent-worker new coder -m MiniMax-M2.5 --provider anthropic --base-url https://api.minimax.io/anthropic/v1 --api-key '$MINIMAX_API_KEY'
       `,
@@ -141,17 +176,15 @@ Examples:
       // Ensure daemon is running
       await ensureDaemon(options.port ? parseInt(options.port, 10) : undefined, options.host);
 
-      // Create agent via daemon API
+      // Create agent via daemon API (always global, always ephemeral)
       const res = await createAgent({
         name,
         model,
         system,
         backend,
         provider,
-        workflow: options.workflow,
-        tag: options.tag,
         schedule,
-        ephemeral: options.ephemeral || undefined,
+        ephemeral: true,
       });
 
       if (res.error) {
@@ -166,10 +199,47 @@ Examples:
       }
     });
 
+  // ── rm ──────────────────────────────────────────────────────────
+  program
+    .command("rm <name>")
+    .description("Remove an ephemeral agent")
+    .addHelpText(
+      "after",
+      `
+Removes an ephemeral agent created with 'new'.
+Config agents (defined in config.yml) cannot be removed — edit config.yml instead.
+
+Examples:
+  $ agent-worker rm alice
+      `,
+    )
+    .action(async (name) => {
+      if (!isDaemonActive()) {
+        console.error("No daemon running");
+        process.exit(1);
+      }
+
+      // Check if agent is a config agent (non-ephemeral)
+      const info = await health();
+      const configAgents = ((info as Record<string, unknown>).configAgents ?? []) as string[];
+      if (configAgents.includes(name)) {
+        console.error(`Error: "${name}" is defined in config.yml — edit config to remove`);
+        process.exit(1);
+      }
+
+      const res = await deleteAgent(name);
+      if (res.success) {
+        console.log(`Removed: ${name}`);
+      } else {
+        console.error("Error:", res.error);
+        process.exit(1);
+      }
+    });
+
   // ── ls ─────────────────────────────────────────────────────────
   program
     .command("ls")
-    .description("List agents")
+    .description("List running agents")
     .option("--json", "Output as JSON")
     .addHelpText(
       "after",
@@ -218,9 +288,9 @@ Examples:
 
       for (const a of agents) {
         const wf = a.workflow
-          ? a.tag === "main"
-            ? `@${a.workflow}`
-            : `@${a.workflow}:${a.tag}`
+          ? a.tag
+            ? `@${a.workflow}:${a.tag}`
+            : `@${a.workflow}`
           : "";
         const info = a.model || a.state || "";
         console.log(`${a.name.padEnd(12)} ${info.padEnd(30)} ${wf}`);
@@ -230,47 +300,35 @@ Examples:
   // ── stop ───────────────────────────────────────────────────────
   program
     .command("stop [name]")
-    .description("Stop agent, workflow, or daemon")
-    .option("--all", "Stop daemon (all agents and workflows)")
+    .description("Stop agent or workspace")
     .addHelpText(
       "after",
       `
 Examples:
   $ agent-worker stop alice           # Stop specific agent
-  $ agent-worker stop @review:pr-123  # Stop workflow
-  $ agent-worker stop @review         # Stop workflow (tag defaults to main)
-  $ agent-worker stop --all           # Stop daemon (everything)
+  $ agent-worker stop @review:pr-123  # Stop workspace
+  $ agent-worker stop @review         # Stop workspace (no tag)
       `,
     )
-    .action(async (name, options) => {
+    .action(async (name) => {
       if (!isDaemonActive()) {
         console.error("No daemon running");
         process.exit(1);
       }
 
-      if (options.all) {
-        const res = await shutdown();
-        if (res.success) {
-          console.log("Daemon stopped");
-        } else {
-          console.error("Error:", res.error);
-        }
-        return;
-      }
-
       if (!name) {
-        console.error("Specify agent name, @workflow[:tag], or use --all");
+        console.error("Specify agent name or @workspace[:tag]. Use 'down' to stop daemon.");
         process.exit(1);
       }
 
-      // Parse target to determine if it's a workflow or agent
+      // Parse target to determine if it's a workspace or agent
       const { parseTarget } = await import("@/cli/target.ts");
       const target = parseTarget(name);
 
       let res: Awaited<ReturnType<typeof deleteAgent>>;
       if (target.agent === undefined) {
         const { stopWorkflow: stopWf } = await import("@/cli/client.ts");
-        res = await stopWf(target.workflow, target.tag);
+        res = await stopWf(target.workspace, target.tag);
       } else {
         res = await deleteAgent(target.agent);
       }
@@ -313,9 +371,9 @@ Examples:
           agents: string[];
         }>;
         if (workflows.length > 0) {
-          console.log(`Workflows:`);
+          console.log(`Workspaces:`);
           for (const wf of workflows) {
-            const display = wf.tag === "main" ? `@${wf.name}` : `@${wf.name}:${wf.tag}`;
+            const display = wf.tag ? `@${wf.name}:${wf.tag}` : `@${wf.name}`;
             console.log(`  ${display} → ${wf.agents.join(", ")}`);
           }
         }
@@ -330,13 +388,15 @@ Examples:
   // ── ask ────────────────────────────────────────────────────────
   program
     .command("ask <agent> <message>")
-    .description("Send message to agent (SSE streaming)")
-    .option("--json", "Output final response as JSON")
+    .description("Send message to agent and get response")
+    .option("--no-stream", "Sync response (no streaming)")
+    .option("--json", "Output response as JSON")
     .addHelpText(
       "after",
       `
 Examples:
   $ agent-worker ask alice "analyze this code"
+  $ agent-worker ask alice "hello" --no-stream
   $ agent-worker ask alice "hello" --json
       `,
     )
@@ -346,218 +406,82 @@ Examples:
         process.exit(1);
       }
 
-      const res = await run({ agent, message }, (chunk) => {
-        if (!options.json) {
-          process.stdout.write(chunk.text);
+      if (options.stream === false) {
+        // Sync mode (replaces old `serve` command)
+        const res = await serve({ agent, message });
+        if (options.json) {
+          outputJson(res);
+        } else if (res.error) {
+          console.error("Error:", res.error);
+          process.exit(1);
+        } else {
+          console.log((res as { content?: string }).content ?? JSON.stringify(res));
         }
-      });
-
-      if (options.json) {
-        outputJson(res);
       } else {
-        // Newline after streaming output
-        console.log();
+        // Streaming mode (default)
+        const res = await run({ agent, message }, (chunk) => {
+          if (!options.json) {
+            process.stdout.write(chunk.text);
+          }
+        });
+
+        if (options.json) {
+          outputJson(res);
+        } else {
+          console.log();
+        }
       }
     });
 
-  // ── serve ──────────────────────────────────────────────────────
+  // ── onboard ────────────────────────────────────────────────────
   program
-    .command("serve <agent> <message>")
-    .description("Send message to agent (sync response)")
-    .option("--json", "Output as JSON")
-    .action(async (agent, message, options) => {
-      if (!isDaemonActive()) {
-        console.error("No daemon running");
-        process.exit(1);
-      }
-
-      const res = await serve({ agent, message });
-      if (options.json) {
-        outputJson(res);
-      } else if (res.error) {
-        console.error("Error:", res.error);
-        process.exit(1);
-      } else {
-        console.log((res as { content?: string }).content ?? JSON.stringify(res));
-      }
-    });
-
-  // ── agent (subcommand group) ────────────────────────────────
-  // File-based agent management (.agents/*.yaml)
-
-  const agentCmd = program
-    .command("agent")
-    .description("Manage persistent agent definitions (.agents/*.yaml)");
-
-  // ── agent create ────────────────────────────────────────────
-  agentCmd
-    .command("create <name>")
-    .description("Create a persistent agent definition")
-    .option("-m, --model <model>", `Model (default: ${getDefaultModel()})`)
-    .addOption(
-      new Option("-b, --backend <type>", "Backend type")
-        .choices(["sdk", "claude", "codex", "cursor", "opencode", "mock"])
-        .default(undefined),
-    )
-    .option("-s, --system <prompt>", "System prompt")
-    .option("-f, --system-file <file>", "Read system prompt from file")
-    .option("--role <role>", "Soul: agent role")
-    .option("--expertise <items>", "Soul: expertise (comma-separated)")
-    .option("--style <style>", "Soul: communication style")
-    .option("--dir <path>", "Project directory", ".")
-    .option("--json", "Output as JSON")
+    .command("onboard")
+    .description("Interactive config.yml setup")
     .addHelpText(
       "after",
       `
-Creates .agents/<name>.yaml and context directory (.agents/<name>/).
+Creates or updates ~/.agent-worker/config.yml interactively.
+Guides you through defining agents and channel bridges.
 
 Examples:
-  $ agent-worker agent create alice -m anthropic/claude-sonnet-4-5 -s "You are a code reviewer."
-  $ agent-worker agent create bob --role developer --expertise "typescript,testing"
-  $ agent-worker agent create coder -f ./prompts/coder.md
+  $ agent-worker onboard
       `,
     )
-    .action(async (name, options) => {
-      const projectDir = resolve(options.dir);
-      const registry = new AgentRegistry(projectDir);
+    .action(async () => {
+      const { existsSync: exists } = await import("node:fs");
+      const { join } = await import("node:path");
+      const { homedir } = await import("node:os");
+      const configDir = join(homedir(), ".agent-worker");
+      const configPath = join(configDir, "config.yml");
 
-      let system = options.system ?? "You are a helpful assistant.";
-      if (options.systemFile) {
-        system = readFileSync(options.systemFile, "utf-8");
-      }
-
-      const def: AgentDefinition = {
-        name,
-        model: options.model || getDefaultModel(),
-        prompt: { system },
-      };
-
-      if (options.backend) def.backend = options.backend;
-
-      // Build soul from CLI flags
-      if (options.role || options.expertise || options.style) {
-        def.soul = {};
-        if (options.role) def.soul.role = options.role;
-        if (options.expertise)
-          def.soul.expertise = options.expertise.split(",").map((s: string) => s.trim());
-        if (options.style) def.soul.style = options.style;
-      }
-
-      try {
-        const handle = registry.create(def);
-        if (options.json) {
-          outputJson({ name, model: def.model, contextDir: handle.contextDir });
-        } else {
-          console.log(`Created: .agents/${name}.yaml`);
-          console.log(`Context: ${handle.contextDir}`);
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error(`Error: ${msg}`);
-        process.exit(1);
-      }
-    });
-
-  // ── agent list ──────────────────────────────────────────────
-  agentCmd
-    .command("list")
-    .description("List persistent agent definitions")
-    .option("--dir <path>", "Project directory", ".")
-    .option("--json", "Output as JSON")
-    .action(async (options) => {
-      const projectDir = resolve(options.dir);
-      const registry = new AgentRegistry(projectDir);
-      registry.loadFromDisk();
-
-      const agents = registry.list();
-
-      if (options.json) {
-        outputJson({
-          agents: agents.map((h) => ({
-            name: h.name,
-            model: h.definition.model,
-            backend: h.definition.backend,
-            soul: h.definition.soul,
-            contextDir: h.contextDir,
-          })),
-        });
+      if (exists(configPath)) {
+        console.log(`Config already exists: ${configPath}`);
+        console.log("Edit it directly to add/remove agents and channels.");
         return;
       }
 
-      if (agents.length === 0) {
-        console.log("No agent definitions found in .agents/");
-        return;
-      }
+      // Create minimal config.yml template
+      const { mkdirSync, writeFileSync } = await import("node:fs");
+      mkdirSync(configDir, { recursive: true });
 
-      for (const h of agents) {
-        const soul = h.definition.soul?.role ? ` (${h.definition.soul.role})` : "";
-        console.log(`${h.name.padEnd(16)} ${h.definition.model}${soul}`);
-      }
-    });
+      const template = `# agent-worker config
+# Agents defined here are loaded when the daemon starts (agent-worker up).
+# Edit this file to add/remove agents. Changes take effect on next 'up'.
 
-  // ── agent info ──────────────────────────────────────────────
-  agentCmd
-    .command("info <name>")
-    .description("Show agent definition details")
-    .option("--dir <path>", "Project directory", ".")
-    .option("--json", "Output as JSON")
-    .action(async (name, options) => {
-      const projectDir = resolve(options.dir);
-      const registry = new AgentRegistry(projectDir);
-      registry.loadFromDisk();
+agents:
+  # Example agent:
+  # assistant:
+  #   model: anthropic/claude-sonnet-4-5
+  #   system: You are a helpful assistant.
 
-      const handle = registry.get(name);
-      if (!handle) {
-        console.error(`Agent not found: ${name}`);
-        process.exit(1);
-      }
+# channels:
+#   telegram:
+#     type: telegram
+#     token: \${{ env.TELEGRAM_BOT_TOKEN }}
+`;
 
-      const def = handle.definition;
-      if (options.json) {
-        outputJson({ ...def, contextDir: handle.contextDir });
-        return;
-      }
-
-      console.log(`Name:    ${def.name}`);
-      console.log(`Model:   ${def.model}`);
-      if (def.backend) console.log(`Backend: ${def.backend}`);
-      if (def.prompt.system) {
-        const preview =
-          def.prompt.system.length > 80
-            ? def.prompt.system.slice(0, 77) + "..."
-            : def.prompt.system;
-        console.log(`Prompt:  ${preview}`);
-      }
-      if (def.soul) {
-        if (def.soul.role) console.log(`Role:    ${def.soul.role}`);
-        if (def.soul.expertise) console.log(`Expert:  ${def.soul.expertise.join(", ")}`);
-        if (def.soul.style) console.log(`Style:   ${def.soul.style}`);
-        if (def.soul.principles) {
-          console.log(`Principles:`);
-          for (const p of def.soul.principles) {
-            console.log(`  - ${p}`);
-          }
-        }
-      }
-      console.log(`Context: ${handle.contextDir}`);
-    });
-
-  // ── agent delete ────────────────────────────────────────────
-  agentCmd
-    .command("delete <name>")
-    .description("Delete agent definition and context")
-    .option("--dir <path>", "Project directory", ".")
-    .action(async (name, options) => {
-      const projectDir = resolve(options.dir);
-      const registry = new AgentRegistry(projectDir);
-      registry.loadFromDisk();
-
-      if (!registry.has(name)) {
-        console.error(`Agent not found: ${name}`);
-        process.exit(1);
-      }
-
-      registry.delete(name);
-      console.log(`Deleted: ${name}`);
+      writeFileSync(configPath, template);
+      console.log(`Created: ${configPath}`);
+      console.log("Edit this file to define your agents, then run: agent-worker up");
     });
 }

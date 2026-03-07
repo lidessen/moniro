@@ -35,7 +35,6 @@ export async function loadDaemonConfig(configDir: string): Promise<ParsedWorkflo
     const { parseWorkflowFile } = await import("@moniro/workspace");
     return await parseWorkflowFile(configPath, {
       workflow: "global",
-      tag: "main",
     });
   } catch {
     return null;
