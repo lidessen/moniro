@@ -135,6 +135,12 @@ skills/skill-name/       # Skill wrappers (invoke the packages or standalone)
 
 Every SKILL.md needs YAML frontmatter with `name` and `description` (trigger keywords).
 
+## Git Workflow
+
+- **Never push directly to main.** Always create a branch, commit there, and open a PR.
+- CI (lint, typecheck, build, test) only runs on PRs — direct pushes to main bypass validation.
+- main has force-push protection enabled.
+
 ## Contributing
 
 See `skills/authoring-skills/` for design principles. Dogfood before publishing.
