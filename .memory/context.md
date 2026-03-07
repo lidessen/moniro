@@ -4,7 +4,8 @@
 
 ## 当前焦点
 
-**四包重构已完成** — 进入功能开发阶段（Guard Agent, Channel Bridge 等）。
+**CLI 重新设计** — 对齐对象模型（config.yml 真相源、workspace 统一术语、tag 可空、.agents/ 废弃）。
+设计文档：`packages/agent-worker/CLI-DESIGN.md`。分支：`claude/prioritize-personal-agent-QSJgx`。
 
 ## 架构概览
 
