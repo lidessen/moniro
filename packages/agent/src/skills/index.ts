@@ -1,6 +1,4 @@
-export {
-  experimental_createSkillTool as createSkillTool,
-} from "bash-tool";
+export { experimental_createSkillTool as createSkillTool } from "bash-tool";
 export type {
   CreateSkillToolOptions,
   DiscoveredSkill,
