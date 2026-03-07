@@ -533,6 +533,12 @@ describe("parseWorkflowParams", () => {
     expect(result.verbose).toBe("true");
   });
 
+  test("maps snake_case param names to kebab-case CLI flags", () => {
+    const defs = [{ name: "major_policy", type: "string" as const }];
+    const result = parseWorkflowParams(defs, ["--major-policy", "no-major-use-minor"]);
+    expect(result.major_policy).toBe("no-major-use-minor");
+  });
+
   test("applies default values", () => {
     const defs = [{ name: "depth", type: "number" as const, default: 1 }];
     const result = parseWorkflowParams(defs, []);
@@ -594,6 +600,13 @@ describe("formatParamHelp", () => {
     expect(help).toContain("-t, --target");
     expect(help).toContain("(required)");
     expect(help).toContain("[default: 1]");
+  });
+
+  test("formats snake_case params as kebab-case CLI flags", () => {
+    const defs = [{ name: "major_policy", type: "string" as const }];
+    const help = formatParamHelp(defs);
+    expect(help).toContain("--major-policy");
+    expect(help).not.toContain("--major_policy");
   });
 
   test("returns empty for no defs", () => {
