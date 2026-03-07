@@ -385,7 +385,10 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
     }));
 
     // Config agents (non-ephemeral) — used by `rm` to reject removal
-    const configAgentNames = s.agents.list().filter((h) => !h.ephemeral).map((h) => h.name);
+    const configAgentNames = s.agents
+      .list()
+      .filter((h) => !h.ephemeral)
+      .map((h) => h.name);
 
     return c.json({
       status: "ok",
@@ -463,7 +466,6 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
       workflow,
       tag,
       schedule,
-      ephemeral,
     } = body as {
       name: string;
       model: string;
@@ -473,7 +475,6 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
       workflow?: string;
       tag?: string;
       schedule?: { wakeup: string | number; prompt?: string };
-      ephemeral?: boolean;
     };
 
     if (!name || !model || !system) {
@@ -533,10 +534,7 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
 
     // Config agents cannot be deleted via API — edit config.yml instead
     if (!handle.ephemeral) {
-      return c.json(
-        { error: `"${name}" is defined in config.yml — edit config to remove` },
-        403,
-      );
+      return c.json({ error: `"${name}" is defined in config.yml — edit config to remove` }, 403);
     }
 
     // Clean up agent-owned loop (workspace is shared, not cleaned up per-agent)
@@ -752,13 +750,7 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
 
     const body = await parseJsonBody(c);
     if (!body || typeof body !== "object") return c.json({ error: "Invalid JSON body" }, 400);
-    const {
-      workflow,
-      tag,
-      feedback,
-      pollInterval,
-      params,
-    } = body as {
+    const { workflow, tag, feedback, pollInterval, params } = body as {
       workflow: ParsedWorkflow;
       tag?: string;
       feedback?: boolean;

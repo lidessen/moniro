@@ -9,7 +9,7 @@ import { join, isAbsolute } from "node:path";
 import { homedir } from "node:os";
 import { ContextProviderImpl } from "./provider.ts";
 import { FileStorage } from "./storage.ts";
-import { CONTEXT_DEFAULTS } from "./types.ts";
+
 import { DefaultChannelStore } from "./stores/channel.ts";
 import { DefaultInboxStore } from "./stores/inbox.ts";
 import { DefaultDocumentStore } from "./stores/document.ts";

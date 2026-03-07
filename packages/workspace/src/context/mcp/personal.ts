@@ -48,7 +48,9 @@ export function registerPersonalContextTools(
       const memory = await handle.readMemory();
       if (args.key) {
         const value = memory[args.key];
-        return text(value !== undefined ? { key: args.key, value } : { error: `Key "${args.key}" not found` });
+        return text(
+          value !== undefined ? { key: args.key, value } : { error: `Key "${args.key}" not found` },
+        );
       }
       return text(memory);
     },
@@ -81,7 +83,13 @@ export function registerPersonalContextTools(
     "my_notes_read",
     "Read your recent notes (freeform reflections, session summaries). Most recent first.",
     {
-      limit: z.number().int().min(1).max(20).optional().describe("Max notes to return (default: 5)"),
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(20)
+        .optional()
+        .describe("Max notes to return (default: 5)"),
     },
     async (args, extra) => {
       const agent = getAgentId(extra) || "anonymous";
