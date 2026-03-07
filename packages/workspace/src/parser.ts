@@ -691,13 +691,16 @@ export function parseWorkflowParams(
 ): Record<string, string> {
   if (defs.length === 0) return {};
 
+  const toCliFlag = (name: string) => name.replaceAll("_", "-");
+
   // Build parseArgs options from param definitions
   const options: Record<string, { type: "string" | "boolean"; short?: string }> = {};
   for (const def of defs) {
     const type = def.type === "boolean" ? "boolean" : "string";
     const opt: { type: "string" | "boolean"; short?: string } = { type };
     if (def.short) opt.short = def.short;
-    options[def.name] = opt;
+    const cliName = toCliFlag(def.name);
+    options[cliName] = opt;
   }
 
   const { values } = parseArgs({ args: argv, options, strict: true });
@@ -707,7 +710,8 @@ export function parseWorkflowParams(
   const missing: string[] = [];
 
   for (const def of defs) {
-    let raw = values[def.name];
+    const cliName = toCliFlag(def.name);
+    let raw = values[cliName];
 
     // Apply default (coerce to string since parseArgs values are string | boolean)
     if (raw === undefined && def.default !== undefined) {
@@ -716,7 +720,7 @@ export function parseWorkflowParams(
 
     if (raw === undefined) {
       if (def.required) {
-        const flag = def.short ? `-${def.short}/--${def.name}` : `--${def.name}`;
+        const flag = def.short ? `-${def.short}/--${cliName}` : `--${cliName}`;
         missing.push(flag);
       }
       continue;
@@ -726,7 +730,7 @@ export function parseWorkflowParams(
     if (def.type === "number") {
       const num = Number(raw);
       if (isNaN(num)) {
-        throw new Error(`Parameter --${def.name} must be a number, got: "${raw}"`);
+        throw new Error(`Parameter --${cliName} must be a number, got: "${raw}"`);
       }
       result[def.name] = String(num);
     } else {
@@ -747,9 +751,12 @@ export function parseWorkflowParams(
 export function formatParamHelp(defs: ParamDefinition[]): string {
   if (defs.length === 0) return "";
 
+  const toCliFlag = (name: string) => name.replaceAll("_", "-");
+
   const lines = ["", "Workflow parameters:"];
   for (const def of defs) {
-    const flags = def.short ? `-${def.short}, --${def.name}` : `    --${def.name}`;
+    const cliName = toCliFlag(def.name);
+    const flags = def.short ? `-${def.short}, --${cliName}` : `    --${cliName}`;
     const type = def.type || "string";
     const req = def.required ? " (required)" : "";
     const dflt = def.default !== undefined ? ` [default: ${def.default}]` : "";
