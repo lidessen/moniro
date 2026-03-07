@@ -1,17 +1,37 @@
 # Todos
 
-跨会话的任务追踪。当前阶段：**四包结构已完成，进入功能开发**。
+跨会话的任务追踪。当前阶段：**CLI 重新设计，对齐对象模型**。
+
+设计文档：`packages/agent-worker/CLI-DESIGN.md`
 
 ## 活跃任务
 
+### Phase 7a: 路径基础设施 ✅
+
+全部完成，1110 tests pass。详见已完成区。
+
+### Phase 7b: AgentRegistry + .agents/ 废弃 + daemon API 契约 ✅
+
+全部完成，1094 tests pass。详见已完成区。
+
+### Phase 7c: CLI 命令重构 ✅
+
+全部完成，1095 tests pass。详见已完成区。
+
+### Phase 7d: 术语迁移 + 测试 ✅
+
+全部完成，1095 tests pass。详见已完成区。
+
+### 其他（不阻塞 CLI 重构）
+
 | 优先级 | 任务 | 状态 | 备注 |
 |--------|------|------|------|
-| medium | Phase 6c: Guard Agent | todo | Workspace 层可选优化，不阻塞个人 agent |
+| medium | Phase 6c: Guard Agent | todo | Workspace 层可选优化 |
 | medium | Phase 6d: Channel Bridge — HTTP Webhook | todo | 跨进程场景，按需 |
-| low | `send` CLI target 解析 | todo | Phase 3b 遗留 |
-| low | CLI + Project Config（moniro.yaml） | todo | 降级 |
 
 ## 已完成
+
+> **注意**: Phase 6e/6f 中的 `.agents/` 持久化行为（loadFromDisk, persist by default, auto-start persisted agents）将被 Phase 7 主动取代。Phase 7 将 config.yml 定为唯一真相源，.agents/ 全废弃。这些 Phase 6 工作不再是需要维护的目标。
 
 | 任务 | 完成日期 | 备注 |
 |------|----------|------|
@@ -32,8 +52,12 @@
 | 四包重构设计 | 2026-03-06 | ADR + PACKAGE-SPLIT 更新 |
 | Phase 6-restructure: 四包重构 | 2026-03-06 | 1085 tests, 见下方详情 |
 | Phase 6d: Channel Bridge + Telegram | 2026-03-06 | ChannelBridge + TelegramAdapter + mention 扩展, 1108 tests |
-| Phase 6e: Daemon Persistence + Bridge Abstraction | 2026-03-06 | loadFromDisk, persist by default, bridge config→workspace, channel_send targeting, 1113 tests |
-| Phase 6f: Agent Wake-up + Auto-start | 2026-03-06 | onMention→wake, bridge inbound→wake, auto-start persisted agents, removed dead WorkspaceRegistry, 1112 tests |
+| Phase 6e: Daemon Persistence + Bridge Abstraction | 2026-03-06 | **⚠ superseded by Phase 7**: loadFromDisk, persist by default → 废弃 |
+| Phase 6f: Agent Wake-up + Auto-start | 2026-03-06 | **⚠ partially superseded**: auto-start 改为从 config.yml 加载，不再从 .agents/ |
+| Phase 7a: 路径基础设施 | 2026-03-07 | global=`~/.agent-worker/`, workspaces=`workspaces/<name>[@<tag>]/`, tag nullable, per-agent=`agents/<name>/`, 1110 tests |
+| Phase 7b: .agents/ 废弃 + daemon API | 2026-03-07 | AgentRegistry 纯内存化, yaml-parser.ts 删除, `agent *` 子命令删除, POST /agents 永远 ephemeral, 1094 tests |
+| Phase 7c: CLI 命令重构 | 2026-03-07 | `daemon`→`up`/`down`, `serve`→`ask --no-stream`, 新增 `rm`/`onboard`, `stop` 不再有 `--all`, 1095 tests |
+| Phase 7d: 术语迁移 | 2026-03-07 | CLI help/描述/错误消息 workflow→workspace, display-pretty 修复, .agents/ 测试已清理 |
 
 ### Phase 6-restructure 完成详情
 
