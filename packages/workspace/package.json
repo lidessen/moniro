@@ -1,5 +1,6 @@
 {
   "name": "@moniro/workspace",
+  "version": "0.0.0",
   "description": "Workflow orchestration layer — multi-agent coordination, shared context, MCP",
   "repository": {
     "type": "git",
