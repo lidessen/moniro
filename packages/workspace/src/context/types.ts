@@ -199,20 +199,23 @@ export interface MemoryContextConfig {
  * `dir` and `bind` are mutually exclusive — specify one or the other (not both).
  */
 export interface FileProviderConfig {
-  /** Context directory — ephemeral (default: ~/.agent-worker/workflows/${{ workflow.name }}/${{ workflow.tag }}/) */
+  /** Context directory — ephemeral (default: resolved by getDefaultContextDir) */
   dir?: string;
   /**
    * Bind directory — persistent across runs.
    * Shutdown preserves ALL state (inbox cursors, channel, documents).
-   * Path is relative to workflow file, supports ${{ workflow.name }} and ${{ workflow.tag }} templates.
+   * Path is relative to workspace definition file, supports ${{ workspace.name }} and ${{ workspace.tag }} templates.
    */
   bind?: string;
 }
 
 /** Default context configuration values */
 export const CONTEXT_DEFAULTS = {
-  /** Default context directory template */
-  dir: "~/.agent-worker/workflows/${{ workflow.name }}/${{ workflow.tag }}/",
+  /**
+   * Default context directory template (used for non-global workspaces with custom dir).
+   * Global workspace uses ~/.agent-worker/ directly (see getDefaultContextDir).
+   */
+  dir: "~/.agent-worker/workspaces/${{ workspace.name }}/",
   /** Default document file name */
   document: "notes.md",
 } as const;

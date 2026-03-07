@@ -49,11 +49,11 @@ describe("interpolate", () => {
     expect(result).not.toBe("${{ env.PATH }}");
   });
 
-  test("interpolates workflow.name", () => {
+  test("interpolates workspace.name", () => {
     const context: VariableContext = {
       workflow: { name: "my-workflow", tag: "default" },
     };
-    expect(interpolate("Workflow: ${{ workflow.name }}", context)).toBe("Workflow: my-workflow");
+    expect(interpolate("Workflow: ${{ workspace.name }}", context)).toBe("Workflow: my-workflow");
   });
 
   test("handles unknown workflow fields", () => {
@@ -82,7 +82,7 @@ describe("interpolate", () => {
       params: { branch: "feature" },
       workflow: { name: "test", tag: "v1" },
     };
-    const template = "${{ output }} on ${{ params.branch }} (${{ workflow.tag }})";
+    const template = "${{ output }} on ${{ params.branch }} (${{ workspace.tag }})";
     expect(interpolate(template, context)).toBe("result on feature (v1)");
   });
 
@@ -92,7 +92,7 @@ describe("interpolate", () => {
       env: { USER: "testuser" },
       workflow: { name: "mixed", tag: "dev" },
     };
-    const template = "Output: ${{ output }}, User: ${{ env.USER }}, Workflow: ${{ workflow.name }}";
+    const template = "Output: ${{ output }}, User: ${{ env.USER }}, Workflow: ${{ workspace.name }}";
     expect(interpolate(template, context)).toBe("Output: result, User: testuser, Workflow: mixed");
   });
 
@@ -158,9 +158,9 @@ describe("extractVariables", () => {
     expect(extractVariables("Hello world")).toEqual([]);
   });
 
-  test("extracts env and workflow variables", () => {
-    const template = "${{ env.PATH }} ${{ workflow.name }} ${{ output }}";
-    expect(extractVariables(template)).toEqual(["env.PATH", "workflow.name", "output"]);
+  test("extracts env and workspace variables", () => {
+    const template = "${{ env.PATH }} ${{ workspace.name }} ${{ output }}";
+    expect(extractVariables(template)).toEqual(["env.PATH", "workspace.name", "output"]);
   });
 });
 
@@ -796,7 +796,7 @@ context:
 context:
   provider: file
   config:
-    bind: .ctx/${"${{ workflow.tag }}"}/
+    bind: .ctx/${"${{ workspace.tag }}"}/
 `,
     );
 
@@ -816,7 +816,7 @@ context:
 context:
   provider: file
   config:
-    bind: .ctx/${"${{ workflow.tag }}"}/
+    bind: .ctx/${"${{ workspace.tag }}"}/
 `,
     );
 
@@ -825,7 +825,7 @@ context:
     expect((workflow.context as any).persistent).toBe(true);
   });
 
-  test("supports workflow.name and workflow.tag templates", async () => {
+  test("supports workspace.name and workspace.tag templates", async () => {
     const workflowPath = join(testDir, "template-new.yml");
     writeFileSync(
       workflowPath,
@@ -837,7 +837,7 @@ agents:
 context:
   provider: file
   config:
-    bind: ./data/${"${{ workflow.name }}"}/${"${{ workflow.tag }}"}/
+    bind: ./data/${"${{ workspace.name }}"}/${"${{ workspace.tag }}"}/
 `,
     );
 

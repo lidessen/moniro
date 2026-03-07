@@ -38,9 +38,9 @@ export class AgentHandle implements PersonalContextProvider {
   readonly contextDir: string;
 
   /**
-   * Whether this agent is ephemeral (in-memory only, no disk persistence).
+   * Whether this agent is ephemeral (in-memory only).
    * Ephemeral agents are created via the daemon API (POST /agents) and
-   * lost on daemon restart. Persistent agents are loaded from .agents/*.yaml.
+   * lost on daemon restart. Config agents are defined in config.yml.
    */
   readonly ephemeral: boolean;
 

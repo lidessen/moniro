@@ -29,16 +29,16 @@ export interface AgentRegistryLike {
   list(): AgentHandleRef[];
 }
 import { CONTEXT_DEFAULTS } from "./context/types.ts";
-import { resolveContextDir } from "./context/file-provider.ts";
+import { resolveContextDir, getDefaultContextDir } from "./context/file-provider.ts";
 import { resolveSource, isRemoteSource } from "./source.ts";
 
 /**
  * Parse options
  */
 export interface ParseOptions {
-  /** Workflow name (default: 'global') */
+  /** Workspace name (default: 'global') */
   workflow?: string;
-  /** Workflow tag (default: 'main') */
+  /** Workspace instance tag (optional, nullable) */
   tag?: string;
   /** Agent registry for resolving ref agents. Required if workflow uses ref entries. */
   agentRegistry?: AgentRegistryLike;
@@ -57,7 +57,7 @@ export async function parseWorkflowFile(
   options?: ParseOptions,
 ): Promise<ParsedWorkflow> {
   const workflow = options?.workflow ?? "global";
-  const tag = options?.tag ?? "main";
+  const tag = options?.tag;
 
   // Resolve source (local file or remote GitHub reference)
   const source = await resolveSource(filePath);
@@ -124,7 +124,7 @@ function resolveContext(
   workflowDir: string,
   workflowName: string,
   workflow: string,
-  tag: string,
+  tag: string | undefined,
 ): ResolvedContext | undefined {
   const resolve = (template: string) =>
     resolveContextDir(template, {
@@ -141,7 +141,7 @@ function resolveContext(
 
   // undefined or null = default file provider enabled
   if (config === undefined || config === null) {
-    return { provider: "file", dir: resolve(CONTEXT_DEFAULTS.dir) };
+    return { provider: "file", dir: getDefaultContextDir(workflow, tag || undefined) };
   }
 
   // Memory provider

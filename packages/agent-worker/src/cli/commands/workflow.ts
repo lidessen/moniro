@@ -1,34 +1,34 @@
 import type { Command } from "commander";
-import { DEFAULT_TAG } from "@/cli/target.ts";
+// Tag is optional (nullable) — no default tag
 import { startWorkflow, stopWorkflow } from "@/cli/client.ts";
 
 export function registerWorkflowCommands(program: Command) {
   // Run workflow
   program
     .command("run <file>")
-    .description("Execute workflow and exit when complete")
-    .option("--tag <tag>", "Workflow instance tag (default: main)", DEFAULT_TAG)
+    .description("Execute workspace and exit when complete")
+    .option("--tag <tag>", "Workspace instance tag (optional)")
     .option("-d, --debug", "Show debug details (internal logs, MCP traces, idle checks)")
-    .option("--feedback", "Enable feedback tool (agents can report tool/workflow observations)")
+    .option("--feedback", "Enable feedback tool")
     .option("--json", "Output results as JSON")
     .allowExcessArguments() // Args after '--' appear as excess positional args
     .addHelpText(
       "after",
       `
 Examples:
-  $ agent-worker run review.yaml                        # Run review:main
-  $ agent-worker run review.yaml --tag pr-123           # Run review:pr-123
+  $ agent-worker run review.yaml                        # Run workspace
+  $ agent-worker run review.yaml --tag pr-123           # Run with tag
   $ agent-worker run review.yaml --json | jq .document  # Machine-readable output
-  $ agent-worker run review.yaml -- --target main -n 3  # With workflow params
+  $ agent-worker run review.yaml -- --target main -n 3  # With params
 
-Remote workflows (github:owner/repo@ref/path):
-  $ agent-worker run github:acme/workflows/review.yml           # Default branch
-  $ agent-worker run github:acme/workflows@v1.0/review.yml      # Pinned version
-  $ agent-worker run github:acme/workflows#review               # Shorthand
-  $ agent-worker run github:acme/workflows#review -- --target main  # With params
+Remote workspaces (github:owner/repo@ref/path):
+  $ agent-worker run github:acme/workspaces/review.yml           # Default branch
+  $ agent-worker run github:acme/workspaces@v1.0/review.yml      # Pinned version
+  $ agent-worker run github:acme/workspaces#review               # Shorthand
+  $ agent-worker run github:acme/workspaces#review -- --target main  # With params
 
-Note: Workflow name is inferred from YAML 'name' field or filename.
-      Workflow-defined params (see 'params:' in YAML) are passed after '--'.
+Note: Workspace name is inferred from YAML 'name' field or filename.
+      Params (see 'params:' in YAML) are passed after '--'.
       Set GITHUB_TOKEN env var to access private repositories.
     `,
     )
@@ -36,7 +36,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename.
       const { parseWorkflowFile, parseWorkflowParams, formatParamHelp, runWorkflowWithLoops } =
         await import("@moniro/workspace");
 
-      const tag = options.tag || DEFAULT_TAG;
+      const tag = options.tag || undefined;
 
       // Parse workflow file to get the workflow name and param definitions
       const parsedWorkflow = await parseWorkflowFile(file, {
@@ -106,7 +106,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename.
         process.off("SIGTERM", cleanup);
 
         if (!result.success) {
-          console.error("Workflow failed:", result.error);
+          console.error("Failed:", result.error);
           process.exit(1);
         }
 
@@ -159,25 +159,25 @@ Note: Workflow name is inferred from YAML 'name' field or filename.
   // Start workflow and keep agents running (via daemon)
   program
     .command("start <file>")
-    .description("Start workflow via daemon and keep agents running")
-    .option("--tag <tag>", "Workflow instance tag (default: main)", DEFAULT_TAG)
-    .option("--feedback", "Enable feedback tool (agents can report tool/workflow observations)")
+    .description("Start workspace via daemon and keep agents running")
+    .option("--tag <tag>", "Workspace instance tag (optional)")
+    .option("--feedback", "Enable feedback tool")
     .option("--json", "Output as JSON")
     .allowExcessArguments() // Args after '--' appear as excess positional args
     .addHelpText(
       "after",
       `
 Examples:
-  $ agent-worker start review.yaml                    # Start review:main (Ctrl+C to stop)
-  $ agent-worker start review.yaml --tag pr-123       # Start review:pr-123
-  $ agent-worker start review.yaml -- --target main   # With workflow params
+  $ agent-worker start review.yaml                    # Start workspace (Ctrl+C to stop)
+  $ agent-worker start review.yaml --tag pr-123       # Start with tag
+  $ agent-worker start review.yaml -- --target main   # With params
 
-Workflow runs inside the daemon. Use ls/stop to manage:
+Workspace runs inside the daemon. Use ls/stop to manage:
   $ agent-worker ls                                   # List all agents
-  $ agent-worker stop @review:pr-123                  # Stop workflow
+  $ agent-worker stop @review:pr-123                  # Stop workspace
 
-Note: Workflow name is inferred from YAML 'name' field or filename.
-      Workflow-defined params (see 'params:' in YAML) are passed after '--'.
+Note: Workspace name is inferred from YAML 'name' field or filename.
+      Params (see 'params:' in YAML) are passed after '--'.
     `,
     )
     .action(async (file, options) => {
@@ -185,7 +185,7 @@ Note: Workflow name is inferred from YAML 'name' field or filename.
         await import("@moniro/workspace");
       const { ensureDaemon } = await import("./agent.ts");
 
-      const tag = options.tag || DEFAULT_TAG;
+      const tag = options.tag || undefined;
 
       // Parse workflow file locally (resolves file paths, system prompts)
       const parsedWorkflow = await parseWorkflowFile(file, { tag });
@@ -228,20 +228,21 @@ Note: Workflow name is inferred from YAML 'name' field or filename.
         return;
       }
 
-      console.log(`Workflow: @${workflowName}${tag !== "main" ? ":" + tag : ""}`);
+      const tagSuffix = tag ? `:${tag}` : "";
+      console.log(`Workspace: @${workflowName}${tagSuffix}`);
       console.log(`Agents:   ${agents.join(", ")}`);
       console.log(`\nTo monitor:`);
       console.log(`  agent-worker ls`);
-      console.log(`  agent-worker peek @${workflowName}${tag !== "main" ? ":" + tag : ""}`);
+      console.log(`  agent-worker peek @${workflowName}${tagSuffix}`);
       console.log(`\nTo stop:`);
-      console.log(`  agent-worker stop @${workflowName}${tag !== "main" ? ":" + tag : ""}`);
+      console.log(`  agent-worker stop @${workflowName}${tagSuffix}`);
 
       // Foreground: keep alive, stop on Ctrl+C
       let isCleaningUp = false;
       const cleanup = async () => {
         if (isCleaningUp) return;
         isCleaningUp = true;
-        console.log("\nStopping workflow...");
+        console.log("\nStopping workspace...");
         await stopWorkflow(workflowName, tag);
         process.exit(0);
       };

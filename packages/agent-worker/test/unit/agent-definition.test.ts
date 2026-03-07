@@ -1,27 +1,20 @@
 /**
- * Tests for Phase 1: Agent Definition + Context
+ * Tests for Agent Definition + Context
  *
  * Covers:
  *   - AgentDefinition type + Zod schema validation
- *   - YAML parsing (single file, discovery, serialization)
  *   - AgentHandle context operations (memory, notes, todos)
- *   - AgentRegistry (load, create, delete, lookup)
+ *   - AgentRegistry (in-memory registration, lookup, delete)
  */
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, writeFileSync, existsSync, rmSync } from "node:fs";
+import { mkdirSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 
 import { AgentDefinitionSchema, CONTEXT_SUBDIRS } from "@moniro/agent-loop";
 import type { AgentDefinition } from "@moniro/agent-loop";
-import {
-  parseAgentFile,
-  parseAgentObject,
-  discoverAgents,
-  serializeAgent,
-} from "@/agent/yaml-parser.ts";
 import { AgentHandle } from "@/agent/agent-handle.ts";
 import { AgentRegistry } from "@/agent/agent-registry.ts";
 
@@ -31,12 +24,6 @@ function tmpDir(): string {
   const dir = join(tmpdir(), `agent-test-${randomUUID().slice(0, 8)}`);
   mkdirSync(dir, { recursive: true });
   return dir;
-}
-
-function writeYaml(dir: string, filename: string, content: string): string {
-  const path = join(dir, filename);
-  writeFileSync(path, content);
-  return path;
 }
 
 // ── AgentDefinitionSchema ─────────────────────────────────────────
@@ -165,237 +152,6 @@ describe("AgentDefinitionSchema", () => {
   });
 });
 
-// ── YAML Parser ───────────────────────────────────────────────────
-
-describe("parseAgentFile", () => {
-  let dir: string;
-
-  beforeEach(() => {
-    dir = tmpDir();
-  });
-
-  afterEach(() => {
-    rmSync(dir, { recursive: true, force: true });
-  });
-
-  test("parses a valid YAML file", () => {
-    const path = writeYaml(
-      dir,
-      "alice.yaml",
-      `
-name: alice
-model: anthropic/claude-sonnet-4-5
-prompt:
-  system: You are Alice, a code reviewer.
-soul:
-  role: code-reviewer
-  expertise:
-    - typescript
-    - testing
-`,
-    );
-
-    const def = parseAgentFile(path);
-    expect(def.name).toBe("alice");
-    expect(def.model).toBe("anthropic/claude-sonnet-4-5");
-    expect(def.prompt.system).toBe("You are Alice, a code reviewer.");
-    expect(def.soul?.role).toBe("code-reviewer");
-    expect(def.soul?.expertise).toEqual(["typescript", "testing"]);
-  });
-
-  test("infers name from filename", () => {
-    const path = writeYaml(
-      dir,
-      "bob.yaml",
-      `
-model: anthropic/claude-sonnet-4-5
-prompt:
-  system: You are Bob.
-`,
-    );
-
-    const def = parseAgentFile(path);
-    expect(def.name).toBe("bob");
-  });
-
-  test("resolves system_file", () => {
-    writeFileSync(join(dir, "prompt.md"), "You are a helpful assistant.");
-    const path = writeYaml(
-      dir,
-      "helper.yaml",
-      `
-name: helper
-model: anthropic/claude-sonnet-4-5
-prompt:
-  system_file: ./prompt.md
-`,
-    );
-
-    const def = parseAgentFile(path);
-    expect(def.prompt.system).toBe("You are a helpful assistant.");
-    expect(def.prompt.system_file).toBeUndefined();
-  });
-
-  test("throws on missing file", () => {
-    expect(() => parseAgentFile(join(dir, "nonexistent.yaml"))).toThrow("Agent file not found");
-  });
-
-  test("throws on missing system_file reference", () => {
-    const path = writeYaml(
-      dir,
-      "bad.yaml",
-      `
-name: bad
-model: anthropic/claude-sonnet-4-5
-prompt:
-  system_file: ./nonexistent.md
-`,
-    );
-
-    expect(() => parseAgentFile(path)).toThrow("system_file not found");
-  });
-
-  test("throws on invalid YAML content", () => {
-    const path = writeYaml(dir, "invalid.yaml", "model: x\nprompt: just-a-string\n");
-    expect(() => parseAgentFile(path)).toThrow();
-  });
-});
-
-describe("parseAgentObject", () => {
-  test("validates a valid object", () => {
-    const def = parseAgentObject({
-      name: "alice",
-      model: "anthropic/claude-sonnet-4-5",
-      prompt: { system: "Hello" },
-    });
-    expect(def.name).toBe("alice");
-  });
-
-  test("throws on invalid object", () => {
-    expect(() => parseAgentObject({ name: "alice" })).toThrow("Invalid agent definition");
-  });
-});
-
-describe("discoverAgents", () => {
-  let dir: string;
-
-  beforeEach(() => {
-    dir = tmpDir();
-  });
-
-  afterEach(() => {
-    rmSync(dir, { recursive: true, force: true });
-  });
-
-  test("discovers agents from .agents/ directory", () => {
-    const agentsDir = join(dir, ".agents");
-    mkdirSync(agentsDir, { recursive: true });
-
-    writeYaml(
-      agentsDir,
-      "alice.yaml",
-      `
-name: alice
-model: anthropic/claude-sonnet-4-5
-prompt:
-  system: Alice prompt
-`,
-    );
-    writeYaml(
-      agentsDir,
-      "bob.yaml",
-      `
-name: bob
-model: anthropic/claude-sonnet-4-5
-prompt:
-  system: Bob prompt
-`,
-    );
-
-    const agents = discoverAgents(dir);
-    expect(agents.length).toBe(2);
-    const names = agents.map((a) => a.name).sort();
-    expect(names).toEqual(["alice", "bob"]);
-  });
-
-  test("returns empty array if .agents/ doesn't exist", () => {
-    const agents = discoverAgents(dir);
-    expect(agents).toEqual([]);
-  });
-
-  test("skips invalid files", () => {
-    const agentsDir = join(dir, ".agents");
-    mkdirSync(agentsDir, { recursive: true });
-
-    writeYaml(
-      agentsDir,
-      "good.yaml",
-      `
-name: good
-model: anthropic/claude-sonnet-4-5
-prompt:
-  system: Good agent
-`,
-    );
-    writeYaml(agentsDir, "bad.yaml", "not: valid: agent\n");
-
-    const warnings: string[] = [];
-    const agents = discoverAgents(dir, (msg) => warnings.push(msg));
-    expect(agents.length).toBe(1);
-    expect(agents[0]!.name).toBe("good");
-    expect(warnings.length).toBeGreaterThan(0);
-  });
-
-  test("skips non-yaml files", () => {
-    const agentsDir = join(dir, ".agents");
-    mkdirSync(agentsDir, { recursive: true });
-    writeFileSync(join(agentsDir, "readme.md"), "not an agent");
-
-    const agents = discoverAgents(dir);
-    expect(agents).toEqual([]);
-  });
-});
-
-describe("serializeAgent", () => {
-  test("serializes a definition to YAML", () => {
-    const def: AgentDefinition = {
-      name: "alice",
-      model: "anthropic/claude-sonnet-4-5",
-      prompt: { system: "You are Alice." },
-      soul: { role: "reviewer" },
-    };
-
-    const yaml = serializeAgent(def);
-    expect(yaml).toContain("name: alice");
-    expect(yaml).toContain("model: anthropic/claude-sonnet-4-5");
-    expect(yaml).toContain("system: You are Alice.");
-    expect(yaml).toContain("role: reviewer");
-  });
-
-  test("round-trips through parse", () => {
-    const dir = tmpDir();
-    const def: AgentDefinition = {
-      name: "roundtrip",
-      model: "anthropic/claude-sonnet-4-5",
-      prompt: { system: "Test agent." },
-      backend: "sdk",
-      soul: { role: "tester", expertise: ["ts"] },
-    };
-
-    const yaml = serializeAgent(def);
-    const path = writeYaml(dir, "roundtrip.yaml", yaml);
-    const parsed = parseAgentFile(path);
-
-    expect(parsed.name).toBe(def.name);
-    expect(parsed.model).toBe(def.model);
-    expect(parsed.prompt.system).toBe(def.prompt.system);
-    expect(parsed.backend).toBe(def.backend);
-    expect(parsed.soul?.role).toBe(def.soul?.role);
-    expect(parsed.soul?.expertise).toEqual(def.soul?.expertise);
-
-    rmSync(dir, { recursive: true, force: true });
-  });
-});
 
 // ── AgentHandle ───────────────────────────────────────────────────
 
@@ -582,87 +338,49 @@ describe("AgentRegistry", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  test("loadFromDisk discovers agents", () => {
-    const agentsDir = join(dir, ".agents");
-    mkdirSync(agentsDir, { recursive: true });
-    writeYaml(
-      agentsDir,
-      "alice.yaml",
-      `
-name: alice
-model: anthropic/claude-sonnet-4-5
-prompt:
-  system: Alice agent
-`,
-    );
-
+  test("registerDefinition creates handle + context dir", () => {
     const registry = new AgentRegistry(dir);
-    registry.loadFromDisk();
-
-    expect(registry.size).toBe(1);
-    expect(registry.has("alice")).toBe(true);
-    const handle = registry.get("alice")!;
-    expect(handle.name).toBe("alice");
-    expect(handle.definition.prompt.system).toBe("Alice agent");
-  });
-
-  test("create writes YAML and creates context dir", () => {
-    const registry = new AgentRegistry(dir);
-    const handle = registry.create({
-      name: "bob",
+    const handle = registry.registerDefinition({
+      name: "alice",
       model: "anthropic/claude-sonnet-4-5",
-      prompt: { system: "Bob agent" },
+      prompt: { system: "Alice agent" },
     });
 
-    // YAML file exists
-    expect(existsSync(join(dir, ".agents", "bob.yaml"))).toBe(true);
+    expect(registry.has("alice")).toBe(true);
+    expect(handle.name).toBe("alice");
+    expect(handle.ephemeral).toBe(false);
 
-    // Context dir + subdirs exist
+    // Context dir at <workspace>/agents/<name>/
+    expect(handle.contextDir).toBe(join(dir, "agents", "alice"));
     for (const sub of CONTEXT_SUBDIRS) {
       expect(existsSync(join(handle.contextDir, sub))).toBe(true);
     }
-
-    // Registered in memory
-    expect(registry.has("bob")).toBe(true);
-    expect(registry.get("bob")).toBe(handle);
   });
 
-  test("create throws on duplicate", () => {
+  test("registerEphemeral creates handle without context dir", () => {
     const registry = new AgentRegistry(dir);
-    registry.create({
-      name: "alice",
-      model: "anthropic/claude-sonnet-4-5",
-      prompt: { system: "Alice" },
-    });
-
-    expect(() =>
-      registry.create({
-        name: "alice",
-        model: "anthropic/claude-sonnet-4-5",
-        prompt: { system: "Another Alice" },
-      }),
-    ).toThrow("already exists");
-  });
-
-  test("delete removes YAML + context + unregisters", () => {
-    const registry = new AgentRegistry(dir);
-    const handle = registry.create({
+    const handle = registry.registerEphemeral({
       name: "temp",
       model: "anthropic/claude-sonnet-4-5",
-      prompt: { system: "Temporary" },
+      prompt: { system: "Temp" },
     });
 
-    const yamlPath = join(dir, ".agents", "temp.yaml");
-    const contextDir = handle.contextDir;
+    expect(registry.has("temp")).toBe(true);
+    expect(handle.ephemeral).toBe(true);
+    // Context dir is set but not created on disk
+    expect(existsSync(handle.contextDir)).toBe(false);
+  });
 
-    expect(existsSync(yamlPath)).toBe(true);
-    expect(existsSync(contextDir)).toBe(true);
+  test("delete removes from memory", () => {
+    const registry = new AgentRegistry(dir);
+    registry.registerEphemeral({
+      name: "temp",
+      model: "m",
+      prompt: { system: "T" },
+    });
 
-    const deleted = registry.delete("temp");
-    expect(deleted).toBe(true);
+    expect(registry.delete("temp")).toBe(true);
     expect(registry.has("temp")).toBe(false);
-    expect(existsSync(yamlPath)).toBe(false);
-    expect(existsSync(contextDir)).toBe(false);
   });
 
   test("delete returns false for nonexistent agent", () => {
@@ -672,12 +390,12 @@ prompt:
 
   test("list returns all handles", () => {
     const registry = new AgentRegistry(dir);
-    registry.create({
+    registry.registerDefinition({
       name: "a1",
       model: "m1",
       prompt: { system: "A1" },
     });
-    registry.create({
+    registry.registerDefinition({
       name: "a2",
       model: "m2",
       prompt: { system: "A2" },
@@ -699,29 +417,6 @@ prompt:
     });
 
     expect(handle.contextDir).toBe(join(dir, "data/agents/custom"));
-    for (const sub of CONTEXT_SUBDIRS) {
-      expect(existsSync(join(handle.contextDir, sub))).toBe(true);
-    }
-  });
-
-  test("loadFromDisk creates context dirs", () => {
-    const agentsDir = join(dir, ".agents");
-    mkdirSync(agentsDir, { recursive: true });
-    writeYaml(
-      agentsDir,
-      "loader.yaml",
-      `
-name: loader
-model: anthropic/claude-sonnet-4-5
-prompt:
-  system: Loader agent
-`,
-    );
-
-    const registry = new AgentRegistry(dir);
-    registry.loadFromDisk();
-
-    const handle = registry.get("loader")!;
     for (const sub of CONTEXT_SUBDIRS) {
       expect(existsSync(join(handle.contextDir, sub))).toBe(true);
     }

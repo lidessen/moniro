@@ -1,7 +1,7 @@
 /**
  * Timeline Store — Agent-level append-only JSONL event log.
  *
- * Each agent has its own timeline at `.agents/<name>/timeline.jsonl`.
+ * Each agent has its own timeline at `<workspace>/agents/<name>/timeline.jsonl`.
  * Records state changes, errors, maxSteps warnings, worker events.
  *
  * Uses the same StorageBackend + Message format as ChannelStore,

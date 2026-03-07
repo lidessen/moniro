@@ -32,7 +32,7 @@ export const RefAgentEntrySchema = z
     ref: z
       .string()
       .min(1)
-      .describe("Name of the global agent to reference (from `.agents/*.yaml`)"),
+      .describe("Name of the global agent to reference (from `~/.agent-worker/config.yml`)"),
     prompt: z
       .object({
         append: z

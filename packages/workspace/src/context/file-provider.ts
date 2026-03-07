@@ -123,8 +123,8 @@ export class FileContextProvider extends ContextProviderImpl {
  * Resolve a context directory template to an absolute path.
  *
  * Supports:
- * - ${{ workflow.name }} — substituted with workflowName
- * - ${{ workflow.tag }} — substituted with tag
+ * - ${{ workspace.name }} — substituted with workspace name
+ * - ${{ workspace.tag }} — substituted with tag (empty string if no tag)
  * - ~ expansion to home directory
  * - Relative paths resolved against baseDir (or cwd if not provided)
  * - Absolute paths used as-is
@@ -138,14 +138,13 @@ export function resolveContextDir(
     baseDir?: string;
   },
 ): string {
-  // Support new workflow:tag format
-  const workflow = opts.workflow ?? opts.workflowName ?? "global";
-  const workflowName = opts.workflowName ?? workflow;
-  const tag = opts.tag ?? "main";
+  const name = opts.workflow ?? opts.workflowName ?? "global";
+  const workflowName = opts.workflowName ?? name;
+  const tag = opts.tag ?? "";
 
   let dir = dirTemplate
-    .replace("${{ workflow.name }}", workflowName)
-    .replace("${{ workflow.tag }}", tag);
+    .replace("${{ workspace.name }}", workflowName)
+    .replace("${{ workspace.tag }}", tag);
 
   if (dir.startsWith("~/")) {
     dir = join(homedir(), dir.slice(2));
@@ -159,19 +158,27 @@ export function resolveContextDir(
 }
 
 /**
- * Resolve context dir for a workflow:tag using default template.
- * Shorthand for the common case.
- * @param workflow Workflow name (defaults to "global")
- * @param tag Workflow instance tag (defaults to "main")
+ * Resolve context directory for a workspace.
+ *
+ * Path rules:
+ * - Global workspace (name="global" or undefined): ~/.agent-worker/
+ * - Named workspace (no tag):  ~/.agent-worker/workspaces/<name>/
+ * - Named workspace (with tag): ~/.agent-worker/workspaces/<name>@<tag>/
+ *
+ * @param workspace Workspace name (undefined or "global" = global workspace)
+ * @param tag Optional tag (undefined = no tag)
  */
-export function getDefaultContextDir(workflow?: string, tag?: string): string {
-  const wf = workflow ?? "global";
-  const t = tag ?? "main";
+export function getDefaultContextDir(workspace?: string, tag?: string): string {
+  const name = workspace ?? "global";
 
-  return resolveContextDir(CONTEXT_DEFAULTS.dir, {
-    workflow: wf,
-    tag: t,
-  });
+  // Global workspace = ~/.agent-worker/ directly
+  if (name === "global") {
+    return join(homedir(), ".agent-worker");
+  }
+
+  // Named workspace with optional tag
+  const dirName = tag ? `${name}@${tag}` : name;
+  return join(homedir(), ".agent-worker", "workspaces", dirName);
 }
 
 /**

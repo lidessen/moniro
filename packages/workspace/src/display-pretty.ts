@@ -21,8 +21,8 @@ export interface PrettyDisplayConfig {
   agentNames: string[];
   /** Workflow name */
   workflowName: string;
-  /** Workflow tag (main will be omitted) */
-  tag: string;
+  /** Workspace instance tag (optional, omitted when absent) */
+  tag?: string;
   /** Workflow file path (optional) */
   workflowPath?: string;
   /** Poll interval in ms (default: 500) */
@@ -178,7 +178,7 @@ function processEntry(entry: Message, state: PrettyDisplayState, agentNames: str
       if (match) {
         p.log.success(`${time} Completed in ${pc.bold(match[1])}s`);
       } else {
-        p.log.success(`${time} Workflow complete`);
+        p.log.success(`${time} Complete`);
       }
       state.phase = "complete";
     } else if (content.startsWith("[ERROR]")) {
@@ -250,7 +250,7 @@ export function startPrettyDisplay(config: PrettyDisplayConfig): PrettyDisplayWa
   console.log("");
 
   // Build intro text with workflow, tag, and path
-  const tagText = tag === "main" ? "" : `:${tag}`;
+  const tagText = tag ? `:${tag}` : "";
   const pathText = workflowPath ? ` ${pc.dim(`(${workflowPath})`)}` : "";
   const introText = ` ${workflowName}${tagText}${pathText} `;
 

@@ -3,18 +3,20 @@ import { mkdirSync } from "node:fs";
 import { outputJson } from "@/cli/output.ts";
 import { listAgents, isDaemonActive } from "@/cli/client.ts";
 import { createFileContextProvider, getDefaultContextDir } from "@moniro/workspace";
-import { DEFAULT_WORKFLOW, parseTarget } from "@/cli/target.ts";
+import { DEFAULT_WORKSPACE, parseTarget } from "@/cli/target.ts";
 
 /**
- * Get agent names for a workflow from the daemon.
+ * Get agent names for a workspace from the daemon.
  * Falls back to ["user"] if daemon is not running.
  */
-async function getWorkflowAgentNames(workflow: string, tag: string): Promise<string[]> {
+async function getWorkspaceAgentNames(workspace: string, tag?: string): Promise<string[]> {
   if (!isDaemonActive()) return ["user"];
   try {
     const res = await listAgents();
-    const agents = (res.agents ?? []) as Array<{ name: string; workflow: string; tag: string }>;
-    const names = agents.filter((a) => a.workflow === workflow && a.tag === tag).map((a) => a.name);
+    const agents = (res.agents ?? []) as Array<{ name: string; workflow: string; tag?: string }>;
+    const names = agents
+      .filter((a) => a.workflow === workspace && a.tag === tag)
+      .map((a) => a.name);
     return [...new Set([...names, "user"])];
   } catch {
     return ["user"];
@@ -22,20 +24,20 @@ async function getWorkflowAgentNames(workflow: string, tag: string): Promise<str
 }
 
 /**
- * Get a context provider for the given workflow:tag.
+ * Get a context provider for the given workspace.
  */
-async function getContextProvider(workflow: string, tag: string) {
-  const dir = getDefaultContextDir(workflow, tag);
+async function getContextProvider(workspace: string, tag?: string) {
+  const dir = getDefaultContextDir(workspace, tag);
   mkdirSync(dir, { recursive: true });
-  const agentNames = await getWorkflowAgentNames(workflow, tag);
+  const agentNames = await getWorkspaceAgentNames(workspace, tag);
   return createFileContextProvider(dir, agentNames);
 }
 
 export function registerSendCommands(program: Command) {
-  // Send — posts to workflow channel with @mention routing
+  // Send — posts to workspace channel with @mention routing
   program
     .command("send <target> <message>")
-    .description("Send message to agent or workflow channel")
+    .description("Send message to agent or workspace channel")
     .option("--json", "Output as JSON")
     .addHelpText(
       "after",
@@ -48,7 +50,7 @@ Examples:
     )
     .action(async (targetInput: string, message: string, options) => {
       const target = parseTarget(targetInput);
-      const provider = await getContextProvider(target.workflow, target.tag);
+      const provider = await getContextProvider(target.workspace, target.tag);
 
       const entry = await provider.appendChannel("user", message);
 
@@ -84,8 +86,8 @@ Examples:
     `,
     )
     .action(async (targetInput: string | undefined, options) => {
-      const target = parseTarget(targetInput || `@${DEFAULT_WORKFLOW}`);
-      const provider = await getContextProvider(target.workflow, target.tag);
+      const target = parseTarget(targetInput || `@${DEFAULT_WORKSPACE}`);
+      const provider = await getContextProvider(target.workspace, target.tag);
 
       const limit = options.all ? undefined : (options.last ?? 10);
       let messages = await provider.readChannel({ limit });
