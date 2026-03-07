@@ -632,9 +632,9 @@ agent-worker providers
 For TypeScript/JavaScript integration:
 
 ```typescript
-import { AgentSession } from "agent-worker";
+import { AgentWorker } from "agent-worker";
 
-const session = new AgentSession({
+const session = new AgentWorker({
   model: "anthropic/claude-sonnet-4-5",
   system: "You are a helpful assistant.",
   tools: [
