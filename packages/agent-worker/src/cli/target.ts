@@ -114,7 +114,11 @@ export function parseTarget(input: string): TargetIdentifier {
  * - Omit @global for standalone agents
  * - Omit :tag when no tag
  */
-function buildDisplay(agent: string | undefined, workspace: string, tag: string | undefined): string {
+function buildDisplay(
+  agent: string | undefined,
+  workspace: string,
+  tag: string | undefined,
+): string {
   const isGlobal = workspace === DEFAULT_WORKSPACE;
 
   if (agent === undefined) {

@@ -80,10 +80,7 @@ Examples:
           console.log("Daemon already running");
           return;
         }
-        await ensureDaemon(
-          options.port ? parseInt(options.port, 10) : undefined,
-          options.host,
-        );
+        await ensureDaemon(options.port ? parseInt(options.port, 10) : undefined, options.host);
         console.log("Daemon started");
       }
     });
@@ -287,11 +284,7 @@ Examples:
       }
 
       for (const a of agents) {
-        const wf = a.workflow
-          ? a.tag
-            ? `@${a.workflow}:${a.tag}`
-            : `@${a.workflow}`
-          : "";
+        const wf = a.workflow ? (a.tag ? `@${a.workflow}:${a.tag}` : `@${a.workflow}`) : "";
         const info = a.model || a.state || "";
         console.log(`${a.name.padEnd(12)} ${info.padEnd(30)} ${wf}`);
       }

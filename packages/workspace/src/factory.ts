@@ -119,7 +119,15 @@ export interface MinimalRuntimeConfig {
  * the same context infrastructure that workflow agents get.
  */
 export async function createMinimalRuntime(config: MinimalRuntimeConfig): Promise<Workspace> {
-  const { workflowName, tag, agentNames, onMention, feedback: feedbackEnabled, debugLog, resolveHandle } = config;
+  const {
+    workflowName,
+    tag,
+    agentNames,
+    onMention,
+    feedback: feedbackEnabled,
+    debugLog,
+    resolveHandle,
+  } = config;
 
   // Resolve context provider
   let contextProvider: ContextProvider;

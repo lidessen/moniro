@@ -153,7 +153,9 @@ export const instructionsSection: PromptSection = (ctx) => {
 
   // Personal context tools (only for ref agents with persistent context)
   if (ctx.personalContext) {
-    lines.push("- **my_memory_read**: Read your persistent memory (key-value). Pass key for specific entry.");
+    lines.push(
+      "- **my_memory_read**: Read your persistent memory (key-value). Pass key for specific entry.",
+    );
     lines.push("- **my_memory_write**: Store a persistent memory entry (key + value).");
     lines.push("- **my_notes_read**: Read your recent notes (most recent first).");
     lines.push("- **my_notes_write**: Write a freeform note (reflection, learning).");

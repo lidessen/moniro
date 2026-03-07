@@ -30,7 +30,7 @@ export class TelegramAdapter implements ChannelAdapter {
   private unsubscribe?: () => void;
   private started = false;
 
-  constructor(private config: TelegramAdapterConfig) {
+  constructor(config: TelegramAdapterConfig) {
     this.bot = new Bot(config.botToken);
     this.chatId = config.chatId;
   }

@@ -5,7 +5,7 @@
  * One daemon process on a fixed port. Clients read daemon.json to find it.
  */
 
-import { existsSync, unlinkSync, writeFileSync, readFileSync, mkdirSync } from "node:fs";
+import { unlinkSync, writeFileSync, readFileSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
