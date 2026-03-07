@@ -81,7 +81,7 @@ export function registerInboxTools(
       const agent = getAgentId(extra) || "anonymous";
       logTool("my_status_set", agent, args);
 
-      const status: Partial<import("@/context/types.ts").AgentStatus> = {};
+      const status: Partial<import("../types.ts").AgentStatus> = {};
       if (args.task !== undefined) status.task = args.task;
       if (args.state !== undefined) status.state = args.state;
       if (args.metadata !== undefined) status.metadata = args.metadata;

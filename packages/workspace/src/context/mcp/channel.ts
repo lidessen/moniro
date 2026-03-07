@@ -8,7 +8,7 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { SendOptions } from "@/context/provider.ts";
+import type { SendOptions } from "../provider.ts";
 import type { MCPToolContext, ChannelToolOptions } from "./types.ts";
 
 const CHANNEL_MSG_LIMIT = 2000;

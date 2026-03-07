@@ -3,9 +3,9 @@
  * Types for agent lifecycle management and backend abstraction
  */
 
-import type { ResolvedWorkflowAgent } from "@/types.ts";
-import type { ContextProvider } from "@/context/provider.ts";
-import type { Message, InboxMessage } from "@/context/types.ts";
+import type { ResolvedWorkflowAgent } from "../types.ts";
+import type { ContextProvider } from "../context/provider.ts";
+import type { Message, InboxMessage } from "../context/types.ts";
 import type { Backend } from "@moniro/agent-loop";
 import type { ConversationMessage, ConversationLog, ThinThread } from "@moniro/agent-worker";
 import type { PersonalContext } from "@moniro/agent-worker";
@@ -84,7 +84,7 @@ export interface AgentLoopConfig {
   /** Context provider for channel/document access */
   contextProvider: ContextProvider;
   /** Unified event log */
-  eventLog?: import("@/context/event-log.ts").EventLog;
+  eventLog?: import("../context/event-log.ts").EventLog;
   /** MCP HTTP URL for tool access */
   mcpUrl: string;
   /** Workspace directory for this agent (isolated from project) */
@@ -136,9 +136,9 @@ export interface AgentRunContext {
   /** Retry attempt number (1 = first try, 2+ = retry) */
   retryAttempt: number;
   /** Context provider (for channel access) */
-  provider: import("@/context/provider.ts").ContextProvider;
+  provider: import("../context/provider.ts").ContextProvider;
   /** Unified event log (for recording tool calls, etc.) */
-  eventLog?: import("@/context/event-log.ts").EventLog;
+  eventLog?: import("../context/event-log.ts").EventLog;
   /** Whether feedback tool is enabled */
   feedback?: boolean;
   /** Recent conversation messages (thin thread for continuity) */

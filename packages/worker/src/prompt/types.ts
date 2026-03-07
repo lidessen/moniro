@@ -5,7 +5,7 @@
  * A personal agent can build its prompt using only these types.
  */
 
-import type { PersonalContext } from "@/context/types.ts";
+import type { PersonalContext } from "../context/types.ts";
 
 /**
  * Context available to personal prompt sections.

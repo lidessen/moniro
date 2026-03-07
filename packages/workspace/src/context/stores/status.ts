@@ -3,8 +3,8 @@
  * Agent status tracking for coordination.
  */
 
-import type { StorageBackend } from "@/context/storage.ts";
-import type { AgentStatus } from "@/context/types.ts";
+import type { StorageBackend } from "../storage.ts";
+import type { AgentStatus } from "../types.ts";
 
 const STATUS_KEY = "_state/agent-status.json";
 
