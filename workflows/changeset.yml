@@ -85,7 +85,7 @@ setup:
       fi
     as: has_existing_changeset
 
-  # List packages in monorepo
+  # List publishable packages (skip private)
   - shell: |
       if [ ! -f "package.json" ]; then
         echo "No package.json found"
@@ -99,7 +99,7 @@ setup:
       echo "$WORKSPACE_PATTERNS" | while read -r pattern; do
         for pkg_json in ${pattern}/package.json; do
           if [ -f "$pkg_json" ]; then
-            jq -r '.name // empty' "$pkg_json" 2>/dev/null
+            jq -r 'select(.private != true) | .name // empty' "$pkg_json" 2>/dev/null
           fi
         done
       done | sort -u

@@ -1,6 +1,5 @@
 {
   "name": "@moniro/agent-worker",
-  "version": "0.1.0",
   "description": "Personal agent layer — identity, memory, prompt assembly, personal tools",
   "repository": {
     "type": "git",

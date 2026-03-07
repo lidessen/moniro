@@ -1,6 +1,5 @@
 {
   "name": "@moniro/agent-loop",
-  "version": "0.1.0",
   "description": "Agent execution layer — worker, backends, tools, skills",
   "repository": {
     "type": "git",

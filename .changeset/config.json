@@ -6,6 +6,5 @@
   "linked": [],
   "access": "public",
   "baseBranch": "main",
-  "updateInternalDependencies": "patch",
   "ignore": ["@moniro/agent-loop", "@moniro/agent-worker", "@moniro/workspace"]
 }
