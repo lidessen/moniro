@@ -45,3 +45,11 @@ export { MemoryStateStore } from "./agent/store.ts";
 // ── Worker Handle (execution contract) ──────────────────────────
 export { LocalWorker } from "./agent/handle.ts";
 export type { WorkerHandle } from "./agent/handle.ts";
+
+// ── Agent Execution (re-exported from @moniro/agent-loop) ───────
+export { AgentWorker } from "@moniro/agent-loop";
+export type { AgentWorkerConfig, SendOptions, StepInfo } from "@moniro/agent-loop";
+
+// ── Skills (re-exported from @moniro/agent-loop) ────────────────
+export { createSkillTool, SkillImporter } from "@moniro/agent-loop";
+export type { CreateSkillToolOptions, SkillToolkit } from "@moniro/agent-loop";
