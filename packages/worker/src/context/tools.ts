@@ -116,7 +116,10 @@ export function createPersonalContextTools(
         required: ["content"],
       },
       execute: async (args: Record<string, unknown>) => {
-        const filename = await provider.appendNote!(args.content as string, args.slug as string | undefined);
+        const filename = await provider.appendNote!(
+          args.content as string,
+          args.slug as string | undefined,
+        );
         return JSON.stringify({ status: "saved", filename });
       },
     });
