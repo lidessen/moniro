@@ -17,13 +17,8 @@ import { outputJson } from "@/cli/output.ts";
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-/**
- * Ensure daemon is running. If not, spawn it in background and wait.
- */
-export async function ensureDaemon(port?: number, host?: string): Promise<void> {
-  if (isDaemonRunning()) return;
-
-  // Spawn daemon process
+/** Start a detached daemon child process. */
+function spawnDaemonProcess(port?: number, host?: string): void {
   const scriptPath = process.argv[1] ?? "";
   const args = [scriptPath, "up", "-f"];
   if (port) args.push("--port", String(port));
@@ -34,6 +29,18 @@ export async function ensureDaemon(port?: number, host?: string): Promise<void> 
     stdio: "ignore",
   });
   child.unref();
+}
+
+/**
+ * Ensure daemon is running. If not, start a detached child and wait for readiness.
+ *
+ * The detached child runs `agent-worker up -f` so the daemon itself stays in the
+ * child process foreground while the parent CLI command returns immediately.
+ */
+export async function ensureDaemon(port?: number, host?: string): Promise<void> {
+  if (isDaemonRunning()) return;
+
+  spawnDaemonProcess(port, host);
 
   // Wait for daemon to be ready (daemon.json appears)
   const maxWait = 5000;
@@ -75,7 +82,7 @@ Examples:
           host: options.host,
         });
       } else {
-        // Background mode — spawn and wait
+        // Background mode — detach a child daemon and wait for readiness
         if (isDaemonRunning()) {
           console.log("Daemon already running");
           return;
