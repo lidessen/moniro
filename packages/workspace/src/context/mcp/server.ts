@@ -4,7 +4,7 @@
  * Creates an McpServer and registers tools from each category.
  * The actual tool implementations live in their own files:
  *   channel.ts, resource.ts, inbox.ts, team.ts, proposal.ts,
- *   feedback.ts, skills.ts
+ *   feedback.ts
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -13,7 +13,6 @@ import { EventLog } from "@/context/event-log.ts";
 import type { Message } from "@/context/types.ts";
 import type { ProposalManager } from "@/context/proposals.ts";
 import type { FeedbackEntry } from "@/tools/feedback.ts";
-import type { SkillsProvider } from "@moniro/agent-loop";
 import type { MCPToolContext } from "./types.ts";
 import { getAgentId, createLogTool } from "./helpers.ts";
 import { registerChannelTools } from "./channel.ts";
@@ -22,7 +21,6 @@ import { registerInboxTools } from "./inbox.ts";
 import { registerTeamTools } from "./team.ts";
 import { registerProposalTools } from "./proposal.ts";
 import { registerFeedbackTool } from "./feedback.ts";
-import { registerSkillsTools } from "./skills.ts";
 import { registerPersonalContextTools } from "./personal.ts";
 import type { AgentHandleRef } from "@/types.ts";
 
@@ -43,8 +41,6 @@ export interface ContextMCPServerOptions {
   proposalManager?: ProposalManager;
   /** Enable feedback tool (optional) */
   feedback?: boolean;
-  /** Skills provider for shared skills (optional) */
-  skills?: SkillsProvider;
   /** Debug log function for tool calls (optional) */
   debugLog?: (message: string) => void;
   /** Resolve agent handle by name for personal context tools (optional) */
@@ -62,7 +58,6 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
     onMention,
     proposalManager,
     feedback: feedbackEnabled,
-    skills,
     debugLog,
     resolveHandle,
   } = options;
@@ -122,13 +117,6 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
     const fb = registerFeedbackTool(server, ctx);
     getFeedback = fb.getFeedback;
     mcpToolNames.add("feedback_submit");
-  }
-
-  if (skills) {
-    registerSkillsTools(server, skills);
-    mcpToolNames.add("skills_list");
-    mcpToolNames.add("skills_view");
-    mcpToolNames.add("skills_read");
   }
 
   if (resolveHandle) {

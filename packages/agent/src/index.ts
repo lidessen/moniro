@@ -91,9 +91,14 @@ export { opencodeAdapter, extractOpenCodeResult } from "./backends/opencode.ts";
 export { createTool } from "./tools/create-tool.ts";
 
 // ── Skills ──────────────────────────────────────────────────────
-export { SkillsProvider } from "./skills/provider.ts";
-export type { SkillMetadata } from "./skills/provider.ts";
-export { createSkillsTool } from "./skills/index.ts";
+export { createSkillTool } from "./skills/index.ts";
+export type {
+  CreateSkillToolOptions,
+  DiscoveredSkill,
+  Skill,
+  SkillMetadata,
+  SkillToolkit,
+} from "./skills/index.ts";
 export { SkillImporter } from "./skills/importer.ts";
 export type { ImportedSkill } from "./skills/importer.ts";
 export { parseImportSpec, buildGitUrl, getSpecDisplayName } from "./skills/import-spec.ts";

@@ -260,15 +260,21 @@ for await (const chunk of agent.sendStream("Tell me a story")) {
 ### With Skills
 
 ```typescript
-import { AgentWorker, SkillsProvider, createSkillsTool } from "agent-worker";
+import { AgentWorker, createSkillTool } from "agent-worker";
+import { createBashTool } from "bash-tool";
 
-const skills = new SkillsProvider();
-await skills.scanDirectory(".agents/skills");
+// Discover skills and collect files for bash sandbox
+const { skill, files, instructions } = await createSkillTool({
+  skillsDirectory: ".agents/skills",
+});
+
+// Create bash tool with skill files available
+const { tools } = await createBashTool({ files, extraInstructions: instructions });
 
 const agent = new AgentWorker({
   model: "anthropic/claude-sonnet-4-5",
   system: "You are a helpful assistant.",
-  tools: [createSkillsTool(skills)],
+  tools: { skill, ...tools },
 });
 ```
 

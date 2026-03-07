@@ -661,15 +661,21 @@ const state = session.getState();
 ### With Skills
 
 ```typescript
-import { AgentSession, SkillsProvider, createSkillsTool } from "agent-worker";
+import { AgentWorker, createSkillTool } from "agent-worker";
+import { createBashTool } from "bash-tool";
 
-const skillsProvider = new SkillsProvider();
-await skillsProvider.scanDirectory(".agents/skills");
+// Discover skills and collect files for bash sandbox
+const { skill, files, instructions } = await createSkillTool({
+  skillsDirectory: ".agents/skills",
+});
 
-const session = new AgentSession({
+// Create bash tool with skill files available
+const { tools } = await createBashTool({ files, extraInstructions: instructions });
+
+const session = new AgentWorker({
   model: "anthropic/claude-sonnet-4-5",
   system: "You are a helpful assistant.",
-  tools: [createSkillsTool(skillsProvider)],
+  tools: { skill, ...tools },
 });
 ```
 
