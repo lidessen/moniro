@@ -1,11 +1,5 @@
-import { describe, test, expect, mock } from "bun:test";
-
-// Clear module mocks from other test files (e.g. session-send.test.ts mocks models.ts)
-mock.restore();
-
-// Dynamic import after mock.restore() to get unmocked module
-const { discoverProvider, resolveAutoModel, resolveModelFallback, isAutoProvider } =
-  await import("@moniro/agent-loop");
+import { describe, test, expect } from "bun:test";
+import { discoverProvider, resolveAutoModel, resolveModelFallback, isAutoProvider } from "@moniro/agent-loop";
 
 /** Create a clean env with only the specified keys set */
 function env(keys: Record<string, string>): Record<string, string | undefined> {
