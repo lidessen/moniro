@@ -142,7 +142,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.resolve.outputs.file != ''
-        run: bun install && bun add @ai-sdk/deepseek
+        run: bun install --frozen-lockfile
 
       - name: Build all packages
         if: steps.resolve.outputs.file != ''

@@ -14,11 +14,15 @@
 #
 # Optional params:
 #   --guidelines       - Project-specific version bump rules
+#   --major-policy     - How to handle breaking changes ("allow-major" or "no-major-use-minor")
 
 params:
   - name: guidelines
     description: Project-specific version bump rules (e.g. "use minor for breaking changes during 0.x")
     default: ""
+  - name: major_policy
+    description: How to handle breaking changes (allow-major or no-major-use-minor)
+    default: "allow-major"
 
 agents:
   changeset_analyzer:
@@ -32,6 +36,11 @@ agents:
       - patch: bug fixes, documentation updates, internal refactors
       - minor: new features, new exports (backward compatible)
       - major: breaking changes, removed APIs, changed behavior
+
+      Major version policy:
+      - allow-major: use standard semver (breaking changes => major)
+      - no-major-use-minor: if a change is semantically major, output minor instead
+        but still note in reasoning/description that it is a breaking change
 
       Look for keywords: "BREAKING", "breaking change", "feat:", "fix:", etc.
       Multiple packages can be affected by one PR.
@@ -121,6 +130,9 @@ kickoff: |
   ## Version Guidelines
   ${{ params.guidelines }}
 
+  ## Major Version Policy
+  ${{ params.major_policy }}
+
   ## Instructions
 
   1. If `has_existing_changeset` is `true`, the PR already included a changeset. Write:
@@ -148,15 +160,24 @@ kickoff: |
      {
        "needed": true,
        "packages": {
-         "package-name": "patch|minor"
+         "package-name": "patch|minor|major"
        },
-       "description": "Brief description of the change for CHANGELOG"
+       "description": "Brief description of the change for CHANGELOG",
+       "reasoning": {
+         "package-name": {
+           "semantic_impact": "patch|minor|major",
+           "policy_adjusted_to": "patch|minor|major"
+         }
+       }
      }
      EOF
      ```
 
-  Rules:
-  - The `packages` field must use exact package names from the "Available Packages" list
-  - The `description` field should be a concise CHANGELOG entry (one line)
-  - The JSON must be valid — the CI will parse it to create the changeset
-  - You ONLY write JSON. The CI handles branch creation, versioning, and PR creation.
+   Rules:
+   - The `packages` field must use exact package names from the "Available Packages" list
+    - The `description` field should be a concise CHANGELOG entry (one line)
+    - If `major_policy` is `allow-major`, use standard semver
+    - If `major_policy` is `no-major-use-minor`, map semantically major changes to `minor`
+    - When policy changes the bump level, record both the original semantic impact and the adjusted output in `reasoning`
+    - The JSON must be valid — the CI will parse it to create the changeset
+    - You ONLY write JSON. The CI handles branch creation, versioning, and PR creation.
