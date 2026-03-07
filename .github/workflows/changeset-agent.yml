@@ -131,8 +131,9 @@ jobs:
           done
           PR_BODY="${PR_BODY}"$'\n\n---\nMerge to publish packages to npm.'
 
-          # Fresh release branch from current main
+          # Fresh release branch from current main (delete local+remote tracking first)
           git branch -D release/next 2>/dev/null || true
+          git branch -dr origin/release/next 2>/dev/null || true
           git checkout -b release/next
 
           bun run version
