@@ -288,11 +288,17 @@
 
   ```typescript
   // SDK usage
-  import { SkillImporter, SkillsProvider, createSkillsTool } from "agent-worker";
+  import { SkillImporter, createSkillTool } from "agent-worker";
 
+  // Import remote skills
   const importer = new SkillImporter(sessionId);
   await importer.import("vercel-labs/agent-skills:dive");
-  await skillsProvider.addImportedSkills(importer);
+
+  // Get flat skills directory and create skill tool
+  const skillsDir = await importer.getSkillsDirectory();
+  const { skill, files, instructions } = await createSkillTool({
+    skillsDirectory: skillsDir,
+  });
 
   // Cleanup when done
   await importer.cleanup();

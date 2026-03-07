@@ -159,10 +159,8 @@ src/
 │   ├── types.ts                   # Core types
 │   ├── tools/                     # Built-in tool factories
 │   │   ├── bash.ts                # Sandboxed bash/readFile/writeFile
-│   │   ├── skills.ts              # Skills tool
 │   │   └── feedback.ts            # Feedback tool
-│   └── skills/                    # Skill loading + importing
-│       ├── provider.ts            # SkillsProvider
+│   └── skills/                    # Skill loading + importing (wraps bash-tool)
 │       ├── importer.ts            # Git-based skill import
 │       └── import-spec.ts         # Import spec parsing
 │

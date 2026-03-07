@@ -1,6 +1,6 @@
-import { mkdir, rm, readdir, stat } from "node:fs/promises";
+import { mkdir, rm, symlink, readdir, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
 import {
@@ -91,10 +91,35 @@ export class SkillImporter {
   }
 
   /**
-   * Get temporary directory path
+   * Get temporary directory path (raw clone structure, not flat)
    */
   getTempDir(): string {
     return this.tempDir;
+  }
+
+  /**
+   * Get a flat skills directory suitable for createSkillTool({ skillsDirectory }).
+   *
+   * Creates a staging directory with symlinks to each imported skill,
+   * flattening the nested clone structure (owner-repo/skills/name/) into
+   * a single directory (skill-name/ → actual path).
+   *
+   * Must be called after import(). The directory is cleaned up with cleanup().
+   */
+  async getSkillsDirectory(): Promise<string> {
+    const stagingDir = join(this.tempDir, "_skills");
+
+    // Always rebuild to reflect current imported state
+    if (existsSync(stagingDir)) {
+      await rm(stagingDir, { recursive: true });
+    }
+    await mkdir(stagingDir, { recursive: true });
+
+    for (const skill of this.imported.values()) {
+      await symlink(skill.tempPath, join(stagingDir, skill.name));
+    }
+
+    return stagingDir;
   }
 
   /**

@@ -51,7 +51,7 @@ agent-worker (umbrella) ──── re-exports all ──┘
 - **Model creation** — Provider registry, model maps, `createModelAsync()`
 - **Tool infrastructure** — Tool creation helpers, registration interface, approval flow
 - **MCP protocol support** — Basic MCP client capabilities (tool discovery, tool invocation)
-- **Skills protocol support** — SkillsProvider, skill loading, register skill as tool
+- **Skills protocol support** — Re-exports bash-tool's `createSkillTool()`, skill importing from Git
 - **Types** — `AgentDefinition`, `AgentSoul`, `AgentPromptConfig`, `ScheduleConfig` (pure data types used by all layers)
 
 ### File mapping
@@ -77,13 +77,13 @@ From current `packages/agent/src/`:
 ├── tools/
 │   └── create-tool.ts         ← Tool creation helpers
 │
-└── skills/                    ← Skill protocol support
-    ├── provider.ts, importer.ts, import-spec.ts
+└── skills/                    ← Skill protocol support (wraps bash-tool)
+    ├── importer.ts, import-spec.ts
 ```
 
 ### Dependencies
 
-External only: `ai`, `@ai-sdk/*`, `execa`, `zod`
+External only: `ai`, `@ai-sdk/*`, `bash-tool`, `execa`, `zod`
 
 ### API
 

@@ -3,8 +3,7 @@ import { accessSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
-  SkillsProvider,
-  createSkillsTool,
+  createSkillTool,
   parseImportSpec,
   buildGitUrl,
   getSpecDisplayName,
@@ -26,302 +25,14 @@ This is a test skill.
 Check [references/example.md](references/example.md) for details.
 `;
 
-const invalidSkillMd = `# No Frontmatter
-
-This skill is missing YAML frontmatter.
-`;
-
-const invalidFrontmatterSkillMd = `---
-name: Invalid Name With Spaces
-description: Invalid name format
----
-
-# Invalid Skill
-`;
-
 const exampleReference = `# Example Reference
 
 This is a reference file for progressive disclosure.
 `;
 
-describe("SkillsProvider", () => {
-  let testDir: string;
+// ==================== createSkillTool Tests ====================
 
-  beforeEach(() => {
-    // Create temp directory for test skills
-    testDir = join(tmpdir(), `skills-test-${Date.now()}`);
-    mkdirSync(testDir, { recursive: true });
-  });
-
-  afterEach(() => {
-    // Clean up test directory
-    try {
-      rmSync(testDir, { recursive: true, force: true });
-    } catch {}
-  });
-
-  describe("addSkill", () => {
-    test("adds valid skill", async () => {
-      const skillDir = join(testDir, "test-skill");
-      mkdirSync(skillDir);
-      writeFileSync(join(skillDir, "SKILL.md"), validSkillMd);
-
-      const provider = new SkillsProvider();
-      await provider.addSkill(skillDir);
-
-      const skills = provider.list();
-      expect(skills).toHaveLength(1);
-      expect(skills[0]!.name).toBe("test-skill");
-      expect(skills[0]!.description).toBe("A test skill for validation");
-    });
-
-    test("throws when SKILL.md not found", async () => {
-      const skillDir = join(testDir, "no-skill");
-      mkdirSync(skillDir);
-
-      const provider = new SkillsProvider();
-      await expect(provider.addSkill(skillDir)).rejects.toThrow("SKILL.md not found");
-    });
-
-    test("throws on invalid frontmatter", async () => {
-      const skillDir = join(testDir, "invalid-skill");
-      mkdirSync(skillDir);
-      writeFileSync(join(skillDir, "SKILL.md"), invalidSkillMd);
-
-      const provider = new SkillsProvider();
-      await expect(provider.addSkill(skillDir)).rejects.toThrow("missing frontmatter");
-    });
-
-    test("throws on invalid skill name format", async () => {
-      const skillDir = join(testDir, "invalid-name-skill");
-      mkdirSync(skillDir);
-      writeFileSync(join(skillDir, "SKILL.md"), invalidFrontmatterSkillMd);
-
-      const provider = new SkillsProvider();
-      await expect(provider.addSkill(skillDir)).rejects.toThrow("Invalid frontmatter");
-    });
-
-    test("addSkillSync works synchronously", () => {
-      const skillDir = join(testDir, "sync-skill");
-      mkdirSync(skillDir);
-      writeFileSync(
-        join(skillDir, "SKILL.md"),
-        `---
-name: sync-skill
-description: Synchronous test skill
----
-# Sync Skill
-`,
-      );
-
-      const provider = new SkillsProvider();
-      provider.addSkillSync(skillDir);
-
-      const skills = provider.list();
-      expect(skills).toHaveLength(1);
-      expect(skills[0]!.name).toBe("sync-skill");
-    });
-  });
-
-  describe("scanDirectory", () => {
-    test("scans directory and finds valid skills", async () => {
-      // Create multiple skills
-      const skill1Dir = join(testDir, "skill-one");
-      mkdirSync(skill1Dir);
-      writeFileSync(
-        join(skill1Dir, "SKILL.md"),
-        `---
-name: skill-one
-description: First skill
----
-# Skill One
-`,
-      );
-
-      const skill2Dir = join(testDir, "skill-two");
-      mkdirSync(skill2Dir);
-      writeFileSync(
-        join(skill2Dir, "SKILL.md"),
-        `---
-name: skill-two
-description: Second skill
----
-# Skill Two
-`,
-      );
-
-      // Create invalid directory (no SKILL.md)
-      mkdirSync(join(testDir, "not-a-skill"));
-
-      const provider = new SkillsProvider();
-      await provider.scanDirectory(testDir);
-
-      const skills = provider.list();
-      expect(skills).toHaveLength(2);
-      expect(skills.map((s) => s.name).sort()).toEqual(["skill-one", "skill-two"]);
-    });
-
-    test("ignores non-existent directory", async () => {
-      const provider = new SkillsProvider();
-      await provider.scanDirectory("/nonexistent/path");
-
-      expect(provider.list()).toHaveLength(0);
-    });
-
-    test("scanDirectorySync works synchronously", () => {
-      const skillDir = join(testDir, "sync-scan-skill");
-      mkdirSync(skillDir);
-      writeFileSync(
-        join(skillDir, "SKILL.md"),
-        `---
-name: sync-scan-skill
-description: Skill found by sync scan
----
-# Sync Scan Skill
-`,
-      );
-
-      const provider = new SkillsProvider();
-      provider.scanDirectorySync(testDir);
-
-      const skills = provider.list();
-      expect(skills).toHaveLength(1);
-      expect(skills[0]!.name).toBe("sync-scan-skill");
-    });
-  });
-
-  describe("list", () => {
-    test("returns empty array when no skills", () => {
-      const provider = new SkillsProvider();
-      expect(provider.list()).toEqual([]);
-    });
-
-    test("returns skill metadata", async () => {
-      const skillDir = join(testDir, "metadata-skill");
-      mkdirSync(skillDir);
-      writeFileSync(join(skillDir, "SKILL.md"), validSkillMd);
-
-      const provider = new SkillsProvider();
-      await provider.addSkill(skillDir);
-
-      const skills = provider.list();
-      expect(skills[0]).toEqual({
-        name: "test-skill",
-        description: "A test skill for validation",
-      });
-    });
-  });
-
-  describe("view", () => {
-    test("returns full SKILL.md content", async () => {
-      const skillDir = join(testDir, "view-skill");
-      mkdirSync(skillDir);
-      writeFileSync(join(skillDir, "SKILL.md"), validSkillMd);
-
-      const provider = new SkillsProvider();
-      await provider.addSkill(skillDir);
-
-      const content = await provider.view("test-skill");
-      expect(content).toBe(validSkillMd);
-    });
-
-    test("throws when skill not found", async () => {
-      const provider = new SkillsProvider();
-      await expect(provider.view("nonexistent")).rejects.toThrow('Skill "nonexistent" not found');
-    });
-  });
-
-  describe("readFile", () => {
-    test("reads file within skill directory", async () => {
-      const skillDir = join(testDir, "ref-skill");
-      const refsDir = join(skillDir, "references");
-      mkdirSync(refsDir, { recursive: true });
-      writeFileSync(join(skillDir, "SKILL.md"), validSkillMd);
-      writeFileSync(join(refsDir, "example.md"), exampleReference);
-
-      const provider = new SkillsProvider();
-      await provider.addSkill(skillDir);
-
-      const content = await provider.readFile("test-skill", "references/example.md");
-      expect(content).toBe(exampleReference);
-    });
-
-    test("throws when skill not found", async () => {
-      const provider = new SkillsProvider();
-      await expect(provider.readFile("nonexistent", "file.md")).rejects.toThrow(
-        'Skill "nonexistent" not found',
-      );
-    });
-
-    test("prevents path traversal with ../", async () => {
-      const skillDir = join(testDir, "secure-skill");
-      mkdirSync(skillDir);
-      writeFileSync(join(skillDir, "SKILL.md"), validSkillMd);
-
-      const provider = new SkillsProvider();
-      await provider.addSkill(skillDir);
-
-      await expect(provider.readFile("test-skill", "../../../etc/passwd")).rejects.toThrow(
-        "Path traversal not allowed",
-      );
-    });
-
-    test("prevents path traversal with mixed paths", async () => {
-      const skillDir = join(testDir, "secure-skill2");
-      mkdirSync(skillDir);
-      writeFileSync(join(skillDir, "SKILL.md"), validSkillMd);
-
-      const provider = new SkillsProvider();
-      await provider.addSkill(skillDir);
-
-      // Various traversal attempts
-      await expect(
-        provider.readFile("test-skill", "references/../../../etc/passwd"),
-      ).rejects.toThrow("Path traversal not allowed");
-      await expect(provider.readFile("test-skill", "references/../../secret.txt")).rejects.toThrow(
-        "Path traversal not allowed",
-      );
-      await expect(provider.readFile("test-skill", "../secret.txt")).rejects.toThrow(
-        "Path traversal not allowed",
-      );
-    });
-
-    test("absolute paths are safely contained", async () => {
-      const skillDir = join(testDir, "secure-skill3");
-      mkdirSync(skillDir);
-      writeFileSync(join(skillDir, "SKILL.md"), validSkillMd);
-
-      const provider = new SkillsProvider();
-      await provider.addSkill(skillDir);
-
-      // Absolute paths are treated as relative (safe behavior)
-      await expect(provider.readFile("test-skill", "/etc/passwd")).rejects.toThrow();
-      await expect(provider.readFile("test-skill", "/absolute/path")).rejects.toThrow();
-    });
-
-    test("reads scripts and assets", async () => {
-      const skillDir = join(testDir, "full-skill");
-      const scriptsDir = join(skillDir, "scripts");
-      const assetsDir = join(skillDir, "assets");
-      mkdirSync(scriptsDir, { recursive: true });
-      mkdirSync(assetsDir, { recursive: true });
-      writeFileSync(join(skillDir, "SKILL.md"), validSkillMd);
-      writeFileSync(join(scriptsDir, "run.sh"), '#!/bin/bash\necho "test"');
-      writeFileSync(join(assetsDir, "template.txt"), "Template content");
-
-      const provider = new SkillsProvider();
-      await provider.addSkill(skillDir);
-
-      const scriptContent = await provider.readFile("test-skill", "scripts/run.sh");
-      expect(scriptContent).toContain("#!/bin/bash");
-
-      const assetContent = await provider.readFile("test-skill", "assets/template.txt");
-      expect(assetContent).toBe("Template content");
-    });
-  });
-});
-
-describe("createSkillsTool", () => {
+describe("createSkillTool", () => {
   let testDir: string;
 
   beforeEach(() => {
@@ -335,120 +46,123 @@ describe("createSkillsTool", () => {
     } catch {}
   });
 
-  test("creates valid AI SDK tool", () => {
-    const provider = new SkillsProvider();
-    const skillsTool = createSkillsTool(provider) as any;
-
-    expect(skillsTool.description).toContain("agent skills");
-    expect(skillsTool.execute).toBeDefined();
-  });
-
-  test("list operation returns skills", async () => {
-    const skillDir = join(testDir, "list-skill");
+  test("discovers skills from directory", async () => {
+    const skillDir = join(testDir, "test-skill");
     mkdirSync(skillDir);
     writeFileSync(join(skillDir, "SKILL.md"), validSkillMd);
 
-    const provider = new SkillsProvider();
-    await provider.addSkill(skillDir);
+    const toolkit = await createSkillTool({ skillsDirectory: testDir });
 
-    const tool = createSkillsTool(provider) as any;
-    const result = (await tool.execute!({ operation: "list" })) as {
-      skills: Array<{ name: string; description: string }>;
-    };
-
-    expect(result.skills).toHaveLength(1);
-    expect(result.skills[0]!.name).toBe("test-skill");
+    expect(toolkit.skills).toHaveLength(1);
+    expect(toolkit.skills[0]!.name).toBe("test-skill");
+    expect(toolkit.skills[0]!.description).toBe("A test skill for validation");
   });
 
-  test("list operation with no skills", async () => {
-    const provider = new SkillsProvider();
-    const tool = createSkillsTool(provider) as any;
-
-    const result = (await tool.execute!({ operation: "list" })) as { message: string };
-    expect(result.message).toBe("No skills available");
-  });
-
-  test("view operation returns skill content", async () => {
-    const skillDir = join(testDir, "view-tool-skill");
+  test("returns skill tool", async () => {
+    const skillDir = join(testDir, "test-skill");
     mkdirSync(skillDir);
     writeFileSync(join(skillDir, "SKILL.md"), validSkillMd);
 
-    const provider = new SkillsProvider();
-    await provider.addSkill(skillDir);
+    const toolkit = await createSkillTool({ skillsDirectory: testDir });
 
-    const tool = createSkillsTool(provider) as any;
-    const result = (await tool.execute!({
-      operation: "view",
-      skillName: "test-skill",
-    })) as { content: string };
-
-    expect(result.content).toBe(validSkillMd);
+    expect(toolkit.skill).toBeDefined();
+    expect(toolkit.skill.description).toContain("test-skill");
   });
 
-  test("view operation throws without skillName", async () => {
-    const provider = new SkillsProvider();
-    const tool = createSkillsTool(provider) as any;
-
-    await expect(tool.execute!({ operation: "view" })).rejects.toThrow(
-      "skillName is required for view operation",
-    );
-  });
-
-  test("readFile operation returns file content", async () => {
-    const skillDir = join(testDir, "readfile-tool-skill");
+  test("collects files for bash tool", async () => {
+    const skillDir = join(testDir, "test-skill");
     const refsDir = join(skillDir, "references");
     mkdirSync(refsDir, { recursive: true });
     writeFileSync(join(skillDir, "SKILL.md"), validSkillMd);
     writeFileSync(join(refsDir, "example.md"), exampleReference);
 
-    const provider = new SkillsProvider();
-    await provider.addSkill(skillDir);
+    const toolkit = await createSkillTool({ skillsDirectory: testDir });
 
-    const tool = createSkillsTool(provider) as any;
-    const result = (await tool.execute!({
-      operation: "readFile",
-      skillName: "test-skill",
-      filePath: "references/example.md",
-    })) as { content: string };
-
-    expect(result.content).toBe(exampleReference);
+    // Files should include both SKILL.md and reference
+    const fileKeys = Object.keys(toolkit.files);
+    expect(fileKeys.length).toBeGreaterThanOrEqual(2);
+    expect(fileKeys.some((k) => k.includes("SKILL.md"))).toBe(true);
+    expect(fileKeys.some((k) => k.includes("example.md"))).toBe(true);
   });
 
-  test("readFile operation throws without required params", async () => {
-    const provider = new SkillsProvider();
-    const tool = createSkillsTool(provider) as any;
+  test("generates instructions for bash tool", async () => {
+    const skillDir = join(testDir, "test-skill");
+    mkdirSync(skillDir);
+    writeFileSync(join(skillDir, "SKILL.md"), validSkillMd);
 
-    await expect(tool.execute!({ operation: "readFile" })).rejects.toThrow(
-      "skillName and filePath are required",
-    );
+    const toolkit = await createSkillTool({ skillsDirectory: testDir });
 
-    await expect(tool.execute!({ operation: "readFile", skillName: "test" })).rejects.toThrow(
-      "skillName and filePath are required",
-    );
+    expect(toolkit.instructions).toContain("test-skill");
+    expect(toolkit.instructions).toContain("SKILL");
   });
 
-  test("throws on unknown operation", async () => {
-    const provider = new SkillsProvider();
-    const tool = createSkillsTool(provider) as any;
+  test("skill tool loads instructions", async () => {
+    const skillDir = join(testDir, "test-skill");
+    mkdirSync(skillDir);
+    writeFileSync(join(skillDir, "SKILL.md"), validSkillMd);
 
-    await expect(tool.execute!({ operation: "invalid" })).rejects.toThrow(
-      "Unknown operation: invalid",
-    );
-  });
-});
+    const toolkit = await createSkillTool({ skillsDirectory: testDir });
+    const result = (await toolkit.skill.execute!(
+      { skillName: "test-skill" },
+      {} as never,
+    )) as any;
 
-describe("Skills integration", () => {
-  let testDir: string;
-
-  beforeEach(() => {
-    testDir = join(tmpdir(), `skills-integration-test-${Date.now()}`);
-    mkdirSync(testDir, { recursive: true });
+    expect(result.success).toBe(true);
+    expect(result.skill.name).toBe("test-skill");
+    expect(result.instructions).toContain("Test Skill");
   });
 
-  afterEach(() => {
-    try {
-      rmSync(testDir, { recursive: true, force: true });
-    } catch {}
+  test("skill tool returns error for unknown skill", async () => {
+    const skillDir = join(testDir, "test-skill");
+    mkdirSync(skillDir);
+    writeFileSync(join(skillDir, "SKILL.md"), validSkillMd);
+
+    const toolkit = await createSkillTool({ skillsDirectory: testDir });
+    const result = (await toolkit.skill.execute!(
+      { skillName: "nonexistent" },
+      {} as never,
+    )) as any;
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("not found");
+  });
+
+  test("discovers multiple skills", async () => {
+    for (const name of ["skill-one", "skill-two"]) {
+      const dir = join(testDir, name);
+      mkdirSync(dir);
+      writeFileSync(
+        join(dir, "SKILL.md"),
+        `---\nname: ${name}\ndescription: ${name} desc\n---\n# ${name}\n`,
+      );
+    }
+    // Create non-skill directory
+    mkdirSync(join(testDir, "not-a-skill"));
+
+    const toolkit = await createSkillTool({ skillsDirectory: testDir });
+
+    expect(toolkit.skills).toHaveLength(2);
+    expect(toolkit.skills.map((s) => s.name).sort()).toEqual(["skill-one", "skill-two"]);
+  });
+
+  test("returns empty when no skills found", async () => {
+    const toolkit = await createSkillTool({ skillsDirectory: testDir });
+
+    expect(toolkit.skills).toHaveLength(0);
+    expect(Object.keys(toolkit.files)).toHaveLength(0);
+  });
+
+  test("custom destination for sandbox paths", async () => {
+    const skillDir = join(testDir, "test-skill");
+    mkdirSync(skillDir);
+    writeFileSync(join(skillDir, "SKILL.md"), validSkillMd);
+
+    const toolkit = await createSkillTool({
+      skillsDirectory: testDir,
+      destination: "my-skills",
+    });
+
+    expect(toolkit.skills[0]!.sandboxPath).toContain("my-skills");
   });
 
   test("works with AgentWorker", async () => {
@@ -458,75 +172,20 @@ describe("Skills integration", () => {
     mkdirSync(skillDir);
     writeFileSync(
       join(skillDir, "SKILL.md"),
-      `---
-name: session-skill
-description: Skill for session testing
----
-# Session Skill
-`,
+      `---\nname: session-skill\ndescription: Skill for session testing\n---\n# Session Skill\n`,
     );
 
-    const provider = new SkillsProvider();
-    await provider.addSkill(skillDir);
+    const toolkit = await createSkillTool({ skillsDirectory: testDir });
 
     const session = new AgentWorker({
       model: "openai/gpt-5.2",
       system: "You are a helpful assistant.",
-      tools: { Skills: createSkillsTool(provider) as any },
+      tools: { skill: toolkit.skill as any },
     });
 
     expect(session.id).toBeDefined();
     const tools = session.getTools();
-    expect(tools.map((t) => t.name)).toContain("Skills");
-  });
-
-  test("full progressive disclosure workflow", async () => {
-    // Create skill with main content and references
-    const skillDir = join(testDir, "pd-skill");
-    const refsDir = join(skillDir, "references");
-    mkdirSync(refsDir, { recursive: true });
-
-    writeFileSync(
-      join(skillDir, "SKILL.md"),
-      `---
-name: progressive-skill
-description: Progressive disclosure example
----
-
-# Progressive Skill
-
-Main content goes here.
-
-For details, see [references/advanced.md](references/advanced.md)
-`,
-    );
-
-    writeFileSync(join(refsDir, "advanced.md"), "# Advanced Topics\n\nDetailed content.");
-
-    const provider = new SkillsProvider();
-    await provider.addSkill(skillDir);
-    const tool = createSkillsTool(provider) as any;
-
-    // Step 1: List skills
-    const listResult = (await tool.execute!({ operation: "list" })) as {
-      skills: Array<{ name: string; description: string }>;
-    };
-    expect(listResult.skills[0]!.name).toBe("progressive-skill");
-
-    // Step 2: View main skill
-    const viewResult = (await tool.execute!({
-      operation: "view",
-      skillName: "progressive-skill",
-    })) as { content: string };
-    expect(viewResult.content).toContain("Main content goes here");
-
-    // Step 3: Load reference on demand
-    const refResult = (await tool.execute!({
-      operation: "readFile",
-      skillName: "progressive-skill",
-      filePath: "references/advanced.md",
-    })) as { content: string };
-    expect(refResult.content).toContain("Advanced Topics");
+    expect(tools.map((t) => t.name)).toContain("skill");
   });
 });
 
@@ -614,7 +273,7 @@ describe("parseImportSpec", () => {
   test("rejects repo with shell metacharacters", () => {
     expect(() => parseImportSpec("owner/repo;whoami")).toThrow("Invalid repo");
     expect(() => parseImportSpec("owner/repo&&cmd")).toThrow("Invalid repo");
-    expect(() => parseImportSpec("owner/repo|cat")).toThrow("Invalid repo"); // Validation catches it
+    expect(() => parseImportSpec("owner/repo|cat")).toThrow("Invalid repo");
   });
 
   test("rejects ref with shell metacharacters", () => {
@@ -801,65 +460,140 @@ describe("SkillImporter", () => {
     expect(paths).toEqual(["/tmp/test-skill"]);
   });
 
-  // Note: Full integration test with actual git clone would require network
-  // and is better suited for e2e tests. Unit tests focus on the API surface.
-});
+  test("getSkillsDirectory creates flat symlink directory", async () => {
+    const tempDir = importer.getTempDir();
 
-// ==================== Integration with SkillsProvider ====================
-
-describe("SkillsProvider with imported skills", () => {
-  let testDir: string;
-  let provider: SkillsProvider;
-
-  beforeEach(() => {
-    testDir = join(tmpdir(), `skills-import-test-${Date.now()}`);
-    mkdirSync(testDir, { recursive: true });
-    provider = new SkillsProvider();
-  });
-
-  afterEach(() => {
-    rmSync(testDir, { recursive: true, force: true });
-  });
-
-  test("addImportedSkills loads skills from importer paths", async () => {
-    // Create a mock skill
-    const skillDir = join(testDir, "test-skill");
-    mkdirSync(skillDir, { recursive: true });
+    // Simulate the nested clone structure: tempDir/owner-repo/skills/skill-a/SKILL.md
+    const nestedSkillPath = join(tempDir, "owner-repo", "skills", "skill-a");
+    mkdirSync(nestedSkillPath, { recursive: true });
     writeFileSync(
-      join(skillDir, "SKILL.md"),
-      `---\nname: test-skill\ndescription: Test\n---\n\n# Test`,
+      join(nestedSkillPath, "SKILL.md"),
+      `---\nname: skill-a\ndescription: Test skill A\n---\n# Skill A\n`,
     );
 
-    // Create a mock importer-like object
-    const mockImporter = {
-      getAllImportedSkillPaths: () => [skillDir],
-    };
-
-    await provider.addImportedSkills(mockImporter);
-
-    const skills = provider.list();
-    expect(skills).toHaveLength(1);
-    expect(skills[0]!.name).toBe("test-skill");
-  });
-
-  test("addImportedSkillsSync loads skills synchronously", () => {
-    // Create a mock skill
-    const skillDir = join(testDir, "sync-skill");
-    mkdirSync(skillDir, { recursive: true });
+    const nestedSkillPath2 = join(tempDir, "owner-repo", "skills", "skill-b");
+    mkdirSync(nestedSkillPath2, { recursive: true });
     writeFileSync(
-      join(skillDir, "SKILL.md"),
-      `---\nname: sync-skill\ndescription: Sync test\n---\n\n# Sync`,
+      join(nestedSkillPath2, "SKILL.md"),
+      `---\nname: skill-b\ndescription: Test skill B\n---\n# Skill B\n`,
     );
 
-    // Create a mock importer-like object
-    const mockImporter = {
-      getAllImportedSkillPaths: () => [skillDir],
-    };
+    // Register imported skills (simulates what extractSkills does)
+    (importer as any).imported.set("skill-a", {
+      name: "skill-a",
+      source: "owner/repo:{skill-a,skill-b}",
+      tempPath: nestedSkillPath,
+    });
+    (importer as any).imported.set("skill-b", {
+      name: "skill-b",
+      source: "owner/repo:{skill-a,skill-b}",
+      tempPath: nestedSkillPath2,
+    });
 
-    provider.addImportedSkillsSync(mockImporter);
+    // getSkillsDirectory should create a flat directory with symlinks
+    const skillsDir = await importer.getSkillsDirectory();
+    expect(skillsDir).toContain("_skills");
 
-    const skills = provider.list();
-    expect(skills).toHaveLength(1);
-    expect(skills[0]!.name).toBe("sync-skill");
+    // Verify symlinks exist and point to correct paths
+    const { lstatSync, readlinkSync } = await import("node:fs");
+    const linkA = join(skillsDir, "skill-a");
+    const linkB = join(skillsDir, "skill-b");
+    expect(lstatSync(linkA).isSymbolicLink()).toBe(true);
+    expect(lstatSync(linkB).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(linkA)).toBe(nestedSkillPath);
+    expect(readlinkSync(linkB)).toBe(nestedSkillPath2);
+  });
+
+  test("getSkillsDirectory works with createSkillTool", async () => {
+    const tempDir = importer.getTempDir();
+
+    // Create nested skill structure
+    const skillPath = join(tempDir, "owner-repo", "skills", "test-skill");
+    mkdirSync(skillPath, { recursive: true });
+    writeFileSync(
+      join(skillPath, "SKILL.md"),
+      `---\nname: test-skill\ndescription: Imported test skill\n---\n# Imported Skill\nInstructions here.\n`,
+    );
+
+    (importer as any).imported.set("test-skill", {
+      name: "test-skill",
+      source: "owner/repo:test-skill",
+      tempPath: skillPath,
+    });
+
+    // The full flow: importer → getSkillsDirectory → createSkillTool
+    const skillsDir = await importer.getSkillsDirectory();
+    const toolkit = await createSkillTool({ skillsDirectory: skillsDir });
+
+    expect(toolkit.skills).toHaveLength(1);
+    expect(toolkit.skills[0]!.name).toBe("test-skill");
+
+    // Verify the skill tool can load instructions
+    const result = (await toolkit.skill.execute!(
+      { skillName: "test-skill" },
+      {} as never,
+    )) as any;
+    expect(result.success).toBe(true);
+    expect(result.instructions).toContain("Imported Skill");
+  });
+
+  test("getSkillsDirectory is idempotent", async () => {
+    const tempDir = importer.getTempDir();
+    const skillPath = join(tempDir, "owner-repo", "skills", "my-skill");
+    mkdirSync(skillPath, { recursive: true });
+    writeFileSync(
+      join(skillPath, "SKILL.md"),
+      `---\nname: my-skill\ndescription: Test\n---\n# Test\n`,
+    );
+
+    (importer as any).imported.set("my-skill", {
+      name: "my-skill",
+      source: "owner/repo:my-skill",
+      tempPath: skillPath,
+    });
+
+    const dir1 = await importer.getSkillsDirectory();
+    const dir2 = await importer.getSkillsDirectory();
+    expect(dir1).toBe(dir2);
+  });
+
+  test("getSkillsDirectory updates symlinks when skill is re-imported", async () => {
+    const tempDir = importer.getTempDir();
+    const { readlinkSync } = await import("node:fs");
+
+    // First import: skill-a at path v1
+    const v1Path = join(tempDir, "repo-v1", "skills", "skill-a");
+    mkdirSync(v1Path, { recursive: true });
+    writeFileSync(
+      join(v1Path, "SKILL.md"),
+      `---\nname: skill-a\ndescription: Version 1\n---\n# V1\n`,
+    );
+
+    (importer as any).imported.set("skill-a", {
+      name: "skill-a",
+      source: "owner/repo:skill-a",
+      tempPath: v1Path,
+    });
+
+    const dir1 = await importer.getSkillsDirectory();
+    expect(readlinkSync(join(dir1, "skill-a"))).toBe(v1Path);
+
+    // Re-import: skill-a now points to v2
+    const v2Path = join(tempDir, "repo-v2", "skills", "skill-a");
+    mkdirSync(v2Path, { recursive: true });
+    writeFileSync(
+      join(v2Path, "SKILL.md"),
+      `---\nname: skill-a\ndescription: Version 2\n---\n# V2\n`,
+    );
+
+    (importer as any).imported.set("skill-a", {
+      name: "skill-a",
+      source: "owner/repo@v2:skill-a",
+      tempPath: v2Path,
+    });
+
+    // getSkillsDirectory must reflect the updated path
+    const dir2 = await importer.getSkillsDirectory();
+    expect(readlinkSync(join(dir2, "skill-a"))).toBe(v2Path);
   });
 });
