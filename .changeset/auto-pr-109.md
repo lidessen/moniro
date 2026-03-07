@@ -1,6 +1,4 @@
 ---
-"@moniro/agent-loop": minor
-"@moniro/workspace": minor
 "agent-worker": minor
 ---
 

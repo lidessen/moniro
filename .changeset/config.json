@@ -7,5 +7,5 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": []
+  "ignore": ["@moniro/agent-loop", "@moniro/agent-worker", "@moniro/workspace"]
 }
