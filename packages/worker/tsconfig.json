@@ -25,8 +25,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noPropertyAccessFromIndexSignature": false,
-    "preserveSymlinks": true
   },
   "include": ["src"],
-  "exclude": ["dist"]
+  "exclude": ["dist"],
 }
