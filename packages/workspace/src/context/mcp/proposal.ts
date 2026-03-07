@@ -8,7 +8,7 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { formatProposal, formatProposalList, type ProposalManager } from "@/context/proposals.ts";
+import { formatProposal, formatProposalList, type ProposalManager } from "../proposals.ts";
 import type { MCPToolContext } from "./types.ts";
 
 export function registerProposalTools(

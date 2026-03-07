@@ -3,9 +3,9 @@
  * Content-addressed blobs for long-form content.
  */
 
-import type { StorageBackend } from "@/context/storage.ts";
-import type { ResourceType, ResourceResult } from "@/context/types.ts";
-import { generateResourceId, createResourceRef } from "@/context/types.ts";
+import type { StorageBackend } from "../storage.ts";
+import type { ResourceType, ResourceResult } from "../types.ts";
+import { generateResourceId, createResourceRef } from "../types.ts";
 
 const RESOURCE_PREFIX = "resources/";
 

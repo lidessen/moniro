@@ -13,7 +13,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { MCPToolContext } from "./types.ts";
-import type { AgentHandleRef } from "@/types.ts";
+import type { AgentHandleRef } from "../../types.ts";
 
 /**
  * Resolve an agent handle by name.

@@ -8,7 +8,7 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { ResourceType } from "@/context/types.ts";
+import type { ResourceType } from "../types.ts";
 import type { MCPToolContext } from "./types.ts";
 
 export function registerResourceTools(server: McpServer, ctx: MCPToolContext): void {

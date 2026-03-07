@@ -6,10 +6,10 @@
 
 import { EventEmitter } from "node:events";
 import { nanoid } from "nanoid";
-import type { Message } from "@/context/types.ts";
-import { extractMentions } from "@/context/types.ts";
-import type { StorageBackend } from "@/context/storage.ts";
-import type { SendOptions, ReadOptions, TailResult } from "@/context/provider.ts";
+import type { Message } from "../types.ts";
+import { extractMentions } from "../types.ts";
+import type { StorageBackend } from "../storage.ts";
+import type { SendOptions, ReadOptions, TailResult } from "../provider.ts";
 
 const CHANNEL_KEY = "channel.jsonl";
 

@@ -9,8 +9,8 @@
  */
 
 import { nanoid } from "nanoid";
-import type { Message, EventKind } from "@/context/types.ts";
-import type { StorageBackend } from "@/context/storage.ts";
+import type { Message, EventKind } from "../types.ts";
+import type { StorageBackend } from "../storage.ts";
 
 const TIMELINE_KEY = "timeline.jsonl";
 
