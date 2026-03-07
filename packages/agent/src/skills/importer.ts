@@ -1,6 +1,6 @@
 import { mkdir, rm, symlink, readdir, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
 import {
