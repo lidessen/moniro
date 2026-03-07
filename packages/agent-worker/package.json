@@ -41,20 +41,20 @@
     "@moniro/agent-loop": "workspace:*",
     "@moniro/agent-worker": "workspace:*",
     "@moniro/workspace": "workspace:*",
-    "@hono/node-server": "^1.19.9",
-    "@modelcontextprotocol/sdk": "^1.26.0",
+    "@hono/node-server": "^1.19.11",
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "commander": "^14.0.3",
-    "hono": "^4.11.9",
+    "hono": "^4.12.5",
     "nanoid": "^5.1.6",
     "yaml": "^2.7.0"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/node": ">=22",
-    "@typescript/native-preview": "^7.0.0-dev.20260203.1",
-    "ai": "^6.0.69",
-    "oxfmt": "^0.28.0",
-    "oxlint": "^1.43.0",
-    "tsdown": "^0.20.1"
+    "@typescript/native-preview": "^7.0.0-dev.20260307.1",
+    "ai": "^6.0.116",
+    "oxfmt": "^0.36.0",
+    "oxlint": "^1.51.0",
+    "tsdown": "^0.21.0"
   }
 }
