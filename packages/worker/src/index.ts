@@ -38,3 +38,33 @@ export {
   DEFAULT_THIN_THREAD_SIZE,
   formatConversationMessages,
 } from "./conversation.ts";
+
+// ── Session ────────────────────────────────────────────────────
+export { AgentSession, createExecutionAdapter } from "./session/index.ts";
+export type {
+  AgentSessionConfig,
+  AgentSessionState,
+  AgentFeature,
+  FeatureContext,
+  ActivationContext,
+  CheckpointContext,
+  PromptSection,
+  McpToolSpec,
+  InputEnvelope,
+  RuntimeSignal,
+  ActivationSnapshot,
+  ActivationSummary,
+  ActivationOutcome,
+  BatchPolicy,
+  Checkpoint,
+  CheckpointDecision,
+  ExecutionAdapter,
+  ExecutionAdapterConfig,
+  ExecutionAdapterCapabilities,
+  ExecutionAdapterHooks,
+  WaitingState,
+  ActivationProgress,
+  ConversationFeatureConfig,
+  InboxSource,
+} from "./session/index.ts";
+export { conversation } from "./session/index.ts";

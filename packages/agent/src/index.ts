@@ -53,9 +53,29 @@ export type { ScheduleConfig, ResolvedSchedule } from "./schedule.ts";
 export { parseCron, nextCronTime, msUntilNextCron } from "./cron.ts";
 export type { CronFields } from "./cron.ts";
 
+// ── Execution Runtime ──────────────────────────────────────────
+export { ExecutionStateMachine, ExecutionSessionImpl, createExecutionSession } from "./execution/index.ts";
+export type {
+  ExecutionState,
+  BackendCapabilities,
+  ExecutionMessage,
+  ExecutionConfig,
+  ExecutionInput,
+  ExecutionOutcome,
+  ExecutionResult,
+  WorkItem,
+  BeforeStepContext,
+  StepMutation,
+  AfterStepContext,
+  ExecutionHooks,
+  ExecutionObserver,
+  ExecutionSession,
+  ExecutionSessionConfig,
+} from "./execution/index.ts";
+
 // ── Backends ────────────────────────────────────────────────────
 export { createBackend, checkBackends, listBackends } from "./backends/index.ts";
-export type { Backend, BackendType, BackendConfig, BackendResponse } from "./backends/types.ts";
+export type { Backend, BackendType, BackendConfig, BackendResponse, BackendSendOptions } from "./backends/types.ts";
 export type { BackendOptions } from "./backends/index.ts";
 export {
   parseModel,
@@ -86,6 +106,9 @@ export {
   createStreamParser,
 } from "./backends/stream-json.ts";
 export { opencodeAdapter, extractOpenCodeResult } from "./backends/opencode.ts";
+
+// ── AI SDK Re-exports (for worker layer) ────────────────────────
+export { ToolLoopAgent, stepCountIs, type ModelMessage } from "ai";
 
 // ── Tool Infrastructure ─────────────────────────────────────────
 export { createTool } from "./tools/create-tool.ts";

@@ -1,11 +1,12 @@
 # Project Context
 
-> 快速了解项目状态。详细设计见 `packages/agent-worker/docs/architecture/` 下各文档。
+> 快速了解项目状态。系统设计见 `docs/DESIGN.md`。详细实施设计见 `packages/agent-worker/docs/architecture/`。
 
 ## 当前焦点
 
-**CLI 重新设计** — 对齐对象模型（config.yml 真相源、workspace 统一术语、tag 可空、.agents/ 废弃）。
-设计文档：`packages/agent-worker/CLI-DESIGN.md`。分支：`claude/prioritize-personal-agent-QSJgx`。
+**Agent Session 实现** — worker 层 AgentSession 核心已实现。Session + Feature + Adapter + ThinThread + Preempt/Resume 闭环。
+下一步：workspace 层接入 AgentSession（替换旧 loop 编排）。
+设计文档：`docs/DESIGN.md` + `.memory/designs/agent-worker-architecture.md`。
 
 ## 架构概览
 
@@ -66,6 +67,8 @@ packages/
 
 | 文件 | 用途 |
 |------|------|
+| `docs/DESIGN.md` | **系统设计总文档**（实现 + 目标，带状态标记） |
+| `.memory/designs/` | 概念级架构思考（7 个文件） |
 | `packages/agent-worker/docs/architecture/PACKAGE-SPLIT.md` | 四包拆分设计（2026-03-06） |
 | `packages/agent-worker/docs/architecture/AGENT-TOP-LEVEL.md` | Agent 顶层实体设计 |
 | `packages/agent-worker/docs/architecture/CHANNEL-BRIDGE.md` | Channel 外部集成设计 |

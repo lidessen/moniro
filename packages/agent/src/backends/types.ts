@@ -16,6 +16,8 @@ export {
 } from "./model-maps.ts";
 
 import type { BackendType } from "./model-maps.ts";
+import type { BackendCapabilities } from "../execution/types.ts";
+import type { StreamEvent } from "./stream-json.ts";
 
 /**
  * Default idle timeout for CLI backends (10 minutes).
@@ -47,10 +49,26 @@ export interface BackendResponse {
   };
 }
 
+/**
+ * Options for Backend.send().
+ */
+export interface BackendSendOptions {
+  /** System prompt */
+  system?: string;
+  /**
+   * Stream event callback — receives parsed execution events in real-time.
+   * CLI backends fire these from JSON stream parsing.
+   * SDK backends don't use this (observation happens through AI SDK hooks).
+   */
+  onEvent?: (event: StreamEvent) => void;
+}
+
 export interface Backend {
   readonly type: BackendType;
+  /** Backend capabilities — declares what this backend can do */
+  readonly capabilities: BackendCapabilities;
   /** Send a message and get a response */
-  send(message: string, options?: { system?: string }): Promise<BackendResponse>;
+  send(message: string, options?: BackendSendOptions): Promise<BackendResponse>;
   /** Check if the backend is available (CLI installed, API key set, etc.) */
   isAvailable?(): Promise<boolean>;
   /** Get backend info for display */

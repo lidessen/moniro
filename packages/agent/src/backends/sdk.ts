@@ -5,7 +5,8 @@
 
 import { generateText } from "ai";
 import type { LanguageModel } from "ai";
-import type { Backend, BackendResponse } from "./types.ts";
+import type { Backend, BackendResponse, BackendSendOptions } from "./types.ts";
+import type { BackendCapabilities } from "../execution/types.ts";
 import { createModel, createModelAsync, createModelWithProvider } from "../models.ts";
 import type { ProviderConfig } from "../types.ts";
 
@@ -20,6 +21,12 @@ export interface SdkBackendOptions {
 
 export class SdkBackend implements Backend {
   readonly type = "default" as const;
+  readonly capabilities: BackendCapabilities = {
+    streaming: true,
+    toolLoop: "external",
+    stepControl: "step-finish",
+    cancellation: "abortable",
+  };
   private modelId: string;
   private model: LanguageModel | null = null;
   private maxTokens: number;
@@ -40,7 +47,7 @@ export class SdkBackend implements Backend {
     }
   }
 
-  async send(message: string, options?: { system?: string }): Promise<BackendResponse> {
+  async send(message: string, options?: BackendSendOptions): Promise<BackendResponse> {
     // Ensure model is loaded
     if (!this.model) {
       this.model = this.provider

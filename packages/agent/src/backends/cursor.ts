@@ -9,12 +9,14 @@
  * @see https://docs.cursor.com/context/model-context-protocol
  */
 
-import type { Backend, BackendResponse } from "./types.ts";
+import type { Backend, BackendResponse, BackendSendOptions } from "./types.ts";
+import type { BackendCapabilities } from "../execution/types.ts";
 import { DEFAULT_IDLE_TIMEOUT } from "./types.ts";
 import { execWithIdleTimeout } from "./idle-timeout.ts";
 import { handleCliBackendError, checkCliAvailable } from "./cli-helpers.ts";
 import {
   createStreamParser,
+  createEventOnlyParser,
   cursorAdapter,
   extractClaudeResult,
   type StreamParserCallbacks,
@@ -35,6 +37,12 @@ export interface CursorOptions {
 
 export class CursorBackend implements Backend {
   readonly type = "cursor" as const;
+  readonly capabilities: BackendCapabilities = {
+    streaming: true,
+    toolLoop: "native",
+    stepControl: "none",
+    cancellation: "cooperative",
+  };
   private options: CursorOptions;
   /**
    * Resolved command style:
@@ -51,21 +59,30 @@ export class CursorBackend implements Backend {
     };
   }
 
-  async send(message: string, _options?: { system?: string }): Promise<BackendResponse> {
+  async send(message: string, options?: BackendSendOptions): Promise<BackendResponse> {
     const { command, args } = await this.buildCommand(message);
     // Use workspace as cwd if set, otherwise fall back to cwd option
     const cwd = this.options.workspace || this.options.cwd;
     const timeout = this.options.timeout ?? DEFAULT_IDLE_TIMEOUT;
 
     try {
+      // Build onStdout: merge existing streamCallbacks with per-send onEvent
+      const hasCallbacks = !!this.options.streamCallbacks;
+      const hasEvent = !!options?.onEvent;
+      const onStdout = hasCallbacks && hasEvent
+        ? createStreamParser(this.options.streamCallbacks!, "Cursor", cursorAdapter, options.onEvent)
+        : hasCallbacks
+          ? createStreamParser(this.options.streamCallbacks!, "Cursor", cursorAdapter)
+          : hasEvent
+            ? createEventOnlyParser(cursorAdapter, options!.onEvent!)
+            : undefined;
+
       const { stdout } = await execWithIdleTimeout({
         command,
         args,
         cwd,
         timeout,
-        onStdout: this.options.streamCallbacks
-          ? createStreamParser(this.options.streamCallbacks, "Cursor", cursorAdapter)
-          : undefined,
+        onStdout,
       });
 
       return extractClaudeResult(stdout);

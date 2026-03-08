@@ -13,11 +13,13 @@
 import { checkCliAvailable } from "./cli-helpers.ts";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import type { Backend, BackendResponse } from "./types.ts";
+import type { Backend, BackendResponse, BackendSendOptions } from "./types.ts";
+import type { BackendCapabilities } from "../execution/types.ts";
 import { DEFAULT_IDLE_TIMEOUT } from "./types.ts";
 import { execWithIdleTimeoutAbortable, IdleTimeoutError } from "./idle-timeout.ts";
 import {
   createStreamParser,
+  createEventOnlyParser,
   claudeAdapter,
   extractClaudeResult,
   type StreamParserCallbacks,
@@ -50,6 +52,12 @@ export interface ClaudeCodeOptions {
 
 export class ClaudeCodeBackend implements Backend {
   readonly type = "claude" as const;
+  readonly capabilities: BackendCapabilities = {
+    streaming: true,
+    toolLoop: "native",
+    stepControl: "none",
+    cancellation: "cooperative",
+  };
   private options: ClaudeCodeOptions;
   private currentAbort?: () => void;
 
@@ -60,7 +68,7 @@ export class ClaudeCodeBackend implements Backend {
     };
   }
 
-  async send(message: string, options?: { system?: string }): Promise<BackendResponse> {
+  async send(message: string, options?: BackendSendOptions): Promise<BackendResponse> {
     const args = this.buildArgs(message, options);
     // Use workspace as cwd if set
     const cwd = this.options.workspace || this.options.cwd;
@@ -68,15 +76,15 @@ export class ClaudeCodeBackend implements Backend {
     const timeout = this.options.timeout ?? DEFAULT_IDLE_TIMEOUT;
 
     try {
+      // Build onStdout: merge existing streamCallbacks with per-send onEvent
+      const onStdout = this.buildOnStdout(outputFormat, options?.onEvent);
+
       const { promise, abort } = execWithIdleTimeoutAbortable({
         command: "claude",
         args,
         cwd,
         timeout,
-        onStdout:
-          outputFormat === "stream-json" && this.options.streamCallbacks
-            ? createStreamParser(this.options.streamCallbacks, "Claude", claudeAdapter)
-            : undefined,
+        onStdout,
       });
 
       // Store abort function for external cleanup
@@ -190,6 +198,32 @@ export class ClaudeCodeBackend implements Backend {
     }
 
     return args;
+  }
+
+  /**
+   * Build onStdout callback combining streamCallbacks and per-send onEvent.
+   */
+  private buildOnStdout(
+    outputFormat: string,
+    onEvent?: BackendSendOptions["onEvent"],
+  ): ((chunk: string) => void) | undefined {
+    if (outputFormat !== "stream-json") return undefined;
+
+    const hasCallbacks = !!this.options.streamCallbacks;
+    const hasEvent = !!onEvent;
+
+    if (!hasCallbacks && !hasEvent) return undefined;
+
+    if (hasCallbacks && !hasEvent) {
+      return createStreamParser(this.options.streamCallbacks!, "Claude", claudeAdapter);
+    }
+
+    if (!hasCallbacks && hasEvent) {
+      return createEventOnlyParser(claudeAdapter, onEvent!);
+    }
+
+    // Both: create parser with callbacks + onEvent forwarding
+    return createStreamParser(this.options.streamCallbacks!, "Claude", claudeAdapter, onEvent);
   }
 
   /**

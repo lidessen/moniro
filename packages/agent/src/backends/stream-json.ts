@@ -525,11 +525,13 @@ export interface StreamParserCallbacks {
  * @param callbacks - Structured output callbacks
  * @param backendName - Display name (e.g., "Cursor", "Claude", "Codex")
  * @param adapter - Format-specific adapter to convert raw JSON → StreamEvent
+ * @param onEvent - Optional raw event forwarder — receives every parsed StreamEvent
  */
 export function createStreamParser(
   callbacks: StreamParserCallbacks,
   backendName: string,
   adapter: EventAdapter,
+  onEvent?: (event: StreamEvent) => void,
 ): (chunk: string) => void {
   const { debugLog, outputLog, toolCallLog, mcpToolNames } = callbacks;
   let lineBuf = "";
@@ -557,6 +559,9 @@ export function createStreamParser(
 
         if (!event) continue;
 
+        // Forward raw event to listener (before any filtering)
+        onEvent?.(event);
+
         // Tool call events — dedup MCP tools, emit structured backend tool calls
         if (event.kind === "tool_call" || event.kind === "tool_call_started") {
           // Skip if this is an MCP tool (already logged by MCP server)
@@ -581,6 +586,37 @@ export function createStreamParser(
           const logFn = isOutput && outputLog ? outputLog : debugLog;
           logFn(progress);
         }
+      } catch {
+        // Not JSON — ignore
+      }
+    }
+  };
+}
+
+/**
+ * Create a minimal stream parser that only forwards events.
+ * Used when no display callbacks are needed, just raw event observation.
+ */
+export function createEventOnlyParser(
+  adapter: EventAdapter,
+  onEvent: (event: StreamEvent) => void,
+): (chunk: string) => void {
+  let lineBuf = "";
+
+  return (chunk: string) => {
+    lineBuf += chunk;
+    const lines = lineBuf.split("\n");
+    lineBuf = lines.pop() ?? "";
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const raw = JSON.parse(line);
+        let event = adapter(raw);
+        if (!event && raw.type) {
+          event = { kind: "unknown", type: raw.type as string, raw };
+        }
+        if (event) onEvent(event);
       } catch {
         // Not JSON — ignore
       }

@@ -1,28 +1,43 @@
 # Todos
 
-跨会话的任务追踪。当前阶段：**CLI 重新设计，对齐对象模型**。
+跨会话的任务追踪。当前阶段：**Agent Session & Async Interaction**。
 
-设计文档：`packages/agent-worker/CLI-DESIGN.md`
+设计文档：`docs/DESIGN.md`（Layer 2 Target 部分）+ `.memory/designs/agent-worker-architecture.md`
 
 ## 活跃任务
 
-### Phase 7a: 路径基础设施 ✅
+### Agent Session 实现
 
-全部完成，1110 tests pass。详见已完成区。
+Worker 层核心已完成，workspace 层待接入。
 
-### Phase 7b: AgentRegistry + .agents/ 废弃 + daemon API 契约 ✅
+**Worker 层（已完成）：**
 
-全部完成，1094 tests pass。详见已完成区。
+| 组件 | 状态 | 文件 |
+|------|------|------|
+| AgentSession（状态机 + activation loop） | done | `packages/worker/src/session/session.ts` |
+| ExecutionAdapter（checkpoint 抽象） | done | `packages/worker/src/session/adapter.ts` |
+| AgentFeature（composable features） | done | `packages/worker/src/session/feature.ts` |
+| Session types（InputEnvelope, ActivationProgress 等） | done | `packages/worker/src/session/types.ts` |
+| InboxSource（纯 read 接口） | done | `packages/worker/src/session/features/inbox.ts` |
+| Conversation feature（仅持久化） | done | `packages/worker/src/session/features/conversation.ts` |
+| agent-loop 层 ExecutionSession + 状态机 | done | `packages/agent/src/execution/` |
+| agent-loop Backend streaming + capabilities | done | `packages/agent/src/backends/types.ts` |
 
-### Phase 7c: CLI 命令重构 ✅
+关键设计决策：
+- ThinThread recording 内置于 session（非 feature），conversation feature 只做持久化
+- InboxSource 不感知 agentName，dequeue = ack，纯 read
+- beforeActivation 在 collectPromptSections/collectTools 之前运行
+- Preempt/resume 闭环：YieldSignal 携带真实 content/usage，ActivationProgress 跨 preemption 累积
 
-全部完成，1095 tests pass。详见已完成区。
+**Workspace 层（待做）：**
 
-### Phase 7d: 术语迁移 + 测试 ✅
+| 任务 | 状态 | 备注 |
+|------|------|------|
+| 运行入口切到 AgentSession | todo | loop.ts 的 runAgent → session.activate |
+| MCP tools feature | todo | workspace MCP bridge 封装为 AgentFeature |
+| 清理旧路径 | todo | sdk-runner, prompt.ts 中的旧逻辑 |
 
-全部完成，1095 tests pass。详见已完成区。
-
-### 其他（不阻塞 CLI 重构）
+### 其他
 
 | 优先级 | 任务 | 状态 | 备注 |
 |--------|------|------|------|
