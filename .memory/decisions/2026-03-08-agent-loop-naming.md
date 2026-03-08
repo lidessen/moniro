@@ -24,9 +24,9 @@
 |------|------|------|
 | `Backend` | `Runtime` | 更准确：执行环境，不是后端服务器 |
 | `createBackend()` | `createRuntime()` | 跟随类型重命名 |
-| `ExecutionSession` | `Executor` | 短、清晰、不跟 AgentSession 冲突 |
-| `createExecutionSession()` | `createExecutor()` | 跟随类型重命名 |
-| `ExecutionSessionConfig` | `ExecutorConfig` | 跟随类型重命名 |
+| `ExecutionSession` | `Loop` | 就是"跑一次 tool loop"，跟包名 agent-loop 呼应 |
+| `createExecutionSession()` | `createLoop()` | 跟随类型重命名 |
+| `ExecutionSessionConfig` | `LoopConfig` | 跟随类型重命名 |
 | `StreamEvent` / `BackendResponse` | `RuntimeEvent` | 统一事件命名 |
 
 ### createModel 下沉
@@ -43,8 +43,8 @@
 ```typescript
 // @moniro/agent-loop 公共 API
 export { createRuntime } from "./runtimes";
-export { createExecutor } from "./executor";
-export type { Runtime, RuntimeEvent, Executor, ExecutorConfig } from "./types";
+export { createLoop } from "./loop";
+export type { Runtime, RuntimeEvent, Loop, LoopConfig } from "./types";
 
 // 不再导出:
 // - createModel, createModelAsync, createModelWithProvider
@@ -61,8 +61,9 @@ const session = createExecutionSession({ backend, model: createModel("anthropic"
 
 // 之后
 const runtime = createRuntime({ kind: "claude" });
-const executor = createExecutor({ runtime, model: "anthropic/claude-sonnet-4-5" });
-const result = await executor.run({ system, messages, tools });
+const loop = createLoop({ runtime, model: "anthropic/claude-sonnet-4-5", system, messages, tools });
+for await (const event of loop) { ... }
+loop.cancel();
 ```
 
 ### 层级一览
@@ -70,7 +71,7 @@ const result = await executor.run({ system, messages, tools });
 ```
 @moniro/agent-loop
 ├── Runtime          — 执行环境 (SDK / Claude CLI / Codex / ...)
-├── Executor         — 执行引擎 (tool loop, 状态机, 取消/抢占)
+├── Loop         — 执行引擎 (tool loop, 状态机, 取消/抢占)
 ├── RuntimeEvent     — 事件流
 └── runtimes/
      ├── sdk.ts      — 内部用 createModel（不导出）
@@ -81,7 +82,7 @@ const result = await executor.run({ system, messages, tools });
 
 ## Consequences
 
-1. **API 更清晰** — Runtime（环境）+ Executor（引擎）职责分明，命名不冲突
+1. **API 更清晰** — Runtime（环境）+ Loop（引擎）职责分明，命名不冲突
 2. **实现细节内聚** — AI SDK 的 model 概念封装在 SDK runtime 内部，不泄漏到公共 API
 3. **对外接口更简单** — 用户只需传 model ID 字符串，不需要理解 `LanguageModel` 对象
 4. **现有测试需更新** — `session.test.ts` 中大量 `createModel` 测试需移到 SDK runtime 内部测试
