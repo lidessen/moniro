@@ -310,6 +310,13 @@ export class AgentSession {
     for (const feature of this.features) {
       const featureTools = feature.collectTools?.(ctx);
       if (featureTools) {
+        for (const name of Object.keys(featureTools)) {
+          if (name in tools) {
+            console.warn(
+              `[AgentSession] Tool name collision: "${name}" contributed by feature "${feature.name}" overwrites existing tool`,
+            );
+          }
+        }
         Object.assign(tools, featureTools);
       }
     }
@@ -351,8 +358,8 @@ export class AgentSession {
    */
   private buildMessages(
     snapshot: ActivationSnapshot,
-  ): Array<{ role: string; content: string }> {
-    const messages: Array<{ role: string; content: string }> = [];
+  ): Array<{ role: "user" | "assistant" | "system"; content: string }> {
+    const messages: Array<{ role: "user" | "assistant" | "system"; content: string }> = [];
 
     // Thin thread for conversation continuity
     for (const msg of snapshot.thinThread) {
@@ -377,22 +384,34 @@ export class AgentSession {
 
   // ── Internal: Checkpoint Decision ────────────────────────────
 
+  /**
+   * Resolve checkpoint decision with priority merge: abort > yield > continue.
+   *
+   * All features are consulted. The highest-severity decision wins.
+   * This prevents a feature returning "yield" from masking another's "abort".
+   */
   private resolveCheckpointDecision(ctx: CheckpointContext): CheckpointDecision {
-    // Collect decisions from features
+    let merged: CheckpointDecision = "continue";
+
     for (const feature of this.features) {
       const decision = feature.beforeCheckpoint?.(ctx);
-      if (decision === "yield" || decision === "abort") {
-        return decision;
+      if (decision === "abort") {
+        return "abort"; // Highest priority — short-circuit
+      }
+      if (decision === "yield") {
+        merged = "yield";
       }
     }
 
-    // Check for urgent pending signals
-    const hasUrgent = ctx.pendingSignals.some((s) => s.urgent);
-    if (hasUrgent) {
-      return "yield";
+    // Urgent signals escalate to yield (but can't override abort)
+    if (merged === "continue") {
+      const hasUrgent = ctx.pendingSignals.some((s) => s.urgent);
+      if (hasUrgent) {
+        merged = "yield";
+      }
     }
 
-    return "continue";
+    return merged;
   }
 
   // ── Internal: Apply Outcome ──────────────────────────────────

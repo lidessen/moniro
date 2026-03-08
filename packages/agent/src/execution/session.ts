@@ -119,6 +119,10 @@ export class ExecutionSessionImpl implements ExecutionSession {
   private provider?: string | ProviderConfig;
   private _modelFactory?: () => Promise<any> | any;
 
+  // Cached model instance (avoid recreating per execute)
+  private cachedModel: any = null;
+  private cachedModelKey: string | null = null;
+
   // Cancellation
   private abortController: AbortController | null = null;
 
@@ -142,6 +146,30 @@ export class ExecutionSessionImpl implements ExecutionSession {
 
   getState(): ExecutionState {
     return this.machine.state;
+  }
+
+  /**
+   * Get or create a cached model instance.
+   * Model is cached by (model, provider) key to avoid recreation per execute().
+   */
+  private async getOrCreateModel(): Promise<any> {
+    // Test factories always create fresh (may return different mocks)
+    if (this._modelFactory) {
+      return this._modelFactory();
+    }
+
+    const key = `${this.model}:${typeof this.provider === "string" ? this.provider : JSON.stringify(this.provider ?? "")}`;
+    if (this.cachedModel && this.cachedModelKey === key) {
+      return this.cachedModel;
+    }
+
+    const model = this.provider
+      ? await createModelWithProvider(this.model!, this.provider)
+      : await createModelAsync(this.model!);
+
+    this.cachedModel = model;
+    this.cachedModelKey = key;
+    return model;
   }
 
   async cancel(reason?: string): Promise<void> {
@@ -270,12 +298,8 @@ export class ExecutionSessionImpl implements ExecutionSession {
       );
     }
 
-    // Create model
-    const model = this._modelFactory
-      ? await this._modelFactory()
-      : this.provider
-        ? await createModelWithProvider(this.model!, this.provider)
-        : await createModelAsync(this.model!);
+    // Create or reuse cached model
+    const model = await this.getOrCreateModel();
 
     // Track execution
     const allToolCalls: ToolCall[] = [];

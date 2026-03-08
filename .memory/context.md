@@ -4,8 +4,12 @@
 
 ## 当前焦点
 
-**Agent Session 实现** — worker 层 AgentSession 核心已实现。Session + Feature + Adapter + ThinThread + Preempt/Resume 闭环。
-下一步：workspace 层接入 AgentSession（替换旧 loop 编排）。
+**Loop + Worker 重构** — 不考虑 workspace，专注于 loop 和 worker 层的实现统一。
+
+**核心决策**：三套 ToolLoopAgent 包装（AgentWorker / ExecutionSessionImpl / ExecutionAdapter）统一为一套。
+ExecutionSessionImpl 作为唯一执行引擎，AgentWorker 和 ExecutionAdapter 都委托给它。
+**不考虑兼容性**——早期开发阶段，可以自由重构。不写兼容代码。
+
 设计文档：`docs/DESIGN.md` + `.memory/designs/agent-worker-architecture.md`。
 
 ## 架构概览

@@ -244,7 +244,7 @@ export interface ExecutionAdapter {
   execute(
     input: {
       system: string;
-      messages: Array<{ role: string; content: string }>;
+      messages: Array<{ role: "user" | "assistant" | "system" | "tool"; content: string }>;
       tools?: Record<string, unknown>;
       maxTokens?: number;
       maxSteps?: number;
