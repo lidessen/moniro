@@ -6,7 +6,7 @@
  * - kind="message" or undefined (agent messages): always shown, colored
  * - kind="system" (operational logs): always shown, dimmed
  * - kind="debug" (debug details): only shown with --debug flag
- * - kind="output" (backend streaming text): always shown, not delivered to agent inboxes
+ * - kind="output" (runtime streaming text): always shown, not delivered to agent inboxes
  * - kind="tool_call" (tool invocations): always shown with structured metadata
  *
  * Two display modes:

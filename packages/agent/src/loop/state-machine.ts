@@ -1,7 +1,7 @@
 /**
  * Execution state machine.
  *
- * Enforces valid state transitions for ExecutionSession.
+ * Enforces valid state transitions for Loop.
  * Terminal states (completed, failed, cancelled) cannot be left.
  */
 

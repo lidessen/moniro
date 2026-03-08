@@ -1,8 +1,6 @@
 // Agent: re-export from @moniro/agent for moved items
 export {
   AgentWorker,
-  createModel,
-  createModelAsync,
   FRONTIER_MODELS,
   SUPPORTED_PROVIDERS,
   DEFAULT_PROVIDER,

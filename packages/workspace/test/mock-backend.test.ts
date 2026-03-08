@@ -1,8 +1,8 @@
 /**
- * Mock Backend & Agent Identity Tests
+ * Mock Runtime & Agent Identity Tests
  *
  * Tests:
- * 1. Parser validation for `backend: mock` (no model required)
+ * 1. Parser validation for `runtime: mock` (no model required)
  * 2. Agent identity propagation through MCP transport
  * 3. Mock runner with AI SDK generateText + MCP tools
  */
@@ -19,12 +19,12 @@ import type { AgentRunContext } from "@moniro/workspace";
 
 // ==================== Parser Validation ====================
 
-describe("parser: mock backend validation", () => {
-  test("accepts backend: mock without model field", () => {
+describe("parser: mock runtime validation", () => {
+  test("accepts runtime: mock without model field", () => {
     const result = validateWorkflow({
       agents: {
         alice: {
-          backend: "mock",
+          runtime: "mock",
           system_prompt: "You are Alice.",
         },
       },
@@ -33,11 +33,11 @@ describe("parser: mock backend validation", () => {
     expect(result.errors).toHaveLength(0);
   });
 
-  test("accepts backend: mock with optional model field", () => {
+  test("accepts runtime: mock with optional model field", () => {
     const result = validateWorkflow({
       agents: {
         alice: {
-          backend: "mock",
+          runtime: "mock",
           model: "test-model",
           system_prompt: "You are Alice.",
         },
@@ -46,11 +46,11 @@ describe("parser: mock backend validation", () => {
     expect(result.valid).toBe(true);
   });
 
-  test("rejects default backend without model field", () => {
+  test("rejects default runtime without model field", () => {
     const result = validateWorkflow({
       agents: {
         alice: {
-          backend: "default",
+          runtime: "default",
           system_prompt: "You are Alice.",
         },
       },
@@ -59,11 +59,11 @@ describe("parser: mock backend validation", () => {
     expect(result.errors.some((e) => e.path.includes("model"))).toBe(true);
   });
 
-  test("accepts claude backend without model field", () => {
+  test("accepts claude runtime without model field", () => {
     const result = validateWorkflow({
       agents: {
         alice: {
-          backend: "claude",
+          runtime: "claude",
           system_prompt: "You are Alice.",
         },
       },

@@ -104,7 +104,7 @@ export const PROPOSAL_DEFAULTS = {
 // ============================================================================
 
 export interface ProposalManagerOptions {
-  /** Storage backend for persistence */
+  /** Storage runtime for persistence */
   storage: StorageBackend;
   /** Valid agent names for voter validation */
   validAgents: string[];

@@ -1,25 +1,25 @@
 /**
  * Model Translation Maps — Single Source of Truth
  *
- * All backend-specific model naming and translation logic lives here.
+ * All runtime-specific model naming and translation logic lives here.
  * Both `backends/types.ts` and `workflow/loop/types.ts` re-export from this module.
  */
 
-// ==================== Backend Type ====================
+// ==================== Runtime Type ====================
 
-/** Backend type (union of all supported backends) */
-export type BackendType = "default" | "claude" | "cursor" | "codex" | "opencode" | "mock";
+/** Runtime type (union of all supported backends) */
+export type RuntimeType = "default" | "claude" | "cursor" | "codex" | "opencode" | "mock";
 
-/** Normalize backend type, mapping deprecated "sdk" to "default" */
-export function normalizeBackendType(type: string): BackendType {
+/** Normalize runtime type, mapping deprecated "sdk" to "default" */
+export function normalizeRuntimeType(type: string): RuntimeType {
   if (type === "sdk") return "default";
-  return type as BackendType;
+  return type as RuntimeType;
 }
 
 // ==================== Model Configuration ====================
 
 /** Default model per backend */
-export const BACKEND_DEFAULT_MODELS: Record<BackendType, string> = {
+export const RUNTIME_DEFAULT_MODELS: Record<RuntimeType, string> = {
   mock: "mock-model",
   default: "claude-sonnet-4-5",
   claude: "sonnet",
@@ -71,7 +71,7 @@ export const CURSOR_MODEL_MAP: Record<string, string> = {
 };
 
 /**
- * Model translation for Claude CLI backend
+ * Model translation for Claude CLI runtime
  * Claude CLI uses short model names
  */
 export const CLAUDE_MODEL_MAP: Record<string, string> = {
@@ -88,7 +88,7 @@ export const CLAUDE_MODEL_MAP: Record<string, string> = {
 };
 
 /**
- * Model translation for Codex CLI backend
+ * Model translation for Codex CLI runtime
  */
 export const CODEX_MODEL_MAP: Record<string, string> = {
   "gpt-5.2-codex": "gpt-5.2-codex",
@@ -98,7 +98,7 @@ export const CODEX_MODEL_MAP: Record<string, string> = {
 };
 
 /**
- * Model translation for OpenCode CLI backend
+ * Model translation for OpenCode CLI runtime
  * OpenCode uses provider/model format natively
  */
 export const OPENCODE_MODEL_MAP: Record<string, string> = {
@@ -121,20 +121,20 @@ export const OPENCODE_MODEL_MAP: Record<string, string> = {
 
 /**
  * Get the model name for a specific backend
- * Translates generic model names to backend-specific format
+ * Translates generic model names to runtime-specific format
  */
-export function getModelForBackend(model: string | undefined, backend: BackendType): string {
+export function getModelForRuntime(model: string | undefined, runtime: RuntimeType): string {
   // Use default if no model specified
   if (!model) {
-    return BACKEND_DEFAULT_MODELS[backend];
+    return RUNTIME_DEFAULT_MODELS[runtime];
   }
 
   // Strip provider prefix if present (e.g., "anthropic/claude-sonnet-4-5" -> "claude-sonnet-4-5")
   const normalizedModel = model.includes("/") ? model.split("/").pop()! : model;
 
-  switch (backend) {
+  switch (runtime) {
     case "default":
-      // For default backend, try alias first, otherwise preserve original model string
+      // For default runtime, try alias first, otherwise preserve original model string
       return SDK_MODEL_ALIASES[normalizedModel] || model;
 
     case "cursor":
@@ -166,7 +166,7 @@ export interface ParsedModel {
 }
 
 /**
- * Parse model string to provider and version (legacy, for SDK backend)
+ * Parse model string to provider and version (legacy, for SDK runtime)
  * Format: provider/model-name or just model-name (defaults to anthropic)
  */
 export function parseModel(model: string): ParsedModel {
@@ -184,7 +184,7 @@ export function parseModel(model: string): ParsedModel {
 }
 
 /**
- * Resolve model alias to specific version (for SDK backend)
+ * Resolve model alias to specific version (for SDK runtime)
  */
 export function resolveModelAlias(model: string): string {
   return SDK_MODEL_ALIASES[model] || model;

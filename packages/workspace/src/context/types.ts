@@ -7,15 +7,15 @@
  * Channel event kinds.
  *
  * - "message"    — agent-to-agent communication (public or DM)
- * - "tool_call"  — tool invocation (MCP, SDK, or backend native)
+ * - "tool_call"  — tool invocation (MCP, SDK, or runtime native)
  * - "system"     — operational log (workflow lifecycle, warnings, errors)
- * - "output"     — backend streaming text (assistant/user messages, not tool calls)
+ * - "output"     — runtime streaming text (assistant/user messages, not tool calls)
  * - "debug"      — debug-level detail (only shown with --debug)
  */
 export type EventKind = "message" | "tool_call" | "system" | "output" | "debug";
 
 /** Tool call source — which subsystem recorded the invocation */
-export type ToolCallSource = "mcp" | "sdk" | "backend";
+export type ToolCallSource = "mcp" | "sdk" | "runtime";
 
 /** Tool call metadata (only present when kind='tool_call') */
 export interface ToolCallData {

@@ -11,19 +11,19 @@ import type {
   TokenUsage,
   Transcript,
 } from "./types.ts";
-import type { Backend } from "./backends/types.ts";
+import type { Runtime } from "./runtimes/types.ts";
 import type { Logger } from "./logger.ts";
-import { createExecutionSession } from "./execution/session.ts";
-import type { ExecutionSession, AfterStepContext } from "./execution/types.ts";
+import { createLoop } from "./loop/session.ts";
+import type { Loop, AfterStepContext } from "./loop/types.ts";
 
 /**
- * Extended worker config that supports both SDK and CLI backends.
- * When a backend is provided, send() delegates to it instead of ToolLoopAgent.
- * This enables unified worker management regardless of backend type.
+ * Extended worker config that supports both SDK and CLI runtimes.
+ * When a runtime is provided, send() delegates to it instead of ToolLoopAgent.
+ * This enables unified worker management regardless of runtime type.
  */
 export interface AgentWorkerConfig extends SessionConfig {
-  /** CLI backend - when provided, send() delegates to this backend */
-  backend?: Backend;
+  /** CLI runtime - when provided, send() delegates to this runtime */
+  runtime?: Runtime;
   /** Provider configuration — when set, model is resolved via createModelWithProvider */
   provider?: string | ProviderConfig;
   /** Optional logger for worker events (maxSteps warnings, errors) */
@@ -54,7 +54,7 @@ export interface SendOptions {
 // ── Default backend for SDK path ──────────────────────────────────
 
 /** Minimal in-memory backend for SDK-only AgentWorker (no CLI needed) */
-const SDK_BACKEND: Backend = {
+const SDK_RUNTIME: Runtime = {
   type: "default",
   capabilities: {
     streaming: true,
@@ -63,14 +63,14 @@ const SDK_BACKEND: Backend = {
     cancellation: "abortable",
   },
   async send() {
-    throw new Error("SDK backend send() should not be called directly");
+    throw new Error("SDK runtime send() should not be called directly");
   },
 };
 
 /**
  * AgentWorker - Stateful worker for controlled agent execution
  *
- * Delegates execution to ExecutionSession internally, maintaining
+ * Delegates execution to Loop internally, maintaining
  * conversation state and approval logic on top.
  *
  * Tools are AI SDK tool() objects passed as Record<name, tool()>.
@@ -93,8 +93,8 @@ export class AgentWorker {
   private totalUsage: TokenUsage = { input: 0, output: 0, total: 0 };
   private pendingApprovals: PendingApproval[] = [];
 
-  // CLI backend (null for SDK sessions)
-  private backend: Backend | null;
+  // CLI runtime (null for SDK sessions)
+  private runtime: Runtime | null;
 
   // Track tool changes to know when to rebuild session
   private toolsChanged = false;
@@ -107,10 +107,10 @@ export class AgentWorker {
   private _modelFactory?: () => Promise<any> | any;
 
   /**
-   * Whether this session supports tool management (SDK backend only)
+   * Whether this session supports tool management (SDK runtime only)
    */
   get supportsTools(): boolean {
-    return this.backend === null;
+    return this.runtime === null;
   }
 
   constructor(config: AgentWorkerConfig, restore?: SessionState) {
@@ -132,22 +132,22 @@ export class AgentWorker {
     this.approval = config.approval ? { ...config.approval } : {};
     this.maxTokens = config.maxTokens ?? 4096;
     this.maxSteps = config.maxSteps ?? 200;
-    this.backend = config.backend ?? null;
+    this.runtime = config.runtime ?? null;
     this.provider = config.provider;
     this._modelFactory = config._modelFactory;
     this.log = config.log;
   }
 
   /**
-   * Create an ExecutionSession for a single run.
+   * Create an Loop for a single run.
    * Per-call session allows different hooks per send().
    */
   private createSession(hooks?: {
     afterStep?: (ctx: AfterStepContext) => void | Promise<void>;
-  }): ExecutionSession {
-    const backend = this.backend ?? SDK_BACKEND;
-    return createExecutionSession({
-      backend,
+  }): Loop {
+    const runtime = this.runtime ?? SDK_RUNTIME;
+    return createLoop({
+      runtime,
       model: this.model,
       provider: this.provider,
       log: this.log,
@@ -289,17 +289,17 @@ export class AgentWorker {
   /**
    * Send a message and stream the response.
    *
-   * Note: streaming delegates to send() internally since ExecutionSession
+   * Note: streaming delegates to send() internally since Loop
    * handles streaming at the execution level. The full response is yielded
-   * as a single chunk. For true streaming, use ExecutionSession directly.
+   * as a single chunk. For true streaming, use Loop directly.
    */
   async *sendStream(
     content: string,
     options: SendOptions = {},
   ): AsyncGenerator<string, AgentResponse, unknown> {
-    // Delegate to send — ExecutionSession handles the execution.
+    // Delegate to send — Loop handles the execution.
     // Streaming at the AgentWorker level is a convenience API;
-    // real streaming happens inside ExecutionSession.
+    // real streaming happens inside Loop.
     const response = await this.send(content, options);
     yield response.content;
     return response;
@@ -307,11 +307,11 @@ export class AgentWorker {
 
   /**
    * Add an AI SDK tool
-   * Only supported for SDK backends (ToolLoopAgent)
+   * Only supported for SDK runtimes (ToolLoopAgent)
    */
   addTool(name: string, t: unknown): void {
-    if (this.backend) {
-      throw new Error("Tool management not supported for CLI backends");
+    if (this.runtime) {
+      throw new Error("Tool management not supported for CLI runtimes");
     }
     this.tools[name] = t;
     this.toolsChanged = true;
@@ -328,8 +328,8 @@ export class AgentWorker {
    * Replace a tool's execute function (for testing)
    */
   mockTool(name: string, mockFn: (args: Record<string, unknown>) => unknown): void {
-    if (this.backend) {
-      throw new Error("Tool management not supported for CLI backends");
+    if (this.runtime) {
+      throw new Error("Tool management not supported for CLI runtimes");
     }
     const t = this.tools[name];
     if (!t) {
@@ -343,8 +343,8 @@ export class AgentWorker {
    * Set a static mock response for an existing tool
    */
   setMockResponse(name: string, response: unknown): void {
-    if (this.backend) {
-      throw new Error("Tool management not supported for CLI backends");
+    if (this.runtime) {
+      throw new Error("Tool management not supported for CLI runtimes");
     }
     const t = this.tools[name];
     if (!t) {

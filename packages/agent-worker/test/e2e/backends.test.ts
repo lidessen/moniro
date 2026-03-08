@@ -1,5 +1,5 @@
 /**
- * E2E Backend Tests — Real API calls against actual CLI backends
+ * E2E Runtime Tests — Real API calls against actual CLI backends
  *
  * Prerequisites:
  *   - Run `scripts/e2e-setup.sh` to install CLIs
@@ -14,7 +14,7 @@
  *   # Run all E2E tests
  *   bun test test/e2e/
  *
- *   # Run specific backend
+ *   # Run specific runtime
  *   bun test test/e2e/ -t "OpenCode"
  *
  * Notes:
@@ -29,7 +29,7 @@ import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir, homedir } from "node:os";
-import { ClaudeCodeBackend, CodexBackend, CursorBackend, OpenCodeBackend, SdkBackend } from "@moniro/agent-loop";
+import { ClaudeCodeRuntime, CodexRuntime, CursorRuntime, OpenCodeRuntime, SdkRuntime } from "@moniro/agent-loop";
 
 // Generous timeout for real API calls (2 minutes)
 const E2E_TIMEOUT = 120_000;
@@ -66,7 +66,7 @@ describe.skipIf(!hasClaudeCli || !hasDeepSeekKey || skipClaudeE2E)(
     let tmpDir: string;
 
     beforeAll(() => {
-      // Save env and configure DeepSeek backend
+      // Save env and configure DeepSeek runtime
       savedEnv = {
         ANTHROPIC_BASE_URL: process.env.ANTHROPIC_BASE_URL,
         ANTHROPIC_AUTH_TOKEN: process.env.ANTHROPIC_AUTH_TOKEN,
@@ -107,7 +107,7 @@ describe.skipIf(!hasClaudeCli || !hasDeepSeekKey || skipClaudeE2E)(
     test(
       "sends prompt and receives response",
       async () => {
-        const backend = new ClaudeCodeBackend({
+        const runtime = new ClaudeCodeRuntime({
           outputFormat: "text",
           cwd: tmpDir,
           appendSystemPrompt:
@@ -115,7 +115,7 @@ describe.skipIf(!hasClaudeCli || !hasDeepSeekKey || skipClaudeE2E)(
           timeout: E2E_TIMEOUT,
         });
 
-        const result = await backend.send(PROMPT);
+        const result = await runtime.send(PROMPT);
         expect(result.content).toBeDefined();
         expect(result.content.length).toBeGreaterThan(0);
         // Response should contain "4" somewhere
@@ -148,13 +148,13 @@ describe.skipIf(!hasOpenCode || !hasDeepSeekKey)("E2E: OpenCode (DeepSeek)", () 
   test(
     "sends prompt and receives response",
     async () => {
-      const backend = new OpenCodeBackend({
+      const runtime = new OpenCodeRuntime({
         model: "deepseek/deepseek-chat",
         cwd: tmpDir,
         timeout: E2E_TIMEOUT,
       });
 
-      const result = await backend.send(PROMPT);
+      const result = await runtime.send(PROMPT);
       expect(result.content).toBeDefined();
       expect(result.content.length).toBeGreaterThan(0);
       expect(result.content).toContain("4");
@@ -232,13 +232,13 @@ describe.skipIf(!hasCodex || !hasCodexAuth)("E2E: Codex CLI", () => {
   test(
     "sends prompt and receives response",
     async () => {
-      const backend = new CodexBackend({
+      const runtime = new CodexRuntime({
         model: CODEX_MODEL,
         cwd: tmpDir,
         timeout: E2E_TIMEOUT,
       });
 
-      const result = await backend.send(PROMPT);
+      const result = await runtime.send(PROMPT);
       expect(result.content).toBeDefined();
       expect(result.content.length).toBeGreaterThan(0);
       expect(result.content).toContain("4");
@@ -270,13 +270,13 @@ describe.skipIf(!hasCursor || !hasCursorKey)("E2E: Cursor Agent", () => {
   test(
     "sends prompt and receives response (composer-1)",
     async () => {
-      const backend = new CursorBackend({
+      const runtime = new CursorRuntime({
         model: "composer-1",
         cwd: tmpDir,
         timeout: E2E_TIMEOUT,
       });
 
-      const result = await backend.send(PROMPT);
+      const result = await runtime.send(PROMPT);
       expect(result.content).toBeDefined();
       expect(result.content.length).toBeGreaterThan(0);
       expect(result.content).toContain("4");
@@ -293,7 +293,7 @@ describe.skipIf(!hasMiniMaxKey)("E2E: MiniMax (SDK, provider config)", () => {
   test(
     "sends prompt and receives response (MiniMax-M2.5)",
     async () => {
-      const backend = new SdkBackend({
+      const runtime = new SdkRuntime({
         model: "MiniMax-M2.5",
         provider: {
           name: "anthropic",
@@ -303,7 +303,7 @@ describe.skipIf(!hasMiniMaxKey)("E2E: MiniMax (SDK, provider config)", () => {
       });
 
       try {
-        const result = await backend.send(PROMPT);
+        const result = await runtime.send(PROMPT);
         expect(result.content).toBeDefined();
         expect(result.content.length).toBeGreaterThan(0);
         expect(result.content).toContain("4");
@@ -332,7 +332,7 @@ describe.skipIf(!hasGlmKey)("E2E: GLM (SDK, provider config)", () => {
   test(
     "sends prompt and receives response (glm-4.7)",
     async () => {
-      const backend = new SdkBackend({
+      const runtime = new SdkRuntime({
         model: "glm-4.7",
         provider: {
           name: "anthropic",
@@ -342,7 +342,7 @@ describe.skipIf(!hasGlmKey)("E2E: GLM (SDK, provider config)", () => {
       });
 
       try {
-        const result = await backend.send(PROMPT);
+        const result = await runtime.send(PROMPT);
         expect(result.content).toBeDefined();
         expect(result.content.length).toBeGreaterThan(0);
         expect(result.content).toContain("4");
@@ -365,7 +365,7 @@ describe.skipIf(!hasGlmKey)("E2E: GLM (SDK, provider config)", () => {
 
 // ─── Availability Summary ────────────────────────────────────
 
-describe("E2E: Backend Availability", () => {
+describe("E2E: Runtime Availability", () => {
   test("reports which backends are testable", () => {
     const status = {
       "Claude Code CLI": hasClaudeCli ? "installed" : "missing",
@@ -387,7 +387,7 @@ describe("E2E: Backend Availability", () => {
       "GLM model": "glm-4.7",
     };
 
-    console.log("\n=== E2E Backend Availability ===");
+    console.log("\n=== E2E Runtime Availability ===");
     for (const [name, value] of Object.entries(status)) {
       const icon = value === "installed" || value === "set" ? "+" : "-";
       console.log(`  [${icon}] ${name}: ${value}`);

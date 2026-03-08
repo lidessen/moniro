@@ -1,5 +1,5 @@
 /**
- * Shared helpers for CLI backends
+ * Shared helpers for CLI runtimes
  *
  * Eliminates duplicated error handling and availability check patterns
  * across claude-code, codex, cursor, and opencode backends.
@@ -9,9 +9,9 @@ import { execa } from "execa";
 import { IdleTimeoutError } from "./idle-timeout.ts";
 
 /**
- * Handle errors from CLI backend execution.
+ * Handle errors from CLI runtime execution.
  *
- * Standardizes the error handling pattern shared by all CLI backends:
+ * Standardizes the error handling pattern shared by all CLI runtimes:
  * 1. IdleTimeoutError → human-readable timeout message
  * 2. Process exit error → include exit code and stderr
  * 3. Everything else → re-throw

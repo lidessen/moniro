@@ -1,12 +1,12 @@
 /**
  * Agent Loop Types
- * Types for agent lifecycle management and backend abstraction
+ * Types for agent lifecycle management and runtime abstraction
  */
 
 import type { ResolvedWorkflowAgent } from "../types.ts";
 import type { ContextProvider } from "../context/provider.ts";
 import type { Message, InboxMessage } from "../context/types.ts";
-import type { Backend } from "@moniro/agent-loop";
+import type { Runtime } from "@moniro/agent-loop";
 import type { ConversationMessage, ConversationLog, ThinThread } from "@moniro/agent-worker";
 import type { PersonalContext } from "@moniro/agent-worker";
 
@@ -95,8 +95,8 @@ export interface AgentLoopConfig {
   pollInterval?: number;
   /** Retry configuration */
   retry?: RetryConfig;
-  /** Backend to use for running the agent */
-  backend: Backend;
+  /** Runtime to use for running the agent */
+  runtime: Runtime;
   /** Callback when agent run completes */
   onRunComplete?: (result: AgentRunResult) => void;
   /** Log function (debug level — only shown with --debug) */

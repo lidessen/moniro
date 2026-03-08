@@ -25,11 +25,10 @@ export type {
   Transcript,
 } from "./types.ts";
 
-// ── Models ──────────────────────────────────────────────────────
+// ── Models (public: discovery & resolution only) ─────────────────
+// createModel/createModelAsync/createModelWithProvider are internal
+// to SDK runtime — not part of the public API.
 export {
-  createModel,
-  createModelAsync,
-  createModelWithProvider,
   isAutoProvider,
   resolveModelFallback,
   discoverProvider,
@@ -53,11 +52,11 @@ export type { ScheduleConfig, ResolvedSchedule } from "./schedule.ts";
 export { parseCron, nextCronTime, msUntilNextCron } from "./cron.ts";
 export type { CronFields } from "./cron.ts";
 
-// ── Execution Runtime ──────────────────────────────────────────
-export { ExecutionStateMachine, ExecutionSessionImpl, createExecutionSession } from "./execution/index.ts";
+// ── Loop ──────────────────────────────────────────────────────
+export { ExecutionStateMachine, LoopImpl, createLoop } from "./loop/index.ts";
 export type {
   ExecutionState,
-  BackendCapabilities,
+  RuntimeCapabilities,
   ExecutionMessage,
   ExecutionConfig,
   ExecutionInput,
@@ -69,34 +68,34 @@ export type {
   AfterStepContext,
   ExecutionHooks,
   ExecutionObserver,
-  ExecutionSession,
-  ExecutionSessionConfig,
-} from "./execution/index.ts";
+  Loop,
+  LoopConfig,
+} from "./loop/index.ts";
 
-// ── Backends ────────────────────────────────────────────────────
-export { createBackend, checkBackends, listBackends } from "./backends/index.ts";
-export type { Backend, BackendType, BackendConfig, BackendResponse, BackendSendOptions } from "./backends/types.ts";
-export type { BackendOptions } from "./backends/index.ts";
+// ── Runtimes ────────────────────────────────────────────────────
+export { createRuntime, checkRuntimes, listRuntimes } from "./runtimes/index.ts";
+export type { Runtime, RuntimeType, RuntimeConfig, RuntimeResponse, RuntimeSendOptions } from "./runtimes/types.ts";
+export type { RuntimeOptions } from "./runtimes/index.ts";
 export {
   parseModel,
-  normalizeBackendType,
-  getModelForBackend,
+  normalizeRuntimeType,
+  getModelForRuntime,
   resolveModelAlias,
-  BACKEND_DEFAULT_MODELS,
-} from "./backends/model-maps.ts";
-export { SdkBackend } from "./backends/sdk.ts";
-export type { SdkBackendOptions } from "./backends/sdk.ts";
-export { ClaudeCodeBackend } from "./backends/claude-code.ts";
-export type { ClaudeCodeOptions } from "./backends/claude-code.ts";
-export { CodexBackend } from "./backends/codex.ts";
-export type { CodexOptions } from "./backends/codex.ts";
-export { CursorBackend } from "./backends/cursor.ts";
-export type { CursorOptions } from "./backends/cursor.ts";
-export { OpenCodeBackend } from "./backends/opencode.ts";
-export type { OpenCodeOptions } from "./backends/opencode.ts";
-export { MockAIBackend, createMockBackend } from "./backends/mock.ts";
-export { execWithIdleTimeout, IdleTimeoutError } from "./backends/idle-timeout.ts";
-export type { StreamEvent, StreamParserCallbacks, EventAdapter } from "./backends/stream-json.ts";
+  RUNTIME_DEFAULT_MODELS,
+} from "./runtimes/model-maps.ts";
+export { SdkRuntime } from "./runtimes/sdk.ts";
+export type { SdkRuntimeOptions } from "./runtimes/sdk.ts";
+export { ClaudeCodeRuntime } from "./runtimes/claude-code.ts";
+export type { ClaudeCodeOptions } from "./runtimes/claude-code.ts";
+export { CodexRuntime } from "./runtimes/codex.ts";
+export type { CodexOptions } from "./runtimes/codex.ts";
+export { CursorRuntime } from "./runtimes/cursor.ts";
+export type { CursorOptions } from "./runtimes/cursor.ts";
+export { OpenCodeRuntime } from "./runtimes/opencode.ts";
+export type { OpenCodeOptions } from "./runtimes/opencode.ts";
+export { MockRuntime, createMockRuntime } from "./runtimes/mock.ts";
+export { execWithIdleTimeout, IdleTimeoutError } from "./runtimes/idle-timeout.ts";
+export type { StreamEvent, StreamParserCallbacks, EventAdapter } from "./runtimes/stream-json.ts";
 export {
   formatEvent,
   claudeAdapter,
@@ -104,8 +103,8 @@ export {
   extractClaudeResult,
   extractCodexResult,
   createStreamParser,
-} from "./backends/stream-json.ts";
-export { opencodeAdapter, extractOpenCodeResult } from "./backends/opencode.ts";
+} from "./runtimes/stream-json.ts";
+export { opencodeAdapter, extractOpenCodeResult } from "./runtimes/opencode.ts";
 
 // ── AI SDK Re-exports (for worker layer) ────────────────────────
 export { ToolLoopAgent, stepCountIs, type ModelMessage } from "ai";

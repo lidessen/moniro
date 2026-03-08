@@ -1,11 +1,11 @@
 /**
- * Mock Backend Helpers
+ * Mock Runtime Helpers
  *
  * Reusable mock backend factories for testing loops and workflows.
  * Consolidates patterns from workflow-mock-backend.test.ts and workflow-simulation.test.ts.
  */
 
-import type { Backend, BackendResponse } from "@moniro/agent-loop";
+import type { Runtime, RuntimeResponse } from "@moniro/agent-loop";
 import type { ContextProvider } from "@moniro/workspace";
 
 type BehaviorFn = (
@@ -19,7 +19,7 @@ type BehaviorFn = (
  * The behavior function receives the built prompt and can interact with
  * the context provider to simulate MCP tool calls.
  */
-export function createMockBackend(behavior: BehaviorFn, provider: ContextProvider): Backend {
+export function createMockRuntime(behavior: BehaviorFn, provider: ContextProvider): Runtime {
   return {
     type: "claude" as const,
     async send(message: string, options?: { system?: string }) {
@@ -32,7 +32,7 @@ export function createMockBackend(behavior: BehaviorFn, provider: ContextProvide
 /**
  * Create a no-op backend for idle/lifecycle tests.
  */
-export function noopBackend(): Backend {
+export function noopBackend(): Runtime {
   return {
     type: "claude" as const,
     async send() {
@@ -45,7 +45,7 @@ export function noopBackend(): Backend {
  * Create a backend that fails N times then succeeds.
  * Returns the attempt count for assertions.
  */
-export function failingBackend(failCount: number): Backend & { getAttempts: () => number } {
+export function failingBackend(failCount: number): Runtime & { getAttempts: () => number } {
   let attempts = 0;
   return {
     type: "claude" as const,
@@ -62,8 +62,8 @@ export function failingBackend(failCount: number): Backend & { getAttempts: () =
  * Create a recording backend that captures all send() calls.
  */
 export function recordingBackend(
-  response: BackendResponse = { content: "ok" },
-): Backend & { getCalls: () => Array<{ message: string; options?: Record<string, unknown> }> } {
+  response: RuntimeResponse = { content: "ok" },
+): Runtime & { getCalls: () => Array<{ message: string; options?: Record<string, unknown> }> } {
   const calls: Array<{ message: string; options?: Record<string, unknown> }> = [];
   return {
     type: "claude" as const,

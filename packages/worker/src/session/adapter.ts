@@ -1,22 +1,22 @@
 /**
  * ExecutionAdapter — checkpoint-based execution interface.
  *
- * Delegates to ExecutionSession from @moniro/agent-loop for actual
+ * Delegates to Loop from @moniro/agent-loop for actual
  * execution, mapping checkpoint semantics onto the session's hooks.
  *
  * This is NOT a separate execution implementation — it's a thin
  * adapter that translates the worker's checkpoint vocabulary into
- * ExecutionSession's hook system. One execution engine, two APIs.
+ * Loop's hook system. One execution engine, two APIs.
  */
 
 import {
-  createExecutionSession,
-  type Backend,
+  createLoop,
+  type Runtime,
   type ProviderConfig,
   type TokenUsage,
   type ToolCall,
   type Logger,
-  type ExecutionSession,
+  type Loop,
 } from "@moniro/agent-loop";
 import type {
   ActivationOutcome,
@@ -28,8 +28,8 @@ import type {
 
 // ── Capability Resolution ──────────────────────────────────────
 
-function resolveAdapterCapabilities(backend: Backend): ExecutionAdapterCapabilities {
-  const caps = backend.capabilities;
+function resolveAdapterCapabilities(runtime: Runtime): ExecutionAdapterCapabilities {
+  const caps = runtime.capabilities;
   return {
     streaming: caps.streaming,
     checkpointGranularity: caps.toolLoop === "external" ? "step" : "run",
@@ -42,8 +42,8 @@ function resolveAdapterCapabilities(backend: Backend): ExecutionAdapterCapabilit
 // ── Adapter Config ─────────────────────────────────────────────
 
 export interface ExecutionAdapterConfig {
-  backend: Backend;
-  /** Model ID — required for SDK/external tool loop backends */
+  runtime: Runtime;
+  /** Model ID — required for SDK/external tool loop runtimes */
   model?: string;
   /** Provider config for model creation */
   provider?: string | ProviderConfig;
@@ -56,18 +56,18 @@ export interface ExecutionAdapterConfig {
 // ── Implementation ─────────────────────────────────────────────
 
 /**
- * Create an ExecutionAdapter that delegates to ExecutionSession.
+ * Create an ExecutionAdapter that delegates to Loop.
  *
- * ExecutionSession (in @moniro/agent-loop) is the single execution engine.
+ * Loop (in @moniro/agent-loop) is the single execution engine.
  * This adapter maps the worker's checkpoint semantics onto it.
  */
 export function createExecutionAdapter(config: ExecutionAdapterConfig): ExecutionAdapter {
-  const backend = config.backend;
-  const capabilities = resolveAdapterCapabilities(backend);
+  const runtime = config.runtime;
+  const capabilities = resolveAdapterCapabilities(runtime);
 
-  // Shared ExecutionSession with model caching
-  const session: ExecutionSession = createExecutionSession({
-    backend,
+  // Shared Loop with model caching
+  const session: Loop = createLoop({
+    runtime,
     model: config.model,
     provider: config.provider,
     log: config.log,
@@ -78,7 +78,7 @@ export function createExecutionAdapter(config: ExecutionAdapterConfig): Executio
     capabilities,
 
     async execute(input, hooks) {
-      // Run via ExecutionSession
+      // Run via Loop
       const result = await session.run({
         system: input.system,
         messages: input.messages.map((m) => ({

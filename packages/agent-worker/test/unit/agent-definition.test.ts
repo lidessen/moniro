@@ -42,7 +42,7 @@ describe("AgentDefinitionSchema", () => {
     const result = AgentDefinitionSchema.safeParse({
       name: "alice",
       model: "anthropic/claude-sonnet-4-5",
-      backend: "sdk",
+      runtime: "sdk",
       provider: "anthropic",
       prompt: { system: "You are Alice." },
       soul: {
@@ -101,12 +101,12 @@ describe("AgentDefinitionSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  test("rejects invalid backend", () => {
+  test("rejects invalid runtime", () => {
     const result = AgentDefinitionSchema.safeParse({
       name: "alice",
       model: "anthropic/claude-sonnet-4-5",
       prompt: { system: "Hello" },
-      backend: "invalid",
+      runtime: "invalid",
     });
     expect(result.success).toBe(false);
   });

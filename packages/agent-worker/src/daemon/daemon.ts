@@ -4,7 +4,7 @@
  * Architecture: Interface → Daemon → Loop (three layers)
  *   Interface: CLI/REST/MCP clients talk to daemon via HTTP
  *   Daemon:    This module — owns lifecycle, creates workspaces + loops
- *   Loop:      AgentLoop + Backend — executes agent reasoning
+ *   Loop:      AgentLoop + Runtime — executes agent reasoning
  *
  * Data ownership:
  *   AgentRegistry (agents) — what agents exist + their handles (loop, state)
@@ -27,7 +27,7 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { randomUUID } from "node:crypto";
-import type { AgentDefinition, BackendType } from "@moniro/agent-loop";
+import type { AgentDefinition, RuntimeType } from "@moniro/agent-loop";
 import { AgentRegistry } from "@/agent/agent-registry.ts";
 import type { StateStore } from "@/agent/store.ts";
 import { MemoryStateStore } from "@/agent/store.ts";
@@ -186,7 +186,7 @@ async function parseJsonBody(c: { req: { json: () => Promise<unknown> } }): Prom
 /** Map AgentDefinition to the ResolvedWorkflowAgent type needed by the factory */
 function defToResolvedAgent(def: AgentDefinition): ResolvedWorkflowAgent {
   return {
-    backend: def.backend as ResolvedWorkflowAgent["backend"],
+    runtime: def.runtime as ResolvedWorkflowAgent["runtime"],
     model: def.model,
     provider: def.provider,
     resolvedSystemPrompt: def.prompt.system ?? "",
@@ -199,7 +199,7 @@ function resolvedToAgentDef(name: string, agent: ResolvedWorkflowAgent): AgentDe
   return {
     name,
     model: agent.model ?? "auto",
-    backend: agent.backend === "default" ? "sdk" : (agent.backend as AgentDefinition["backend"]),
+    runtime: agent.runtime === "default" ? "sdk" : (agent.runtime as AgentDefinition["runtime"]),
     provider: agent.provider,
     prompt: { system: agent.resolvedSystemPrompt ?? "" },
     schedule: agent.schedule,
@@ -420,7 +420,7 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
       return {
         name: def.name,
         model: def.model,
-        backend: def.backend ?? "default",
+        runtime: def.runtime ?? "default",
         workflow: "global",
         tag: undefined as string | undefined,
         createdAt: undefined as string | undefined,
@@ -436,7 +436,7 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
         return {
           name: agentName,
           model: "",
-          backend: "",
+          runtime: "",
           workflow: wf.name,
           tag: wf.tag,
           createdAt: wf.startedAt,
@@ -461,7 +461,7 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
       name,
       model,
       system,
-      backend = "default",
+      runtime = "default",
       provider,
       workflow,
       tag,
@@ -470,7 +470,7 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
       name: string;
       model: string;
       system: string;
-      backend?: BackendType;
+      runtime?: RuntimeType;
       provider?: string | { name: string; base_url?: string; api_key?: string };
       workflow?: string;
       tag?: string;
@@ -488,7 +488,7 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
     const def: AgentDefinition = {
       name,
       model,
-      backend: backend as AgentDefinition["backend"],
+      runtime: runtime as AgentDefinition["runtime"],
       provider,
       prompt: { system },
       schedule,
@@ -497,7 +497,7 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
     // All API-created agents are ephemeral (config agents come from config.yml)
     s.agents.registerEphemeral(def);
 
-    return c.json({ name, model, backend, workflow, tag, schedule }, 201);
+    return c.json({ name, model, runtime, workflow, tag, schedule }, 201);
   });
 
   // ── GET /agents/:name ────────────────────────────────────────
@@ -511,7 +511,7 @@ export function createDaemonApp(options: DaemonAppOptions): Hono {
     return c.json({
       name: def.name,
       model: def.model,
-      backend: def.backend ?? "default",
+      runtime: def.runtime ?? "default",
       system: def.prompt.system,
       workflow: undefined,
       tag: undefined,

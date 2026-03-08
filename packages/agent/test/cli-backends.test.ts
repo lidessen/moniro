@@ -1,5 +1,5 @@
 /**
- * CLI Backend Tests
+ * CLI Runtime Tests
  *
  * Uses mock-cli.ts to simulate cursor agent, claude, codex, and opencode CLIs
  */
@@ -8,7 +8,7 @@ import { describe, test, expect } from "bun:test";
 import { spawn } from "node:child_process";
 import { join } from "node:path";
 import {
-  CursorBackend,
+  CursorRuntime,
   opencodeAdapter,
   extractOpenCodeResult,
   execWithIdleTimeout,
@@ -98,9 +98,9 @@ describe("Mock CLI", () => {
   });
 });
 
-describe("CursorBackend with Mock", () => {
-  // Create a backend that uses our mock CLI (with stream-json format)
-  class MockCursorBackend extends CursorBackend {
+describe("CursorRuntime with Mock", () => {
+  // Create a runtime that uses our mock CLI (with stream-json format)
+  class MockCursorRuntime extends CursorRuntime {
     protected override async buildCommand(
       message: string,
     ): Promise<{ command: string; args: string[] }> {
@@ -114,37 +114,37 @@ describe("CursorBackend with Mock", () => {
   }
 
   test("sends message and parses stream-json result", async () => {
-    const backend = new MockCursorBackend({ timeout: 5000 });
-    const response = await backend.send("2+2=?");
+    const runtime = new MockCursorRuntime({ timeout: 5000 });
+    const response = await runtime.send("2+2=?");
     expect(response.content).toBe("4");
   });
 
   test("sends hello message and parses result", async () => {
-    const backend = new MockCursorBackend({ timeout: 5000 });
-    const response = await backend.send("hello");
+    const runtime = new MockCursorRuntime({ timeout: 5000 });
+    const response = await runtime.send("hello");
     expect(response.content).toContain("Hello");
   });
 
   test("reports progress via streamCallbacks", async () => {
     const progress: string[] = [];
-    const backend = new MockCursorBackend({
+    const runtime = new MockCursorRuntime({
       timeout: 5000,
       streamCallbacks: {
         debugLog: (msg) => progress.push(msg),
       },
     });
-    await backend.send("2+2=?");
+    await runtime.send("2+2=?");
     // Should have parsed stream-json events and reported progress
     expect(progress.some((p) => p.includes("Cursor initialized"))).toBe(true);
     expect(progress.some((p) => p.includes("Cursor completed"))).toBe(true);
   });
 
   test("handles idle timeout (no output)", async () => {
-    // Create backend with very short timeout
-    const backend = new MockCursorBackend({ timeout: 100 });
+    // Create runtime with very short timeout
+    const runtime = new MockCursorRuntime({ timeout: 100 });
 
     // Override to use timeout mock (plain text, no stream-json)
-    backend["buildCommand"] = async (message: string) => {
+    runtime["buildCommand"] = async (message: string) => {
       return {
         command: "bun",
         args: [MOCK_CLI_PATH, "cursor", "agent", "-p", message],
@@ -156,7 +156,7 @@ describe("CursorBackend with Mock", () => {
     process.env.MOCK_TIMEOUT = "1";
 
     try {
-      await expect(backend.send("test")).rejects.toThrow(/timed out/);
+      await expect(runtime.send("test")).rejects.toThrow(/timed out/);
     } finally {
       if (originalEnv === undefined) {
         delete process.env.MOCK_TIMEOUT;
@@ -255,7 +255,7 @@ describe("Claude/Cursor Adapter", () => {
     }
   });
 
-  test("formats init event with backend name", () => {
+  test("formats init event with runtime name", () => {
     const event = claudeAdapter({ type: "system", subtype: "init", model: "Claude 4.5 Sonnet" })!;
     expect(formatEvent(event, "Claude")).toBe("Claude initialized (model: Claude 4.5 Sonnet)");
     expect(formatEvent(event, "Cursor")).toBe("Cursor initialized (model: Claude 4.5 Sonnet)");
@@ -553,7 +553,7 @@ describe("OpenCode Mock CLI", () => {
   });
 });
 
-describe("OpenCodeBackend with Mock", () => {
+describe("OpenCodeRuntime with Mock", () => {
   test("sends message and parses JSON result", async () => {
     // Use execWithIdleTimeout directly to test parsing
     const result = await runMockCli(["opencode", "run", "--format", "json", "2+2=?"]);
@@ -581,9 +581,9 @@ describe("OpenCodeBackend with Mock", () => {
   });
 });
 
-describe("Backend Integration", () => {
+describe("Runtime Integration", () => {
   test("mock CLI behaves like real cursor agent", async () => {
-    // Test the exact command that CursorBackend would build
+    // Test the exact command that CursorRuntime would build
     const result = await runMockCli(["cursor", "agent", "-p", "What is 2+2?"]);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toBe("4");

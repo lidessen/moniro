@@ -3,10 +3,10 @@
  *
  * Two responsibilities:
  * 1. Generate MCP config for workflow HTTP transport
- * 2. Write backend-specific MCP config files to workspace
+ * 2. Write runtime-specific MCP config files to workspace
  *
  * Writing lives here (not in backends) because it's workspace infrastructure,
- * not a backend concern. Backends only need their cwd set — they don't
+ * not a runtime concern. Backends only need their cwd set — they don't
  * need to know about MCP config file layout.
  */
 
@@ -38,9 +38,9 @@ export function generateWorkflowMCPConfig(mcpUrl: string, agentName: string): Wo
 }
 
 /**
- * Write MCP config to a workspace directory in the format expected by a backend.
+ * Write MCP config to a workspace directory in the format expected by a runtime.
  *
- * Each CLI backend reads MCP config from a different location:
+ * Each CLI runtime reads MCP config from a different location:
  * - claude:   {workspace}/mcp-config.json        (passed via --mcp-config flag)
  * - cursor:   {workspace}/.cursor/mcp.json       (auto-discovered by cursor)
  * - codex:    {workspace}/.codex/config.yaml      (auto-discovered by codex)

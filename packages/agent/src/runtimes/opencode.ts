@@ -1,5 +1,5 @@
 /**
- * OpenCode CLI backend
+ * OpenCode CLI runtime
  * Uses `opencode run` for non-interactive mode with JSON event output
  *
  * MCP Configuration:
@@ -9,8 +9,8 @@
  * @see https://opencode.ai/docs/
  */
 
-import type { Backend, BackendResponse, BackendSendOptions } from "./types.ts";
-import type { BackendCapabilities } from "../execution/types.ts";
+import type { Runtime, RuntimeResponse, RuntimeSendOptions } from "./types.ts";
+import type { RuntimeCapabilities } from "../loop/types.ts";
 import { DEFAULT_IDLE_TIMEOUT } from "./types.ts";
 import { execWithIdleTimeout } from "./idle-timeout.ts";
 import { handleCliBackendError, checkCliAvailable } from "./cli-helpers.ts";
@@ -34,9 +34,9 @@ export interface OpenCodeOptions {
   streamCallbacks?: StreamParserCallbacks;
 }
 
-export class OpenCodeBackend implements Backend {
+export class OpenCodeRuntime implements Runtime {
   readonly type = "opencode" as const;
-  readonly capabilities: BackendCapabilities = {
+  readonly capabilities: RuntimeCapabilities = {
     streaming: false,
     toolLoop: "native",
     stepControl: "none",
@@ -51,7 +51,7 @@ export class OpenCodeBackend implements Backend {
     };
   }
 
-  async send(message: string, options?: BackendSendOptions): Promise<BackendResponse> {
+  async send(message: string, options?: RuntimeSendOptions): Promise<RuntimeResponse> {
     const args = this.buildArgs(message);
     const cwd = this.options.workspace || this.options.cwd;
     const timeout = this.options.timeout ?? DEFAULT_IDLE_TIMEOUT;
@@ -208,7 +208,7 @@ export const opencodeAdapter: EventAdapter = (raw) => {
  * 1. Last text event
  * 2. Raw stdout fallback
  */
-export function extractOpenCodeResult(stdout: string): BackendResponse {
+export function extractOpenCodeResult(stdout: string): RuntimeResponse {
   const lines = stdout.trim().split("\n");
 
   // 1. Find last text event

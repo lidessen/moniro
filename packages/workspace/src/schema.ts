@@ -60,18 +60,18 @@ export const RefAgentEntrySchema = z
 
 export const InlineAgentEntrySchema = z
   .object({
-    backend: z
+    runtime: z
       .enum(["default", "claude", "cursor", "codex", "opencode", "mock"])
       .optional()
       .describe(
-        "Backend to use. `default` = Vercel AI SDK, others = CLI wrappers. " +
+        "Runtime to use. `default` = Vercel AI SDK, others = CLI wrappers. " +
           "CLI backends (`claude`, `cursor`, `codex`, `opencode`) don't require `model`",
       ),
     model: z
       .string()
       .optional()
       .describe(
-        "Model identifier. Required for `default` backend. " +
+        "Model identifier. Required for `default` runtime. " +
           "Formats: `provider/model`, `provider:model`, or `auto` for env-based detection",
       ),
     provider: z
@@ -95,7 +95,7 @@ export const InlineAgentEntrySchema = z
       .int()
       .positive()
       .optional()
-      .describe("Backend timeout in milliseconds (overrides backend default)"),
+      .describe("Runtime timeout in milliseconds (overrides runtime default)"),
     wakeup: z
       .union([z.string(), z.number()])
       .optional()

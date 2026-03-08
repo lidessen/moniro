@@ -1,5 +1,5 @@
 /**
- * Cursor CLI backend
+ * Cursor CLI runtime
  * Uses `cursor agent -p` for non-interactive mode with stream-json output
  *
  * MCP Configuration:
@@ -9,8 +9,8 @@
  * @see https://docs.cursor.com/context/model-context-protocol
  */
 
-import type { Backend, BackendResponse, BackendSendOptions } from "./types.ts";
-import type { BackendCapabilities } from "../execution/types.ts";
+import type { Runtime, RuntimeResponse, RuntimeSendOptions } from "./types.ts";
+import type { RuntimeCapabilities } from "../loop/types.ts";
 import { DEFAULT_IDLE_TIMEOUT } from "./types.ts";
 import { execWithIdleTimeout } from "./idle-timeout.ts";
 import { handleCliBackendError, checkCliAvailable } from "./cli-helpers.ts";
@@ -35,9 +35,9 @@ export interface CursorOptions {
   streamCallbacks?: StreamParserCallbacks;
 }
 
-export class CursorBackend implements Backend {
+export class CursorRuntime implements Runtime {
   readonly type = "cursor" as const;
-  readonly capabilities: BackendCapabilities = {
+  readonly capabilities: RuntimeCapabilities = {
     streaming: true,
     toolLoop: "native",
     stepControl: "none",
@@ -59,7 +59,7 @@ export class CursorBackend implements Backend {
     };
   }
 
-  async send(message: string, options?: BackendSendOptions): Promise<BackendResponse> {
+  async send(message: string, options?: RuntimeSendOptions): Promise<RuntimeResponse> {
     const { command, args } = await this.buildCommand(message);
     // Use workspace as cwd if set, otherwise fall back to cwd option
     const cwd = this.options.workspace || this.options.cwd;

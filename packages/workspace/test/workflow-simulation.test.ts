@@ -19,7 +19,7 @@ import type {
   ResolvedWorkflowAgent,
   ContextProvider,
 } from "@moniro/workspace";
-import type { Backend } from "@moniro/agent-loop";
+import type { Runtime } from "@moniro/agent-loop";
 
 // ==================== Test Helpers ====================
 
@@ -41,15 +41,15 @@ const mockAgent: ResolvedWorkflowAgent = {
   resolvedSystemPrompt: "Test agent",
 };
 
-/** Create a mock backend with custom behavior.
+/** Create a mock runtime with custom behavior.
  * Uses type 'claude' so the loop routes through the normal
  * build-prompt → send() path (not the mock MCP tool bridge).
  */
-function createMockBackend(
+function createMockRuntime(
   _name: string,
   behavior: (prompt: string, provider: ContextProvider) => Promise<void>,
   provider: ContextProvider,
-): Backend {
+): Runtime {
   return {
     type: "claude" as const,
     async send(message: string) {
@@ -95,7 +95,7 @@ describe("Workflow Simulation", () => {
     const loops: AgentLoop[] = [];
 
     // Reviewer behavior: request code review, then acknowledge
-    const reviewerBackend = createMockBackend(
+    const reviewerBackend = createMockRuntime(
       "reviewer",
       async (prompt, p) => {
         const inbox = getInboxSection(prompt);
@@ -109,7 +109,7 @@ describe("Workflow Simulation", () => {
     );
 
     // Coder behavior: respond to reviewer feedback
-    const coderBackend = createMockBackend(
+    const coderBackend = createMockRuntime(
       "coder",
       async (prompt, p) => {
         const inbox = getInboxSection(prompt);
@@ -125,7 +125,7 @@ describe("Workflow Simulation", () => {
       agent: mockAgent,
       contextProvider: provider,
       mcpUrl: "http://127.0.0.1:0/mcp",
-      backend: reviewerBackend,
+      runtime: reviewerBackend,
       workspaceDir: "/tmp/workspace",
       projectDir: "/tmp/project",
       pollInterval: 30,
@@ -136,7 +136,7 @@ describe("Workflow Simulation", () => {
       agent: mockAgent,
       contextProvider: provider,
       mcpUrl: "http://127.0.0.1:0/mcp",
-      backend: coderBackend,
+      runtime: coderBackend,
       workspaceDir: "/tmp/workspace",
       projectDir: "/tmp/project",
       pollInterval: 30,
@@ -182,7 +182,7 @@ describe("Workflow Simulation", () => {
     let proposal: Awaited<ReturnType<typeof proposalManager.create>> | null = null;
 
     // Alice creates proposal and votes
-    const aliceBackend = createMockBackend(
+    const aliceBackend = createMockRuntime(
       "alice",
       async (prompt, p) => {
         const inbox = getInboxSection(prompt);
@@ -208,7 +208,7 @@ describe("Workflow Simulation", () => {
     );
 
     // Bob votes
-    const bobBackend = createMockBackend(
+    const bobBackend = createMockRuntime(
       "bob",
       async (prompt, _p) => {
         const inbox = getInboxSection(prompt);
@@ -220,7 +220,7 @@ describe("Workflow Simulation", () => {
     );
 
     // Charlie votes
-    const charlieBackend = createMockBackend(
+    const charlieBackend = createMockRuntime(
       "charlie",
       async (prompt, _p) => {
         const inbox = getInboxSection(prompt);
@@ -240,7 +240,7 @@ describe("Workflow Simulation", () => {
       agent: mockAgent,
       contextProvider: provider,
       mcpUrl: "http://127.0.0.1:0/mcp",
-      backend: aliceBackend,
+      runtime: aliceBackend,
       pollInterval: 30,
       workspaceDir: "/tmp/workspace",
       projectDir: "/tmp/project",
@@ -251,7 +251,7 @@ describe("Workflow Simulation", () => {
       agent: mockAgent,
       contextProvider: provider,
       mcpUrl: "http://127.0.0.1:0/mcp",
-      backend: bobBackend,
+      runtime: bobBackend,
       pollInterval: 30,
       workspaceDir: "/tmp/workspace",
       projectDir: "/tmp/project",
@@ -262,7 +262,7 @@ describe("Workflow Simulation", () => {
       agent: mockAgent,
       contextProvider: provider,
       mcpUrl: "http://127.0.0.1:0/mcp",
-      backend: charlieBackend,
+      runtime: charlieBackend,
       pollInterval: 30,
       workspaceDir: "/tmp/workspace",
       projectDir: "/tmp/project",
@@ -299,7 +299,7 @@ describe("Workflow Simulation", () => {
     const provider = createMemoryContextProvider(["agent1", "agent2"]);
     const loops = new Map<string, AgentLoop>();
 
-    const backend: Backend = {
+    const runtime: Runtime = {
       type: "claude" as const,
       async send() {
         return { content: "ok" };
@@ -311,7 +311,7 @@ describe("Workflow Simulation", () => {
       agent: mockAgent,
       contextProvider: provider,
       mcpUrl: "http://127.0.0.1:0/mcp",
-      backend,
+      runtime,
       pollInterval: 30,
       workspaceDir: "/tmp/workspace",
       projectDir: "/tmp/project",
@@ -322,7 +322,7 @@ describe("Workflow Simulation", () => {
       agent: mockAgent,
       contextProvider: provider,
       mcpUrl: "http://127.0.0.1:0/mcp",
-      backend,
+      runtime,
       pollInterval: 30,
       workspaceDir: "/tmp/workspace",
       projectDir: "/tmp/project",
@@ -356,7 +356,7 @@ describe("Workflow Simulation", () => {
     const provider = createMemoryContextProvider(["worker"]);
     let attempts = 0;
 
-    const backend: Backend = {
+    const runtime: Runtime = {
       type: "claude" as const,
       async send() {
         attempts++;
@@ -373,7 +373,7 @@ describe("Workflow Simulation", () => {
       agent: mockAgent,
       contextProvider: provider,
       mcpUrl: "http://127.0.0.1:0/mcp",
-      backend,
+      runtime,
       pollInterval: 30,
       retry: { maxAttempts: 3, backoffMs: 10, backoffMultiplier: 1 },
       workspaceDir: "/tmp/workspace",

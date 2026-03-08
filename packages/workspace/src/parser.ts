@@ -254,13 +254,13 @@ function resolveRefAgent(
       : entry.prompt.append;
   }
 
-  // Map backend: AgentDefinition uses "sdk", WorkflowAgentDef uses "default"
-  const backend = def.backend === "sdk" ? "default" : def.backend;
+  // Map runtime: AgentDefinition uses "sdk", WorkflowAgentDef uses "default"
+  const runtime = def.runtime === "sdk" ? "default" : def.runtime;
 
   return {
     // Base fields from AgentDefinition
     model: def.model,
-    backend: backend as WorkflowAgentDef["backend"],
+    runtime: runtime as WorkflowAgentDef["runtime"],
     provider: def.provider,
     system_prompt: basePrompt,
     max_tokens: entry.max_tokens ?? def.max_tokens,
@@ -483,7 +483,7 @@ function validateParam(
 }
 
 /** Backends that don't require an explicit model field */
-const CLI_BACKENDS = ["claude", "cursor", "codex", "opencode", "mock"];
+const CLI_RUNTIMES = ["claude", "cursor", "codex", "opencode", "mock"];
 
 function validateAgent(name: string, agent: unknown, errors: ValidationError[]): void {
   const path = `agents.${name}`;
@@ -539,11 +539,11 @@ function validateRefAgent(
     });
   }
 
-  // model/backend/provider/tools/wakeup/timeout are not allowed with ref
+  // model/runtime/provider/tools/wakeup/timeout are not allowed with ref
   // (they come from the agent definition or are not applicable)
   for (const field of [
     "model",
-    "backend",
+    "runtime",
     "provider",
     "tools",
     "wakeup",
@@ -578,15 +578,15 @@ function validateInlineAgent(
   a: Record<string, unknown>,
   errors: ValidationError[],
 ): void {
-  const backend = typeof a.backend === "string" ? a.backend : "default";
+  const runtime = typeof a.runtime === "string" ? a.runtime : "default";
 
-  // model is required for default backend, optional for CLI backends (they have defaults)
+  // model is required for default runtime, optional for CLI backends (they have defaults)
   if (a.model !== undefined && typeof a.model !== "string") {
     errors.push({ path: `${path}.model`, message: 'Field "model" must be a string' });
-  } else if (!a.model && !CLI_BACKENDS.includes(backend)) {
+  } else if (!a.model && !CLI_RUNTIMES.includes(runtime)) {
     errors.push({
       path: `${path}.model`,
-      message: 'Required field "model" must be a string (required for default backend)',
+      message: 'Required field "model" must be a string (required for default runtime)',
     });
   }
 
@@ -666,11 +666,11 @@ function validateInlineAgent(
       });
     }
 
-    // provider only works with default backend
-    if (CLI_BACKENDS.includes(backend) && backend !== "mock") {
+    // provider only works with default runtime
+    if (CLI_RUNTIMES.includes(runtime) && runtime !== "mock") {
       errors.push({
         path: `${path}.provider`,
-        message: `Field "provider" is ignored for CLI backend "${backend}" (only works with default backend)`,
+        message: `Field "provider" is ignored for CLI runtime "${runtime}" (only works with default runtime)`,
       });
     }
   }

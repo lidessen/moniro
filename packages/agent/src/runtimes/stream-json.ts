@@ -1,7 +1,7 @@
 /**
- * Stream-JSON event parsing for CLI backends
+ * Stream-JSON event parsing for CLI runtimes
  *
- * Each CLI backend outputs a different JSON event format:
+ * Each CLI runtime outputs a different JSON event format:
  * - Cursor/Claude: --output-format=stream-json (system/init, assistant, result)
  * - Codex: --json (thread.started, item.completed, turn.completed)
  *
@@ -10,9 +10,9 @@
  * events into it. Each backend explicitly chooses its adapter.
  */
 
-import type { BackendResponse } from "./types.ts";
+import type { RuntimeResponse } from "./types.ts";
 
-// ==================== Backend Event Type Definitions ====================
+// ==================== Runtime Event Type Definitions ====================
 
 /**
  * Claude/Claude Code event format
@@ -154,7 +154,7 @@ export type CodexEvent =
 
 /**
  * Standard internal event representation.
- * Each backend adapter converts native JSON events to this format.
+ * Each runtime adapter converts native JSON events to this format.
  */
 export type StreamEvent =
   | { kind: "init"; model?: string; sessionId?: string }
@@ -185,7 +185,7 @@ export type EventAdapter = (raw: Record<string, unknown>) => StreamEvent | null;
  * Returns null if the event doesn't need display.
  *
  * This function only knows about StreamEvent — it never touches
- * backend-specific raw JSON. Format-specific conversion is handled
+ * runtime-specific raw JSON. Format-specific conversion is handled
  * by the EventAdapter.
  */
 export function formatEvent(event: StreamEvent, backendName: string): string | null {
@@ -312,7 +312,7 @@ export const claudeAdapter: EventAdapter = (raw) => {
  * 2. Last assistant message with text content
  * 3. Raw stdout fallback
  */
-export function extractClaudeResult(stdout: string): BackendResponse {
+export function extractClaudeResult(stdout: string): RuntimeResponse {
   const lines = stdout.trim().split("\n");
 
   // 1. Find result event
@@ -476,7 +476,7 @@ export const codexAdapter: EventAdapter = (raw) => {
  * 1. Last item.completed with item.type=agent_message
  * 2. Raw stdout fallback
  */
-export function extractCodexResult(stdout: string): BackendResponse {
+export function extractCodexResult(stdout: string): RuntimeResponse {
   const lines = stdout.trim().split("\n");
 
   // 1. Find last agent_message
@@ -507,7 +507,7 @@ export interface StreamParserCallbacks {
   debugLog: (message: string) => void;
   /** Text output from backend (kind="output") — assistant/user messages */
   outputLog?: (message: string) => void;
-  /** Backend native tool call (kind="tool_call", source="backend") */
+  /** Runtime-native tool call (kind="tool_call", source="backend") */
   toolCallLog?: (name: string, args: string) => void;
   /** MCP tool names to skip (already logged by MCP server) */
   mcpToolNames?: Set<string>;
@@ -567,7 +567,7 @@ export function createStreamParser(
           // Skip if this is an MCP tool (already logged by MCP server)
           if (mcpToolNames?.has(event.name)) continue;
 
-          // Emit structured tool call for backend native tools
+          // Emit structured tool call for runtime native tools
           if (toolCallLog && event.kind === "tool_call") {
             toolCallLog(event.name, event.args);
             continue;

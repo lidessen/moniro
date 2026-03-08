@@ -3,7 +3,7 @@
  * Manages agent lifecycle with polling and retry logic
  *
  * The loop owns the full orchestration line:
- *   inbox → build prompt → configure workspace → backend.send() → result
+ *   inbox → build prompt → configure workspace → runtime.send() → result
  * Backends are pure communication adapters — they only know how to send().
  */
 
@@ -56,7 +56,7 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
     mcpUrl,
     workspaceDir,
     projectDir,
-    backend,
+    runtime,
     onRunComplete,
     log = () => {},
     feedback,
@@ -223,7 +223,7 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
       };
 
       // Orchestrate: build prompt → configure workspace → send
-      lastResult = await runAgent(backend, runContext, log, infoLog);
+      lastResult = await runAgent(runtime, runContext, log, infoLog);
 
       // Handle preemption: re-queue with progress, break to process higher-priority
       if (lastResult.preempted) {
@@ -434,9 +434,9 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
       // Update status when stopping
       await contextProvider.setAgentStatus(name, { state: "stopped" });
 
-      // Abort any running backend operations
-      if (backend.abort) {
-        backend.abort();
+      // Abort any running runtime operations
+      if (runtime.abort) {
+        runtime.abort();
       }
 
       // Clear pending timeout
@@ -541,7 +541,7 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
         };
 
         infoLog(`Direct send (${message.length} chars)`);
-        const result = await runAgent(backend, runContext, log, infoLog);
+        const result = await runAgent(runtime, runContext, log, infoLog);
 
         if (result.success) {
           // Write response to channel
@@ -578,13 +578,13 @@ export function createAgentLoop(config: AgentLoopConfig): AgentLoop {
 
 // ==================== Agent Run Orchestration ====================
 
-import type { Backend } from "@moniro/agent-loop";
+import type { Runtime } from "@moniro/agent-loop";
 import { runMockAgent } from "./mock-runner.ts";
 import { runSdkAgent } from "./sdk-runner.ts";
 import { writeBackendMcpConfig } from "./mcp-config.ts";
 
 /**
- * Run an agent: build prompt, configure workspace, call backend.send()
+ * Run an agent: build prompt, configure workspace, call runtime.send()
  *
  * This is the single orchestration function that the loop calls.
  * All the "how to run an agent" logic lives here — backends just send().
@@ -593,20 +593,20 @@ import { writeBackendMcpConfig } from "./mcp-config.ts";
  * because they can't manage tools on their own (unlike CLI backends).
  */
 async function runAgent(
-  backend: Backend,
+  runtime: Runtime,
   ctx: AgentRunContext,
   log: (msg: string) => void,
   infoLog?: (msg: string) => void,
 ): Promise<AgentRunResult> {
   const info = infoLog ?? log;
 
-  // Mock backend: scripted tool calls for integration testing
-  if (backend.type === "mock") {
+  // Mock runtime: scripted tool calls for integration testing
+  if (runtime.type === "mock") {
     return runMockAgent(ctx, (msg) => log(msg));
   }
 
-  // Default backend: real model with MCP tools + bash
-  if (backend.type === "default") {
+  // Default runtime: real model with MCP tools + bash
+  if (runtime.type === "default") {
     return runSdkAgent(ctx, (msg) => log(msg));
   }
 
@@ -614,16 +614,16 @@ async function runAgent(
   const startTime = Date.now();
 
   try {
-    // Write MCP config to workspace (backend-specific format)
+    // Write MCP config to workspace (runtime-specific format)
     const mcpConfig = generateWorkflowMCPConfig(ctx.mcpUrl, ctx.name);
-    writeBackendMcpConfig(backend.type, ctx.workspaceDir, mcpConfig);
+    writeBackendMcpConfig(runtime.type, ctx.workspaceDir, mcpConfig);
 
     // Build prompt from context
     const prompt = buildAgentPrompt(ctx);
-    info(`Prompt (${prompt.length} chars) → ${backend.type} backend`);
+    info(`Prompt (${prompt.length} chars) → ${runtime.type} runtime`);
 
-    // Send via backend
-    const response = await backend.send(prompt, { system: ctx.agent.resolvedSystemPrompt });
+    // Send via runtime
+    const response = await runtime.send(prompt, { system: ctx.agent.resolvedSystemPrompt });
 
     return {
       success: true,

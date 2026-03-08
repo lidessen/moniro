@@ -9,7 +9,7 @@
  *
  * Usage:
  *   1. createMinimalRuntime()  — context + MCP + event log (the "workspace")
- *   2. createWiredLoop()       — backend + workspace dir + loop (per agent)
+ *   2. createWiredLoop()       — runtime + workspace dir + loop (per agent)
  *   3. Caller manages lifecycle  — start/stop loops, send kickoff, shutdown
  */
 
@@ -29,11 +29,11 @@ import { runWithHttp, type HttpMCPServer } from "./context/http-transport.ts";
 import { EventLog } from "./context/event-log.ts";
 import type { Message } from "./context/types.ts";
 import type { ResolvedWorkflowAgent } from "./types.ts";
-import type { Backend, StreamParserCallbacks } from "@moniro/agent-loop";
+import type { Runtime, StreamParserCallbacks } from "@moniro/agent-loop";
 import type { ConversationLog, ThinThread } from "@moniro/agent-worker";
 import { isAutoProvider, resolveModelFallback } from "@moniro/agent-loop";
 import { createAgentLoop } from "./loop/loop.ts";
-import { getBackendByType, getBackendForModel } from "./loop/backend.ts";
+import { getRuntimeByType, getRuntimeForModel } from "./loop/runtime.ts";
 import type { AgentLoop } from "./loop/types.ts";
 import type { Logger } from "./logger.ts";
 import { createSilentLogger } from "./logger.ts";
@@ -240,7 +240,7 @@ export interface RuntimeContext {
 /**
  * Configuration for creating a fully-wired agent loop.
  *
- * "Wired" means: backend is created, workspace directory is set up,
+ * "Wired" means: runtime is created, workspace directory is set up,
  * logging is configured. The caller just needs to call start().
  */
 export interface WiredLoopConfig {
@@ -254,8 +254,8 @@ export interface WiredLoopConfig {
   pollInterval?: number;
   /** Enable feedback tool */
   feedback?: boolean;
-  /** Custom backend factory (overrides default resolution) */
-  createBackend?: (agentName: string, agent: ResolvedWorkflowAgent) => Backend;
+  /** Custom runtime factory (overrides default resolution) */
+  createRuntime?: (agentName: string, agent: ResolvedWorkflowAgent) => Runtime;
   /** Logger for this agent's output */
   logger?: Logger;
   /** Conversation log for persistence (standalone agents) */
@@ -270,15 +270,15 @@ export interface WiredLoopConfig {
 export interface WiredLoopResult {
   /** The agent loop (call start() to begin) */
   loop: AgentLoop;
-  /** The backend used by this loop */
-  backend: Backend;
+  /** The runtime used by this loop */
+  runtime: Runtime;
 }
 
 /**
  * Create a fully-wired agent loop.
  *
  * This handles the full setup:
- * 1. Create backend from agent definition (or use custom factory)
+ * 1. Create runtime from agent definition (or use custom factory)
  * 2. Create isolated workspace directory
  * 3. Configure stream callbacks for structured event logging
  * 4. Create the AgentLoop with all wiring
@@ -291,7 +291,7 @@ export function createWiredLoop(config: WiredLoopConfig): WiredLoopResult {
 
   const logger = config.logger ?? createSilentLogger();
 
-  // Create isolated workspace directory (before backend, so we can pass it)
+  // Create isolated workspace directory (before runtime, so we can pass it)
   const workspaceDir = join(runtime.contextDir, "workspaces", name);
   if (!existsSync(workspaceDir)) {
     mkdirSync(workspaceDir, { recursive: true });
@@ -301,11 +301,11 @@ export function createWiredLoop(config: WiredLoopConfig): WiredLoopResult {
   const streamCallbacks: StreamParserCallbacks = {
     debugLog: (msg) => logger.debug(msg),
     outputLog: (msg) => runtime.eventLog.output(name, msg),
-    toolCallLog: (toolName, args) => runtime.eventLog.toolCall(name, toolName, args, "backend"),
+    toolCallLog: (toolName, args) => runtime.eventLog.toolCall(name, toolName, args, "runtime"),
     mcpToolNames: runtime.mcpToolNames,
   };
 
-  // Resolve "auto" / fallback chain (AGENT_MODEL env) before backend creation
+  // Resolve "auto" / fallback chain (AGENT_MODEL env) before runtime creation
   let effectiveModel: string | undefined;
   let effectiveProvider = agent.provider;
   if (isAutoProvider(agent.model) || isAutoProvider(agent.provider)) {
@@ -320,12 +320,12 @@ export function createWiredLoop(config: WiredLoopConfig): WiredLoopResult {
     effectiveModel = agent.model;
   }
 
-  // Resolve backend (workspace passed so CLI backends use it as cwd)
-  let backend: Backend;
-  if (config.createBackend) {
-    backend = config.createBackend(name, agent);
-  } else if (agent.backend) {
-    backend = getBackendByType(agent.backend, {
+  // Resolve AI runtime (workspace passed so CLI runtimes use it as cwd)
+  let aiRuntime: Runtime;
+  if (config.createRuntime) {
+    aiRuntime = config.createRuntime(name, agent);
+  } else if (agent.runtime) {
+    aiRuntime = getRuntimeByType(agent.runtime, {
       model: effectiveModel,
       provider: effectiveProvider,
       debugLog: (msg) => logger.debug(msg),
@@ -334,14 +334,14 @@ export function createWiredLoop(config: WiredLoopConfig): WiredLoopResult {
       workspace: workspaceDir,
     });
   } else if (effectiveModel) {
-    backend = getBackendForModel(effectiveModel, {
+    aiRuntime = getRuntimeForModel(effectiveModel, {
       provider: effectiveProvider,
       debugLog: (msg) => logger.debug(msg),
       streamCallbacks,
       workspace: workspaceDir,
     });
   } else {
-    throw new Error(`Agent "${name}" requires either a backend or model field`);
+    throw new Error(`Agent "${name}" requires either a runtime or model field`);
   }
 
   // Pass resolved model/provider to the loop so SDK runner uses the concrete
@@ -360,7 +360,7 @@ export function createWiredLoop(config: WiredLoopConfig): WiredLoopResult {
     mcpUrl: runtime.mcpUrl,
     workspaceDir,
     projectDir: runtime.projectDir,
-    backend,
+    runtime: aiRuntime,
     pollInterval,
     log: (msg) => logger.debug(msg),
     infoLog: (msg) => logger.info(msg),
@@ -370,5 +370,5 @@ export function createWiredLoop(config: WiredLoopConfig): WiredLoopResult {
     thinThread: config.thinThread,
   });
 
-  return { loop, backend };
+  return { loop, runtime: aiRuntime };
 }

@@ -99,7 +99,7 @@ function registerTestAgent(
     name,
     model: "test/model",
     prompt: { system: "You are a test agent." },
-    backend: "mock",
+    runtime: "mock",
     ...overrides,
   };
   s.agents.registerEphemeral(def);
@@ -202,7 +202,7 @@ describe("Daemon API", () => {
       const data = await json(res);
       expect(data.name).toBe("bob");
       expect(data.model).toBe("test/model");
-      expect(data.backend).toBe("default");
+      expect(data.runtime).toBe("default");
       // Standalone agents have no workflow/tag by default
       expect(data.workflow).toBeUndefined();
       expect(data.tag).toBeUndefined();
@@ -385,13 +385,13 @@ describe("Daemon API", () => {
 
     test("returns error when sendDirect fails", async () => {
       const loop = createMockLoop();
-      loop.sendDirect = async () => ({ success: false, error: "Backend unavailable", duration: 0 });
+      loop.sendDirect = async () => ({ success: false, error: "Runtime unavailable", duration: 0 });
       registerTestAgentWithLoop(testState, "alice", loop);
 
       const res = await post(app, "/serve", { agent: "alice", message: "hello" });
       expect(res.status).toBe(500);
       const data = await json(res);
-      expect(data.error).toBe("Backend unavailable");
+      expect(data.error).toBe("Runtime unavailable");
     });
 
     test("rejects invalid JSON body", async () => {

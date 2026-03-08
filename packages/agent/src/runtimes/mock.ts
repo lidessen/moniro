@@ -1,23 +1,23 @@
 /**
- * Mock AI Backend
+ * Mock AI Runtime
  *
  * Simple mock that echoes messages for testing.
  * For workflow integration testing with MCP tools, see loop/mock-runner.ts.
  */
 
-import type { Backend, BackendResponse, BackendSendOptions } from "./types.ts";
-import type { BackendCapabilities } from "../execution/types.ts";
+import type { Runtime, RuntimeResponse, RuntimeSendOptions } from "./types.ts";
+import type { RuntimeCapabilities } from "../loop/types.ts";
 
 /**
- * Mock AI Backend for testing
+ * Mock AI Runtime for testing
  *
  * In single-agent mode, provides a simple echo send().
  * In workflow mode, the loop handles MCP tool orchestration
  * via the mock runner strategy (loop/mock-runner.ts).
  */
-export class MockAIBackend implements Backend {
+export class MockRuntime implements Runtime {
   readonly type = "mock" as const;
-  readonly capabilities: BackendCapabilities = {
+  readonly capabilities: RuntimeCapabilities = {
     streaming: false,
     toolLoop: "external",
     stepControl: "step-finish",
@@ -26,7 +26,7 @@ export class MockAIBackend implements Backend {
 
   constructor(private debugLog?: (message: string) => void) {}
 
-  async send(message: string, _options?: BackendSendOptions): Promise<BackendResponse> {
+  async send(message: string, _options?: RuntimeSendOptions): Promise<RuntimeResponse> {
     const log = this.debugLog || (() => {});
     log(`[mock] Received message (${message.length} chars)`);
     return {
@@ -36,8 +36,8 @@ export class MockAIBackend implements Backend {
 }
 
 /**
- * Create a mock AI backend
+ * Create a mock AI runtime
  */
-export function createMockBackend(debugLog?: (msg: string) => void): Backend {
-  return new MockAIBackend(debugLog);
+export function createMockRuntime(debugLog?: (msg: string) => void): Runtime {
+  return new MockRuntime(debugLog);
 }

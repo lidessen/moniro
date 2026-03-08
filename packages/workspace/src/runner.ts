@@ -6,7 +6,7 @@
  * - Debug details (MCP traces, idle checks) → kind="debug" (visible with --debug)
  * - Agent messages → kind="message" or undefined (always visible)
  * - Tool calls → kind="tool_call" with structured metadata
- * - Backend text output → kind="output" (always visible)
+ * - Runtime text output → kind="output" (always visible)
  *
  * The display layer (display.ts) handles filtering and formatting.
  */
@@ -34,7 +34,7 @@ import type { DefaultChannelStore } from "./context/stores/channel.ts";
 import { createChannelAdapters } from "./context/adapters/index.ts";
 import { checkWorkflowIdle, type AgentLoop } from "./loop/index.ts";
 import { createWiredLoop } from "./factory.ts";
-import type { Backend } from "@moniro/agent-loop";
+import type { Runtime } from "@moniro/agent-loop";
 import { EventLog } from "./context/event-log.ts";
 import { startChannelWatcher } from "./display.ts";
 import { createChannelLogger, createSilentLogger, type Logger } from "./logger.ts";
@@ -113,7 +113,7 @@ export interface WorkflowRuntime {
   mcpUrl: string;
   /** Agent names */
   agentNames: string[];
-  /** MCP tool names (for backend stream parser dedup) */
+  /** MCP tool names (for runtime stream parser dedup) */
   mcpToolNames: Set<string>;
   /** Setup results */
   setupResults: Record<string, string>;
@@ -476,8 +476,8 @@ export interface LoopRunConfig {
   mode?: "run" | "start";
   /** Poll interval for loops (ms) */
   pollInterval?: number;
-  /** Custom backend factory (optional, defaults to getBackendForModel) */
-  createBackend?: (agentName: string, agent: ResolvedWorkflowAgent) => Backend;
+  /** Custom runtime factory (optional, defaults to getRuntimeForModel) */
+  createRuntime?: (agentName: string, agent: ResolvedWorkflowAgent) => Runtime;
   /** Enable feedback tool for all workflow agents */
   feedback?: boolean;
   /** Use pretty display mode (with @clack/prompts) */
@@ -529,7 +529,7 @@ export async function runWorkflowWithLoops(config: LoopRunConfig): Promise<LoopR
     log = console.log,
     mode = "run",
     pollInterval = 5000,
-    createBackend,
+    createRuntime,
     feedback: feedbackEnabled,
     params: paramValues,
   } = config;
@@ -605,21 +605,21 @@ export async function runWorkflowWithLoops(config: LoopRunConfig): Promise<LoopR
       const agentDef = workflow.agents[agentName]!;
 
       logger.debug(`Creating loop for ${agentName}`, {
-        backend: agentDef.backend,
+        runtime: agentDef.runtime,
         model: agentDef.model,
       });
 
-      const { loop, backend } = createWiredLoop({
+      const { loop, runtime: aiRuntime } = createWiredLoop({
         name: agentName,
         agent: agentDef,
         runtime,
         pollInterval,
         feedback: feedbackEnabled,
-        createBackend,
+        createRuntime,
         logger: logger.child(agentName),
       });
 
-      logger.debug(`Using backend: ${backend.type} for ${agentName}`);
+      logger.debug(`Using runtime: ${aiRuntime.type} for ${agentName}`);
 
       loops.set(agentName, loop);
       await loop.start();

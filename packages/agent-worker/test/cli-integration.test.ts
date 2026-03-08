@@ -89,7 +89,7 @@ describe("CLI Integration", () => {
       const result = await runCli(["new", "--help"]);
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain("--model");
-      expect(result.stdout).toContain("--backend");
+      expect(result.stdout).toContain("--runtime");
     });
 
     test("shows help for send command", async () => {
@@ -194,15 +194,15 @@ describe("CLI Integration", () => {
   });
 });
 
-describe("CLI with Mock Backend", () => {
-  test("backend flag is recognized", async () => {
+describe("CLI with Mock Runtime", () => {
+  test("runtime flag is recognized", async () => {
     const result = await runCli(["new", "--help"]);
-    expect(result.stdout).toContain("-b, --backend");
+    expect(result.stdout).toContain("-b, --runtime");
     expect(result.stdout).toMatch(/sdk|claude|cursor|codex/i);
   });
 
-  test("validates backend type", async () => {
-    const result = await runCli(["new", "test-agent", "-b", "invalid-backend", "-m", "test"]);
+  test("validates runtime type", async () => {
+    const result = await runCli(["new", "test-agent", "-b", "invalid-runtime", "-m", "test"]);
     expect(result.exitCode).not.toBe(0);
   });
 });

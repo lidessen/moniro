@@ -1,6 +1,6 @@
 /**
  * File Context Provider
- * Composes default stores with FileStorage backend.
+ * Composes default stores with FileStorage runtime.
  * Includes instance lock to prevent concurrent access to the same context directory.
  */
 

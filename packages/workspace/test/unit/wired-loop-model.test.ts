@@ -2,7 +2,7 @@
  * Test that createWiredLoop propagates resolved model to the agent loop.
  *
  * Regression: when workflow YAML has `model: auto`, the factory resolves it
- * to a concrete model for backend creation but previously passed the original
+ * to a concrete model for runtime creation but previously passed the original
  * agent (with model="auto") to createAgentLoop. The SDK runner then called
  * createModelAsync("auto") which threw "Unknown provider: auto".
  */
@@ -46,7 +46,7 @@ describe("createWiredLoop model resolution", () => {
         name: "test-agent",
         agent,
         runtime: createTestRuntime(),
-        createBackend: () => ({
+        createRuntime: () => ({
           type: "default",
           send: async () => ({ content: "ok" }),
         }),
@@ -76,7 +76,7 @@ describe("createWiredLoop model resolution", () => {
         name: "test-agent",
         agent,
         runtime: createTestRuntime(),
-        createBackend: () => ({
+        createRuntime: () => ({
           type: "default",
           send: async () => ({ content: "ok" }),
         }),
@@ -97,13 +97,13 @@ describe("createWiredLoop model resolution", () => {
       resolvedSystemPrompt: "test",
     };
 
-    // Track what agent config the backend factory receives
+    // Track what agent config the runtime factory receives
     let receivedAgent: ResolvedWorkflowAgent | undefined;
     createWiredLoop({
       name: "test-agent",
       agent,
       runtime: createTestRuntime(),
-      createBackend: (_name, a) => {
+      createRuntime: (_name, a) => {
         receivedAgent = a;
         return {
           type: "default",

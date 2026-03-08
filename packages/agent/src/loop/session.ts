@@ -1,9 +1,9 @@
 /**
- * ExecutionSession implementation.
+ * Loop implementation.
  *
  * The core execution runtime. Dispatches to either:
  * - External tool loop (ToolLoopAgent via AI SDK) when backend supports it
- * - Native tool loop (backend.send()) for CLI backends
+ * - Native tool loop (runtime.send()) for CLI runtimes
  *
  * All higher-level semantics (prompt assembly, inbox, workspace) are
  * handled by the caller. This layer only executes.
@@ -12,25 +12,25 @@
 import { ToolLoopAgent, stepCountIs, type ModelMessage } from "ai";
 import { createModelAsync, createModelWithProvider } from "../models.ts";
 import type { ProviderConfig, TokenUsage, ToolCall } from "../types.ts";
-import type { Backend } from "../backends/types.ts";
-import type { StreamEvent } from "../backends/stream-json.ts";
+import type { Runtime } from "../runtimes/types.ts";
+import type { StreamEvent } from "../runtimes/stream-json.ts";
 import type { Logger } from "../logger.ts";
 import { ExecutionStateMachine } from "./state-machine.ts";
 import type {
-  BackendCapabilities,
+  RuntimeCapabilities,
   ExecutionHooks,
   ExecutionInput,
   ExecutionObserver,
   ExecutionResult,
-  ExecutionSession,
+  Loop,
   ExecutionState,
   StepMutation,
 } from "./types.ts";
 
 // ── Capability Resolution ──────────────────────────────────────
 
-/** Default capabilities by backend type */
-const DEFAULT_CAPABILITIES: Record<string, BackendCapabilities> = {
+/** Default capabilities by runtime type */
+const DEFAULT_CAPABILITIES: Record<string, RuntimeCapabilities> = {
   default: {
     streaming: true,
     toolLoop: "external",
@@ -45,7 +45,7 @@ const DEFAULT_CAPABILITIES: Record<string, BackendCapabilities> = {
   },
 };
 
-const CLI_CAPABILITIES: BackendCapabilities = {
+const CLI_CAPABILITIES: RuntimeCapabilities = {
   streaming: true,
   toolLoop: "native",
   stepControl: "none",
@@ -53,21 +53,21 @@ const CLI_CAPABILITIES: BackendCapabilities = {
 };
 
 /**
- * Resolve backend capabilities.
+ * Resolve runtime capabilities.
  * Uses declared capabilities if available, otherwise infers from type.
  */
-function resolveCapabilities(backend: Backend): BackendCapabilities {
-  if ("capabilities" in backend && backend.capabilities) {
-    return backend.capabilities as BackendCapabilities;
+function resolveCapabilities(runtime: Runtime): RuntimeCapabilities {
+  if ("capabilities" in runtime && runtime.capabilities) {
+    return runtime.capabilities as RuntimeCapabilities;
   }
-  return DEFAULT_CAPABILITIES[backend.type] ?? CLI_CAPABILITIES;
+  return DEFAULT_CAPABILITIES[runtime.type] ?? CLI_CAPABILITIES;
 }
 
 // ── Session Config ─────────────────────────────────────────────
 
-export interface ExecutionSessionConfig {
-  /** Backend instance */
-  backend: Backend;
+export interface LoopConfig {
+  /** Runtime instance */
+  runtime: Runtime;
   /** Execution hooks (mutation — can modify execution) */
   hooks?: ExecutionHooks;
   /**
@@ -79,7 +79,7 @@ export interface ExecutionSessionConfig {
   /** Logger */
   log?: Logger;
   /**
-   * Model ID — required when backend.capabilities.toolLoop === 'external'.
+   * Model ID — required when runtime.capabilities.toolLoop === 'external'.
    * Ignored for native tool loop backends.
    */
   model?: string;
@@ -104,14 +104,14 @@ class PreemptionSignal extends Error {
 
 // ── Implementation ─────────────────────────────────────────────
 
-export class ExecutionSessionImpl implements ExecutionSession {
+export class LoopImpl implements Loop {
   readonly id: string;
-  readonly capabilities: BackendCapabilities;
+  readonly capabilities: RuntimeCapabilities;
 
   private machine = new ExecutionStateMachine();
   private hooks: ExecutionHooks;
   private observer?: ExecutionObserver;
-  private backend: Backend;
+  private runtime: Runtime;
   private log?: Logger;
 
   // External tool loop config
@@ -126,10 +126,10 @@ export class ExecutionSessionImpl implements ExecutionSession {
   // Cancellation
   private abortController: AbortController | null = null;
 
-  constructor(config: ExecutionSessionConfig) {
+  constructor(config: LoopConfig) {
     this.id = crypto.randomUUID();
-    this.backend = config.backend;
-    this.capabilities = resolveCapabilities(config.backend);
+    this.runtime = config.runtime;
+    this.capabilities = resolveCapabilities(config.runtime);
     this.hooks = config.hooks ?? {};
     this.observer = config.observer;
     this.log = config.log;
@@ -181,12 +181,12 @@ export class ExecutionSessionImpl implements ExecutionSession {
       this.abortController = null;
     }
 
-    // Cooperative cancellation for CLI backends
+    // Cooperative cancellation for CLI runtimes
     if (
       this.capabilities.cancellation === "cooperative" &&
-      typeof this.backend.abort === "function"
+      typeof this.runtime.abort === "function"
     ) {
-      this.backend.abort();
+      this.runtime.abort();
     }
 
     this.machine.tryTransition("cancelled");
@@ -294,7 +294,7 @@ export class ExecutionSessionImpl implements ExecutionSession {
     if (!this.model && !this._modelFactory) {
       throw new Error(
         "Model is required for external tool loop. " +
-          "Set model in ExecutionSessionConfig or use a native tool loop backend.",
+          "Set model in LoopConfig or use a native tool loop runtime.",
       );
     }
 
@@ -455,7 +455,7 @@ export class ExecutionSessionImpl implements ExecutionSession {
     };
   }
 
-  // ── Native Tool Loop (CLI backend path) ──────────────────────
+  // ── Native Tool Loop (CLI runtime path) ──────────────────────
 
   private async runNative(input: ExecutionInput, startTime: number): Promise<ExecutionResult> {
     // For native backends, we compose system + messages into a single send
@@ -466,7 +466,7 @@ export class ExecutionSessionImpl implements ExecutionSession {
     // Wire observer through stream event parsing
     const onEvent = this.observer ? this.createStreamEventHandler() : undefined;
 
-    const response = await this.backend.send(prompt, {
+    const response = await this.runtime.send(prompt, {
       system: input.system,
       onEvent,
     });
@@ -520,7 +520,7 @@ export class ExecutionSessionImpl implements ExecutionSession {
           break;
 
         case "tool_call":
-          // CLI backends report tool call as a single event (start + args)
+          // CLI runtimes report tool call as a single event (start + args)
           obs.onToolCallStart?.({ name: event.name, arguments: event.args });
           break;
 
@@ -547,10 +547,10 @@ export class ExecutionSessionImpl implements ExecutionSession {
 // ── Factory ────────────────────────────────────────────────────
 
 /**
- * Create an ExecutionSession.
+ * Create an Loop.
  */
-export function createExecutionSession(config: ExecutionSessionConfig): ExecutionSession {
-  return new ExecutionSessionImpl(config);
+export function createLoop(config: LoopConfig): Loop {
+  return new LoopImpl(config);
 }
 
 // ── Utilities ──────────────────────────────────────────────────
