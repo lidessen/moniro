@@ -20,8 +20,8 @@ Worker 层核心已完成，workspace 层待接入。
 | Session types（InputEnvelope, ActivationProgress 等） | done | `packages/worker/src/session/types.ts` |
 | InboxSource（纯 read 接口） | done | `packages/worker/src/session/features/inbox.ts` |
 | Conversation feature（仅持久化） | done | `packages/worker/src/session/features/conversation.ts` |
-| agent-loop 层 ExecutionSession + 状态机 | done | `packages/agent/src/execution/` |
-| agent-loop Backend streaming + capabilities | done | `packages/agent/src/backends/types.ts` |
+| agent-loop 层 Loop + 状态机 | done | `packages/agent/src/loop/` |
+| agent-loop Runtime streaming + capabilities | done | `packages/agent/src/runtimes/types.ts` |
 
 关键设计决策：
 - ThinThread recording 内置于 session（非 feature），conversation feature 只做持久化
@@ -43,6 +43,7 @@ Worker 层核心已完成，workspace 层待接入。
 |--------|------|------|------|
 | medium | Phase 6c: Guard Agent | todo | Workspace 层可选优化 |
 | medium | Phase 6d: Channel Bridge — HTTP Webhook | todo | 跨进程场景，按需 |
+| low | AgentRegistry.resolveContextDir 相对路径锚定 | todo | 当前 daemon 场景恰好对（config.yml 在 projectDir 下），但如果将来支持项目目录下的 agent 定义文件，context.dir 的相对路径应基于配置文件位置而非 projectDir |
 
 ## 已完成
 
