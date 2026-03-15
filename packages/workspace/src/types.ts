@@ -118,8 +118,8 @@ export function isRefAgentEntry(entry: AgentEntry): entry is RefAgentEntry {
 // ==================== Agent Definition ====================
 
 export interface WorkflowAgentDef {
-  /** Backend to use: 'default' (Vercel AI SDK), 'claude', 'cursor', 'codex', 'opencode', 'mock' (testing) */
-  backend?: "default" | "claude" | "cursor" | "codex" | "opencode" | "mock";
+  /** Runtime to use: 'default' (Vercel AI SDK), 'claude', 'cursor', 'codex', 'opencode', 'mock' (testing) */
+  runtime?: "default" | "claude" | "cursor" | "codex" | "opencode" | "mock";
 
   /** Model identifier. When provider is set, this is just the model name (e.g., 'MiniMax-M2.5').
    *  Without provider, uses existing formats: 'provider/model', 'provider:model', or 'provider'.
@@ -144,7 +144,7 @@ export interface WorkflowAgentDef {
   /** Maximum tool call steps per turn (default: 200) */
   max_steps?: number;
 
-  /** Backend timeout in milliseconds (overrides backend default) */
+  /** Runtime timeout in milliseconds (overrides runtime default) */
   timeout?: number;
 
   /** Periodic wakeup schedule: number (ms), duration string ("30s"/"5m"/"2h"), or cron expression */

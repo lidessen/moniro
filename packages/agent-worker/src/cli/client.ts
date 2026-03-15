@@ -113,7 +113,7 @@ export function createAgent(body: {
   name: string;
   model: string;
   system: string;
-  backend?: string;
+  runtime?: string;
   provider?: string | { name: string; base_url?: string; api_key?: string };
   schedule?: { wakeup: string | number; prompt?: string };
   ephemeral?: boolean;

@@ -1,16 +1,16 @@
 /**
- * Vercel AI SDK backend
+ * Vercel AI SDK runtime
  * Uses the AI SDK for direct API access
  */
 
 import { generateText } from "ai";
 import type { LanguageModel } from "ai";
-import type { Backend, BackendResponse, BackendSendOptions } from "./types.ts";
-import type { BackendCapabilities } from "../execution/types.ts";
+import type { Runtime, RuntimeResponse, RuntimeSendOptions } from "./types.ts";
+import type { RuntimeCapabilities } from "../loop/types.ts";
 import { createModel, createModelAsync, createModelWithProvider } from "../models.ts";
 import type { ProviderConfig } from "../types.ts";
 
-export interface SdkBackendOptions {
+export interface SdkRuntimeOptions {
   /** Model identifier (e.g., 'openai/gpt-5.2' or 'anthropic:claude-sonnet-4-5' or just 'MiniMax-M2.5' with provider) */
   model: string;
   /** Maximum tokens to generate */
@@ -19,9 +19,9 @@ export interface SdkBackendOptions {
   provider?: string | ProviderConfig;
 }
 
-export class SdkBackend implements Backend {
+export class SdkRuntime implements Runtime {
   readonly type = "default" as const;
-  readonly capabilities: BackendCapabilities = {
+  readonly capabilities: RuntimeCapabilities = {
     streaming: true,
     toolLoop: "external",
     stepControl: "step-finish",
@@ -32,7 +32,7 @@ export class SdkBackend implements Backend {
   private maxTokens: number;
   private provider: string | ProviderConfig | undefined;
 
-  constructor(options: SdkBackendOptions) {
+  constructor(options: SdkRuntimeOptions) {
     this.modelId = options.model;
     this.maxTokens = options.maxTokens ?? 4096;
     this.provider = options.provider;
@@ -47,7 +47,7 @@ export class SdkBackend implements Backend {
     }
   }
 
-  async send(message: string, options?: BackendSendOptions): Promise<BackendResponse> {
+  async send(message: string, options?: RuntimeSendOptions): Promise<RuntimeResponse> {
     // Ensure model is loaded
     if (!this.model) {
       this.model = this.provider

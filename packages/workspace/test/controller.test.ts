@@ -1,6 +1,6 @@
 /**
  * Loop Module Tests
- * Tests for agent loop, backend abstraction, and prompt building
+ * Tests for agent loop, runtime abstraction, and prompt building
  */
 
 import { describe, test, expect } from "bun:test";
@@ -27,7 +27,7 @@ import type {
   Message,
   ResolvedWorkflowAgent,
 } from "@moniro/workspace";
-import type { Backend } from "@moniro/agent-loop";
+import type { Runtime } from "@moniro/agent-loop";
 import { parseModel, resolveModelAlias } from "@moniro/agent-loop";
 
 // ==================== Model Parsing Tests ====================
@@ -312,7 +312,7 @@ describe("createAgentLoop", () => {
 
   test("starts in stopped state", () => {
     const provider = createMemoryContextProvider(["agent1"]);
-    const mockBackend: Backend = {
+    const mockBackend: Runtime = {
       type: "mock" as const,
       send: async () => ({ content: "ok" }),
     };
@@ -322,7 +322,7 @@ describe("createAgentLoop", () => {
       agent: mockAgent,
       contextProvider: provider,
       mcpUrl: "http://127.0.0.1:0/mcp",
-      backend: mockBackend,
+      runtime: mockBackend,
       workspaceDir: "/tmp/workspace",
       projectDir: "/tmp/project",
     });
@@ -333,7 +333,7 @@ describe("createAgentLoop", () => {
 
   test("transitions to idle after start", async () => {
     const provider = createMemoryContextProvider(["agent1"]);
-    const mockBackend: Backend = {
+    const mockBackend: Runtime = {
       type: "mock" as const,
       send: async () => ({ content: "ok" }),
     };
@@ -343,7 +343,7 @@ describe("createAgentLoop", () => {
       agent: mockAgent,
       contextProvider: provider,
       mcpUrl: "http://127.0.0.1:0/mcp",
-      backend: mockBackend,
+      runtime: mockBackend,
       workspaceDir: "/tmp/workspace",
       projectDir: "/tmp/project",
       pollInterval: 100,
@@ -363,7 +363,7 @@ describe("createAgentLoop", () => {
     const provider = createMemoryContextProvider(["agent1", "agent2"]);
     let runCalled = false;
 
-    const mockBackend: Backend = {
+    const mockBackend: Runtime = {
       type: "claude" as const,
       send: async (message) => {
         runCalled = true;
@@ -379,7 +379,7 @@ describe("createAgentLoop", () => {
       agent: mockAgent,
       contextProvider: provider,
       mcpUrl: "http://127.0.0.1:0/mcp",
-      backend: mockBackend,
+      runtime: mockBackend,
       workspaceDir: "/tmp/workspace",
       projectDir: "/tmp/project",
       pollInterval: 50,
@@ -402,7 +402,7 @@ describe("createAgentLoop", () => {
     const provider = createMemoryContextProvider(["agent1", "agent2"]);
     let runCount = 0;
 
-    const mockBackend: Backend = {
+    const mockBackend: Runtime = {
       type: "claude" as const,
       send: async () => {
         runCount++;
@@ -419,7 +419,7 @@ describe("createAgentLoop", () => {
       agent: mockAgent,
       contextProvider: provider,
       mcpUrl: "http://127.0.0.1:0/mcp",
-      backend: mockBackend,
+      runtime: mockBackend,
       workspaceDir: "/tmp/workspace",
       projectDir: "/tmp/project",
       pollInterval: 50,
@@ -450,7 +450,7 @@ describe("createAgentLoop", () => {
     const provider = createMemoryContextProvider(["agent1", "agent2"]);
     let runCalled = false;
 
-    const mockBackend: Backend = {
+    const mockBackend: Runtime = {
       type: "claude" as const,
       send: async () => {
         runCalled = true;
@@ -463,7 +463,7 @@ describe("createAgentLoop", () => {
       agent: mockAgent,
       contextProvider: provider,
       mcpUrl: "http://127.0.0.1:0/mcp",
-      backend: mockBackend,
+      runtime: mockBackend,
       workspaceDir: "/tmp/workspace",
       projectDir: "/tmp/project",
       pollInterval: 5000, // Long poll interval
@@ -485,7 +485,7 @@ describe("createAgentLoop", () => {
 
   test("stops cleanly", async () => {
     const provider = createMemoryContextProvider(["agent1"]);
-    const mockBackend: Backend = {
+    const mockBackend: Runtime = {
       type: "mock" as const,
       send: async () => ({ content: "ok" }),
     };
@@ -495,7 +495,7 @@ describe("createAgentLoop", () => {
       agent: mockAgent,
       contextProvider: provider,
       mcpUrl: "http://127.0.0.1:0/mcp",
-      backend: mockBackend,
+      runtime: mockBackend,
       workspaceDir: "/tmp/workspace",
       projectDir: "/tmp/project",
       pollInterval: 100,
@@ -512,7 +512,7 @@ describe("createAgentLoop", () => {
     const provider = createMemoryContextProvider(["agent1", "agent2"]);
     let completedResult: AgentRunResult | null = null;
 
-    const mockBackend: Backend = {
+    const mockBackend: Runtime = {
       type: "claude" as const,
       send: async () => ({ content: "ok" }),
     };
@@ -522,7 +522,7 @@ describe("createAgentLoop", () => {
       agent: mockAgent,
       contextProvider: provider,
       mcpUrl: "http://127.0.0.1:0/mcp",
-      backend: mockBackend,
+      runtime: mockBackend,
       workspaceDir: "/tmp/workspace",
       projectDir: "/tmp/project",
       pollInterval: 50,
@@ -553,7 +553,7 @@ describe("checkWorkflowIdle", () => {
 
   test("returns true when all idle and no messages", async () => {
     const provider = createMemoryContextProvider(["agent1", "agent2"]);
-    const mockBackend: Backend = {
+    const mockBackend: Runtime = {
       type: "mock" as const,
       send: async () => ({ content: "ok" }),
     };
@@ -563,7 +563,7 @@ describe("checkWorkflowIdle", () => {
       agent: mockAgent,
       contextProvider: provider,
       mcpUrl: "http://127.0.0.1:0/mcp",
-      backend: mockBackend,
+      runtime: mockBackend,
       workspaceDir: "/tmp/workspace",
       projectDir: "/tmp/project",
       pollInterval: 1000,
@@ -574,7 +574,7 @@ describe("checkWorkflowIdle", () => {
       agent: mockAgent,
       contextProvider: provider,
       mcpUrl: "http://127.0.0.1:0/mcp",
-      backend: mockBackend,
+      runtime: mockBackend,
       workspaceDir: "/tmp/workspace",
       projectDir: "/tmp/project",
       pollInterval: 1000,
@@ -600,7 +600,7 @@ describe("checkWorkflowIdle", () => {
 
   test("returns false when messages pending", async () => {
     const provider = createMemoryContextProvider(["agent1", "agent2"]);
-    const mockBackend: Backend = {
+    const mockBackend: Runtime = {
       type: "mock" as const,
       send: async () => ({ content: "ok" }),
     };
@@ -610,7 +610,7 @@ describe("checkWorkflowIdle", () => {
       agent: mockAgent,
       contextProvider: provider,
       mcpUrl: "http://127.0.0.1:0/mcp",
-      backend: mockBackend,
+      runtime: mockBackend,
       workspaceDir: "/tmp/workspace",
       projectDir: "/tmp/project",
       pollInterval: 10000, // Long poll so it doesn't process
@@ -707,7 +707,7 @@ describe("buildWorkflowIdleState", () => {
 
   test("reports idle when all loops idle and no messages", async () => {
     const provider = createMemoryContextProvider(["agent1", "agent2"]);
-    const mockBackend: Backend = {
+    const mockBackend: Runtime = {
       type: "mock" as const,
       send: async () => ({ content: "ok" }),
     };
@@ -717,7 +717,7 @@ describe("buildWorkflowIdleState", () => {
       agent: mockAgent,
       contextProvider: provider,
       mcpUrl: "http://127.0.0.1:0/mcp",
-      backend: mockBackend,
+      runtime: mockBackend,
       workspaceDir: "/tmp/workspace",
       projectDir: "/tmp/project",
       pollInterval: 5000,
@@ -739,7 +739,7 @@ describe("buildWorkflowIdleState", () => {
 
   test("reports not idle when messages pending", async () => {
     const provider = createMemoryContextProvider(["agent1", "agent2"]);
-    const mockBackend: Backend = {
+    const mockBackend: Runtime = {
       type: "mock" as const,
       send: async () => ({ content: "ok" }),
     };
@@ -749,7 +749,7 @@ describe("buildWorkflowIdleState", () => {
       agent: mockAgent,
       contextProvider: provider,
       mcpUrl: "http://127.0.0.1:0/mcp",
-      backend: mockBackend,
+      runtime: mockBackend,
       workspaceDir: "/tmp/workspace",
       projectDir: "/tmp/project",
       pollInterval: 10000,
@@ -857,24 +857,24 @@ describe("formatUserSender", () => {
   });
 });
 
-// ==================== Mock Backend Registration Tests ====================
+// ==================== Mock Runtime Registration Tests ====================
 
 describe("getBackendByType mock", () => {
-  test('returns mock backend with name "mock"', async () => {
+  test('returns mock runtime with name "mock"', async () => {
     const { getBackendByType } = await import("@moniro/workspace");
-    const backend = getBackendByType("mock");
-    expect(backend.type).toBe("mock");
+    const runtime = getBackendByType("mock");
+    expect(runtime.type).toBe("mock");
   });
 
-  test("passes debugLog to mock backend", async () => {
+  test("passes debugLog to mock runtime", async () => {
     const { getBackendByType } = await import("@moniro/workspace");
     const logs: string[] = [];
-    const backend = getBackendByType("mock", { debugLog: (msg) => logs.push(msg) });
-    expect(backend.type).toBe("mock");
+    const runtime = getBackendByType("mock", { debugLog: (msg) => logs.push(msg) });
+    expect(runtime.type).toBe("mock");
   });
 
-  test("throws for unknown backend type", async () => {
+  test("throws for unknown runtime type", async () => {
     const { getBackendByType } = await import("@moniro/workspace");
-    expect(() => getBackendByType("nonexistent" as any)).toThrow("Unknown backend type");
+    expect(() => getBackendByType("nonexistent" as any)).toThrow("Unknown runtime type");
   });
 });

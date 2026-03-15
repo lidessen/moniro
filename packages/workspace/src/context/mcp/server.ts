@@ -77,7 +77,7 @@ export function createContextMCPServer(options: ContextMCPServerOptions) {
   // Track connected agents (placeholder for future MCP notification support)
   const agentConnections = new Map<string, unknown>();
 
-  // Collect all registered MCP tool names (for backend stream parser dedup)
+  // Collect all registered MCP tool names (for runtime stream parser dedup)
   const mcpToolNames = new Set<string>([
     // channel
     "channel_send",

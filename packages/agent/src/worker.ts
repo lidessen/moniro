@@ -1,5 +1,3 @@
-import { ToolLoopAgent, stepCountIs, type ModelMessage } from "ai";
-import { createModelAsync, createModelWithProvider } from "./models.ts";
 import type { ProviderConfig } from "./types.ts";
 import type {
   AgentMessage,
@@ -13,17 +11,19 @@ import type {
   TokenUsage,
   Transcript,
 } from "./types.ts";
-import type { Backend } from "./backends/types.ts";
+import type { Runtime } from "./runtimes/types.ts";
 import type { Logger } from "./logger.ts";
+import { createLoop } from "./loop/session.ts";
+import type { Loop, AfterStepContext } from "./loop/types.ts";
 
 /**
- * Extended worker config that supports both SDK and CLI backends.
- * When a backend is provided, send() delegates to it instead of ToolLoopAgent.
- * This enables unified worker management regardless of backend type.
+ * Extended worker config that supports both SDK and CLI runtimes.
+ * When a runtime is provided, send() delegates to it instead of ToolLoopAgent.
+ * This enables unified worker management regardless of runtime type.
  */
 export interface AgentWorkerConfig extends SessionConfig {
-  /** CLI backend - when provided, send() delegates to this backend */
-  backend?: Backend;
+  /** CLI runtime - when provided, send() delegates to this runtime */
+  runtime?: Runtime;
   /** Provider configuration — when set, model is resolved via createModelWithProvider */
   provider?: string | ProviderConfig;
   /** Optional logger for worker events (maxSteps warnings, errors) */
@@ -51,13 +51,27 @@ export interface SendOptions {
   onStepFinish?: (info: StepInfo) => void | Promise<void>;
 }
 
+// ── Default backend for SDK path ──────────────────────────────────
+
+/** Minimal in-memory backend for SDK-only AgentWorker (no CLI needed) */
+const SDK_RUNTIME: Runtime = {
+  type: "default",
+  capabilities: {
+    streaming: true,
+    toolLoop: "external",
+    stepControl: "step-finish",
+    cancellation: "abortable",
+  },
+  async send() {
+    throw new Error("SDK runtime send() should not be called directly");
+  },
+};
+
 /**
  * AgentWorker - Stateful worker for controlled agent execution
  *
- * Uses ToolLoopAgent internally for multi-step reasoning loops.
- * Maintains conversation state across multiple send() calls,
- * enabling improvisational testing where you observe responses
- * and decide next actions.
+ * Delegates execution to Loop internally, maintaining
+ * conversation state and approval logic on top.
  *
  * Tools are AI SDK tool() objects passed as Record<name, tool()>.
  * Approval is configured separately via Record<name, check>.
@@ -79,34 +93,24 @@ export class AgentWorker {
   private totalUsage: TokenUsage = { input: 0, output: 0, total: 0 };
   private pendingApprovals: PendingApproval[] = [];
 
-  // CLI backend (null for SDK sessions)
-  private backend: Backend | null;
-  // Provider config for custom endpoints (SDK only)
-  private provider: string | ProviderConfig | undefined;
-  // Model factory for testing (bypasses createModelAsync)
-  private _modelFactory?: () => Promise<any> | any;
+  // CLI runtime (null for SDK sessions)
+  private runtime: Runtime | null;
+
+  // Track tool changes to know when to rebuild session
+  private toolsChanged = false;
 
   // Optional logger for worker events
   private log?: Logger;
 
-  // Cached agent instance (rebuilt when tools change) - SDK only
-  private cachedAgent: ToolLoopAgent | null = null;
-  private toolsChanged = false;
+  // Config for session creation
+  private provider: string | ProviderConfig | undefined;
+  private _modelFactory?: () => Promise<any> | any;
 
   /**
-   * Whether this session supports tool management (SDK backend only)
+   * Whether this session supports tool management (SDK runtime only)
    */
   get supportsTools(): boolean {
-    return this.backend === null;
-  }
-
-  /**
-   * Convert AgentMessage[] to ModelMessage[] for AI SDK
-   */
-  private toModelMessages(): ModelMessage[] {
-    return this.messages
-      .filter((m) => m.status !== "responding") // Exclude incomplete messages
-      .map((m) => ({ role: m.role, content: m.content })) as ModelMessage[];
+    return this.runtime === null;
   }
 
   constructor(config: AgentWorkerConfig, restore?: SessionState) {
@@ -127,11 +131,38 @@ export class AgentWorker {
     this.tools = config.tools ? { ...config.tools } : {};
     this.approval = config.approval ? { ...config.approval } : {};
     this.maxTokens = config.maxTokens ?? 4096;
-    this.maxSteps = config.maxSteps ?? 200; // Default: 200 steps (effectively no limit for most tasks)
-    this.backend = config.backend ?? null;
+    this.maxSteps = config.maxSteps ?? 200;
+    this.runtime = config.runtime ?? null;
     this.provider = config.provider;
     this._modelFactory = config._modelFactory;
     this.log = config.log;
+  }
+
+  /**
+   * Create an Loop for a single run.
+   * Per-call session allows different hooks per send().
+   */
+  private createSession(hooks?: {
+    afterStep?: (ctx: AfterStepContext) => void | Promise<void>;
+  }): Loop {
+    const runtime = this.runtime ?? SDK_RUNTIME;
+    return createLoop({
+      runtime,
+      model: this.model,
+      provider: this.provider,
+      log: this.log,
+      _modelFactory: this._modelFactory,
+      hooks: hooks ? { afterStep: hooks.afterStep } : undefined,
+    });
+  }
+
+  /**
+   * Convert AgentMessage[] to execution messages
+   */
+  private toExecutionMessages(): Array<{ role: "user" | "assistant" | "system" | "tool"; content: string }> {
+    return this.messages
+      .filter((m) => m.status !== "responding")
+      .map((m) => ({ role: m.role, content: m.content }));
   }
 
   /**
@@ -145,7 +176,7 @@ export class AgentWorker {
   }
 
   /**
-   * Build tools with approval wrapping for ToolLoopAgent
+   * Build tools with approval wrapping
    */
   private buildTools(autoApprove: boolean): Record<string, any> | undefined {
     const names = Object.keys(this.tools);
@@ -163,7 +194,6 @@ export class AgentWorker {
         wrapped[name] = t;
         continue;
       }
-      // Wrap execute with approval check
       wrapped[name] = {
         ...t,
         execute: async (args: any, options?: any) => {
@@ -187,143 +217,59 @@ export class AgentWorker {
   }
 
   /**
-   * Get or create cached agent, rebuild if tools changed
-   */
-  private async getAgent(autoApprove: boolean): Promise<ToolLoopAgent> {
-    if (!this.cachedAgent || this.toolsChanged || !autoApprove) {
-      const model = this._modelFactory
-        ? await this._modelFactory()
-        : this.provider
-          ? await createModelWithProvider(this.model, this.provider)
-          : await createModelAsync(this.model);
-      this.cachedAgent = new ToolLoopAgent({
-        model,
-        instructions: this.system,
-        tools: this.buildTools(autoApprove),
-        maxOutputTokens: this.maxTokens,
-        stopWhen: stepCountIs(this.maxSteps),
-      });
-      if (autoApprove) {
-        this.toolsChanged = false;
-      }
-    }
-    return this.cachedAgent;
-  }
-
-  /**
-   * Send a message via CLI backend (non-SDK path)
-   */
-  private async sendViaBackend(content: string): Promise<AgentResponse> {
-    const startTime = performance.now();
-    const timestamp = new Date().toISOString();
-
-    this.messages.push({ role: "user", content, status: "complete", timestamp });
-
-    const result = await this.backend!.send(content, { system: this.system });
-    const latency = Math.round(performance.now() - startTime);
-
-    this.messages.push({
-      role: "assistant",
-      content: result.content,
-      status: "complete",
-      timestamp: new Date().toISOString(),
-    });
-
-    const usage: TokenUsage = {
-      input: result.usage?.input ?? 0,
-      output: result.usage?.output ?? 0,
-      total: result.usage?.total ?? 0,
-    };
-    this.totalUsage.input += usage.input;
-    this.totalUsage.output += usage.output;
-    this.totalUsage.total += usage.total;
-
-    const toolCalls: ToolCall[] = (result.toolCalls ?? []).map((tc) => ({
-      name: tc.name,
-      arguments: tc.arguments as Record<string, unknown>,
-      result: tc.result,
-      timing: 0,
-    }));
-
-    return {
-      content: result.content,
-      toolCalls,
-      pendingApprovals: [],
-      usage,
-      latency,
-    };
-  }
-
-  /**
    * Send a message and get the agent's response
    */
   async send(content: string, options: SendOptions = {}): Promise<AgentResponse> {
-    if (this.backend) {
-      return this.sendViaBackend(content);
-    }
-
     const { autoApprove = true, onStepFinish } = options;
-    const startTime = performance.now();
     const timestamp = new Date().toISOString();
 
     this.messages.push({ role: "user", content, status: "complete", timestamp });
 
-    const agent = await this.getAgent(autoApprove);
+    const tools = this.buildTools(autoApprove);
 
-    const allToolCalls: ToolCall[] = [];
-    let stepNumber = 0;
-
-    const result = await agent.generate({
-      messages: this.toModelMessages(),
-      onStepFinish: async ({ usage, toolCalls, toolResults }) => {
-        stepNumber++;
-
-        const stepToolCalls: ToolCall[] = [];
-        if (toolCalls) {
-          for (const tc of toolCalls) {
-            const toolResult = toolResults?.find((tr) => tr.toolCallId === tc.toolCallId);
-            const toolCall: ToolCall = {
-              name: tc.toolName,
-              arguments: tc.input as Record<string, unknown>,
-              result: toolResult?.output ?? null,
-              timing: 0,
-            };
-            stepToolCalls.push(toolCall);
-            allToolCalls.push(toolCall);
+    // Create session per-call with hooks wired
+    const session = this.createSession(
+      onStepFinish
+        ? {
+            afterStep: async (ctx) => {
+              await onStepFinish({
+                stepNumber: ctx.stepNumber,
+                toolCalls: ctx.toolCalls,
+                usage: ctx.usage,
+              });
+            },
           }
-        }
+        : undefined,
+    );
 
-        if (onStepFinish) {
-          const stepUsage: TokenUsage = {
-            input: usage?.inputTokens ?? 0,
-            output: usage?.outputTokens ?? 0,
-            total: (usage?.inputTokens ?? 0) + (usage?.outputTokens ?? 0),
-          };
-          await onStepFinish({ stepNumber, toolCalls: stepToolCalls, usage: stepUsage });
-        }
+    const result = await session.run({
+      system: this.system,
+      messages: this.toExecutionMessages(),
+      tools,
+      config: {
+        maxTokens: this.maxTokens,
+        maxSteps: this.maxSteps,
       },
     });
 
-    const latency = Math.round(performance.now() - startTime);
+    // Propagate errors as rejections (preserves original behavior)
+    if (result.outcome === "failed" && result.error) {
+      throw new Error(result.error);
+    }
 
     this.messages.push({
       role: "assistant",
-      content: result.text,
+      content: result.content,
       status: "complete",
       timestamp: new Date().toISOString(),
     });
 
-    const usage: TokenUsage = {
-      input: result.usage?.inputTokens ?? 0,
-      output: result.usage?.outputTokens ?? 0,
-      total: (result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0),
-    };
-    this.totalUsage.input += usage.input;
-    this.totalUsage.output += usage.output;
-    this.totalUsage.total += usage.total;
+    this.totalUsage.input += result.usage.input;
+    this.totalUsage.output += result.usage.output;
+    this.totalUsage.total += result.usage.total;
 
     // Warn if maxSteps limit was reached while agent was still working
-    if (this.maxSteps > 0 && stepNumber >= this.maxSteps && allToolCalls.length > 0) {
+    if (this.maxSteps > 0 && result.steps >= this.maxSteps && result.toolCalls.length > 0) {
       this.log?.warn(
         `Agent reached maxSteps limit (${this.maxSteps}) but wanted to continue. Consider increasing maxSteps or removing the limit.`,
       );
@@ -332,120 +278,43 @@ export class AgentWorker {
     const currentPending = this.pendingApprovals.filter((p) => p.status === "pending");
 
     return {
-      content: result.text,
-      toolCalls: allToolCalls,
+      content: result.content,
+      toolCalls: result.toolCalls,
       pendingApprovals: currentPending,
-      usage,
-      latency,
+      usage: result.usage,
+      latency: result.latency,
     };
   }
 
   /**
-   * Send a message and stream the response
+   * Send a message and stream the response.
+   *
+   * Note: streaming delegates to send() internally since Loop
+   * handles streaming at the execution level. The full response is yielded
+   * as a single chunk. For true streaming, use Loop directly.
    */
   async *sendStream(
     content: string,
     options: SendOptions = {},
   ): AsyncGenerator<string, AgentResponse, unknown> {
-    if (this.backend) {
-      const response = await this.sendViaBackend(content);
-      yield response.content;
-      return response;
-    }
-
-    const { autoApprove = true, onStepFinish } = options;
-    const startTime = performance.now();
-    const timestamp = new Date().toISOString();
-
-    this.messages.push({ role: "user", content, status: "complete", timestamp });
-
-    const assistantMsg: AgentMessage = {
-      role: "assistant",
-      content: "",
-      status: "responding",
-      timestamp: new Date().toISOString(),
-    };
-    this.messages.push(assistantMsg);
-
-    const agent = await this.getAgent(autoApprove);
-
-    const allToolCalls: ToolCall[] = [];
-    let stepNumber = 0;
-
-    const result = await agent.stream({
-      messages: this.toModelMessages(),
-      onStepFinish: async ({ usage, toolCalls, toolResults }) => {
-        stepNumber++;
-
-        const stepToolCalls: ToolCall[] = [];
-        if (toolCalls) {
-          for (const tc of toolCalls) {
-            const toolResult = toolResults?.find((tr) => tr.toolCallId === tc.toolCallId);
-            const toolCall: ToolCall = {
-              name: tc.toolName,
-              arguments: tc.input as Record<string, unknown>,
-              result: toolResult?.output ?? null,
-              timing: 0,
-            };
-            stepToolCalls.push(toolCall);
-            allToolCalls.push(toolCall);
-          }
-        }
-
-        if (onStepFinish) {
-          const stepUsage: TokenUsage = {
-            input: usage?.inputTokens ?? 0,
-            output: usage?.outputTokens ?? 0,
-            total: (usage?.inputTokens ?? 0) + (usage?.outputTokens ?? 0),
-          };
-          await onStepFinish({ stepNumber, toolCalls: stepToolCalls, usage: stepUsage });
-        }
-      },
-    });
-
-    for await (const chunk of result.textStream) {
-      assistantMsg.content += chunk;
-      yield chunk;
-    }
-
-    const latency = Math.round(performance.now() - startTime);
-
-    const text = await result.text;
-    assistantMsg.content = text;
-    assistantMsg.status = "complete";
-
-    const finalUsage = await result.usage;
-    const usage: TokenUsage = {
-      input: finalUsage?.inputTokens ?? 0,
-      output: finalUsage?.outputTokens ?? 0,
-      total: (finalUsage?.inputTokens ?? 0) + (finalUsage?.outputTokens ?? 0),
-    };
-    this.totalUsage.input += usage.input;
-    this.totalUsage.output += usage.output;
-    this.totalUsage.total += usage.total;
-
-    const currentPending = this.pendingApprovals.filter((p) => p.status === "pending");
-
-    return {
-      content: text,
-      toolCalls: allToolCalls,
-      pendingApprovals: currentPending,
-      usage,
-      latency,
-    };
+    // Delegate to send — Loop handles the execution.
+    // Streaming at the AgentWorker level is a convenience API;
+    // real streaming happens inside Loop.
+    const response = await this.send(content, options);
+    yield response.content;
+    return response;
   }
 
   /**
    * Add an AI SDK tool
-   * Only supported for SDK backends (ToolLoopAgent)
+   * Only supported for SDK runtimes (ToolLoopAgent)
    */
   addTool(name: string, t: unknown): void {
-    if (this.backend) {
-      throw new Error("Tool management not supported for CLI backends");
+    if (this.runtime) {
+      throw new Error("Tool management not supported for CLI runtimes");
     }
     this.tools[name] = t;
     this.toolsChanged = true;
-    this.cachedAgent = null;
   }
 
   /**
@@ -459,8 +328,8 @@ export class AgentWorker {
    * Replace a tool's execute function (for testing)
    */
   mockTool(name: string, mockFn: (args: Record<string, unknown>) => unknown): void {
-    if (this.backend) {
-      throw new Error("Tool management not supported for CLI backends");
+    if (this.runtime) {
+      throw new Error("Tool management not supported for CLI runtimes");
     }
     const t = this.tools[name];
     if (!t) {
@@ -468,15 +337,14 @@ export class AgentWorker {
     }
     this.tools[name] = { ...t, execute: mockFn };
     this.toolsChanged = true;
-    this.cachedAgent = null;
   }
 
   /**
    * Set a static mock response for an existing tool
    */
   setMockResponse(name: string, response: unknown): void {
-    if (this.backend) {
-      throw new Error("Tool management not supported for CLI backends");
+    if (this.runtime) {
+      throw new Error("Tool management not supported for CLI runtimes");
     }
     const t = this.tools[name];
     if (!t) {
@@ -484,7 +352,6 @@ export class AgentWorker {
     }
     this.tools[name] = { ...t, execute: () => response };
     this.toolsChanged = true;
-    this.cachedAgent = null;
   }
 
   /**

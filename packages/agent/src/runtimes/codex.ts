@@ -1,5 +1,5 @@
 /**
- * OpenAI Codex CLI backend
+ * OpenAI Codex CLI runtime
  * Uses `codex exec` for non-interactive mode with JSON event output
  *
  * MCP Configuration:
@@ -9,8 +9,8 @@
  * @see https://github.com/openai/codex
  */
 
-import type { Backend, BackendResponse, BackendSendOptions } from "./types.ts";
-import type { BackendCapabilities } from "../execution/types.ts";
+import type { Runtime, RuntimeResponse, RuntimeSendOptions } from "./types.ts";
+import type { RuntimeCapabilities } from "../loop/types.ts";
 import { DEFAULT_IDLE_TIMEOUT } from "./types.ts";
 import { execWithIdleTimeout } from "./idle-timeout.ts";
 import { handleCliBackendError, checkCliAvailable } from "./cli-helpers.ts";
@@ -37,9 +37,9 @@ export interface CodexOptions {
   streamCallbacks?: StreamParserCallbacks;
 }
 
-export class CodexBackend implements Backend {
+export class CodexRuntime implements Runtime {
   readonly type = "codex" as const;
-  readonly capabilities: BackendCapabilities = {
+  readonly capabilities: RuntimeCapabilities = {
     streaming: false,
     toolLoop: "native",
     stepControl: "none",
@@ -54,7 +54,7 @@ export class CodexBackend implements Backend {
     };
   }
 
-  async send(message: string, options?: BackendSendOptions): Promise<BackendResponse> {
+  async send(message: string, options?: RuntimeSendOptions): Promise<RuntimeResponse> {
     const args = this.buildArgs(message);
     // Use workspace as cwd if set
     const cwd = this.options.workspace || this.options.cwd;

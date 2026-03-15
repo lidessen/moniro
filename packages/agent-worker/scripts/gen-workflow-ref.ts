@@ -252,9 +252,9 @@ ${InlineAgentEntrySchema.description}
 
 ${fieldsTable(extractFields(InlineAgentEntrySchema))}
 
-#### Backend model requirements
+#### Runtime model requirements
 
-| Backend | \`model\` required? | Notes |
+| Runtime | \`model\` required? | Notes |
 |---------|-------------------|-------|
 | \`default\` | **yes** | Vercel AI SDK — needs model identifier |
 | \`claude\` | no | Uses Claude Code CLI defaults |

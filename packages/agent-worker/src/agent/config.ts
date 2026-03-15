@@ -5,7 +5,7 @@
  * Separates identity/configuration from execution and conversation state.
  */
 
-import type { BackendType, ProviderConfig, ScheduleConfig } from "@moniro/agent-loop";
+import type { RuntimeType, ProviderConfig, ScheduleConfig } from "@moniro/agent-loop";
 
 export interface AgentConfig {
   /** Agent name (unique within daemon) */
@@ -14,8 +14,8 @@ export interface AgentConfig {
   model: string;
   /** System prompt */
   system: string;
-  /** Backend type */
-  backend: BackendType;
+  /** Runtime type */
+  runtime: RuntimeType;
   /** Provider configuration — string (built-in) or object (custom endpoint) */
   provider?: string | ProviderConfig;
   /** Workflow this agent belongs to (optional — standalone agents have no workflow) */

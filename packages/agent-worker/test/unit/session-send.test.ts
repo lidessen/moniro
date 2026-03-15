@@ -5,7 +5,7 @@
  * This is the BIGGEST gap in current test coverage.
  *
  * Two paths tested:
- * 1. Backend delegation path (session created with backend option)
+ * 1. Runtime delegation path (session created with runtime option)
  * 2. SDK path (session with mock model via module mocking)
  */
 
@@ -13,13 +13,13 @@ import { describe, test, expect, beforeEach } from "bun:test";
 import { MockLanguageModelV3 } from "ai/test";
 import { tool, jsonSchema } from "ai";
 import { textModel, sequenceModel, toolCallModel } from "../helpers/mock-model.ts";
-import { recordingBackend } from "../helpers/mock-backend.ts";
-import type { Backend } from "@moniro/agent-loop";
+import { recordingBackend } from "../helpers/mock-runtime.ts";
+import type { Runtime } from "@moniro/agent-loop";
 
-// ==================== Backend Delegation Path ====================
-// When session has a backend, send() delegates to backend.send()
+// ==================== Runtime Delegation Path ====================
+// When session has a runtime, send() delegates to runtime.send()
 
-describe("AgentWorker.send() via backend", () => {
+describe("AgentWorker.send() via runtime", () => {
   let AgentWorker: typeof import("@moniro/agent-loop").AgentWorker;
 
   beforeEach(async () => {
@@ -27,24 +27,24 @@ describe("AgentWorker.send() via backend", () => {
     AgentWorker = mod.AgentWorker;
   });
 
-  test("basic send: message forwarded to backend, response returned", async () => {
-    const backend = recordingBackend({ content: "Hello from backend!" });
+  test("basic send: message forwarded to runtime, response returned", async () => {
+    const runtime = recordingBackend({ content: "Hello from runtime!" });
 
     const session = new AgentWorker({
       model: "test/model",
       system: "You are helpful.",
-      backend,
+      runtime,
     });
 
     const response = await session.send("Hello");
 
-    expect(response.content).toBe("Hello from backend!");
+    expect(response.content).toBe("Hello from runtime!");
     expect(response.latency).toBeGreaterThanOrEqual(0);
     expect(response.toolCalls).toEqual([]);
     expect(response.pendingApprovals).toEqual([]);
 
-    // Backend received the message
-    const calls = backend.getCalls();
+    // Runtime received the message
+    const calls = runtime.getCalls();
     expect(calls).toHaveLength(1);
     expect(calls[0]!.message).toBe("Hello");
     expect((calls[0]!.options as any)?.system).toBe("You are helpful.");
@@ -52,7 +52,7 @@ describe("AgentWorker.send() via backend", () => {
 
   test("multi-turn: messages accumulate in history", async () => {
     let callCount = 0;
-    const backend: Backend = {
+    const runtime: Runtime = {
       type: "claude" as const,
       async send() {
         callCount++;
@@ -63,7 +63,7 @@ describe("AgentWorker.send() via backend", () => {
     const session = new AgentWorker({
       model: "test/model",
       system: "Test",
-      backend,
+      runtime,
     });
 
     const r1 = await session.send("First");
@@ -85,7 +85,7 @@ describe("AgentWorker.send() via backend", () => {
   });
 
   test("usage tracking accumulates across sends", async () => {
-    const backend: Backend = {
+    const runtime: Runtime = {
       type: "claude" as const,
       async send() {
         return {
@@ -98,7 +98,7 @@ describe("AgentWorker.send() via backend", () => {
     const session = new AgentWorker({
       model: "test/model",
       system: "Test",
-      backend,
+      runtime,
     });
 
     await session.send("First");
@@ -111,8 +111,8 @@ describe("AgentWorker.send() via backend", () => {
     expect(stats.usage.total).toBe(300);
   });
 
-  test("backend tool calls mapped to response", async () => {
-    const backend: Backend = {
+  test("runtime tool calls mapped to response", async () => {
+    const runtime: Runtime = {
       type: "claude" as const,
       async send() {
         return {
@@ -131,7 +131,7 @@ describe("AgentWorker.send() via backend", () => {
     const session = new AgentWorker({
       model: "test/model",
       system: "Test",
-      backend,
+      runtime,
     });
 
     const response = await session.send("Read the file");
@@ -140,21 +140,21 @@ describe("AgentWorker.send() via backend", () => {
     expect(response.toolCalls[0]!.result).toBe("file contents");
   });
 
-  test("backend error propagates", async () => {
-    const backend: Backend = {
+  test("runtime error propagates", async () => {
+    const runtime: Runtime = {
       type: "claude" as const,
       async send() {
-        throw new Error("Backend unavailable");
+        throw new Error("Runtime unavailable");
       },
     };
 
     const session = new AgentWorker({
       model: "test/model",
       system: "Test",
-      backend,
+      runtime,
     });
 
-    await expect(session.send("Hello")).rejects.toThrow("Backend unavailable");
+    await expect(session.send("Hello")).rejects.toThrow("Runtime unavailable");
 
     // User message was still added before error
     const history = session.history();
@@ -162,8 +162,8 @@ describe("AgentWorker.send() via backend", () => {
     expect(history[0]!.role).toBe("user");
   });
 
-  test("backend with no usage reports zero usage", async () => {
-    const backend: Backend = {
+  test("runtime with no usage reports zero usage", async () => {
+    const runtime: Runtime = {
       type: "claude" as const,
       async send() {
         return { content: "ok" }; // no usage field
@@ -173,7 +173,7 @@ describe("AgentWorker.send() via backend", () => {
     const session = new AgentWorker({
       model: "test/model",
       system: "Test",
-      backend,
+      runtime,
     });
 
     const response = await session.send("Hello");
@@ -182,8 +182,8 @@ describe("AgentWorker.send() via backend", () => {
     expect(response.usage.total).toBe(0);
   });
 
-  test("tool management not supported for backend sessions", () => {
-    const backend: Backend = {
+  test("tool management not supported for runtime sessions", () => {
+    const runtime: Runtime = {
       type: "claude" as const,
       async send() {
         return { content: "ok" };
@@ -193,7 +193,7 @@ describe("AgentWorker.send() via backend", () => {
     const session = new AgentWorker({
       model: "test/model",
       system: "Test",
-      backend,
+      runtime,
     });
 
     expect(session.supportsTools).toBe(false);
@@ -223,7 +223,7 @@ describe("AgentWorker state management", () => {
   });
 
   test("clear resets all state", async () => {
-    const backend: Backend = {
+    const runtime: Runtime = {
       type: "claude" as const,
       async send() {
         return { content: "ok", usage: { input: 10, output: 5, total: 15 } };
@@ -233,7 +233,7 @@ describe("AgentWorker state management", () => {
     const session = new AgentWorker({
       model: "test/model",
       system: "Test",
-      backend,
+      runtime,
     });
 
     await session.send("Hello");
@@ -249,7 +249,7 @@ describe("AgentWorker state management", () => {
   });
 
   test("export returns full transcript", async () => {
-    const backend: Backend = {
+    const runtime: Runtime = {
       type: "claude" as const,
       async send() {
         return { content: "Hello!" };
@@ -259,7 +259,7 @@ describe("AgentWorker state management", () => {
     const session = new AgentWorker({
       model: "test/model",
       system: "You are helpful.",
-      backend,
+      runtime,
     });
 
     await session.send("Hi");
@@ -273,7 +273,7 @@ describe("AgentWorker state management", () => {
   });
 
   test("getState for session persistence", async () => {
-    const backend: Backend = {
+    const runtime: Runtime = {
       type: "claude" as const,
       async send() {
         return { content: "ok" };
@@ -283,7 +283,7 @@ describe("AgentWorker state management", () => {
     const session = new AgentWorker({
       model: "test/model",
       system: "Test",
-      backend,
+      runtime,
     });
 
     await session.send("Hello");
@@ -293,7 +293,7 @@ describe("AgentWorker state management", () => {
     expect(state.messages).toHaveLength(2);
 
     // Restore from state
-    const restored = new AgentWorker({ model: "test/model", system: "Test", backend }, state);
+    const restored = new AgentWorker({ model: "test/model", system: "Test", runtime }, state);
 
     expect(restored.id).toBe(session.id);
     expect(restored.history()).toHaveLength(2);
@@ -302,7 +302,7 @@ describe("AgentWorker state management", () => {
 
   test("send after restore continues conversation", async () => {
     let callCount = 0;
-    const backend: Backend = {
+    const runtime: Runtime = {
       type: "claude" as const,
       async send() {
         callCount++;
@@ -313,14 +313,14 @@ describe("AgentWorker state management", () => {
     const session1 = new AgentWorker({
       model: "test/model",
       system: "Test",
-      backend,
+      runtime,
     });
 
     await session1.send("First");
     const state = session1.getState();
 
     // Restore and continue
-    const session2 = new AgentWorker({ model: "test/model", system: "Test", backend }, state);
+    const session2 = new AgentWorker({ model: "test/model", system: "Test", runtime }, state);
 
     await session2.send("Second");
 
@@ -332,7 +332,7 @@ describe("AgentWorker state management", () => {
 });
 
 // ==================== SDK Path (with _modelFactory) ====================
-// When no backend, session uses ToolLoopAgent with createModelAsync
+// When no runtime, session uses ToolLoopAgent with createModelAsync
 // Uses _modelFactory to inject mock models without mock.module() (which leaks across files)
 
 describe("AgentWorker.send() via SDK (mock model)", () => {

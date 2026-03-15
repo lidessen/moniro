@@ -50,9 +50,9 @@ describe("isRefAgentEntry", () => {
     expect(isRefAgentEntry(entry)).toBe(false);
   });
 
-  test("returns false for inline entries with no model (CLI backend)", () => {
+  test("returns false for inline entries with no model (CLI runtime)", () => {
     const entry: AgentEntry = {
-      backend: "claude",
+      runtime: "claude",
     };
     expect(isRefAgentEntry(entry)).toBe(false);
   });
@@ -121,17 +121,17 @@ describe("validateWorkflow — ref agents", () => {
     expect(result.errors.some((e) => e.message.includes("model"))).toBe(true);
   });
 
-  test("rejects ref entry with backend", () => {
+  test("rejects ref entry with runtime", () => {
     const result = validateWorkflow({
       agents: {
         alice: {
           ref: "alice",
-          backend: "claude",
+          runtime: "claude",
         },
       },
     });
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.message.includes("backend"))).toBe(true);
+    expect(result.errors.some((e) => e.message.includes("runtime"))).toBe(true);
   });
 
   test("rejects ref entry with provider", () => {
@@ -221,7 +221,7 @@ describe("validateWorkflow — mixed ref + inline", () => {
     const result = validateWorkflow({
       agents: {
         alice: { ref: "alice" },
-        bad: { backend: "default" }, // missing model for default backend
+        bad: { runtime: "default" }, // missing model for default runtime
       },
     });
     expect(result.valid).toBe(false);
@@ -336,19 +336,19 @@ kickoff: "@alice Start reviewing."
     expect(alice.max_steps).toBe(5);
   });
 
-  test("maps backend 'sdk' to 'default'", async () => {
+  test("maps runtime 'sdk' to 'default'", async () => {
     const registry = setupRegistry([
       {
         name: "alice",
         model: "anthropic/claude-sonnet-4-5",
-        backend: "sdk",
+        runtime: "sdk",
         prompt: { system: "Alice." },
       },
     ]);
 
     const path = writeWorkflow("review.yml", `agents:\n  alice: { ref: alice }\n`);
     const workflow = await parseWorkflowFile(path, { agentRegistry: registry });
-    expect(workflow.agents.alice!.backend).toBe("default");
+    expect(workflow.agents.alice!.runtime).toBe("default");
   });
 
   test("preserves non-sdk backends as-is", async () => {
@@ -356,14 +356,14 @@ kickoff: "@alice Start reviewing."
       {
         name: "alice",
         model: "anthropic/claude-sonnet-4-5",
-        backend: "claude",
+        runtime: "claude",
         prompt: { system: "Alice." },
       },
     ]);
 
     const path = writeWorkflow("review.yml", `agents:\n  alice: { ref: alice }\n`);
     const workflow = await parseWorkflowFile(path, { agentRegistry: registry });
-    expect(workflow.agents.alice!.backend).toBe("claude");
+    expect(workflow.agents.alice!.runtime).toBe("claude");
   });
 
   test("inherits schedule from agent definition", async () => {

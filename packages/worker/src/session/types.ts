@@ -191,7 +191,7 @@ export type CheckpointDecision = "continue" | "yield" | "abort";
 // ── Execution Adapter ──────────────────────────────────────────
 
 /**
- * Backend capabilities from the worker's perspective.
+ * Runtime capabilities from the worker's perspective.
  * Uses checkpoint granularity instead of step control.
  */
 export interface ExecutionAdapterCapabilities {
@@ -229,7 +229,7 @@ export interface ExecutionAdapterHooks {
 /**
  * The execution interface from the worker's perspective.
  *
- * This is NOT ExecutionSession — it's a focused adapter that:
+ * This is NOT Loop — it's a focused adapter that:
  * - Has no state machine (worker owns state)
  * - Takes hooks per-call (not per-construction)
  * - Uses checkpoint abstraction (not step abstraction)
@@ -244,7 +244,7 @@ export interface ExecutionAdapter {
   execute(
     input: {
       system: string;
-      messages: Array<{ role: string; content: string }>;
+      messages: Array<{ role: "user" | "assistant" | "system" | "tool"; content: string }>;
       tools?: Record<string, unknown>;
       maxTokens?: number;
       maxSteps?: number;

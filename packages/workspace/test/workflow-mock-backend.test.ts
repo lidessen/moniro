@@ -1,5 +1,5 @@
 /**
- * Workflow Mock Backend Tests
+ * Workflow Mock Runtime Tests
  *
  * Tests the alice-bob workflow scenario with mock CLI backends.
  * Verifies the full loop-level flow: kickoff → inbox routing →
@@ -20,7 +20,7 @@ import type {
   ResolvedWorkflowAgent,
   ContextProvider,
 } from "@moniro/workspace";
-import type { Backend } from "@moniro/agent-loop";
+import type { Runtime } from "@moniro/agent-loop";
 
 // ==================== Helpers ====================
 
@@ -51,7 +51,7 @@ async function waitFor(
 }
 
 /**
- * Create a mock backend that simulates agent behavior.
+ * Create a mock runtime that simulates agent behavior.
  * The behavior function receives the prompt text (built by the loop from
  * the run context) and the shared provider, allowing it to match on inbox
  * content and write to channel (simulating MCP tool calls).
@@ -59,7 +59,7 @@ async function waitFor(
  * Uses type 'claude' so the loop routes through the normal
  * build-prompt → send() path (not the mock MCP tool bridge).
  */
-function createMockBackend(
+function createMockRuntime(
   _name: string,
   behavior: (
     prompt: string,
@@ -67,7 +67,7 @@ function createMockBackend(
     options?: { system?: string },
   ) => Promise<void>,
   provider: ContextProvider,
-): Backend {
+): Runtime {
   return {
     type: "claude" as const,
     async send(message: string, options?: { system?: string }) {
@@ -84,11 +84,11 @@ function createMockBackend(
  *
  * agents:
  *   alice:
- *     backend: cursor
+ *     runtime: cursor
  *     model: sonnet-4.5
  *     system_prompt: You are Alice. You like to ask questions...
  *   bob:
- *     backend: claude
+ *     runtime: claude
  *     system_prompt: You are Bob. You are knowledgeable and patient...
  *
  * kickoff: |
@@ -105,7 +105,7 @@ describe("Alice-Bob workflow with mock backends", () => {
   });
 
   const aliceAgent: ResolvedWorkflowAgent = {
-    backend: "cursor",
+    runtime: "cursor",
     model: "sonnet-4.5",
     system_prompt: "You are Alice. You like to ask questions and are curious about everything.",
     resolvedSystemPrompt:
@@ -113,7 +113,7 @@ describe("Alice-Bob workflow with mock backends", () => {
   };
 
   const bobAgent: ResolvedWorkflowAgent = {
-    backend: "claude",
+    runtime: "claude",
     system_prompt:
       "You are Bob. You are knowledgeable and patient. You answer questions clearly and concisely.",
     resolvedSystemPrompt:
@@ -129,7 +129,7 @@ describe("Alice-Bob workflow with mock backends", () => {
 
     // Alice behavior: reads kickoff, asks Bob a question
     // Uses getInboxSection() to match only on new inbox messages, not recent channel history
-    const aliceBackend = createMockBackend(
+    const aliceBackend = createMockRuntime(
       "mock-cursor",
       async (prompt, p, options) => {
         aliceRuns.push({ prompt, system: options?.system });
@@ -144,7 +144,7 @@ describe("Alice-Bob workflow with mock backends", () => {
     );
 
     // Bob behavior: reads Alice's question, answers
-    const bobBackend = createMockBackend(
+    const bobBackend = createMockRuntime(
       "mock-claude",
       async (prompt, p, options) => {
         bobRuns.push({ prompt, system: options?.system });
@@ -169,7 +169,7 @@ describe("Alice-Bob workflow with mock backends", () => {
       mcpUrl: "http://127.0.0.1:0/mcp",
       workspaceDir: "/tmp/test-workspace/alice",
       projectDir: "/tmp/test-project",
-      backend: aliceBackend,
+      runtime: aliceBackend,
       pollInterval: 30,
     });
 
@@ -180,7 +180,7 @@ describe("Alice-Bob workflow with mock backends", () => {
       mcpUrl: "http://127.0.0.1:0/mcp",
       workspaceDir: "/tmp/test-workspace/bob",
       projectDir: "/tmp/test-project",
-      backend: bobBackend,
+      runtime: bobBackend,
       pollInterval: 30,
     });
 
@@ -253,7 +253,7 @@ describe("Alice-Bob workflow with mock backends", () => {
     let capturedAlice: { prompt: string; system?: string; workspace?: string } | null = null;
     let capturedBob: { prompt: string; system?: string; workspace?: string } | null = null;
 
-    const aliceBackend: Backend = {
+    const aliceBackend: Runtime = {
       type: "claude" as const,
       async send(message: string, options?: { system?: string }) {
         capturedAlice = {
@@ -266,7 +266,7 @@ describe("Alice-Bob workflow with mock backends", () => {
       },
     };
 
-    const bobBackend: Backend = {
+    const bobBackend: Runtime = {
       type: "claude" as const,
       async send(message: string, options?: { system?: string }) {
         capturedBob = {
@@ -286,7 +286,7 @@ describe("Alice-Bob workflow with mock backends", () => {
       mcpUrl: "http://127.0.0.1:0/mcp",
       workspaceDir: "/tmp/ws/alice",
       projectDir: "/home/user/my-project",
-      backend: aliceBackend,
+      runtime: aliceBackend,
       pollInterval: 30,
     });
 
@@ -297,7 +297,7 @@ describe("Alice-Bob workflow with mock backends", () => {
       mcpUrl: "http://127.0.0.1:0/mcp",
       workspaceDir: "/tmp/ws/bob",
       projectDir: "/home/user/my-project",
-      backend: bobBackend,
+      runtime: bobBackend,
       pollInterval: 30,
     });
 
@@ -340,7 +340,7 @@ describe("Alice-Bob workflow with mock backends", () => {
     const provider = createMemoryContextProvider(["alice", "bob"]);
     let bobInvokeCount = 0;
 
-    const aliceBackend = createMockBackend(
+    const aliceBackend = createMockRuntime(
       "mock-cursor",
       async (prompt, p) => {
         const inbox = getInboxSection(prompt);
@@ -354,7 +354,7 @@ describe("Alice-Bob workflow with mock backends", () => {
       provider,
     );
 
-    const bobBackend = createMockBackend(
+    const bobBackend = createMockRuntime(
       "mock-claude",
       async (prompt, p) => {
         bobInvokeCount++;
@@ -373,7 +373,7 @@ describe("Alice-Bob workflow with mock backends", () => {
       mcpUrl: "http://127.0.0.1:0/mcp",
       workspaceDir: "/tmp/ws/alice",
       projectDir: "/tmp/project",
-      backend: aliceBackend,
+      runtime: aliceBackend,
       pollInterval: 30,
     });
 
@@ -384,7 +384,7 @@ describe("Alice-Bob workflow with mock backends", () => {
       mcpUrl: "http://127.0.0.1:0/mcp",
       workspaceDir: "/tmp/ws/bob",
       projectDir: "/tmp/project",
-      backend: bobBackend,
+      runtime: bobBackend,
       pollInterval: 30,
     });
 
@@ -421,7 +421,7 @@ describe("Alice-Bob workflow with mock backends", () => {
     const provider = createMemoryContextProvider(["alice", "bob"]);
     let aliceInvokeCount = 0;
 
-    const aliceBackend = createMockBackend(
+    const aliceBackend = createMockRuntime(
       "mock-cursor",
       async () => {
         aliceInvokeCount++;
@@ -429,7 +429,7 @@ describe("Alice-Bob workflow with mock backends", () => {
       provider,
     );
 
-    const bobBackend = createMockBackend("mock-claude", async () => {}, provider);
+    const bobBackend = createMockRuntime("mock-claude", async () => {}, provider);
 
     const alice = createAgentLoop({
       name: "alice",
@@ -438,7 +438,7 @@ describe("Alice-Bob workflow with mock backends", () => {
       mcpUrl: "http://127.0.0.1:0/mcp",
       workspaceDir: "/tmp/ws/alice",
       projectDir: "/tmp/project",
-      backend: aliceBackend,
+      runtime: aliceBackend,
       pollInterval: 30,
     });
 
@@ -449,7 +449,7 @@ describe("Alice-Bob workflow with mock backends", () => {
       mcpUrl: "http://127.0.0.1:0/mcp",
       workspaceDir: "/tmp/ws/bob",
       projectDir: "/tmp/project",
-      backend: bobBackend,
+      runtime: bobBackend,
       pollInterval: 30,
     });
 
@@ -478,8 +478,8 @@ describe("Alice-Bob workflow with mock backends", () => {
   test("workflow idle detection: all agents idle + no unread messages", async () => {
     const provider = createMemoryContextProvider(["alice", "bob"]);
 
-    const aliceBackend = createMockBackend("mock-cursor", async () => {}, provider);
-    const bobBackend = createMockBackend("mock-claude", async () => {}, provider);
+    const aliceBackend = createMockRuntime("mock-cursor", async () => {}, provider);
+    const bobBackend = createMockRuntime("mock-claude", async () => {}, provider);
 
     const alice = createAgentLoop({
       name: "alice",
@@ -488,7 +488,7 @@ describe("Alice-Bob workflow with mock backends", () => {
       mcpUrl: "http://127.0.0.1:0/mcp",
       workspaceDir: "/tmp/ws/alice",
       projectDir: "/tmp/project",
-      backend: aliceBackend,
+      runtime: aliceBackend,
       pollInterval: 30,
     });
 
@@ -499,7 +499,7 @@ describe("Alice-Bob workflow with mock backends", () => {
       mcpUrl: "http://127.0.0.1:0/mcp",
       workspaceDir: "/tmp/ws/bob",
       projectDir: "/tmp/project",
-      backend: bobBackend,
+      runtime: bobBackend,
       pollInterval: 30,
     });
 
@@ -538,7 +538,7 @@ describe("Alice-Bob workflow with mock backends", () => {
     const provider = createMemoryContextProvider(["alice", "bob"]);
     let aliceTurns = 0;
 
-    const aliceBackend = createMockBackend(
+    const aliceBackend = createMockRuntime(
       "mock-cursor",
       async (prompt, p) => {
         aliceTurns++;
@@ -555,7 +555,7 @@ describe("Alice-Bob workflow with mock backends", () => {
       provider,
     );
 
-    const bobBackend = createMockBackend(
+    const bobBackend = createMockRuntime(
       "mock-claude",
       async (prompt, p) => {
         const inbox = getInboxSection(prompt);
@@ -580,7 +580,7 @@ describe("Alice-Bob workflow with mock backends", () => {
       mcpUrl: "http://127.0.0.1:0/mcp",
       workspaceDir: "/tmp/ws/alice",
       projectDir: "/tmp/project",
-      backend: aliceBackend,
+      runtime: aliceBackend,
       pollInterval: 30,
     });
 
@@ -591,7 +591,7 @@ describe("Alice-Bob workflow with mock backends", () => {
       mcpUrl: "http://127.0.0.1:0/mcp",
       workspaceDir: "/tmp/ws/bob",
       projectDir: "/tmp/project",
-      backend: bobBackend,
+      runtime: bobBackend,
       pollInterval: 30,
     });
 

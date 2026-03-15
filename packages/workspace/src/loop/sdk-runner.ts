@@ -7,14 +7,15 @@
  *
  * Same pattern as mock-runner.ts but with real models via createModelAsync.
  * This is the standard execution path for SDK backends in workflows —
- * all agents get MCP + bash regardless of backend type.
+ * all agents get MCP + bash regardless of runtime type.
  */
 
 import { generateText, tool, stepCountIs } from "ai";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { execSync } from "node:child_process";
-import { createModelAsync, createTool } from "@moniro/agent-loop";
+import { createTool } from "@moniro/agent-loop";
+import { createModelAsync } from "@moniro/agent-loop/models";
 import type { AgentRunContext, AgentRunResult } from "./types.ts";
 import { buildAgentPrompt } from "./prompt.ts";
 
@@ -135,8 +136,8 @@ function summarizeSteps(stepLog: string[]): string {
 /**
  * Run an SDK agent with real model + MCP tools + bash.
  *
- * Used by the loop when backend.type === 'default'.
- * Unlike the simple SdkBackend.send() (text-only), this runner:
+ * Used by the loop when runtime.type === 'default'.
+ * Unlike the simple SdkRuntime.send() (text-only), this runner:
  * 1. Connects to MCP server for context tools (channel, document)
  * 2. Adds bash tool for shell access
  * 3. Runs generateText with full tool loop

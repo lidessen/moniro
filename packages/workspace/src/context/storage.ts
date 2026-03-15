@@ -1,5 +1,5 @@
 /**
- * Storage Backend
+ * Storage Runtime
  * Abstract storage layer for workflow context persistence.
  *
  * Keys are logical paths (e.g., "channel.jsonl", "documents/notes.md", "_state/inbox.json").
@@ -22,7 +22,7 @@ import { dirname, join, relative } from "node:path";
 // ==================== Interface ====================
 
 /**
- * Storage backend interface — minimal primitives for all context persistence.
+ * Storage runtime interface — minimal primitives for all context persistence.
  */
 export interface StorageBackend {
   /** Read content by key. Returns null if not found. */
@@ -50,7 +50,7 @@ export interface StorageBackend {
 // ==================== Memory Storage ====================
 
 /**
- * In-memory storage backend for testing and ephemeral workflows.
+ * In-memory storage runtime for testing and ephemeral workflows.
  */
 export class MemoryStorage implements StorageBackend {
   private data = new Map<string, string>();
@@ -113,7 +113,7 @@ export class MemoryStorage implements StorageBackend {
 // ==================== File Storage ====================
 
 /**
- * File-based storage backend.
+ * File-based storage runtime.
  * Keys map to file paths relative to a base directory.
  */
 export class FileStorage implements StorageBackend {

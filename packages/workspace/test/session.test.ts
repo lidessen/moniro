@@ -1157,72 +1157,72 @@ describe("tool approval workflow", () => {
   });
 });
 
-describe("Backend factory", () => {
-  test("createBackend creates default backend", async () => {
-    const { createBackend } = await import("@moniro/agent-loop");
+describe("Runtime factory", () => {
+  test("createRuntime creates default runtime", async () => {
+    const { createRuntime } = await import("@moniro/agent-loop");
 
-    const backend = createBackend({ type: "default", model: "openai/gpt-5.2" });
-    expect(backend.type).toBe("default");
-    expect(backend.getInfo?.().name).toBe("Vercel AI SDK");
-    expect(backend.getInfo?.().model).toBe("openai/gpt-5.2");
+    const runtime = createRuntime({ type: "default", model: "openai/gpt-5.2" });
+    expect(runtime.type).toBe("default");
+    expect(runtime.getInfo?.().name).toBe("Vercel AI SDK");
+    expect(runtime.getInfo?.().model).toBe("openai/gpt-5.2");
   });
 
-  test('createBackend accepts deprecated "sdk" type', async () => {
-    const { createBackend } = await import("@moniro/agent-loop");
+  test('createRuntime accepts deprecated "sdk" type', async () => {
+    const { createRuntime } = await import("@moniro/agent-loop");
 
-    const backend = createBackend({ type: "sdk" as any, model: "openai/gpt-5.2" });
-    expect(backend.type).toBe("default");
+    const runtime = createRuntime({ type: "sdk" as any, model: "openai/gpt-5.2" });
+    expect(runtime.type).toBe("default");
   });
 
-  test("createBackend creates Claude CLI backend", async () => {
-    const { createBackend } = await import("@moniro/agent-loop");
+  test("createRuntime creates Claude CLI runtime", async () => {
+    const { createRuntime } = await import("@moniro/agent-loop");
 
-    const backend = createBackend({ type: "claude", model: "sonnet" });
-    expect(backend.type).toBe("claude");
-    expect(backend.getInfo?.().name).toBe("Claude Code CLI");
-    expect(backend.getInfo?.().model).toBe("sonnet");
+    const runtime = createRuntime({ type: "claude", model: "sonnet" });
+    expect(runtime.type).toBe("claude");
+    expect(runtime.getInfo?.().name).toBe("Claude Code CLI");
+    expect(runtime.getInfo?.().model).toBe("sonnet");
   });
 
-  test("createBackend creates Codex CLI backend", async () => {
-    const { createBackend } = await import("@moniro/agent-loop");
+  test("createRuntime creates Codex CLI runtime", async () => {
+    const { createRuntime } = await import("@moniro/agent-loop");
 
-    const backend = createBackend({ type: "codex", model: "o3" });
-    expect(backend.type).toBe("codex");
-    expect(backend.getInfo?.().name).toBe("OpenAI Codex CLI");
+    const runtime = createRuntime({ type: "codex", model: "o3" });
+    expect(runtime.type).toBe("codex");
+    expect(runtime.getInfo?.().name).toBe("OpenAI Codex CLI");
   });
 
-  test("createBackend creates Cursor CLI backend", async () => {
-    const { createBackend } = await import("@moniro/agent-loop");
+  test("createRuntime creates Cursor CLI runtime", async () => {
+    const { createRuntime } = await import("@moniro/agent-loop");
 
-    const backend = createBackend({ type: "cursor" });
-    expect(backend.type).toBe("cursor");
-    expect(backend.getInfo?.().name).toBe("Cursor Agent CLI");
+    const runtime = createRuntime({ type: "cursor" });
+    expect(runtime.type).toBe("cursor");
+    expect(runtime.getInfo?.().name).toBe("Cursor Agent CLI");
   });
 
-  test("createBackend throws for unknown type", async () => {
-    const { createBackend } = await import("@moniro/agent-loop");
+  test("createRuntime throws for unknown type", async () => {
+    const { createRuntime } = await import("@moniro/agent-loop");
 
-    expect(() => createBackend({ type: "invalid" as "default", model: "test" })).toThrow(
-      "Unknown backend type: invalid",
+    expect(() => createRuntime({ type: "invalid" as "default", model: "test" })).toThrow(
+      "Unknown runtime type: invalid",
     );
   });
 
-  test("checkBackends returns availability map", async () => {
-    const { checkBackends } = await import("@moniro/agent-loop");
+  test("checkRuntimes returns availability map", async () => {
+    const { checkRuntimes } = await import("@moniro/agent-loop");
 
-    const availability = await checkBackends();
+    const availability = await checkRuntimes();
     expect(availability).toHaveProperty("default");
     expect(availability).toHaveProperty("claude");
     expect(availability).toHaveProperty("codex");
     expect(availability).toHaveProperty("cursor");
     expect(availability).toHaveProperty("opencode");
-    expect(availability.default).toBe(true); // Default backend is always available
+    expect(availability.default).toBe(true); // Default runtime is always available
   });
 
-  test("listBackends returns backend info array", async () => {
-    const { listBackends } = await import("@moniro/agent-loop");
+  test("listRuntimes returns runtime info array", async () => {
+    const { listRuntimes } = await import("@moniro/agent-loop");
 
-    const backends = await listBackends();
+    const backends = await listRuntimes();
     expect(backends).toHaveLength(5);
     expect(backends.map((b) => b.type)).toEqual([
       "default",
@@ -1235,47 +1235,47 @@ describe("Backend factory", () => {
   });
 });
 
-describe("CLI backend implementations", () => {
-  test("ClaudeCodeBackend builds correct args", async () => {
-    const { ClaudeCodeBackend } = await import("@moniro/agent-loop");
+describe("CLI runtime implementations", () => {
+  test("ClaudeCodeRuntime builds correct args", async () => {
+    const { ClaudeCodeRuntime } = await import("@moniro/agent-loop");
 
-    const backend = new ClaudeCodeBackend({
+    const runtime = new ClaudeCodeRuntime({
       model: "opus",
       outputFormat: "json",
       continue: true,
     });
 
-    expect(backend.type).toBe("claude");
-    expect(backend.getInfo().model).toBe("opus");
+    expect(runtime.type).toBe("claude");
+    expect(runtime.getInfo().model).toBe("opus");
   });
 
-  test("CodexBackend builds correct args", async () => {
-    const { CodexBackend } = await import("@moniro/agent-loop");
+  test("CodexRuntime builds correct args", async () => {
+    const { CodexRuntime } = await import("@moniro/agent-loop");
 
-    const backend = new CodexBackend({
+    const runtime = new CodexRuntime({
       model: "o3",
     });
 
-    expect(backend.type).toBe("codex");
-    expect(backend.getInfo().model).toBe("o3");
+    expect(runtime.type).toBe("codex");
+    expect(runtime.getInfo().model).toBe("o3");
   });
 
-  test("CursorBackend builds correct args", async () => {
-    const { CursorBackend } = await import("@moniro/agent-loop");
+  test("CursorRuntime builds correct args", async () => {
+    const { CursorRuntime } = await import("@moniro/agent-loop");
 
-    const backend = new CursorBackend({
+    const runtime = new CursorRuntime({
       model: "gpt-5.2",
     });
 
-    expect(backend.type).toBe("cursor");
-    expect(backend.getInfo().model).toBe("gpt-5.2");
+    expect(runtime.type).toBe("cursor");
+    expect(runtime.getInfo().model).toBe("gpt-5.2");
   });
 
-  test("SdkBackend getInfo returns correct info", async () => {
-    const { SdkBackend } = await import("@moniro/agent-loop");
+  test("SdkRuntime getInfo returns correct info", async () => {
+    const { SdkRuntime } = await import("@moniro/agent-loop");
 
-    const backend = new SdkBackend({ model: "anthropic/claude-sonnet-4-5" });
-    const info = backend.getInfo();
+    const runtime = new SdkRuntime({ model: "anthropic/claude-sonnet-4-5" });
+    const info = runtime.getInfo();
 
     expect(info.name).toBe("Vercel AI SDK");
     expect(info.model).toBe("anthropic/claude-sonnet-4-5");
@@ -1284,98 +1284,98 @@ describe("CLI backend implementations", () => {
 
 // ==================== Model Mapping Tests ====================
 
-describe("getModelForBackend", () => {
+describe("getModelForRuntime", () => {
   test("returns default model when no model specified", async () => {
-    const { getModelForBackend, BACKEND_DEFAULT_MODELS } = await import("@moniro/agent-loop");
+    const { getModelForRuntime, RUNTIME_DEFAULT_MODELS } = await import("@moniro/agent-loop");
 
-    expect(getModelForBackend(undefined, "cursor")).toBe(BACKEND_DEFAULT_MODELS.cursor);
-    expect(getModelForBackend(undefined, "claude")).toBe(BACKEND_DEFAULT_MODELS.claude);
-    expect(getModelForBackend(undefined, "codex")).toBe(BACKEND_DEFAULT_MODELS.codex);
-    expect(getModelForBackend(undefined, "default")).toBe(BACKEND_DEFAULT_MODELS.default);
+    expect(getModelForRuntime(undefined, "cursor")).toBe(RUNTIME_DEFAULT_MODELS.cursor);
+    expect(getModelForRuntime(undefined, "claude")).toBe(RUNTIME_DEFAULT_MODELS.claude);
+    expect(getModelForRuntime(undefined, "codex")).toBe(RUNTIME_DEFAULT_MODELS.codex);
+    expect(getModelForRuntime(undefined, "default")).toBe(RUNTIME_DEFAULT_MODELS.default);
   });
 
-  test("translates model names for cursor backend", async () => {
-    const { getModelForBackend } = await import("@moniro/agent-loop");
+  test("translates model names for cursor runtime", async () => {
+    const { getModelForRuntime } = await import("@moniro/agent-loop");
 
     // Generic names -> cursor format
-    expect(getModelForBackend("sonnet", "cursor")).toBe("sonnet-4.5");
-    expect(getModelForBackend("opus", "cursor")).toBe("opus-4.5");
+    expect(getModelForRuntime("sonnet", "cursor")).toBe("sonnet-4.5");
+    expect(getModelForRuntime("opus", "cursor")).toBe("opus-4.5");
 
     // With provider prefix
-    expect(getModelForBackend("anthropic/claude-sonnet-4-5", "cursor")).toBe("sonnet-4.5");
-    expect(getModelForBackend("anthropic/claude-opus-4-5", "cursor")).toBe("opus-4.5");
+    expect(getModelForRuntime("anthropic/claude-sonnet-4-5", "cursor")).toBe("sonnet-4.5");
+    expect(getModelForRuntime("anthropic/claude-opus-4-5", "cursor")).toBe("opus-4.5");
 
     // Already in cursor format
-    expect(getModelForBackend("sonnet-4.5", "cursor")).toBe("sonnet-4.5");
-    expect(getModelForBackend("gpt-5.2", "cursor")).toBe("gpt-5.2");
+    expect(getModelForRuntime("sonnet-4.5", "cursor")).toBe("sonnet-4.5");
+    expect(getModelForRuntime("gpt-5.2", "cursor")).toBe("gpt-5.2");
   });
 
-  test("translates model names for claude backend", async () => {
-    const { getModelForBackend } = await import("@moniro/agent-loop");
+  test("translates model names for claude runtime", async () => {
+    const { getModelForRuntime } = await import("@moniro/agent-loop");
 
     // Generic names -> claude format
-    expect(getModelForBackend("sonnet", "claude")).toBe("sonnet");
-    expect(getModelForBackend("opus", "claude")).toBe("opus");
+    expect(getModelForRuntime("sonnet", "claude")).toBe("sonnet");
+    expect(getModelForRuntime("opus", "claude")).toBe("opus");
 
     // With provider prefix
-    expect(getModelForBackend("anthropic/claude-sonnet-4-5", "claude")).toBe("sonnet");
+    expect(getModelForRuntime("anthropic/claude-sonnet-4-5", "claude")).toBe("sonnet");
 
     // From cursor format
-    expect(getModelForBackend("sonnet-4.5", "claude")).toBe("sonnet");
-    expect(getModelForBackend("opus-4.5", "claude")).toBe("opus");
+    expect(getModelForRuntime("sonnet-4.5", "claude")).toBe("sonnet");
+    expect(getModelForRuntime("opus-4.5", "claude")).toBe("opus");
   });
 
-  test("translates model names for default backend", async () => {
-    const { getModelForBackend } = await import("@moniro/agent-loop");
+  test("translates model names for default runtime", async () => {
+    const { getModelForRuntime } = await import("@moniro/agent-loop");
 
     // Generic names -> full model ID
-    expect(getModelForBackend("sonnet", "default")).toBe("claude-sonnet-4-5-20250514");
-    expect(getModelForBackend("opus", "default")).toBe("claude-opus-4-20250514");
-    expect(getModelForBackend("haiku", "default")).toBe("claude-haiku-3-5-20250514");
+    expect(getModelForRuntime("sonnet", "default")).toBe("claude-sonnet-4-5-20250514");
+    expect(getModelForRuntime("opus", "default")).toBe("claude-opus-4-20250514");
+    expect(getModelForRuntime("haiku", "default")).toBe("claude-haiku-3-5-20250514");
 
     // Short names -> full model ID
-    expect(getModelForBackend("claude-sonnet-4-5", "default")).toBe("claude-sonnet-4-5-20250514");
+    expect(getModelForRuntime("claude-sonnet-4-5", "default")).toBe("claude-sonnet-4-5-20250514");
   });
 
   test("passes through unknown models unchanged", async () => {
-    const { getModelForBackend } = await import("@moniro/agent-loop");
+    const { getModelForRuntime } = await import("@moniro/agent-loop");
 
-    expect(getModelForBackend("unknown-model", "cursor")).toBe("unknown-model");
-    expect(getModelForBackend("custom-model-v2", "claude")).toBe("custom-model-v2");
+    expect(getModelForRuntime("unknown-model", "cursor")).toBe("unknown-model");
+    expect(getModelForRuntime("custom-model-v2", "claude")).toBe("custom-model-v2");
   });
 });
 
-describe("createBackend with model translation", () => {
-  test("cursor backend receives translated model", async () => {
-    const { createBackend } = await import("@moniro/agent-loop");
+describe("createRuntime with model translation", () => {
+  test("cursor runtime receives translated model", async () => {
+    const { createRuntime } = await import("@moniro/agent-loop");
 
     // Create with generic model name
-    const backend = createBackend({ type: "cursor", model: "sonnet" });
-    const info = backend.getInfo?.();
+    const runtime = createRuntime({ type: "cursor", model: "sonnet" });
+    const info = runtime.getInfo?.();
 
     // Should be translated to cursor format
     expect(info?.model).toBe("sonnet-4.5");
   });
 
-  test("claude backend receives translated model", async () => {
-    const { createBackend } = await import("@moniro/agent-loop");
+  test("claude runtime receives translated model", async () => {
+    const { createRuntime } = await import("@moniro/agent-loop");
 
     // Create with provider-prefixed model
-    const backend = createBackend({ type: "claude", model: "anthropic/claude-sonnet-4-5" });
-    const info = backend.getInfo?.();
+    const runtime = createRuntime({ type: "claude", model: "anthropic/claude-sonnet-4-5" });
+    const info = runtime.getInfo?.();
 
     // Should be translated to claude format
     expect(info?.model).toBe("sonnet");
   });
 
-  test("backend uses default model when not specified", async () => {
-    const { createBackend } = await import("@moniro/agent-loop");
-    const { BACKEND_DEFAULT_MODELS } = await import("@moniro/agent-loop");
+  test("runtime uses default model when not specified", async () => {
+    const { createRuntime } = await import("@moniro/agent-loop");
+    const { RUNTIME_DEFAULT_MODELS } = await import("@moniro/agent-loop");
 
-    const cursorBackend = createBackend({ type: "cursor" });
-    expect(cursorBackend.getInfo?.().model).toBe(BACKEND_DEFAULT_MODELS.cursor);
+    const cursorBackend = createRuntime({ type: "cursor" });
+    expect(cursorBackend.getInfo?.().model).toBe(RUNTIME_DEFAULT_MODELS.cursor);
 
-    const claudeBackend = createBackend({ type: "claude" });
-    expect(claudeBackend.getInfo?.().model).toBe(BACKEND_DEFAULT_MODELS.claude);
+    const claudeBackend = createRuntime({ type: "claude" });
+    expect(claudeBackend.getInfo?.().model).toBe(RUNTIME_DEFAULT_MODELS.claude);
   });
 });

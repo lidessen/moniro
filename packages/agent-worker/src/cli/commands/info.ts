@@ -56,25 +56,25 @@ export function registerInfoCommands(program: Command) {
     .command("backends")
     .description("Check available backends (SDK, CLI tools)")
     .action(async () => {
-      const { listBackends } = await import("@moniro/agent-loop");
-      const backends = await listBackends();
+      const { listRuntimes } = await import("@moniro/agent-loop");
+      const backends = await listRuntimes();
 
-      console.log("Backend Status:\n");
+      console.log("Runtime Status:\n");
 
-      for (const backend of backends) {
-        const status = backend.available ? "✓" : "✗";
-        const statusText = backend.available ? "" : " (not installed)";
-        console.log(`  ${status} ${backend.type.padEnd(8)} - ${backend.name}${statusText}`);
+      for (const runtime of backends) {
+        const status = runtime.available ? "✓" : "✗";
+        const statusText = runtime.available ? "" : " (not installed)";
+        console.log(`  ${status} ${runtime.type.padEnd(8)} - ${runtime.name}${statusText}`);
       }
 
       console.log("\nUsage:");
-      console.log("  SDK backend:    agent-worker new myagent -m openai/gpt-5.2");
-      console.log("  SDK backend:    agent-worker new myagent -m anthropic/claude-sonnet-4-5");
+      console.log("  SDK runtime:    agent-worker new myagent -m openai/gpt-5.2");
+      console.log("  SDK runtime:    agent-worker new myagent -m anthropic/claude-sonnet-4-5");
       console.log("  Claude CLI:     agent-worker new myagent -b claude");
       console.log("  Codex CLI:      agent-worker new myagent -b codex");
       console.log("  Cursor CLI:     agent-worker new myagent -b cursor");
       console.log("");
       console.log("Note: CLI backends use their own model selection. The -m flag is optional.");
-      console.log("Tool management (add, mock, import) is only supported with SDK backend.");
+      console.log("Tool management (add, mock, import) is only supported with SDK runtime.");
     });
 }

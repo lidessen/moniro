@@ -1,10 +1,10 @@
 /**
- * Claude Code CLI backend
+ * Claude Code CLI runtime
  * Uses `claude -p` for non-interactive mode
  *
  * MCP Configuration:
  * Claude supports per-invocation MCP config via --mcp-config flag.
- * The loop writes mcp-config.json to the workspace; this backend
+ * The loop writes mcp-config.json to the workspace; this runtime
  * auto-discovers it when workspace is set.
  *
  * @see https://docs.anthropic.com/en/docs/claude-code
@@ -13,8 +13,8 @@
 import { checkCliAvailable } from "./cli-helpers.ts";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import type { Backend, BackendResponse, BackendSendOptions } from "./types.ts";
-import type { BackendCapabilities } from "../execution/types.ts";
+import type { Runtime, RuntimeResponse, RuntimeSendOptions } from "./types.ts";
+import type { RuntimeCapabilities } from "../loop/types.ts";
 import { DEFAULT_IDLE_TIMEOUT } from "./types.ts";
 import { execWithIdleTimeoutAbortable, IdleTimeoutError } from "./idle-timeout.ts";
 import {
@@ -50,9 +50,9 @@ export interface ClaudeCodeOptions {
   streamCallbacks?: StreamParserCallbacks;
 }
 
-export class ClaudeCodeBackend implements Backend {
+export class ClaudeCodeRuntime implements Runtime {
   readonly type = "claude" as const;
-  readonly capabilities: BackendCapabilities = {
+  readonly capabilities: RuntimeCapabilities = {
     streaming: true,
     toolLoop: "native",
     stepControl: "none",
@@ -68,7 +68,7 @@ export class ClaudeCodeBackend implements Backend {
     };
   }
 
-  async send(message: string, options?: BackendSendOptions): Promise<BackendResponse> {
+  async send(message: string, options?: RuntimeSendOptions): Promise<RuntimeResponse> {
     const args = this.buildArgs(message, options);
     // Use workspace as cwd if set
     const cwd = this.options.workspace || this.options.cwd;
@@ -123,7 +123,7 @@ export class ClaudeCodeBackend implements Backend {
           throw new Error(
             `claude produced no output within ${error.timeout}ms. ` +
               `This often happens when running nested 'claude -p' inside an existing Claude Code session. ` +
-              `Consider using the SDK backend (model: "anthropic/claude-sonnet-4-5") instead.`,
+              `Consider using the SDK runtime (model: "anthropic/claude-sonnet-4-5") instead.`,
           );
         }
         throw new Error(`claude timed out after ${timeout}ms of inactivity`);
@@ -205,7 +205,7 @@ export class ClaudeCodeBackend implements Backend {
    */
   private buildOnStdout(
     outputFormat: string,
-    onEvent?: BackendSendOptions["onEvent"],
+    onEvent?: RuntimeSendOptions["onEvent"],
   ): ((chunk: string) => void) | undefined {
     if (outputFormat !== "stream-json") return undefined;
 

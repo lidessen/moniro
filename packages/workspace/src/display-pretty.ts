@@ -134,7 +134,7 @@ function processEntry(entry: Message, state: PrettyDisplayState, agentNames: str
     return;
   }
 
-  // Output entries (backend streaming text — assistant/user messages, no tool calls)
+  // Output entries (runtime streaming text — assistant/user messages, no tool calls)
   if (kind === "output") {
     const color = getAgentColor(from, agentNames);
     const agent = from.includes(":") ? from.split(":").pop()! : from;

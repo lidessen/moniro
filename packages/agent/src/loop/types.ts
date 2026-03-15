@@ -28,22 +28,22 @@ export type ExecutionState =
   | "failed"
   | "cancelled";
 
-// ── Backend Capabilities ───────────────────────────────────────
+// ── Runtime Capabilities ───────────────────────────────────────
 
 /**
  * Capability-first backend description.
- * Instead of pretending all backends are the same, this explicitly
- * declares what each backend can and cannot do.
+ * Instead of pretending all runtimes are the same, this explicitly
+ * declares what each runtime can and cannot do.
  *
  * Upper layers use this to decide what features are available
  * (step hooks, cancellation, preemption, etc.)
  */
-export interface BackendCapabilities {
-  /** Whether the backend supports streaming responses */
+export interface RuntimeCapabilities {
+  /** Whether the runtime supports streaming responses */
   streaming: boolean;
   /**
    * Who manages the tool loop:
-   * - 'native': backend runs its own loop (CLI backends like claude, cursor, codex)
+   * - 'native': backend runs its own loop (CLI runtimes like claude, cursor, codex)
    * - 'external': we run the loop via ToolLoopAgent (SDK path)
    */
   toolLoop: "native" | "external";
@@ -95,7 +95,7 @@ export interface ExecutionConfig {
 }
 
 /**
- * What ExecutionSession.run() receives.
+ * What Loop.run() receives.
  *
  * This is fully resolved — the caller (agent-worker, workspace) is
  * responsible for assembling the system prompt, messages, and tools.
@@ -121,7 +121,7 @@ export interface ExecutionInput {
 export type ExecutionOutcome = "completed" | "failed" | "cancelled" | "preempted";
 
 /**
- * What ExecutionSession.run() returns.
+ * What Loop.run() returns.
  */
 export interface ExecutionResult {
   /** Final text content */
@@ -238,7 +238,7 @@ export interface ExecutionHooks {
  * Observation is read-only — observers cannot modify execution.
  * For mutation, use ExecutionHooks (beforeStep, etc.)
  *
- * Granularity differs by backend:
+ * Granularity differs by runtime:
  * - SDK path provides per-tool timing, structured arguments/results
  * - CLI path provides tool names and string args (what the stream gives)
  * - Both provide usage stats when available
@@ -278,9 +278,9 @@ export interface ExecutionObserver {
  * - Collaboration (inbox, workspace, channels)
  * - Conversation history (that's the caller's job)
  */
-export interface ExecutionSession {
+export interface Loop {
   readonly id: string;
-  readonly capabilities: BackendCapabilities;
+  readonly capabilities: RuntimeCapabilities;
 
   /** Execute a run with resolved input */
   run(input: ExecutionInput): Promise<ExecutionResult>;

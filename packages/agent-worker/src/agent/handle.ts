@@ -7,7 +7,7 @@
  */
 
 import type { AgentResponse, SessionState, SendOptions } from "@moniro/agent-loop";
-import { AgentWorker, createBackend } from "@moniro/agent-loop";
+import { AgentWorker, createRuntime } from "@moniro/agent-loop";
 import type { AgentConfig } from "./config.ts";
 
 // ── Interface ──────────────────────────────────────────────────────
@@ -35,10 +35,10 @@ export class LocalWorker implements WorkerHandle {
   private engine: AgentWorker;
 
   constructor(config: AgentConfig, restore?: SessionState) {
-    const backend =
-      config.backend !== "default"
-        ? createBackend({ type: config.backend, model: config.model } as Parameters<
-            typeof createBackend
+    const runtime =
+      config.runtime !== "default"
+        ? createRuntime({ type: config.runtime, model: config.model } as Parameters<
+            typeof createRuntime
           >[0])
         : undefined;
 
@@ -47,7 +47,7 @@ export class LocalWorker implements WorkerHandle {
         model: config.model,
         system: config.system,
         tools: {},
-        backend,
+        runtime,
         provider: config.provider,
       },
       restore,

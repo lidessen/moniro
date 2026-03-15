@@ -1,7 +1,7 @@
 import { Command, Option } from "commander";
 import { readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
-import { getDefaultModel, normalizeBackendType } from "@moniro/agent-loop";
+import { getDefaultModel, normalizeRuntimeType } from "@moniro/agent-loop";
 import {
   createAgent,
   listAgents,
@@ -117,7 +117,7 @@ Examples:
     .description("Create a new ephemeral agent")
     .option("-m, --model <model>", `Model identifier (default: ${getDefaultModel()})`)
     .addOption(
-      new Option("-b, --backend <type>", "Backend type")
+      new Option("-b, --runtime <type>", "Runtime type")
         .choices(["default", "sdk", "claude", "codex", "cursor", "opencode", "mock"])
         .default("default"),
     )
@@ -147,7 +147,7 @@ Examples:
         system = readFileSync(options.systemFile, "utf-8");
       }
 
-      const backend = normalizeBackendType(options.backend ?? "default");
+      const runtime = normalizeRuntimeType(options.runtime ?? "default");
       const model = options.model || getDefaultModel();
 
       // Build provider config from CLI options
@@ -185,7 +185,7 @@ Examples:
         name,
         model,
         system,
-        backend,
+        runtime,
         provider,
         schedule,
         ephemeral: true,
@@ -272,7 +272,7 @@ Examples:
       const agents = (res.agents ?? []) as Array<{
         name: string;
         model: string;
-        backend: string;
+        runtime: string;
         workflow: string;
         tag: string;
         createdAt: string;

@@ -76,8 +76,8 @@ export interface AgentDefinition {
   name: string;
   /** Model identifier (e.g., 'anthropic/claude-sonnet-4-5') */
   model: string;
-  /** Backend type */
-  backend?: "sdk" | "claude" | "cursor" | "codex" | "opencode" | "mock";
+  /** Runtime type */
+  runtime?: "sdk" | "claude" | "cursor" | "codex" | "opencode" | "mock";
   /** Provider configuration */
   provider?: string | { name: string; base_url?: string; api_key?: string };
   /** System prompt configuration */
@@ -139,7 +139,7 @@ const ScheduleConfigSchema = z.object({
 export const AgentDefinitionSchema = z.object({
   name: z.string().min(1),
   model: z.string().min(1),
-  backend: z.enum(["sdk", "claude", "cursor", "codex", "opencode", "mock"]).optional(),
+  runtime: z.enum(["sdk", "claude", "cursor", "codex", "opencode", "mock"]).optional(),
   provider: z.union([z.string(), ProviderConfigSchema]).optional(),
   prompt: AgentPromptConfigSchema,
   soul: AgentSoulSchema.optional(),

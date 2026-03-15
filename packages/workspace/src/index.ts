@@ -91,8 +91,8 @@ export {
   DEFAULT_SECTIONS,
 } from "./loop/prompt.ts";
 
-// ── Backend adapter ─────────────────────────────────────────────
-export { getBackendByType, getBackendForModel } from "./loop/backend.ts";
+// ── Runtime adapter ─────────────────────────────────────────────
+export { getRuntimeByType, getRuntimeForModel } from "./loop/runtime.ts";
 
 // ── Send ────────────────────────────────────────────────────────
 export { parseSendTarget, formatUserSender, sendToWorkflowChannel } from "./loop/send.ts";

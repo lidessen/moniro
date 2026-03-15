@@ -23,7 +23,8 @@ import type { ParsedWorkflow } from "@moniro/workspace";
 
 /**
  * Load daemon config from ~/.agent-worker/config.yml.
- * Returns null if file doesn't exist or parsing fails.
+ * Returns null if file doesn't exist.
+ * Throws on YAML syntax errors or invalid config — don't silently swallow.
  *
  * Uses the standard workflow parser — same format as workflow YAML files.
  */
@@ -31,12 +32,8 @@ export async function loadDaemonConfig(configDir: string): Promise<ParsedWorkflo
   const configPath = join(configDir, "config.yml");
   if (!existsSync(configPath)) return null;
 
-  try {
-    const { parseWorkflowFile } = await import("@moniro/workspace");
-    return await parseWorkflowFile(configPath, {
-      workflow: "global",
-    });
-  } catch {
-    return null;
-  }
+  const { parseWorkflowFile } = await import("@moniro/workspace");
+  return await parseWorkflowFile(configPath, {
+    workflow: "global",
+  });
 }
